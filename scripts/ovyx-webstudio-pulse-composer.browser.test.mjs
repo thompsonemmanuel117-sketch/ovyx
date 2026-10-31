@@ -376,6 +376,7 @@ try {
     // Exercise the actual microphone UI without relying on CI hardware: a fake
     // MediaRecorder supplies the same Blob/event contract as a browser recording.
     await input.fill('');
+    console.log('[' + target.name + '] voice-note diagnostic: composer cleared');
     await page.evaluate(() => {
       Object.defineProperty(navigator, 'mediaDevices', {
         configurable: true,
@@ -403,13 +404,20 @@ try {
       };
       window.WebStudio.setMode('ask');
     });
+    console.log('[' + target.name + '] voice-note diagnostic: fake recorder installed');
     await mic.click();
+    console.log('[' + target.name + '] voice-note diagnostic: microphone clicked');
     await page.locator('#ws-voice-note-panel').waitFor({state:'visible'});
+    console.log('[' + target.name + '] voice-note diagnostic: panel visible');
     await page.locator('#ws-voice-note-panel [data-ws-voice-record]').click();
+    console.log('[' + target.name + '] voice-note diagnostic: record clicked');
     await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').waitFor({state:'visible'});
+    console.log('[' + target.name + '] voice-note diagnostic: stop control visible');
     await page.waitForTimeout(90);
     await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').click();
+    console.log('[' + target.name + '] voice-note diagnostic: recording stopped');
     await page.locator('#ws-voice-note-panel [data-ws-voice-player] audio').waitFor({state:'visible'});
+    console.log('[' + target.name + '] voice-note diagnostic: audio preview mounted');
     await page.route('**/api/ai/transcribe', async route => {
       const request = route.request();
       const body = request.postDataJSON();
@@ -422,7 +430,9 @@ try {
       });
     });
     await page.locator('#ws-voice-note-panel [data-ws-voice-send]').click();
+    console.log('[' + target.name + '] voice-note diagnostic: send clicked');
     await page.waitForSelector('#ws-agent-thread .ws-chat-voice-note audio', {state:'visible'});
+    console.log('[' + target.name + '] voice-note diagnostic: chat audio mounted');
     await page.waitForFunction(() => (document.getElementById('ws-agent-thread')?.innerText || '').includes('I received your voice note'));
     assert.match(await page.locator('#ws-agent-thread').innerText(), /Explain this project from my voice note\./,
       '[' + target.name + '] the transcript should be sent through the normal OVYX AI response flow.');
@@ -431,6 +441,7 @@ try {
     assert.match(await page.evaluate(() => String(window.__ovyxLastPulseAIRequest?.system || '')), /thorough step-by-step response/i,
       '[' + target.name + '] response-depth settings must affect the real AI system instructions.');
 
+    console.log('[' + target.name + '] voice-note diagnostic: first voice flow complete');
     // "Dictate as text" must use the microphone's speech-to-text path and fill
     // the ordinary editable prompt field instead of requiring a voice-note upload.
     await page.evaluate(() => {
