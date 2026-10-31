@@ -17571,6 +17571,7 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     return user.getIdToken();
   }
   async function generateImageInChat(W,text,input){
+    console.info('[OVYX image diagnostic] entered', {pendingBuild:!!W.pendingBuild,liveAiActive:!!W.liveAiActive,imageBusy});
     if(W.pendingBuild||W.liveAiActive||imageBusy){toast('OVYX is already working. Wait for the current request to finish.','info');return;}
     imageBusy=true;
     W.pendingBuild=true;
@@ -17579,20 +17580,29 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     if(send)send.disabled=true;
     menu?.classList.remove('open');
     if(pulse)pulse.setAttribute('aria-expanded','false');
+    console.info('[OVYX image diagnostic] before user message render');
     W.appendMessage('user',text);
+    console.info('[OVYX image diagnostic] after user message render');
     if(input){input.value='';input.placeholder='Message OVYX…';input.style.height='32px';input.dispatchEvent(new Event('input',{bubbles:true}));}
     try{
       if(typeof W.status==='function')W.status('Generating image…','live');
       imageAbortController=new AbortController();
       var thisImageController=imageAbortController;
+      console.info('[OVYX image diagnostic] requesting auth token');
       var token=await imageToken();
+      console.info('[OVYX image diagnostic] token resolved');
       if(thisImageController.signal.aborted)throw Object.assign(new Error('Image generation stopped.'),{name:'AbortError'});
+      console.info('[OVYX image diagnostic] sending image endpoint request');
       var response=await fetch('/api/ai/image-generation',{method:'POST',signal:thisImageController.signal,headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+token},credentials:'same-origin',cache:'no-store',body:JSON.stringify({prompt:text})});
+      console.info('[OVYX image diagnostic] image endpoint response received', {status:response.status});
       var data=await response.json().catch(function(){return{}});
+      console.info('[OVYX image diagnostic] response JSON parsed', {ok:data.ok===true,imageType:typeof data.image});
       if(!response.ok||data.ok!==true||typeof data.image!=='string'||!data.image.startsWith('data:image/'))throw new Error(String(data.error||data.message||'OVYX could not generate this image. Check your AI allowance and try again.'));
       var id='ovyx-image-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
       imageStore[id]={dataUrl:data.image,type:(data.image.match(/^data:(image\/[^;,]+)/i)||[])[1]||'image/png',name:'ovyx-generated-image.'+((data.image.match(/^data:image\/([^;,]+)/i)||[])[1]||'png').replace('jpeg','jpg')};
+      console.info('[OVYX image diagnostic] before agent message render');
       W.appendMessage('agent','Your image is ready. Preview it below, download it, or add it to the current website build.',{generatedImageId:id});
+      console.info('[OVYX image diagnostic] after agent message render');
       toast('Image generated successfully.','success');
     }catch(error){
       if(error?.name==='AbortError'||imageAbortController?.signal?.aborted){
@@ -17605,19 +17615,25 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
         toast(message.slice(0,240),'error');
       }
     }finally{
+      console.info('[OVYX image diagnostic] entering cleanup');
       if(imageAbortController===thisImageController)imageAbortController=null;
       imageBusy=false;
       W.pendingBuild=false;
       W.liveAiActive=false;
       if(typeof W.renderThread==='function')W.renderThread();
+      console.info('[OVYX image diagnostic] cleanup render completed');
       syncComposerSendState(W);
+      console.info('[OVYX image diagnostic] cleanup completed');
     }
   }
   function installImageRenderer(W){
     if(!W||W.__ovyxPulseImageRenderer)return;W.__ovyxPulseImageRenderer=true;
     var original=W.renderThread;if(typeof original!=='function')return;
     W.renderThread=function(){
+      var hasGeneratedImage=(this.thread||[]).some(function(message){return !!message?.generatedImageId;});
+      if(hasGeneratedImage)console.info('[OVYX image diagnostic] image renderer before base render');
       var result=original.apply(this,arguments);
+      if(hasGeneratedImage)console.info('[OVYX image diagnostic] image renderer after base render');
       var threadRoot=$('ws-agent-thread');if(!threadRoot)return result;
       (this.thread||[]).forEach(function(message,index){
         var id=message?.generatedImageId,asset=id&&imageStore[id];if(!asset)return;
