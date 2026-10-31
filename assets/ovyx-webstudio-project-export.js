@@ -643,7 +643,7 @@
       exportMode: mode,
       project: clean(project && (project.name || project.title || project.slug) || 'OVYX website', 160),
       exportedAt: timestamp,
-      source: 'OVYX Web Studio current project graph',
+      source: 'OVYX Web Studio project graph + authenticated project asset store',
       fileCount: output.length + 2 + (excluded.length ? 1 : 0),
       backendPathsDetected: backendPaths.slice(0, 100),
       frontendPathsDetected: frontendPaths.slice(0, 100),
