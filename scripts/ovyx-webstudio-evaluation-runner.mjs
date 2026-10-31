@@ -259,7 +259,9 @@ function buildJourneyEvidence(requirements, allSource, htmlEntries, cssEntries, 
     return {
       requirement: clean(requirement, 160),
       status: present ? 'source-evidence-present-behavior-unverified' : 'no-matching-static-evidence',
+      assessment: !matched ? 'not-assessable' : present ? 'source-evidence-present' : 'missing-source-evidence',
       matchedSignals: present ? matched.signals : [],
+      matchedRule: matched ? clean(matched.signals.join('; '), 220) : '',
       browserBehaviorVerified: false,
       integrationVerified: false,
     };
@@ -311,14 +313,16 @@ function buildQualityScoreV2({ findings, designEvidence, functionalAcceptance, p
     functionality: ['PLACEHOLDER_LINK', 'JAVASCRIPT_HREF', 'FORM_DELIVERY_UNDECLARED', 'ROUTE_UNVERIFIED', 'LINK_HREF_MISSING'],
     accessibility: ['LANG_MISSING', 'MAIN_LANDMARK_MISSING', 'H1_MISSING', 'IMAGE_ALT_MISSING', 'LABEL_TARGET_MISSING', 'ARIA_REFERENCE_TARGET_MISSING', 'FORM_CONTROL_LABEL_MISSING', 'BUTTON_NAME_MISSING', 'LINK_NAME_MISSING', 'DUPLICATE_IDS'],
     seo: ['TITLE_MISSING', 'META_DESCRIPTION_MISSING', 'OPEN_GRAPH_TITLE_MISSING'],
-    performance: ['CSS_RESOURCE_UNRESOLVED', 'IMAGE_RESOURCE_UNRESOLVED', 'IMAGE_SRCSET_UNRESOLVED', 'CSS_RESOURCE_UNRESOLVED', 'REDUCED_MOTION_MISSING'],
+    performance: ['CSS_RESOURCE_UNRESOLVED', 'IMAGE_RESOURCE_UNRESOLVED', 'IMAGE_SRCSET_UNRESOLVED', 'REDUCED_MOTION_MISSING'],
     responsiveness: ['VIEWPORT_MISSING', 'IMAGE_SRCSET_UNRESOLVED'],
     security: ['SECRET_FILE_PRESENT', 'CLIENT_SECRET_PATTERN', 'JAVASCRIPT_HREF', 'NEW_TAB_LINK_REL', 'DANGEROUS_DYNAMIC_CODE', 'UNSAFE_HTML_SINK', 'INSECURE_HTTP_RESOURCE', 'WILDCARD_POSTMESSAGE', 'EXTERNAL_SCRIPT_NO_SRI'],
     integrity: ['STYLESHEET_UNRESOLVED', 'SCRIPT_UNRESOLVED', 'HTML_ROUTE_UNRESOLVED', 'ROUTE_UNVERIFIED', 'INTERNAL_ROUTE_UNMAPPED', 'ORPHAN_FRAGMENT', 'BROKEN_ROUTE_FRAGMENT', 'LOCAL_IMG_MISSING', 'LOCAL_CSS_ASSET_MISSING'],
   };
+  const missingRequirementEvidence = functionalAcceptance.filter(item => item.assessment === 'missing-source-evidence');
+  const unassessedRequirements = functionalAcceptance.filter(item => item.assessment === 'not-assessable');
   const definitions = [
     { key: 'design', label: 'Design system', weight: 15, assessed: hasHtml && hasCss, penalty: Math.max(0, designEvidence.signalCountAvailable - designEvidence.observedSignalCount) * 2, evidence: designEvidence.observedSignalCount + '/' + designEvidence.signalCountAvailable + ' source design signals observed' },
-    { key: 'functionality', label: 'Functionality', weight: 20, assessed: hasHtml, penalty: functionalAcceptance.filter(item => item.status === 'no-matching-static-evidence').length * 3, evidence: functionalAcceptance.filter(item => item.status === 'source-evidence-present-behavior-unverified').length + '/' + functionalAcceptance.length + ' requested journey checks have source evidence' },
+    { key: 'functionality', label: 'Functionality', weight: 20, assessed: hasHtml, penalty: missingRequirementEvidence.length * 5, evidence: (functionalAcceptance.length - missingRequirementEvidence.length - unassessedRequirements.length) + '/' + functionalAcceptance.length + ' supported requirement rules have source evidence; browser behavior remains unverified' },
     { key: 'accessibility', label: 'Accessibility', weight: 15, assessed: hasHtml, penalty: 0, evidence: counts.controls + ' controls and ' + counts.images + ' images inspected' },
     { key: 'seo', label: 'SEO', weight: 10, assessed: hasHtml, penalty: 0, evidence: counts.htmlPages + ' HTML pages inspected for metadata' },
     { key: 'performance', label: 'Performance', weight: 10, assessed: hasHtml && hasCss, penalty:
@@ -362,16 +366,35 @@ function buildQualityScoreV2({ findings, designEvidence, functionalAcceptance, p
     assessedWeight += definition.weight;
   }
   const overallScore = assessedWeight ? Math.round(weightedTotal / assessedWeight) : null;
-  const evidenceCoveragePercent = Math.round(assessedWeight / definitions.reduce((sum, item) => sum + item.weight, 0) * 100);
+  const dimensionAssessmentCoveragePercent = Math.round(assessedWeight / definitions.reduce((sum, item) => sum + item.weight, 0) * 100);
   const blockerCount = findings.filter(item => item.severity === 'blocker').length;
+  const automatedSourceGate = blockerCount > 0 || missingRequirementEvidence.length
+    ? 'fail'
+    : unassessedRequirements.length ? 'needs-review' : 'no-static-blockers';
   return {
     version: 2,
     overallScore,
-    evidenceCoveragePercent,
-    status: blockerCount ? 'needs-attention' : evidenceCoveragePercent < 100 ? 'partial-evidence' : 'automated-source-checks-complete-human-review-pending',
+    dimensionAssessmentCoveragePercent,
+    // Backwards-compatible alias: this is dimension-input coverage, not
+    // the percentage of user requirements or real journeys proven.
+    evidenceCoveragePercent: dimensionAssessmentCoveragePercent,
+    coverageDefinition: 'Percentage of weighted score dimensions with enough supplied source files to run static checks. It is not requirement coverage, browser acceptance or integration verification.',
+    functionalRequirementEvidence: {
+      total: functionalAcceptance.length,
+      supportedRuleCount: functionalAcceptance.length - missingRequirementEvidence.length - unassessedRequirements.length,
+      missingSourceEvidenceCount: missingRequirementEvidence.length,
+      notAssessableCount: unassessedRequirements.length,
+      browserBehaviorVerifiedCount: functionalAcceptance.filter(item => item.browserBehaviorVerified === true).length,
+      integrationVerifiedCount: functionalAcceptance.filter(item => item.integrationVerified === true).length,
+    },
+    status: blockerCount || missingRequirementEvidence.length ? 'needs-attention'
+      : unassessedRequirements.length || dimensionAssessmentCoveragePercent < 100 ? 'partial-evidence'
+        : 'automated-source-checks-complete-human-review-pending',
     dimensions,
     releaseDecision: {
-      automatedSourceGate: blockerCount ? 'fail' : 'no-static-blockers',
+      automatedSourceGate,
+      missingRequirementEvidenceCount: missingRequirementEvidence.length,
+      unassessedRequirementCount: unassessedRequirements.length,
       humanVisualReviewRequired: true,
       humanEditorialReviewRequired: true,
       browserBehaviorVerificationRequired: true,
@@ -382,16 +405,19 @@ function buildQualityScoreV2({ findings, designEvidence, functionalAcceptance, p
     },
     limitations: [
       'This score is a static-source readiness signal, not a measurement of visual originality, conversion, real browser behavior or business quality.',
+      'Dimension assessment coverage reports which weighted score dimensions could be statically inspected; it does not mean user requirements have passed.',
       'Performance scores do not replace measured Core Web Vitals, transfer size, real device testing or network profiling.',
       'A connected integration is not considered live-verified until its real service workflow is exercised and independently confirmed.',
     ],
   };
 }
 
-
 function buildDeploymentIntelligence(files, filePaths) {
   const paths = Array.isArray(filePaths) ? filePaths : Object.keys(files || {});
-  const packagePath = paths.find(item => /(^|\/)package\.json$/i.test(item));
+  const packagePaths = paths.filter(item => /(^|\/)package\.json$/i.test(item));
+  const rootPackagePath = packagePaths.includes('package.json') ? 'package.json' : '';
+  const packageManifestAmbiguous = !rootPackagePath && packagePaths.length > 1;
+  const packagePath = rootPackagePath || (packagePaths.length === 1 ? packagePaths[0] : '');
   let packageJson = null;
   if (packagePath && typeof files[packagePath] === 'string') {
     try { packageJson = JSON.parse(files[packagePath]); } catch {}
@@ -409,25 +435,32 @@ function buildDeploymentIntelligence(files, filePaths) {
     /(^|\/)(?:app|pages)\/api(?:\/|$)/i.test(filePath) ||
     /(^|\/)(?:schema\.sql|schema\.prisma)$/i.test(filePath)
   );
-  const framework = dependencyNames.includes('next') || paths.some(filePath => /(^|\/)next\.config\.[cm]?[jt]s$/i.test(filePath))
-    ? 'Next.js'
-    : dependencyNames.includes('vite') || paths.some(filePath => /(^|\/)vite\.config\.[cm]?[jt]s$/i.test(filePath))
-      ? 'Vite'
-      : dependencyNames.includes('astro') || paths.some(filePath => /(^|\/)astro\.config\.[cm]?[jt]s$/i.test(filePath))
-        ? 'Astro'
-        : dependencyNames.includes('nuxt') ? 'Nuxt'
-          : dependencyNames.includes('@sveltejs/kit') ? 'SvelteKit'
-            : dependencyNames.includes('react') ? 'React'
-              : dependencyNames.includes('vue') ? 'Vue'
+  const configFramework = paths.some(filePath => /(^|\/)next\.config\.[cm]?[jt]s$/i.test(filePath)) ? 'Next.js'
+    : paths.some(filePath => /(^|\/)svelte\.config\.[cm]?[jt]s$/i.test(filePath)) ? 'SvelteKit'
+      : paths.some(filePath => /(^|\/)nuxt\.config\.[cm]?[jt]s$/i.test(filePath)) ? 'Nuxt'
+        : paths.some(filePath => /(^|\/)astro\.config\.[cm]?[jt]s$/i.test(filePath)) ? 'Astro'
+          : paths.some(filePath => /(^|\/)vite\.config\.[cm]?[jt]s$/i.test(filePath)) ? 'Vite' : '';
+  const framework = packageManifestAmbiguous ? 'Unknown'
+    : dependencyNames.includes('next') || configFramework === 'Next.js' ? 'Next.js'
+      : dependencyNames.includes('@sveltejs/kit') || configFramework === 'SvelteKit' ? 'SvelteKit'
+        : dependencyNames.includes('nuxt') || configFramework === 'Nuxt' ? 'Nuxt'
+          : dependencyNames.includes('astro') || configFramework === 'Astro' ? 'Astro'
+            : dependencyNames.includes('@remix-run/react') || dependencyNames.includes('@remix-run/dev') ? 'Remix'
+              : dependencyNames.includes('vite') || configFramework === 'Vite' ? 'Vite'
                 : dependencyNames.includes('@angular/core') ? 'Angular'
-                  : packageJson ? 'Node.js project (framework not identified)'
-                    : htmlPages.length ? 'Static HTML/CSS/JavaScript' : 'Unknown';
+                  : dependencyNames.includes('react') ? 'React'
+                    : dependencyNames.includes('vue') ? 'Vue'
+                      : packageJson ? 'Node.js project (framework not identified)'
+                        : htmlPages.length ? 'Static HTML/CSS/JavaScript' : 'Unknown';
   const frameworkDetected = framework !== 'Unknown';
   const hasServerEntry = backendPaths.length > 0 || /(?:export\s+(?:async\s+)?function\s+(?:GET|POST|PUT|PATCH|DELETE)|app\.(?:get|post|put|patch|delete)\s*\(|createServer\s*\()/i.test(source);
-  const requiresServerRuntime = hasServerEntry;
+  const requiresServerRuntime = hasServerEntry || framework === 'Remix';
   const runtimeProfile = requiresServerRuntime ? 'full-stack-server-runtime'
     : frameworkDetected ? 'frontend-framework-build'
       : htmlPages.length ? 'static-site' : 'unknown-project';
+  const integrationSource = packagePaths.length
+    ? packagePaths.map(packageFile => String(files[packageFile] || '')).join('\n').toLowerCase() + '\n' + source
+    : source;
   const detectedIntegrations = [
     ['payments', /\b(?:stripe|paystack|flutterwave|paypal)\b/i],
     ['database', /\b(?:prisma|drizzle|supabase|firestore|cloudflare d1|postgres|mysql|mongodb)\b/i],
@@ -435,44 +468,66 @@ function buildDeploymentIntelligence(files, filePaths) {
     ['email', /\b(?:resend|sendgrid|mailgun|postmark|nodemailer)\b/i],
     ['booking', /\b(?:calendly|cal\.com|booking provider|reservation api)\b/i],
     ['storage', /\b(?:firebase storage|cloudflare r2|supabase storage|s3 bucket)\b/i],
-  ].filter(([, pattern]) => pattern.test(source)).map(([capability]) => ({
+  ].filter(([, pattern]) => pattern.test(integrationSource)).map(([capability]) => ({
     capability, sourceReference: 'detected', connection: 'not-verified', liveWorkflowTest: 'not-run',
   }));
   const scripts = packageJson && packageJson.scripts && typeof packageJson.scripts === 'object' ? packageJson.scripts : {};
   const buildCommand = typeof scripts.build === 'string' ? scripts.build : '';
   const startCommand = typeof scripts.start === 'string' ? scripts.start : '';
+  const packageDirectory = packagePath && packagePath.includes('/')
+    ? packagePath.slice(0, packagePath.lastIndexOf('/') + 1) : '';
+  const lockfiles = [
+    ['pnpm-lock.yaml', 'pnpm', 'pnpm install --frozen-lockfile'],
+    ['yarn.lock', 'yarn', 'yarn install --frozen-lockfile'],
+    ['bun.lockb', 'bun', 'bun install --frozen-lockfile'],
+    ['bun.lock', 'bun', 'bun install --frozen-lockfile'],
+    ['package-lock.json', 'npm', 'npm ci'],
+  ];
+  const packageManager = packageManifestAmbiguous ? null
+    : lockfiles.find(([file]) => paths.includes(packageDirectory + file) || packageDirectory && paths.includes(file)) || null;
+  const installCommand = packageManifestAmbiguous ? ''
+    : packageManager ? packageManager[2] : 'npm install';
   const deploymentTarget = requiresServerRuntime ? 'framework-or-node-hosting-with-server-runtime'
     : frameworkDetected ? 'framework-aware-static-or-edge-hosting'
-      : htmlPages.length ? 'static-hosting' : 'requires-manual-project-inspection';
+      : htmlPages.length && !packageManifestAmbiguous ? 'static-hosting'
+        : 'requires-manual-project-inspection';
   const issues = [];
-  if (frameworkDetected && framework !== 'Static HTML/CSS/JavaScript' && !buildCommand) {
-    issues.push('No package.json build script was detected; confirm the framework build command before deployment.');
+  if (packageManifestAmbiguous) {
+    issues.push('Multiple nested package.json manifests were found without a root package.json. Framework, install and build commands are ambiguous; select the intended workspace application before deployment.');
+  }
+  if (frameworkDetected && framework !== 'Static HTML/CSS/JavaScript' && !buildCommand && !packageManifestAmbiguous) {
+    issues.push('No selected package.json build script was detected; confirm the framework build command before deployment.');
   }
   if (requiresServerRuntime && !startCommand && framework === 'Node.js project (framework not identified)') {
     issues.push('Server source exists but no package.json start script was detected.');
   }
-  if (backendPaths.length && !packageJson) {
-    issues.push('Backend source exists without a root package manifest; inspect runtime/dependency setup before deployment.');
+  if (backendPaths.length && !packageJson && !packageManifestAmbiguous) {
+    issues.push('Backend source exists without a selected package manifest; inspect runtime/dependency setup before deployment.');
   }
   return {
-    framework: { name: framework, detected: frameworkDetected, packageManifestFound: Boolean(packageJson), packageName: clean(packageJson && packageJson.name, 120) },
+    framework: {
+      name: framework, detected: frameworkDetected,
+      packageManifestFound: Boolean(packageJson), packageManifestCount: packagePaths.length,
+      packageManifestAmbiguous, packageName: clean(packageJson && packageJson.name, 120),
+    },
     runtimeProfile,
     deploymentTarget,
     requiresServerRuntime,
-    staticOnlyCompatible: !requiresServerRuntime,
+    staticOnlyCompatible: !requiresServerRuntime && !packageManifestAmbiguous,
     backendSourcePaths: backendPaths.slice(0, 80),
     frontendPageCount: htmlPages.length,
     packageScripts: {
       buildDetected: Boolean(buildCommand), startDetected: Boolean(startCommand),
       buildCommand: clean(buildCommand, 160), startCommand: clean(startCommand, 160),
     },
+    packageManager: packageManager ? packageManager[1] : packageManifestAmbiguous ? 'workspace-root-ambiguous' : 'npm (default; no lockfile detected)',
+    installCommand,
     detectedIntegrations,
     issues,
     liveDeploymentVerified: false,
     note: 'This is source-based hosting guidance. It does not install dependencies, test a provider, provision a database, or confirm a deployed runtime.',
   };
 }
-
 function buildIntegrationReadiness(category, deployment) {
   const requested = Array.isArray(category && category.integrationTruth) ? category.integrationTruth : [];
   return requested.map(item => {
@@ -501,23 +556,29 @@ function buildIntegrationReadiness(category, deployment) {
 
 function buildProductionReadiness(findings, deployment, integrationReadiness, qualityScoreV2) {
   const blockers = findings.filter(item => item.severity === 'blocker').length;
-  const sourceGate = blockers === 0 && qualityScoreV2.evidenceCoveragePercent === 100;
+  const sourceGate = qualityScoreV2.releaseDecision.automatedSourceGate === 'no-static-blockers';
+  const sourceNeedsReview = qualityScoreV2.releaseDecision.automatedSourceGate === 'needs-review';
   return {
-    status: !sourceGate ? 'source-gate-needs-attention' : 'automated-source-checks-passed-external-verification-pending',
+    status: sourceGate ? 'automated-source-checks-passed-external-verification-pending'
+      : sourceNeedsReview ? 'source-gate-needs-human-review' : 'source-gate-needs-attention',
     readyForProduction: false,
     gates: {
-      sourceValidation: sourceGate ? 'passed' : 'needs-attention',
+      sourceValidation: sourceGate ? 'passed' : sourceNeedsReview ? 'needs-review' : 'needs-attention',
       browserAcceptance: 'not-verified',
       integrationWorkflows: integrationReadiness.length ? 'not-verified' : 'not-requested',
-      hostingCompatibility: deployment.issues.length ? 'needs-configuration' : 'source-profile-detected',
+      hostingCompatibility: deployment.issues.length ? 'needs-configuration' : deployment.framework.packageManifestAmbiguous ? 'ambiguous-workspace' : 'source-profile-detected',
       deployment: 'not-deployed-or-not-verified',
       humanVisualReview: 'required',
       humanEditorialReview: 'required',
       performanceMeasurements: 'core-web-vitals-not-measured',
     },
     blockerCount: blockers,
+    missingRequirementEvidenceCount: qualityScoreV2.releaseDecision.missingRequirementEvidenceCount,
+    unassessedRequirementCount: qualityScoreV2.releaseDecision.unassessedRequirementCount,
     externalDependencies: integrationReadiness.filter(item => !item.verified).map(item => item.requirement).slice(0, 30),
     requiredNextEvidence: [
+      'Resolve every supported user requirement without matching source evidence.',
+      'Have a reviewer assess requirements outside the static evaluator rule set.',
       'Run every generated route in a real browser at the required viewports.',
       'Exercise each interaction and verify its resulting state.',
       'Test requested integrations against their real providers and confirm the resulting transaction or delivery.',
@@ -527,7 +588,6 @@ function buildProductionReadiness(findings, deployment, integrationReadiness, qu
     ],
   };
 }
-
 export function evaluateSiteFiles(rawFiles, category, options = {}) {
   const files = {};
   if (rawFiles && typeof rawFiles === 'object' && !Array.isArray(rawFiles)) {
