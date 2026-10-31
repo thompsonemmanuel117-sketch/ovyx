@@ -697,6 +697,7 @@
       return;
     }
     exportBusy = true;
+    showMessage('Preparing the project ZIP, retrieving stored assets and checking export safety…', 'info');
     var mode = options && options.mode || 'complete';
     var backendOnly = mode === 'backend-only';
     var websiteOnly = mode === 'website-only';
@@ -714,17 +715,17 @@
       anchor.remove();
       window.setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
       if (backendOnly) {
-        var backendMessage = 'Backend-only ZIP downloaded with ' + data.files.length + ' files. Frontend source files were excluded by design.';
+        var backendMessage = 'Backend-only ZIP downloaded with ' + data.files.length + ' files. Frontend source and website media were excluded by design.';
         if (data.excluded.length) backendMessage += ' ' + data.excluded.length + ' backend/config file(s) were excluded for safety or size; review README_OVYX_BACKEND_EXPORT.md and the export notice.';
         showMessage(backendMessage, data.excluded.length ? 'warning' : 'success');
       } else if (websiteOnly) {
-        var websiteMessage = 'Website-only ZIP downloaded with ' + data.files.length + ' files. Backend/server source was excluded by design.';
+        var websiteMessage = 'Website-only ZIP downloaded with ' + data.files.length + ' files, including ' + data.assetStorage.includedCount + ' stored media asset(s). Backend/server source was excluded by design.';
         if (data.excluded.length) websiteMessage += ' ' + data.excluded.length + ' website file(s) were excluded for safety or size; review README_OVYX_WEBSITE_EXPORT.md and the export notice.';
         showMessage(websiteMessage, data.excluded.length ? 'warning' : 'success');
       } else if (data.excluded.length) {
-        showMessage('Project ZIP downloaded with ' + data.files.length + ' files. ' + data.excluded.length + ' file(s) were excluded for safety or size; review README_OVYX_EXPORT.md and the export notice.', 'warning');
+        showMessage('Project ZIP downloaded with ' + data.files.length + ' files, including ' + data.assetStorage.includedCount + ' stored media asset(s). ' + data.excluded.length + ' file(s) were excluded for safety, availability or size; review README_OVYX_EXPORT.md and the export notice.', 'warning');
       } else {
-        showMessage('Project ZIP downloaded with ' + data.files.length + ' files. Backend/API files are included when saved in this project.', 'success');
+        showMessage('Project ZIP downloaded with ' + data.files.length + ' files, including ' + data.assetStorage.includedCount + ' stored media asset(s) and ' + data.assetStorage.rewrittenReferences + ' local media reference(s).', 'success');
       }
     } catch (error) {
       showMessage((backendOnly ? 'Could not export backend-only ZIP: ' : websiteOnly ? 'Could not export website-only ZIP: ' : 'Could not export project ZIP: ') + clean(error && error.message || 'unknown export error', 300), 'error');
