@@ -70,6 +70,8 @@ assert.ok(architecture.graph.edges.some(edge => edge.relation === 'relates-to'))
 assert.equal(architecture.graphIntegrity.unreachableNodeIds.length, 0);
 assert.ok(architecture.backgroundWork.controls.includes('dead-letter-visibility'));
 assert.ok(architecture.testPlan.some(item => item.id === 'payment-sandbox' && item.requiresExplicitOwnerApproval === true));
+assert.ok(architecture.testPlan.some(item => item.id === 'business-state-transitions'));
+
 assert.ok(architecture.testPlan.every(item => item.status === 'planned-not-executed' && item.evidence === null));
 assert.ok(architecture.stateMachines.some(machine => machine.entity === 'Order'));
 assert.ok(architecture.stateMachines.some(machine => machine.entity === 'PaymentAttempt'));
