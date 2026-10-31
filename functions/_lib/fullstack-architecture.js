@@ -219,8 +219,14 @@ function buildApiContracts(capabilities) {
     add('POST', '/api/webhooks/payments', 'payments', 'provider-signature-and-replay-protected', 'Verify webhook signature, timestamp and event identity before idempotent reconciliation.', ['model-paymentattempt', ...(capabilities.commerce ? ['model-order'] : [])], { sideEffect: 'idempotent-payment-reconciliation', csrf: 'provider signature required' });
   }
   if (capabilities.fileStorage) {
-    add('POST', '/api/assets', 'storage', 'authenticated-owner-scoped', 'Authorize upload intent and enforce MIME, size, quota and ownership rules.', ['model-storedasset'], { sideEffect: 'signed-upload-or-server-mediated-upload' });
-    add('GET', '/api/assets/:assetId', 'storage', 'authenticated-owner-or-explicit-public-policy', 'Resolve an asset only after ownership/publication checks.', ['model-storedasset']);
+    add('POST', '/api/assets', 'storage',
+      capabilities.authentication ? 'authenticated-owner-scoped' : 'public-with-abuse-controls-and-quarantine',
+      'Authorize upload intent, enforce MIME/size/quota, and keep unauthenticated uploads quarantined until an explicit owner/publication policy allows access.',
+      ['model-storedasset'], { sideEffect: 'signed-upload-or-server-mediated-upload' });
+    add('GET', '/api/assets/:assetId', 'storage',
+      capabilities.authentication ? 'authenticated-owner-or-explicit-public-policy' : 'public-only-for-explicitly-published-assets',
+      'Resolve an asset only after ownership/publication checks; never expose quarantined or private objects by identifier alone.',
+      ['model-storedasset']);
   }
   if (capabilities.admin) add('GET', '/api/admin/audit-events', 'administration', 'administrator-role-and-resource-scope', 'Read authorized audit history with pagination and sensitive-field redaction.', ['model-auditevent']);
   return routes;
