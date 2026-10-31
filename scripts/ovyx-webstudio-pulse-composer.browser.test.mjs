@@ -225,8 +225,11 @@ try {
       '[' + target.name + '] selected-element prompt must preserve responsive/project constraints.');
 
     await input.fill('draft to clear');
+    console.log('[' + target.name + '] clear-draft: reopening menu');
     await pulse.click();
+    console.log('[' + target.name + '] clear-draft: menu reopened');
     await popover.locator('[data-ws-pulse-action="clear"]').click();
+    console.log('[' + target.name + '] clear-draft: clear action clicked');
     assert.equal(await input.inputValue(), '',
       '[' + target.name + '] Clear draft must clear the prompt without touching the project.');
 
@@ -282,31 +285,43 @@ try {
 
     console.log('[' + target.name + '] checkpoint: clear-draft isolation');
     // Clear draft is deliberately scoped to the composer; project source files stay intact.
+    console.log('[' + target.name + '] clear-draft: filling draft');
     await input.fill('This draft should be cleared.');
+    console.log('[' + target.name + '] clear-draft: draft filled');
     // Stage the fixture through the real file picker. A synthetic File passed
     // directly into an awaited page.evaluate can leave Chromium's FileReader
     // promise pending in headless CI, even though the actual picker path works.
+    console.log('[' + target.name + '] clear-draft: opening pulse menu for upload');
     await pulse.click();
+    console.log('[' + target.name + '] clear-draft: pulse menu opened');
     const [clearDraftChooser] = await Promise.all([
       page.waitForEvent('filechooser', { timeout: 10000 }),
       popover.locator('#ws-attach-btn').click()
     ]);
+    console.log('[' + target.name + '] clear-draft: chooser received');
     await clearDraftChooser.setFiles({ name: 'clear-me.txt', mimeType: 'text/plain', buffer: Buffer.from('temporary attachment') });
+    console.log('[' + target.name + '] clear-draft: fixture file selected');
     await page.waitForFunction(() => /clear-me\.txt/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+    console.log('[' + target.name + '] clear-draft: fixture rendered');
     await page.evaluate(() => {
       window.__pulseProjectFileListBeforeClear = Object.keys(window.WebStudio?.graph?.files || {}).sort();
     });
+    console.log('[' + target.name + '] clear-draft: project files snapshotted');
     await pulse.click();
     await popover.locator('[data-ws-pulse-action="clear"]').click();
     assert.equal(await input.inputValue(), '',
       '[' + target.name + '] Clear draft must empty the prompt.');
+    console.log('[' + target.name + '] clear-draft: prompt assertion passed');
     assert.equal(await page.evaluate(() => window.WebStudio.attachments.length), 0,
       '[' + target.name + '] Clear draft must remove staged attachments.');
+    console.log('[' + target.name + '] clear-draft: attachment assertion passed');
     assert.deepEqual(await page.evaluate(() => Object.keys(window.WebStudio.graph?.files || {}).sort()),
       await page.evaluate(() => window.__pulseProjectFileListBeforeClear),
       '[' + target.name + '] Clear draft must never remove or alter the project files.');
+    console.log('[' + target.name + '] clear-draft: project integrity assertion passed');
     assert.equal(await page.locator('#ws-attachment-preview-gallery').isHidden(), true,
       '[' + target.name + '] Clear draft should also clear the visual preview gallery.');
+    console.log('[' + target.name + '] clear-draft: all assertions passed');
 
     // The mobile camera action uses the real image picker and appends, rather than replacing, files.
     await pulse.click();
