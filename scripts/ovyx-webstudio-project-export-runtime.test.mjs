@@ -61,7 +61,7 @@ vm.runInNewContext(runtime, {
 
 const exporter = window.OVYXWebStudioProjectExport;
 assert.ok(exporter, 'The project export API must be registered.');
-assert.equal(exporter.version, '2.1.0');
+assert.equal(exporter.version, '2.2.0');
 assert.deepEqual(Array.from(exporter.modes), ['complete', 'website-only', 'backend-only']);
 
 const complete = exporter.inspect();
