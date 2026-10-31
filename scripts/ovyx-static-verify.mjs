@@ -331,9 +331,15 @@ if (!fs.existsSync(fullStackArchitecturePath) || !fs.existsSync(fullStackArchite
     !websiteEngine.includes('fullStackArchitectureModelContract(plan.fullStackArchitecture)') ||
     !websiteEngine.includes('fullStackArchitectureClientSummary(plan.fullStackArchitecture)') ||
     !fullStackArchitecture.includes('validateFullStackArchitectureGraph') ||
+    !fullStackArchitecture.includes('buildDataIntegrityContracts') ||
+    !fullStackArchitecture.includes('buildWorkflowStateMachines') ||
+    !fullStackArchitecture.includes('missingRelationshipReferences') ||
+    !fullStackArchitecture.includes('relates-to') ||
     !fullStackArchitecture.includes('transactional-outbox-or-provider-safe-queue') ||
     !fullStackArchitecture.includes('require-explicit-owner-approval') ||
     !fullStackTest.includes('payment-integrity') ||
+    !fullStackTest.includes('business-state-transitions') ||
+    !fullStackTest.includes('newsletter-consent-evidence') ||
     !fullStackTest.includes('needs-semantic-mapping') ||
     !packageJson.includes('scripts/ovyx-fullstack-architecture.test.mjs')
   ) {
