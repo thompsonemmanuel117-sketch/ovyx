@@ -282,13 +282,6 @@ export async function onRequestPost(context) {
           files: submittedFiles,
           mode,
           context: JSON.stringify({
-            marketContext: experience?.marketContext || null,
-            visualAssetPlan: experience?.visualAssetPlan || null,
-            designIntelligence: experience?.designIntelligence || null,
-            experiencePrinciples: experience?.experiencePrinciples || [],
-            qualityGates: experience?.qualityGates || [],
-            contentRules: experience?.contentRules || [],
-            primaryOutcome: experience?.designIntelligence?.primaryOutcome || null,
             activeView: payload.context?.activeView || '',
             brandProfile: brandProfile && typeof brandProfile === 'object' ? {
               colors: brandProfile.colors && typeof brandProfile.colors === 'object' ? brandProfile.colors : {},
@@ -298,9 +291,8 @@ export async function onRequestPost(context) {
             } : null,
             theme: payload.context?.theme || null,
             viewport: payload.context?.viewport || null,
-            promptContract,
-            websiteEnginePlan,
-          }).slice(0, 16000),
+            websiteEngine: websiteEngineClientSummary(websiteEnginePlan),
+          }),
           qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' + websiteEngineInstructions + '\n\n' + globalAIIdentityDirective,
         },
         modelOptions: {

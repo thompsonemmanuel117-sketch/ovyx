@@ -375,6 +375,9 @@ if (!fs.existsSync(promptContractPath) || !fs.existsSync(promptContractTestPath)
     promptAssistant.includes('websiteEnginePlan: websiteEnginePlan') ||
     promptAssistant.includes('.slice(0, 12000)') ||
     !promptGateway.includes('compact requirement index below') ||
+    !promptGateway.includes('websiteEngineClientSummary(websiteEnginePlan)') ||
+    promptGateway.includes('websiteEnginePlan,') ||
+    promptGateway.includes('.slice(0, 16000)') ||
     promptGateway.includes('JSON.stringify(promptContract || {})') ||
     !promptMultiPage.includes('verifyPromptContractOutput') ||
     !promptMultiPage.includes('promptContract.explicitPages') ||
