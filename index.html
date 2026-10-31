@@ -17630,7 +17630,8 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
         var use=document.createElement('button');use.type='button';use.className='primary';use.textContent='Use in website';use.setAttribute('data-ovyx-use-generated-image',id);
         use.addEventListener('click',function(event){
           event.preventDefault();event.stopPropagation();
-          Promise.resolve().then(async function(){
+          window.setTimeout(function(){
+            Promise.resolve().then(async function(){
             var currentAsset=imageStore[id];
             if(!currentAsset){toast('This generated image is no longer available in the current session. Generate it again to use it.','warning');return;}
             var W=window.WebStudio;
@@ -17654,7 +17655,8 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
             W.setMode('build');
             setComposerValue('Use the attached generated image as a visual asset in the current website. Place it where it best supports the design, preserve the existing structure and styling, and verify the preview.');
             toast('Image attached. Review the prompt and press send when you are ready.','success');
-          }).catch(function(error){toast(String(error?.message||'Could not attach the generated image.'),'error');});
+            }).catch(function(error){toast(String(error?.message||'Could not attach the generated image.'),'error');});
+          },0);
         });
         var download=document.createElement('a');download.href=asset.dataUrl;download.download=asset.name;download.textContent='Download image';
         actions.append(use,download);card.append(img,actions);content.appendChild(card);
