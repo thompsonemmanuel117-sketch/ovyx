@@ -63,9 +63,9 @@ assert.match(runtime, /schemaVersion: 2/);
 assert.match(runtime, /recommendedBuildCommand/);
 assert.match(runtime, /inspect: function \(options\)/);
 assert.match(runtime, /isBackendSupportPath\(path\)/);
-assert.match(middleware, /ovyx-webstudio-project-export\.js\?v=20261031-7/);
+assert.match(middleware, /ovyx-webstudio-project-export\.js\?v=20261031-8/);
 assert.match(runtime, /window\.OVYXWebStudioProjectExport =/);
-assert.match(middleware, /\/assets\/ovyx-webstudio-project-export\.js\?v=20261031-7/);
+assert.match(middleware, /\/assets\/ovyx-webstudio-project-export\.js\?v=20261031-8/);
 assert.match(headers, /\/assets\/ovyx-webstudio-project-export\.js\n  Cache-Control: no-store, no-cache, must-revalidate/);
 assert.doesNotThrow(() => new Function(runtime), 'Project ZIP exporter must parse as valid JavaScript.');
 
