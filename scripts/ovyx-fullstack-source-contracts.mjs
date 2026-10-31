@@ -122,6 +122,36 @@ function schemaDeclarationEvidence(model, files) {
   return null;
 }
 
+function indexDeclarationEvidence(index, files) {
+  const entity = String(index && index.entity || '').trim();
+  const fields = Array.isArray(index && index.fields) ? index.fields.map(value => String(value)) : [];
+  if (!entity || !fields.length) return null;
+  const snake = entity.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+  const tableNames = [...new Set([snake, snake.endsWith('s') ? snake : snake + 's'])];
+  const fieldPattern = fields.map(field => new RegExp('\\b' + escapeRegExp(field) + '\\b', 'i'));
+  const allFields = text => fieldPattern.every(pattern => pattern.test(text));
+  for (const [file, source] of Object.entries(files)) {
+    if (!TEXT_SOURCE.test(file)) continue;
+    const text = String(source || '');
+    const prisma = new RegExp('\\bmodel\\s+' + escapeRegExp(entity) + '\\s*\\{([\\s\\S]*?)\\}', 'i').exec(text);
+    if (prisma) {
+      const declarations = prisma[1].split(/\r?\n/).filter(line => /@@(?:index|unique)/i.test(line));
+      if (declarations.some(line => allFields(line) && (index.unique ? /@@unique/i.test(line) : /@@(?:index|unique)/i.test(line)))) return file;
+    }
+    const sql = new RegExp('\\bCREATE\\s+' + (index.unique ? 'UNIQUE\\s+' : '') +
+      'INDEX\\b[\\s\\S]{0,240}?\\bON\\s+["\\x27]?(?:\\w+\\.)?(' +
+      tableNames.map(escapeRegExp).join('|') + ')["\\x27]?\\s*\\(([^)]*)\\)', 'i').exec(text);
+    if (sql && allFields(sql[2])) return file;
+    const drizzleDeclarations = Array.from(text.matchAll(/\b(?:uniqueIndex|index)\s*\([^)]*\)\s*\.on\s*\(([^)]*)\)/gi));
+    if (drizzleDeclarations.some(match => allFields(match[1]) && (index.unique ? /uniqueIndex/i.test(match[0]) : /(?:uniqueIndex|index)/i.test(match[0])))) return file;
+    const mongooseIndex = /\bschema\.index\s*\(\s*\{([^}]*)\}/gi;
+    for (const match of text.matchAll(mongooseIndex)) {
+      if (allFields(match[1]) && (!index.unique || /unique\s*:\s*true/i.test(text))) return file;
+    }
+  }
+  return null;
+}
+
 function relationshipEvidence(relationship, files) {
   const from = String(relationship.from || '').replace(/^model-/, '');
   const to = String(relationship.to || '').replace(/^model-/, '');
@@ -198,6 +228,19 @@ export function evaluateFullStackSourceContracts(rawFiles, architecture) {
       runtimePersistenceVerified: false,
     };
   });
+  const indexContracts = Array.isArray(architecture && architecture.dataIntegrity && architecture.dataIntegrity.indexes)
+    ? architecture.dataIntegrity.indexes : [];
+  const indexEvidence = indexContracts.map(index => {
+    const sourceFile = indexDeclarationEvidence(index, files);
+    return {
+      entity: index.entity,
+      fields: index.fields,
+      unique: index.unique === true,
+      sourceFile,
+      status: sourceFile ? 'index-source-evidence-present-behavior-unverified' : 'missing-index-source',
+      queryPerformanceVerified: false,
+    };
+  });
   const relationEvidence = relationships.map(relationship => {
     const sourceFile = relationshipEvidence(relationship, files);
     return {
@@ -214,16 +257,21 @@ export function evaluateFullStackSourceContracts(rawFiles, architecture) {
   const missingAuthorizationEvidenceCount = routeEvidence.filter(item => item.status === 'authorization-source-not-detected').length;
   const missingSchemaSourceCount = modelEvidence.filter(item => item.status === 'missing-schema-source').length;
   const missingRelationshipSourceCount = relationEvidence.filter(item => item.status === 'missing-relationship-source').length;
-  const complete = missingRouteSourceCount + missingMethodEvidenceCount + missingAuthorizationEvidenceCount +
-    missingSchemaSourceCount + missingRelationshipSourceCount === 0;
+  const missingIndexSourceCount = indexEvidence.filter(item => item.status === 'missing-index-source').length;
+  const hasContracts = routeEvidence.length + modelEvidence.length + relationEvidence.length + indexEvidence.length > 0;
+  const complete = hasContracts && missingRouteSourceCount + missingMethodEvidenceCount + missingAuthorizationEvidenceCount +
+    missingSchemaSourceCount + missingRelationshipSourceCount + missingIndexSourceCount === 0;
   return {
-    status: complete ? 'source-evidence-present-runtime-unverified' : 'missing-full-stack-source-evidence',
+    status: !hasContracts ? 'no-backend-contracts-requested' : complete ? 'source-evidence-present-runtime-unverified' : 'missing-full-stack-source-evidence',
     requestedRouteCount: routeEvidence.length,
     routeSourceEvidenceCount: routeEvidence.filter(item => item.sourceFile).length,
     modelCount: modelEvidence.length,
     modelSchemaEvidenceCount: modelEvidence.filter(item => item.sourceFile).length,
     relationshipCount: relationEvidence.length,
     relationshipSourceEvidenceCount: relationEvidence.filter(item => item.sourceFile).length,
+    indexCount: indexEvidence.length,
+    indexSourceEvidenceCount: indexEvidence.filter(item => item.sourceFile).length,
+    missingIndexSourceCount,
     missingRouteSourceCount,
     missingMethodEvidenceCount,
     missingAuthorizationEvidenceCount,
@@ -232,6 +280,7 @@ export function evaluateFullStackSourceContracts(rawFiles, architecture) {
     routeEvidence,
     modelEvidence,
     relationEvidence,
+    indexEvidence,
     runtimeBehaviorVerified: false,
     databasePersistenceVerified: false,
     integrationDeliveryVerified: false,
