@@ -206,6 +206,65 @@ function buildTestPlan(capabilities) {
   return tests.map(test => ({ ...test, status: 'planned-not-executed', evidence: null }));
 }
 
+function buildCrossLayerContracts(capabilities) {
+  return {
+    apiBoundary: {
+      owner: 'server',
+      clientRule: 'Frontend calls typed API contracts or authorized provider SDK flows; it never receives server secrets or writes protected records directly.',
+      schemas: 'One validated domain contract is shared by route handlers, persistence adapters and generated clients.',
+      errors: 'Stable machine-readable error codes with safe user messages, correlation IDs and no internal stack traces.',
+    },
+    dataConsistency: {
+      money: 'Store monetary values as integer minor units with an explicit ISO 4217 currency; calculate totals on the server.',
+      time: 'Persist timestamps in UTC and retain the IANA timezone for user-entered schedules and display.',
+      identifiers: 'Use opaque stable identifiers; enforce unique and foreign-key constraints where supported.',
+      ownership: 'Persist tenant/owner scope with protected records and enforce it on every server read/write.',
+      concurrency: 'Use database transactions, unique constraints or provider locking for inventory, booking and payment state races.',
+    },
+    identityAndAuthorization: {
+      identity: capabilities.authentication ? 'Verify identities through the configured authentication provider.' : 'No authentication flow inferred; do not create hidden accounts.',
+      authorization: capabilities.authorization ? 'Separate identity from authorization; enforce role and object-level ownership on the server.' : 'Public access remains limited to explicitly public resources.',
+      clientTrust: 'Never trust client-supplied user IDs, roles, ownership, prices, discounts, payment status or permission flags.',
+    },
+    transactionSafety: {
+      mutations: 'Validate and authorize before mutation; commit durable state before acknowledging success.',
+      sideEffects: 'Use idempotency keys and an outbox/queue for retryable provider side effects.',
+      duplicateDelivery: 'Deduplicate by provider event ID and application idempotency key; keep replay outcomes auditable.',
+      compensation: 'Define compensating actions and a manual reconciliation path for multi-service workflows that cannot share one transaction.',
+    },
+    integrationReliability: {
+      adapters: 'Place each external service behind a server-side adapter and a narrow typed contract.',
+      network: 'Use bounded timeouts, retry only safe/idempotent operations, exponential backoff and circuit-breaker behavior.',
+      state: 'Expose configured, reachable, last-check-passed and delivery-verified as separate states.',
+      failure: 'Fail closed for payments, authorization and booking confirmation; never simulate provider success.',
+    },
+    privacyAndRetention: {
+      minimization: 'Collect only fields needed for the requested business workflow.',
+      sensitiveData: 'Classify identity, financial, personal, private-file and audit data; restrict access and redact logs.',
+      lifecycle: 'Define retention, export, correction and deletion behavior before production.',
+      consent: 'Collect explicit consent only where the use case or applicable law requires it; preserve evidence when required.',
+    },
+    observability: {
+      correlation: 'Propagate a request/build correlation ID across browser, API, database, queue and provider adapter.',
+      events: 'Record stage outcomes, latency, retry count and normalized error codes without raw secrets or unnecessary personal data.',
+      operations: 'Expose retry queues, dead-letter items, reconciliation state and deployment revision to authorized operators.',
+    },
+    environmentAndRelease: {
+      environments: ['development', 'preview', 'production'],
+      isolation: 'Separate data stores, callback URLs, domains and credentials across environments.',
+      secrets: 'Inject server secrets through deployment bindings or encrypted server-side storage; never commit .env secrets.',
+      release: 'Require reproducible install/build, migrations dry-run, security checks, browser journeys and post-deploy smoke tests.',
+      rollback: 'Keep a known-good artifact and a tested rollback path; roll back code and data changes independently where necessary.',
+    },
+    qualityPrinciples: [
+      'A complete user journey must cross the actual UI, server contract, persistence and provider boundary when requested.',
+      'A success state may appear only after the authoritative operation has succeeded.',
+      'Every async state needs loading, empty, error, retry and cancellation behavior appropriate to the operation.',
+      'Use pagination and bounded queries for large collections; avoid unbounded reads and client-side authorization.',
+    ],
+  };
+}
+
 /**
  * Deterministic cross-layer blueprint derived from the complete original brief.
  * It describes contracts and dependencies; it does not provision resources or
@@ -352,6 +411,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     version: 1, engine: 'ovyx-fullstack-architecture', sourceOfTruth: 'complete-original-user-brief',
     architectureStatus: 'planned-not-provisioned', capabilities, pages: pageEntries,
     components: nodes.filter(item => item.type === 'frontend-component'), apiContracts, dataModels: models, integrations,
+    crossLayerContracts: buildCrossLayerContracts(capabilities),
     security: {
       defaultPosture: 'deny-by-default', controls: securityControls,
       migrationPolicy: {
@@ -445,6 +505,7 @@ export function fullStackArchitectureModelContract(architecture) {
       .map(item => item.requirementId),
     dependencyEdges: architecture.graph.edges.slice(0, 72).map(edge => [edge.from, edge.relation, edge.to]),
     graphIntegrity: architecture.graphIntegrity,
+    crossLayerContracts: architecture.crossLayerContracts,
     security: {
       defaultPosture: architecture.security.defaultPosture,
       controls: architecture.security.controls.map(item => [item.id, item.requirement]).slice(0, 18),
