@@ -173,7 +173,7 @@ export async function onRequestPost(context) {
     const conversationText = userTurns.join('\\n\\n');
     const studioPromptText = isWebStudio && conversationText ? conversationText : String(promptText || '');
     const websiteEnginePlan = isWebStudio ? buildWebsiteEnginePlan(studioPromptText, payload.context || {}) : null;
-    const promptContract = websiteEnginePlan?.requirementManifest || null;
+    const promptContract = websiteEnginePlan?.promptContract || null;
     const experience = websiteEnginePlan?.experience || null;
     const websiteEngineInstructions = buildWebsiteEngineInstructions(websiteEnginePlan);
     const submittedFiles = payload.context?.files || payload.files || {};
