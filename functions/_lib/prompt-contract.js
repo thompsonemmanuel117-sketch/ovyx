@@ -314,7 +314,7 @@ function hasPositiveIntent(source, pattern) {
   return splitRequirements(source).items.some(clause => {
     const match = pattern.exec(clause);
     if (!match) return false;
-    return !/\\b(?:do not|don't|dont|never|avoid|exclude|without|no)\\b/i.test(clause.slice(0, match.index));
+    return !/\b(?:do not|don't|dont|never|avoid|exclude|without|no)\b/i.test(clause.slice(0, match.index));
   });
 }
 
