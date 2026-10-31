@@ -13,8 +13,8 @@ const architecture = {
   ],
   dataIntegrity: {
     relationships: [
-      { id: 'relation-orderline-order', from: 'model-orderline', to: 'model-order' },
-      { id: 'relation-orderline-product', from: 'model-orderline', to: 'model-product' },
+      { id: 'relation-orderline-order', from: 'model-orderline', to: 'model-order', foreignKeyField: 'orderId' },
+      { id: 'relation-orderline-product', from: 'model-orderline', to: 'model-product', foreignKeyField: 'productId' },
     ],
   },
 };
