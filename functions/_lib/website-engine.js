@@ -73,7 +73,11 @@ function pagePlan(contract) {
  * maintaining route-specific versions of those decisions.
  */
 export function buildWebsiteEnginePlan(prompt, context = {}) {
-  const brief = clean(prompt, 80000);
+  const brief = String(prompt ?? '')
+    .replace(/\u0000/g, '')
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ')
+    .trim()
+    .slice(0, 80000);
   const safeContext = context && typeof context === 'object' && !Array.isArray(context) ? context : {};
   const promptContract = buildPromptContract(brief);
   const experience = buildExperienceBrief(brief, safeContext);
