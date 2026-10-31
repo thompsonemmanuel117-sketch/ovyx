@@ -18039,9 +18039,13 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     var sendButton=$('ws-chat-send');
     if(sendButton)sendButton.addEventListener('click',function(event){
       if(!composerWorking&&!imageBusy&&!W.pendingBuild&&!W.liveAiActive)return;
-      // Let the native click finish bubbling. The guard prevents the legacy
-      // send listener from submitting a second prompt while Stop is pending.
+      // While work is active this control has exactly one meaning: Stop.
+      // Prevent later legacy submit/capture handlers from running against the
+      // same click. Those handlers may start another async task or mutate the
+      // composer while the active request is being aborted.
       event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
       if(stopClickPending)return;
       stopClickPending=true;
       setTimeout(function(){stopClickPending=false;stop();},0);
