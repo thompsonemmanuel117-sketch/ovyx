@@ -328,10 +328,11 @@ function serializeWebsiteEngineModelPlan(plan) {
       version: fullStack.version,
       capabilities: fullStack.capabilities,
       pages: (fullStack.pages || []).slice(0, 14).map(page => [page.id, clean(page.title, 64), clean(page.route, 96)]),
-      apiContracts: (fullStack.apiContracts || []).slice(0, 20).map(route => [
-        route.id, route.method, route.path, route.capability, route.authPolicy,
-        (route.modelIds || []).slice(0, 5), route.sideEffect || '',
-      ]),
+      apiContracts: (fullStack.apiContracts || []).slice(0, 20).map(route => ({
+        id: route.id, method: route.method, path: route.path, capability: route.capability,
+        authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 5),
+        sideEffect: route.sideEffect || '',
+      })),
       dataModels: (fullStack.dataModels || []).slice(0, 16).map(model => [
         model.id, model.name, (model.fields || []).slice(0, 10), model.securityClass,
       ]),
