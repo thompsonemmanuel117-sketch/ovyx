@@ -100,10 +100,10 @@ function hasIntentForm(htmlEntries, kind) {
   const patterns = {
     booking: /\b(?:booking|reservation|appointment|select\s+(?:a\s+)?date|choose\s+(?:a\s+)?time|time\s+slot|party\s+size)\b/i,
     cart: /\b(?:cart|checkout|order\s+summary|basket)\b/i,
-      newsletter: hasPositiveIntent(source, /\b(?:newsletter|mailing\s+list|email\s+updates|subscribe\s+(?:to\s+)?(?:the\s+)?(?:newsletter|mailing\s+list)|sign\s+up\s+for\s+(?:email\s+)?updates)\b/i),
+    newsletter: /\b(?:newsletter|subscribe|subscription|mailing\s+list|email\s+updates)\b/i,
     contact: /\b(?:contact|inquir(?:y|ies)|enquir(?:y|ies)|message|send\s+(?:us\s+)?a\s+message|your\s+name)\b/i,
-      authentication: hasPositiveIntent(source, /\b(?:login|log in|sign in|sign up|user accounts?|authentication|register an account)\b/i),
-      payments: hasPositiveIntent(source, /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing|recurring billing)\b/i),
+    authentication: /\b(?:login|log\s*in|sign\s*in|sign\s*up|register|password|account|create\s+account)\b/i,
+    payments: /\b(?:payment|checkout|billing|card\s+details|paystack|flutterwave|stripe|paypal|order\s+summary|pay\s+now)\b/i,
   };
   const pattern = patterns[kind] || /$a/;
   for (const [, html] of htmlEntries) {
@@ -341,11 +341,11 @@ export function buildPromptContract(prompt) {
       contactForm: hasPositiveIntent(source, /\b(?:contact|enquiry|inquiry|quote|lead|message)\s+forms?\b|\bforms?\b.{0,40}\b(?:contact|email|message|enquiry|inquiry|quote)\b/i),
       emailDelivery: hasPositiveIntent(source, /\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b.{0,55}\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b|\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b.{0,55}\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b/i),
       bookings: BOOKING_INTENT_PATTERN.test(source),
-      newsletter: /\b(?:newsletter|mailing\s+list|email\s+updates|subscribe\s+(?:to\s+)?(?:the\s+)?(?:newsletter|mailing\s+list)|sign\s+up\s+for\s+(?:email\s+)?updates)\b/i.test(source),
-      payments: /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing|recurring billing)\b/i.test(source),
+      newsletter: hasPositiveIntent(source, /\b(?:newsletter|mailing\s+list|email\s+updates|subscribe\s+(?:to\s+)?(?:the\s+)?(?:newsletter|mailing\s+list)|sign\s+up\s+for\s+(?:email\s+)?updates)\b/i),
+      payments: hasPositiveIntent(source, /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing|recurring billing)\b/i),
       shoppingCart: hasPositiveIntent(source, SHOPPING_CART_PATTERN),
       addToCart: hasPositiveIntent(source, ADD_TO_CART_PATTERN),
-      authentication: /\b(?:login|log in|sign in|sign up|user accounts?|authentication|register an account)\b/i.test(source),
+      authentication: hasPositiveIntent(source, /\b(?:login|log in|sign in|sign up|user accounts?|authentication|register an account)\b/i),
       backendData: /\b(?:save|store|persist|database|backend|customer records?|booking records?|order records?)\b/i.test(source),
     },
     fidelityRules: [
