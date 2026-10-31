@@ -94,6 +94,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
     engine: 'ovyx-unified-website-engine',
     stage: 'pre-generation-architecture',
     strategy: explicitMultiPage ? 'multi-page' : 'single-page-or-context-derived',
+    promptContract,
     requirementManifest: {
       complete: promptContract.requirementManifestComplete === true,
       total: promptContract.requirementClauseCount || 0,
