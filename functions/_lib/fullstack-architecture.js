@@ -65,7 +65,7 @@ function inferCapabilities(prompt, contract) {
     hasPositiveIntent(source, /\b(?:newsletter|mailing list|email updates|subscribe for updates)\b/i);
   const email = signals.emailDelivery === true || newsletter ||
     hasPositiveIntent(source, /\b(?:email delivery|send\b.{0,80}\bemails?\b|emails?\b.{0,80}\b(?:send|deliver|dispatch)|email notification|transactional email)\b/i);
-  const fileStorage = hasPositiveIntent(source, /\b(?:file upload|image upload|document upload|media library|file storage|user uploads?|user[- ]uploaded|uploaded by users|users?\s+to\s+upload)\b/i) ||
+  const fileStorage = hasPositiveIntent(source, /\b(?:file uploads?|image uploads?|document uploads?|media library|file storage|user uploads?|user[- ]uploaded|uploaded by users|users?\s+to\s+upload)\b/i) ||
     hasPositiveIntent(source, /\b(?:upload|store)\b.{0,60}\b(?:files?|documents?|images?|media)\b/i) ||
     hasPositiveIntent(source, /\b(?:files?|documents?|images?|media)\b.{0,60}\b(?:upload|store)\b/i);
   const persistentData = explicitFullStack || signals.backendData === true || commerce || booking || auth || contact || email || payment || fileStorage ||
