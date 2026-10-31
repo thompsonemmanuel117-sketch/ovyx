@@ -48,8 +48,8 @@ function inferCapabilities(prompt, contract) {
     /\b(?:user roles?|role-based access|admin access|staff accounts?|member portal|sign in|sign up|login|authentication)\b/i.test(source);
   const booking = signals.bookings === true ||
     /\b(?:appointment|reservation|booking|schedule a|availability calendar)\b/i.test(source);
-  const contact = signals.contactForm === true || signals.emailDelivery === true ||
-    /\b(?:contact form|enquiry form|inquiry form|lead capture|send a message)\b/i.test(source);
+  const contact = signals.contactForm === true ||
+    /\b(?:contact form|enquiry form|inquiry form|lead capture|send (?:us )?a message|contact submission)\b/i.test(source);
   const newsletter = signals.newsletter === true || /\b(?:newsletter|mailing list|email updates|subscribe for updates)\b/i.test(source);
   const email = signals.emailDelivery === true || newsletter ||
     /\b(?:email delivery|send confirmation|email notification|transactional email)\b/i.test(source);
@@ -175,7 +175,7 @@ function buildApiContracts(capabilities) {
     implementationState: 'planned-not-generated-or-verified-by-this-planner', ...extra,
   });
 
-  if (capabilities.contact) add('POST', '/api/contact-submissions', 'contact', 'public-with-abuse-controls', 'Validate and persist a contact request, then enqueue owner-approved delivery.', ['model-contactsubmission'], { sideEffect: 'enqueue-delivery-after-commit' });
+  if (capabilities.contact) add('POST', '/api/contact-submissions', 'contact', 'public-with-abuse-controls', 'Validate and persist a contact request with an explicit receipt state; delivery is only claimed when the requested email adapter is verified.', ['model-contactsubmission'], { sideEffect: capabilities.email ? 'enqueue-delivery-after-commit' : 'persist-submission-without-claiming-delivery' });
   if (capabilities.newsletter) {
     add('POST', '/api/newsletter/subscriptions', 'newsletter', 'public-with-abuse-controls-and-consent', 'Create a pending subscription and issue an owner-configured confirmation message; never assume consent before confirmation.', ['model-newslettersubscription'], { sideEffect: 'double-opt-in-outbox' });
     add('POST', '/api/newsletter/unsubscribe', 'newsletter', 'signed-unsubscribe-token', 'Verify a scoped, expiring unsubscribe token and record the opt-out.', ['model-newslettersubscription']);
@@ -202,7 +202,7 @@ function buildApiContracts(capabilities) {
     }
   }
   if (capabilities.payments) {
-    if (!capabilities.commerce) add('POST', '/api/payments/intents', 'payments', 'authenticated-or-authorized-customer', 'Create a payment intent for a server-authorized invoice or billable action; amount and currency are server-derived.', ['model-paymentattempt'], { sideEffect: 'provider-payment-intent-with-idempotency' });
+    if (!capabilities.commerce) add('POST', '/api/payments/intents', 'payments', 'verified-customer-or-server-authorized-billable-reference', 'Create a payment intent for a server-authorized invoice or billable action; amount and currency are server-derived.', ['model-paymentattempt'], { sideEffect: 'provider-payment-intent-with-idempotency' });
     add('POST', '/api/webhooks/payments', 'payments', 'provider-signature-and-replay-protected', 'Verify webhook signature, timestamp and event identity before idempotent reconciliation.', ['model-paymentattempt', ...(capabilities.commerce ? ['model-order'] : [])], { sideEffect: 'idempotent-payment-reconciliation', csrf: 'provider signature required' });
   }
   if (capabilities.fileStorage) {
