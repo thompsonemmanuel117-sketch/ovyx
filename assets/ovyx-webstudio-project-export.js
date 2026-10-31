@@ -241,16 +241,16 @@
     };
     var recommendedBuild = buildCommand || frameworkBuildDefaults[framework] || '';
     var missingExpectedFiles = [];
-    if (framework === 'Next.js' && !hasPath(/(^|\/)(app|pages)\/(page|index)\.[cm]?[jt]sx?$/i)) {
+    if (mode !== 'backend-only' && framework === 'Next.js' && !hasPath(/(^|\/)(app|pages)\/(page|index)\.[cm]?[jt]sx?$/i)) {
       missingExpectedFiles.push('No conventional Next.js app/page or pages/index entry was detected.');
     }
-    if (framework === 'Vite' && !hasPath(/(^|\/)index\.html$/i)) {
+    if (mode !== 'backend-only' && framework === 'Vite' && !hasPath(/(^|\/)index\.html$/i)) {
       missingExpectedFiles.push('No Vite root index.html was detected in the selected export.');
     }
-    if (framework === 'Astro' && !hasPath(/(^|\/)src\/pages\/.+\.astro$/i)) {
+    if (mode !== 'backend-only' && framework === 'Astro' && !hasPath(/(^|\/)src\/pages\/.+\.astro$/i)) {
       missingExpectedFiles.push('No Astro src/pages route was detected in the selected export.');
     }
-    if (framework === 'SvelteKit' && !hasPath(/(^|\/)src\/routes\/.+/i)) {
+    if (mode !== 'backend-only' && framework === 'SvelteKit' && !hasPath(/(^|\/)src\/routes\/.+/i)) {
       missingExpectedFiles.push('No SvelteKit src/routes entry was detected in the selected export.');
     }
     if (framework !== 'Unknown' && framework !== 'Static HTML/CSS/JavaScript' && !parsedPackages.length) {
