@@ -322,9 +322,9 @@ When discussing project changes, distinguish recommendations from changes actual
               attachments: modelContext.attachments || [],
               websiteEnginePlan: websiteEnginePlan,
             }),
-          ].filter(Boolean).join('\\n\\n').slice(0, 12000),
-          qualityContract: WEB_STUDIO_EXCELLENCE + '\\n\\nEXPERIENCE INTELLIGENCE:\\n' +
-            JSON.stringify(experience || {}) + '\\n\\n' + websiteEngineInstructions + '\\n\\n' + globalAIIdentityDirective,
+          ].filter(Boolean).join('\n\n').slice(0, 12000),
+          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\nEXPERIENCE INTELLIGENCE:\n' +
+            JSON.stringify(experience || {}) + '\n\n' + websiteEngineInstructions + '\n\n' + globalAIIdentityDirective,
         },
         modelOptions: {
           provider: String(payload.provider || 'automatic').toLowerCase(),
@@ -338,8 +338,8 @@ When discussing project changes, distinguish recommendations from changes actual
             combined,
             sourceInspectionContext,
             attachmentContextText,
-            isWebStudio && projectContext ? 'PROJECT CONTEXT:\\n' + projectContext : '',
-          ].filter(Boolean).join('\\n\\n'),
+            isWebStudio && projectContext ? 'PROJECT CONTEXT:\n' + projectContext : '',
+          ].filter(Boolean).join('\n\n'),
           maxTokens: isWebStudio
             ? Math.min(Number(payload.maxTokens || 32000), 32000)
             : Math.min(Number(payload.maxTokens || 4096), 8192),
