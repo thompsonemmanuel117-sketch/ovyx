@@ -95,7 +95,8 @@ assert.ok(architecture.testPlan.some(item => item.id === 'business-state-transit
 assert.ok(architecture.testPlan.every(item => item.status === 'planned-not-executed' && item.evidence === null));
 assert.ok(architecture.stateMachines.some(machine => machine.entity === 'Order'));
 assert.ok(architecture.stateMachines.some(machine => machine.entity === 'PaymentAttempt'));
-assert.ok(architecture.stateMachines.some(machine => machine.entity === 'NewsletterSubscription'));
+assert.equal(architecture.capabilities.newsletter, false, 'Paid subscriptions must not be misclassified as newsletter subscriptions.');
+assert.equal(architecture.stateMachines.some(machine => machine.entity === 'NewsletterSubscription'), false);
 assert.ok(architecture.graph.nodes.some(node => node.type === 'business-workflow'));
 assert.ok(architecture.graph.edges.some(edge => edge.relation === 'enforces-state-machine'));
 const paymentMachine = architecture.stateMachines.find(machine => machine.entity === 'PaymentAttempt');
