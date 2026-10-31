@@ -953,7 +953,7 @@ if (
     !evaluationCases.includes('missing-integration') ||
     !evaluationCases.includes('secret-exposure') ||
     !evaluationTest.includes('eleven site categories') ||
-    !qualityWorkflow.includes('npx playwright install --with-deps chromium') ||
+    !qualityWorkflow.includes('npx playwright install chromium --only-shell') ||
     !qualityWorkflow.includes('scripts/ovyx-webstudio-quality.browser.test.mjs')
   ) {
     errors.push('Web Studio quality inspector: actual responsive checks, isolated execution, snapshot-protected bounded repair, truthful build events, premium design rules, cache policy or browser-test wiring is incomplete.');
