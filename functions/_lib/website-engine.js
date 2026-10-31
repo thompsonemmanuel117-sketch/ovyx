@@ -2,6 +2,7 @@ import { buildExperienceBrief } from './experience.js';
 import { buildPromptContract, getWebStudioBuildClarification } from './prompt-contract.js';
 import { buildStudioMultiPage } from './studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from './studio-singlepage.js';
+import { buildFullStackArchitecture, fullStackArchitectureClientSummary, fullStackArchitectureModelContract } from './fullstack-architecture.js';
 
 const clean = (value, max = 240) => String(value == null ? '' : value)
   .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -72,11 +73,16 @@ function pagePlan(contract) {
  * maintaining route-specific versions of those decisions.
  */
 export function buildWebsiteEnginePlan(prompt, context = {}) {
-  const brief = clean(prompt, 80000);
+  const brief = String(prompt ?? '')
+    .replace(/\u0000/g, '')
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ')
+    .trim()
+    .slice(0, 80000);
   const safeContext = context && typeof context === 'object' && !Array.isArray(context) ? context : {};
   const promptContract = buildPromptContract(brief);
   const experience = buildExperienceBrief(brief, safeContext);
   const pages = pagePlan(promptContract);
+  const fullStackArchitecture = buildFullStackArchitecture(brief, promptContract, safeContext, pages);
   const explicitMultiPage = pages.length > 1 ||
     /\b(?:multi[- ]?page|multiple pages|several pages|\d+ pages)\b/i.test(brief);
   const signals = promptContract.contactSignals || {};
@@ -137,6 +143,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
       motionChoreography: experience.architecture?.motionChoreography || [],
     },
     integrations: integrationRequirements(promptContract, safeContext),
+    fullStackArchitecture,
     qualityGates: experience.qualityGates || [],
     implementationRules: [
       'Plan the complete experience before writing files; do not stop at a visually attractive first screen.',
@@ -278,6 +285,7 @@ function serializeWebsiteEngineModelPlan(plan) {
         verification: clean(item?.verification, 120),
       })),
       qualityGates: compactPlanList(plan.qualityGates, 14, 140),
+      fullStackArchitecture: fullStackArchitectureModelContract(plan.fullStackArchitecture),
       implementationRules: compactPlanList(plan.implementationRules, 10, 160),
       detailSummariesAreBounded: true,
     };
@@ -292,6 +300,8 @@ function serializeWebsiteEngineModelPlan(plan) {
   minimal.designArchitecture = {
     mission: clean(plan.designArchitecture?.mission, 120),
     direction: clean(plan.designArchitecture?.direction, 120),
+    mustHave: compactPlanList(plan.designArchitecture?.mustHave, 6, 100),
+    conversionPrinciples: compactPlanList(plan.designArchitecture?.conversionPrinciples, 6, 100),
     experiencePrinciples: compactPlanList(plan.designArchitecture?.experiencePrinciples, 6, 100),
     antiTemplateRules: compactPlanList(plan.designArchitecture?.antiTemplateRules, 6, 100),
   };
@@ -301,6 +311,71 @@ function serializeWebsiteEngineModelPlan(plan) {
   };
   minimal.qualityGates = compactPlanList(plan.qualityGates, 8, 100);
   minimal.implementationRules = compactPlanList(plan.implementationRules, 8, 100);
+  if (plan.fullStackArchitecture) {
+    const fullStack = plan.fullStackArchitecture;
+    const groupedRequirements = new Map();
+    for (const item of fullStack.requirementMappings || []) {
+      const targets = (item.targetNodeIds || []).slice(0, 3);
+      const key = item.assessment + '|' + targets.join('|');
+      if (!groupedRequirements.has(key)) groupedRequirements.set(key, {
+        assessment: item.assessment,
+        targetNodeIds: targets,
+        requirementIds: [],
+      });
+      groupedRequirements.get(key).requirementIds.push(item.requirementId);
+    }
+    minimal.fullStackArchitecture = {
+      version: fullStack.version,
+      capabilities: fullStack.capabilities,
+      pages: (fullStack.pages || []).slice(0, 14).map(page => [page.id, clean(page.title, 64), clean(page.route, 96)]),
+      apiContracts: (fullStack.apiContracts || []).slice(0, 20).map(route => ({
+        id: route.id, method: route.method, path: route.path, capability: route.capability,
+        authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 5),
+        sideEffect: route.sideEffect || '',
+      })),
+      dataModels: (fullStack.dataModels || []).slice(0, 16).map(model => [
+        model.id, model.name, (model.fields || []).slice(0, 10), model.securityClass,
+      ]),
+      dataIntegrity: {
+        relationships: (fullStack.dataIntegrity?.relationships || []).slice(0, 16).map(item =>
+          [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional]),
+        constraints: (fullStack.dataIntegrity?.constraints || []).slice(0, 16).map(item =>
+          [item.id, clean(item.appliesTo, 64), clean(item.rule, 96)]),
+        indexes: (fullStack.dataIntegrity?.indexes || []).slice(0, 16).map(item =>
+          [item.entity, (item.fields || []).slice(0, 5), item.unique === true]),
+      },
+      integrations: (fullStack.integrations || []).slice(0, 8).map(item =>
+        [item.capability, item.provider, item.connectionMetadata, item.verification]),
+      requirementTraceabilityGroups: [...groupedRequirements.values()],
+      graphIntegrity: {
+        valid: fullStack.graphIntegrity?.valid === true,
+        nodeCount: fullStack.graphIntegrity?.nodeCount || 0,
+        edgeCount: fullStack.graphIntegrity?.edgeCount || 0,
+        unreachableNodeIds: (fullStack.graphIntegrity?.unreachableNodeIds || []).slice(0, 12),
+      },
+      security: {
+        defaultPosture: fullStack.security?.defaultPosture,
+        controls: (fullStack.security?.controls || []).slice(0, 16).map(item => [item.id, clean(item.requirement, 100)]),
+        migrationPolicy: fullStack.security?.migrationPolicy,
+      },
+      backgroundWork: {
+        required: fullStack.backgroundWork?.required === true,
+        pattern: fullStack.backgroundWork?.pattern,
+        controls: (fullStack.backgroundWork?.controls || []).slice(0, 8),
+      },
+      stateMachines: (fullStack.stateMachines || []).slice(0, 8).map(machine => ({
+        entity: machine.entity,
+        initialState: machine.initialState,
+        states: (machine.states || []).slice(0, 10),
+        transitions: (machine.transitions || []).slice(0, 8).map(item =>
+          [item.from, item.to, clean(item.authority, 88), clean(item.sideEffect, 72)]),
+        invariant: clean(machine.invariant, 100),
+      })),
+      testPlan: (fullStack.testPlan || []).slice(0, 12).map(test =>
+        [test.id, test.type, test.status, test.requiresExplicitOwnerApproval === true]),
+      honestyRules: compactPlanList(fullStack.honestyRules, 8, 100),
+    };
+  }
   const serialized = JSON.stringify(minimal);
   if (serialized.length > WEBSITE_ENGINE_PLAN_JSON_LIMIT) {
     throw new RangeError('The Website Engine plan exceeds its safe instruction budget.');
@@ -311,10 +386,22 @@ function serializeWebsiteEngineModelPlan(plan) {
 export function buildWebsiteEngineInstructions(plan) {
   if (!plan || plan.engine !== 'ovyx-unified-website-engine') return '';
   const serializedPlan = serializeWebsiteEngineModelPlan(plan);
+  const fullStackRules = plan.fullStackArchitecture ? [
+    'OVYX FULL-STACK ARCHITECTURE CONTRACT — ONE COHERENT APPLICATION',
+    'Implement the declared architecture as connected source code, not as a proposal, mockup or disconnected collection of files. When backend capability is requested, do not silently return a frontend-only site.',
+    'For each declared API contract, generate the matching server route/handler for the selected framework and HTTP method, validate inputs on the server, enforce the stated authorization policy, return the declared safe success/error contract, and connect every consumer in the frontend to that exact route.',
+    'Generate the declared domain schema, relationships, constraints and indexes from one consistent source of truth. Ensure route model references resolve to the actual schema. Include additive migrations and a dry-run/rollback path; do not execute destructive or production migrations without explicit owner approval.',
+    'Implement the declared workflow state machines with server-authoritative transitions. Never trust browser-supplied roles, owners, prices, totals, inventory, payment success, availability or provider events.',
+    'Use server-side adapters for integrations, bounded timeouts, retry only safe/idempotent operations, idempotency keys, replay protection and auditable reconciliation. A configured connection is not a live delivery or transaction.',
+    'Keep provider credentials in server bindings or encrypted server-side storage. Add only variable names and safe setup guidance to environment templates; never generate real secrets or expose them to browser code, URLs, logs or exported client bundles.',
+    'Generate tests for route contracts, schemas, authorization-negative cases, business state transitions and end-to-end user journeys. Do not mark a route, database write, integration or deployment complete because its source file or mock test exists.',
+    'Preserve existing project files and scoped-edit boundaries. Build the dependency graph before broad edits, update every affected consumer, and report unresolved requirements instead of silently omitting them.',
+  ] : [];
   return [
     'OVYX UNIFIED WEBSITE ENGINE — AUTHORITATIVE PRE-GENERATION PLAN',
     'The complete original user brief is supplied separately as the task prompt and remains authoritative. The JSON below is a bounded architecture plan and requirement index; its clause excerpts never replace the original brief.',
     serializedPlan,
+    ...fullStackRules,
     'Before returning files, internally reconcile every requirement and exclusion against the complete original brief and the actual output. If a real service is not connected and verified, provide an honest pending/UI-only boundary instead of a fake success path.',
   ].join('\n\n');
 }
@@ -335,6 +422,7 @@ export function websiteEngineClientSummary(plan) {
       connection: item.connection,
     })),
     qualityGateCount: plan.qualityGates.length,
+    fullStackArchitecture: fullStackArchitectureClientSummary(plan.fullStackArchitecture),
   };
 }
 

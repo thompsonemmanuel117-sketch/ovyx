@@ -109,6 +109,10 @@ const validNewsletter = verifyPromptContractOutput(
 );
 assert.equal(validNewsletter.ok, true, JSON.stringify(validNewsletter));
 
+const paidSubscription = buildPromptContract('Build a subscription commerce platform with recurring billing and customer accounts.');
+assert.equal(paidSubscription.contactSignals.newsletter, false, 'Paid recurring subscriptions must not trigger newsletter requirements.');
+assert.equal(paidSubscription.contactSignals.payments, true, 'Recurring subscription billing must still be recognized as payments.');
+
 const missingAuth = verifyPromptContractOutput(
   'Create a dashboard website with login and user accounts.',
   { 'index.html': '<!doctype html><html><head><title>Dashboard</title></head><body><main><h1>Welcome to your dashboard</h1><p>User account settings are available.</p></main></body></html>' },

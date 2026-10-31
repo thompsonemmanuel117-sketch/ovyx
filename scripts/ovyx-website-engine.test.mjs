@@ -29,7 +29,22 @@ assert.ok(plan.interactionArchitecture.capabilities.includes('forms'));
 assert.ok(plan.integrations.some(item => item.capability === 'email' && item.connection === 'connected-in-context'));
 assert.ok(plan.integrations.some(item => item.capability === 'booking' && item.connection === 'not-confirmed'));
 assert.ok(plan.qualityGates.length > 0);
+assert.equal(plan.fullStackArchitecture.engine, 'ovyx-fullstack-architecture');
+assert.ok(plan.fullStackArchitecture.capabilities.frontend);
+assert.ok(plan.fullStackArchitecture.capabilities.booking);
+assert.ok(plan.fullStackArchitecture.apiContracts.some(route => route.path === '/api/bookings'));
+assert.ok(plan.fullStackArchitecture.testPlan.some(test => test.id === 'booking-conflicts'));
+assert.ok(plan.fullStackArchitecture.stateMachines.some(machine => machine.entity === 'Booking'));
+assert.ok(plan.fullStackArchitecture.crossLayerContracts.dataConsistency);
+assert.equal(websiteEngineClientSummary(plan).fullStackArchitecture.graph.valid, true);
+assert.ok(websiteEngineClientSummary(plan).fullStackArchitecture.workflowStateMachineCount > 0);
 assert.match(buildWebsiteEngineInstructions(plan), /AUTHORITATIVE PRE-GENERATION PLAN/);
+assert.match(buildWebsiteEngineInstructions(plan), /FULL-STACK ARCHITECTURE CONTRACT/);
+assert.match(buildWebsiteEngineInstructions(plan), /do not silently return a frontend-only site/i);
+assert.match(buildWebsiteEngineInstructions(plan), /matching server route\/handler/i);
+assert.match(buildWebsiteEngineInstructions(plan), /domain schema, relationships, constraints and indexes/i);
+assert.match(buildWebsiteEngineInstructions(plan), /workflow state machines/i);
+assert.match(buildWebsiteEngineInstructions(plan), /authorization-negative cases/i);
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
 assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
 
@@ -52,6 +67,27 @@ assert.equal(parsedLongPlan.requirementManifest.sourcePromptRemainsAuthoritative
 assert.equal(parsedLongPlan.requirementManifest.indexEntriesAreExcerpts, true);
 assert.ok(parsedLongPlan.designArchitecture.mustHave.length > 0);
 assert.ok(parsedLongPlan.designArchitecture.conversionPrinciples.length > 0);
+assert.ok(parsedLongPlan.fullStackArchitecture);
+assert.equal(parsedLongPlan.fullStackArchitecture.requirementTraceabilityGroups.reduce((sum, group) => sum + group.requirementIds.length, 0), 180);
+assert.ok(serializedPlan.length <= 18000, 'The architecture contract must fit the same bounded model instruction budget.');
+
+const longFullStackBrief = Array.from({ length: 180 }, (_, index) =>
+  'Requirement ' + (index + 1) + ': Persist the order record, enforce account roles, validate checkout, reconcile payment events and verify the server API response for workflow step ' + (index + 1) + '.'
+).join('\n');
+const longFullStackPlan = buildWebsiteEnginePlan(longFullStackBrief);
+const longFullStackInstructions = buildWebsiteEngineInstructions(longFullStackPlan);
+const longFullStackSerialized = longFullStackInstructions.split(/\n\n/)[2];
+assert.ok(longFullStackSerialized.length <= 18000, 'A complex full-stack architecture and all requirement IDs must fit the safe model instruction budget.');
+const parsedLongFullStack = JSON.parse(longFullStackSerialized);
+assert.equal(parsedLongFullStack.fullStackArchitecture.requirementTraceabilityGroups.reduce(
+  (sum, group) => sum + group.requirementIds.length, 0
+), 180);
+assert.equal(parsedLongFullStack.fullStackArchitecture.graphIntegrity.valid, true);
+assert.ok(parsedLongFullStack.fullStackArchitecture.apiContracts.some(route => route.path === '/api/payments/intents'));
+assert.ok(parsedLongFullStack.fullStackArchitecture.security.controls.some(control => control[0] === 'payment-integrity'));
+assert.ok(parsedLongFullStack.fullStackArchitecture.stateMachines.some(machine => machine.entity === 'PaymentAttempt'));
+assert.ok(parsedLongFullStack.fullStackArchitecture.dataIntegrity.constraints.some(item => item[0] === 'money-minor-units'));
+
 
 const freshBuildReadiness = buildWebsiteEngineReadiness(
   'Build a business website with a real contact form and email delivery.',

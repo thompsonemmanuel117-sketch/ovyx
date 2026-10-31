@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { evaluateFullStackSourceContracts } from './ovyx-fullstack-source-contracts.mjs';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
@@ -554,7 +555,7 @@ function buildIntegrationReadiness(category, deployment) {
   });
 }
 
-function buildProductionReadiness(findings, deployment, integrationReadiness, qualityScoreV2) {
+function buildProductionReadiness(findings, deployment, integrationReadiness, qualityScoreV2, fullStackSourceEvidence = null) {
   const blockers = findings.filter(item => item.severity === 'blocker').length;
   const sourceGate = qualityScoreV2.releaseDecision.automatedSourceGate === 'no-static-blockers';
   const sourceNeedsReview = qualityScoreV2.releaseDecision.automatedSourceGate === 'needs-review';
@@ -571,6 +572,10 @@ function buildProductionReadiness(findings, deployment, integrationReadiness, qu
       humanVisualReview: 'required',
       humanEditorialReview: 'required',
       performanceMeasurements: 'core-web-vitals-not-measured',
+      fullStackSourceContracts: !fullStackSourceEvidence ? 'not-assessed'
+        : fullStackSourceEvidence.status === 'no-backend-contracts-requested' ? 'not-requested'
+          : fullStackSourceEvidence.status === 'source-evidence-present-runtime-unverified'
+            ? 'source-evidence-present-runtime-unverified' : 'missing-source-evidence',
     },
     blockerCount: blockers,
     missingRequirementEvidenceCount: qualityScoreV2.releaseDecision.missingRequirementEvidenceCount,
@@ -585,6 +590,9 @@ function buildProductionReadiness(findings, deployment, integrationReadiness, qu
       'Run the framework-specific production build and deployment smoke test.',
       'Measure Core Web Vitals on representative devices and networks.',
       'Complete human visual and editorial review.',
+      ...(fullStackSourceEvidence && fullStackSourceEvidence.status !== 'source-evidence-present-runtime-unverified'
+        ? ['Resolve missing full-stack API route/method/auth, schema and relationship source evidence; then execute the real runtime tests.']
+        : []),
     ],
   };
 }
@@ -602,6 +610,9 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
     ...(Array.isArray(options.filePaths) ? options.filePaths : []),
   ].map(item => String(item || '').replace(/\\/g, '/').replace(/^\/+/, '')).filter(Boolean)));
   const pathsByLower = fileLookup(filePaths);
+  const fullStackSourceEvidence = options.fullStackArchitecture
+    ? evaluateFullStackSourceContracts(files, options.fullStackArchitecture)
+    : null;
   const findings = [];
   const htmlEntries = Object.entries(files).filter(([filePath]) => /\.html?$/i.test(filePath));
   const cssEntries = Object.entries(files).filter(([filePath]) => /\.css$/i.test(filePath));
@@ -880,7 +891,7 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
   });
   const deploymentIntelligence = buildDeploymentIntelligence(files, filePaths);
   const integrationReadiness = buildIntegrationReadiness(category, deploymentIntelligence);
-  const productionReadiness = buildProductionReadiness(findings, deploymentIntelligence, integrationReadiness, qualityScoreV2);
+  const productionReadiness = buildProductionReadiness(findings, deploymentIntelligence, integrationReadiness, qualityScoreV2, fullStackSourceEvidence);
 
   return {
     caseId: categoryId,
@@ -913,6 +924,7 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
     qualityScoreV2,
     deploymentIntelligence,
     integrationReadiness,
+    fullStackSourceEvidence,
     productionReadiness,
     integrationTruth: integrations.map(integration => ({ integration, status: 'unverified-unless-checked-against-the-real-service' })),
     limitations: [
@@ -967,6 +979,7 @@ async function readProjectFolder(folder) {
   }
   await walk(folder);
   let metadata = {};
+  let fullStackArchitecture = null;
   try {
     const value = JSON.parse(await fs.readFile(path.join(folder, 'run-metadata.json'), 'utf8'));
     metadata = {
@@ -975,9 +988,19 @@ async function readProjectFolder(folder) {
       generatedAt: clean(value.generatedAt, 80),
       generationDurationMs: Number.isFinite(Number(value.generationDurationMs)) ? Number(value.generationDurationMs) : null,
       promptHash: clean(value.promptHash, 100),
+      fullStackArchitectureVersion: value.fullStackArchitecture && value.fullStackArchitecture.engine === 'ovyx-fullstack-architecture'
+        ? Number(value.fullStackArchitecture.version) || null : null,
     };
+    if (value.fullStackArchitecture && value.fullStackArchitecture.engine === 'ovyx-fullstack-architecture') {
+      const serialized = JSON.stringify(value.fullStackArchitecture);
+      if (serialized.length <= 80000 && !SECRET_PATTERNS.some(pattern => pattern.test(serialized))) {
+        fullStackArchitecture = value.fullStackArchitecture;
+      } else {
+        intakeWarnings.push('The full-stack architecture metadata was excluded because it exceeded the safe metadata bound or matched a secret-screening pattern.');
+      }
+    }
   } catch {}
-  return { files, filePaths, secretFiles, intakeWarnings, metadata };
+  return { files, filePaths, secretFiles, intakeWarnings, metadata, fullStackArchitecture };
 }
 
 export async function evaluateEvaluationRoot(root, suite) {
@@ -998,7 +1021,11 @@ export async function evaluateEvaluationRoot(root, suite) {
     }
     try {
       const loaded = await readProjectFolder(folder);
-      const result = evaluateSiteFiles(loaded.files, category, { filePaths: loaded.filePaths, secretFiles: loaded.secretFiles });
+      const result = evaluateSiteFiles(loaded.files, category, {
+        filePaths: loaded.filePaths,
+        secretFiles: loaded.secretFiles,
+        fullStackArchitecture: loaded.fullStackArchitecture,
+      });
       result.metadata = loaded.metadata;
       result.intakeWarnings = loaded.intakeWarnings;
       results.push(result);
