@@ -39,6 +39,7 @@ function normalizeRequirements(contract) {
 function inferCapabilities(prompt, contract) {
   const source = String(prompt || '');
   const signals = contract && contract.contactSignals || {};
+  const explicitFullStack = /\b(?:full[- ]stack|backend[- ]enabled|server[- ]backed application)\b/i.test(source);
   const admin = /\b(?:admin dashboard|administrator|back office|staff dashboard|manage users|manage orders|manage bookings)\b/i.test(source);
   const commerce = signals.shoppingCart === true || signals.addToCart === true ||
     /\b(?:e-commerce|ecommerce|online store|sell products|product catalogue|product catalog|shopping cart|add to cart)\b/i.test(source);
@@ -54,14 +55,15 @@ function inferCapabilities(prompt, contract) {
   const email = signals.emailDelivery === true || newsletter ||
     /\b(?:email delivery|send confirmation|email notification|transactional email)\b/i.test(source);
   const fileStorage = /\b(?:file upload|image upload|document upload|media library|file storage|user uploads?)\b/i.test(source);
-  const persistentData = signals.backendData === true || commerce || booking || auth || contact || email || payment || fileStorage ||
+  const persistentData = explicitFullStack || signals.backendData === true || commerce || booking || auth || contact || email || payment || fileStorage ||
     /\b(?:database|persistent data|save records|customer records|reporting dashboard)\b/i.test(source);
   const search = /\b(?:search|filter|sort|catalogue|catalog|directory|listing)\b/i.test(source);
   const backgroundWork = email || booking || payment ||
     /\b(?:background job|scheduled task|queue|webhook|async processing|cron)\b/i.test(source);
 
   return {
-    frontend: true, backend: contact || booking || payment || auth || persistentData || fileStorage || admin || backgroundWork,
+    frontend: true, backend: explicitFullStack || contact || booking || payment || auth || persistentData || fileStorage || admin || backgroundWork,
+    fullStackRequested: explicitFullStack,
     database: persistentData, authentication: auth, authorization: auth || admin,
     payments: payment, commerce, contact, email, newsletter, booking, fileStorage, admin, search, backgroundWork,
   };
