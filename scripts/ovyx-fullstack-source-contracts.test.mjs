@@ -76,20 +76,26 @@ const sqlAndDrizzleArchitecture = {
     { id: 'model-order', name: 'Order' },
     { id: 'model-product', name: 'Product' },
   ],
-  dataIntegrity: { relationships: [] },
+  dataIntegrity: { relationships: [], indexes: [
+    { entity: 'Order', fields: ['ownerId', 'createdAt'], unique: false },
+    { entity: 'Product', fields: ['sku'], unique: true },
+  ] },
 };
 const sqlAndDrizzle = evaluateFullStackSourceContracts({
   'server/routes.ts': "router.post('/api/bookings/:bookingId/cancel', cancelBooking);",
-  'db/schema.sql': 'CREATE TABLE "orders" (id TEXT PRIMARY KEY);',
-  'db/schema.ts': "export const products = pgTable('products', { id: text('id').primaryKey() });",
+  'db/schema.sql': 'CREATE TABLE "orders" (id TEXT PRIMARY KEY); CREATE INDEX orders_owner_created_idx ON orders (ownerId, createdAt);',
+  'db/schema.ts': "export const products = pgTable('products', { id: text('id').primaryKey(), sku: text('sku') }, (table) => ({ skuUnique: uniqueIndex('product_sku_unique').on(table.sku) }));",
 }, sqlAndDrizzleArchitecture);
 assert.equal(sqlAndDrizzle.missingRouteSourceCount, 0,
   'A central route declaration with a dynamic path parameter should be detected.');
 assert.equal(sqlAndDrizzle.modelSchemaEvidenceCount, 2,
   'SQL and Drizzle schema declarations should be detected.');
+assert.equal(sqlAndDrizzle.indexSourceEvidenceCount, 2,
+  'SQL composite indexes and Drizzle unique indexes should be detected.');
+assert.equal(sqlAndDrizzle.missingIndexSourceCount, 0);
 
 const empty = evaluateFullStackSourceContracts({}, { apiContracts: [], dataModels: [], dataIntegrity: { relationships: [] } });
-assert.equal(empty.status, 'source-evidence-present-runtime-unverified');
+assert.equal(empty.status, 'no-backend-contracts-requested');
 assert.equal(empty.requestedRouteCount, 0);
 assert.equal(empty.modelCount, 0);
 
