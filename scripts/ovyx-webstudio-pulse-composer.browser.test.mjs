@@ -371,6 +371,8 @@ try {
     }
 
 
+    console.log('[' + target.name + '] voice-note diagnostic: starting microphone scenario');
+    lastCheckpoint = target.name + ': voice-note setup';
     // Exercise the actual microphone UI without relying on CI hardware: a fake
     // MediaRecorder supplies the same Blob/event contract as a browser recording.
     await input.fill('');
