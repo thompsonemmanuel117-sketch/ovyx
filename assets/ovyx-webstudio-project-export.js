@@ -504,6 +504,7 @@
       frameworkProfile.packageManifests.length ? '- Package manifests: ' + frameworkProfile.packageManifests.join(', ') + '.' : '- No package.json was included.',
       frameworkProfile.missingExpectedFiles.map(function (item) { return '- CHECK: ' + item; }).join('\n'),
       frameworkProfile.warnings.map(function (item) { return '- WARNING: ' + item; }).join('\n'),
+      '- Stored binary assets: ' + assetStorage.includedCount + ' included, ' + assetStorage.excludedCount + ' excluded; ' + assetStorage.rewrittenReferences + ' source references rewritten.',
       '- Original source paths are preserved; OVYX does not silently convert or scaffold a different framework.',
       '- The ZIP has not been built or deployed by this profile. Run the commands above in the extracted project and verify the actual result.',
       ''
@@ -541,7 +542,7 @@
         '- Frontend pages, styles, and client-only source files are intentionally excluded. This is not a complete website download.',
         '- Some frameworks colocate server routes with frontend source and require additional framework files to build or deploy. When the framework/setup guide indicates that, use the complete project ZIP instead.',
         '- This export does not create a repository, provision a database, connect live services, or deploy anything automatically.',
-        '- Only text-based files saved in the project graph are exported. Binary assets not stored in that graph are not reconstructed.',
+        '- Text source is read from the project graph. Retrievable project binaries are downloaded from the authenticated OVYX asset store into assets/; oversized or unavailable files are listed in the exclusion report.',
         '- Recognizable credential files/secrets are omitted. Review the backend exclusion report if present and recreate required secrets in secure provider settings.',
         '',
         'Exported from OVYX Web Studio on ' + timestamp + '.',
@@ -623,7 +624,8 @@
       backendFilesExcludedByDesign: websiteOnly ? backendExcludedCount : 0,
       setupGuideIncluded: hasSetup,
       environmentExampleIncluded: envExample,
-      credentialsIntentionallyExcluded: true
+      credentialsIntentionallyExcluded: true,
+      assetStorage: assetStorage
     };
     output.push({ path: readmeName, bytes: utf8(readme) });
     output.push({ path: manifestName, bytes: utf8(JSON.stringify(manifest, null, 2) + '\n') });
@@ -642,7 +644,7 @@
       ].join('\n');
       output.push({ path: exclusionName, bytes: utf8(exclusionReport) });
     }
-    return { files: output, excluded: excluded, slug: slugName, mode: mode, framework: frameworkProfile, backendExcludedCount: backendExcludedCount, frontendExcludedCount: frontendExcludedCount };
+    return { files: output, excluded: excluded, slug: slugName, mode: mode, framework: frameworkProfile, assetStorage: assetStorage, backendExcludedCount: backendExcludedCount, frontendExcludedCount: frontendExcludedCount };
   }
   function showMessage(message, kind) {
     try {
