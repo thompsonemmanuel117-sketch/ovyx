@@ -43,6 +43,10 @@ assert.equal(architecture.capabilities.email, true);
 assert.equal(architecture.capabilities.fileStorage, true);
 assert.equal(architecture.capabilities.admin, true);
 
+const emailOnlyBrief = 'Send order confirmation emails after successful purchases.';
+const emailOnlyArchitecture = buildFullStackArchitecture(emailOnlyBrief, buildPromptContract(emailOnlyBrief), {}, []);
+assert.equal(emailOnlyArchitecture.capabilities.email, true, 'Order confirmation email delivery must be detected even when other words appear between send and emails.');
+
 assert.ok(architecture.apiContracts.some(route => route.path === '/api/checkout' && route.authPolicy === 'session-or-authenticated'));
 assert.ok(architecture.apiContracts.some(route => route.path === '/api/webhooks/payments' && route.authPolicy === 'provider-signature-and-replay-protected'));
 assert.ok(architecture.apiContracts.some(route => route.path === '/api/assets' && route.authPolicy === 'authenticated-owner-scoped'));
