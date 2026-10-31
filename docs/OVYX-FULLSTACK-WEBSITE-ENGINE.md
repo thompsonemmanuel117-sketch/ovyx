@@ -65,6 +65,19 @@ The Phase 2 planner now also defines relational integrity instead of listing iso
 
 The full-stack planner distinguishes a newsletter from a contact form, a product catalogue from a payment-enabled checkout, and a payment-only billable action from a commerce order. These boundaries are regression-tested to reduce accidental over-generation.
 
+The shared Website Engine now appends explicit implementation rules after the bounded architecture JSON. It tells the model not to return a frontend-only result when backend capability is requested, to create matching method-specific server route handlers, connect frontend consumers to those exact routes, produce the declared schema/relations/indexes, enforce server-authoritative state transitions and generate relevant tests. It also keeps the original brief authoritative and prohibits simulated provider success.
+
+### Generated source contract audit
+
+`scripts/ovyx-fullstack-source-contracts.mjs` is now used by the Web Studio artifact evaluator when a trusted architecture manifest is included in `run-metadata.json`. It checks bounded source evidence for:
+- framework-specific route file and HTTP method declarations,
+- protected-route authentication/role checks and provider webhook signature/replay checks,
+- declared data-model/schema declarations,
+- declared model relationship source evidence.
+
+The report separates missing route/method/auth/schema/relationship source evidence from evidence that is merely present in source. Even when all source evidence exists, the report explicitly keeps runtime behavior, database persistence, integration delivery and deployment unverified. Architecture metadata is accepted only when it has the expected engine identifier, stays within a bounded size and passes secret-pattern screening; it is not copied into the public client response.
+
+
 ### Important current boundary
 
 This is an architecture and code-generation contract. It does **not** provision a database, create provider credentials, run migrations, prove endpoint behavior or certify generated applications. The route/model/provider records are plans until generated source is inspected and the actual tests pass.
@@ -144,6 +157,7 @@ Phase 2 must not be closed until all of the following are evidenced on the exact
 - [ ] Unified architecture compiler is wired into Assistant and Gateway only for Web Studio; App Studio remains unchanged.
 - [ ] Requirement IDs and complete original brief survive bounded prompt serialization.
 - [ ] Every full-stack API contract maps to implementation source or an explicit unresolved reason.
+- [ ] The artifact evaluator reports missing route, method, authorization, schema and relationship source evidence against the exact architecture manifest, while keeping runtime verification separate.
 - [ ] Every API contract maps to existing data models and server authorization policy.
 - [ ] Frontend components call the matching backend contracts with typed request/response/error states.
 - [ ] Database schemas, constraints, migrations and rollback behavior are validated in an isolated test database.
