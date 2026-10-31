@@ -127,7 +127,7 @@ assert.ok(html.includes('data-context-open-workspace'),
 assert.ok(html.includes("window.Router?.go?.('workspace')"),
   'The empty Project Node Map action must route to the workspace to select or create a project.');
 
-assert.match(html, /if\(W\.attachmentsReady&&typeof W\.attachmentsReady\.then==='function'\)await W\.attachmentsReady;/, 'Use in website must wait for pending file reads before adding the generated image.');
+assert.match(html, /if\(W\.attachmentsReady&&typeof W\.attachmentsReady\.then==='function'\)\s*\{\s*await W\.attachmentsReady;\s*\}/, 'Use in website must wait for pending file reads before adding the generated image.');
 assert.match(html, /input\.style\.setProperty\('height','32px','important'\)/, 'The composer must reset to a compact one-line height with priority over legacy handlers.');
 assert.match(html, /var max=150/, 'The composer must expand for longer prompts with a bounded maximum height.');
 assert.match(html, /Math\.min\(Math\.max\(contentHeight,32\),max\)/, 'The original Web Studio input handler must not force tall minimums after typing.');
