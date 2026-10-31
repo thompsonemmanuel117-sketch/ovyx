@@ -359,12 +359,12 @@
       frameworkProfile.scripts.start ? '- Start script: ' + frameworkProfile.scripts.start + '.' : '',
       frameworkProfile.scripts.preview ? '- Preview script: ' + frameworkProfile.scripts.preview + '.' : '',
       frameworkProfile.packageManifests.length ? '- Package manifests: ' + frameworkProfile.packageManifests.join(', ') + '.' : '- No package.json was included.',
-      frameworkProfile.missingExpectedFiles.map(function (item) { return '- CHECK: ' + item; }).join('\\n'),
-      frameworkProfile.warnings.map(function (item) { return '- WARNING: ' + item; }).join('\\n'),
+      frameworkProfile.missingExpectedFiles.map(function (item) { return '- CHECK: ' + item; }).join('\n'),
+      frameworkProfile.warnings.map(function (item) { return '- WARNING: ' + item; }).join('\n'),
       '- Original source paths are preserved; OVYX does not silently convert or scaffold a different framework.',
       '- The ZIP has not been built or deployed by this profile. Run the commands above in the extracted project and verify the actual result.',
       ''
-    ].filter(Boolean).join('\\n');
+    ].filter(Boolean).join('\n');
     var readmeName = backendOnly ? 'README_OVYX_BACKEND_EXPORT.md' : websiteOnly ? 'README_OVYX_WEBSITE_EXPORT.md' : 'README_OVYX_EXPORT.md';
     var manifestName = backendOnly ? 'OVYX_BACKEND_EXPORT_MANIFEST.json' : websiteOnly ? 'OVYX_WEBSITE_EXPORT_MANIFEST.json' : 'OVYX_EXPORT_MANIFEST.json';
     var exclusionName = backendOnly ? 'OVYX_BACKEND_EXPORT_EXCLUSIONS.md' : websiteOnly ? 'OVYX_WEBSITE_EXPORT_EXCLUSIONS.md' : 'OVYX_EXPORT_EXCLUSIONS.md';
@@ -465,7 +465,7 @@
         ''
       ].join('\n');
     }
-    readme += '\\n' + frameworkGuide;
+    readme += '\n' + frameworkGuide;
     var manifest = {
       schemaVersion: 2,
       framework: frameworkProfile,
