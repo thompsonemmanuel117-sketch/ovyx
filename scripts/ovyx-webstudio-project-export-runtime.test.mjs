@@ -163,6 +163,47 @@ assert.ok(archiveFiles.has('OVYX_EXPORT_MANIFEST.json'));
 assert.deepEqual(Array.from(archiveFiles.get('assets/asset-12345678/hero.png')), [137, 80, 78, 71]);
 assert.equal(archiveView.getUint32(archiveBytes.length - 22, true), 0x06054B50, 'ZIP must end with a valid end-of-central-directory record.');
 assert.equal(archiveView.getUint16(archiveBytes.length - 22 + 10, true), archiveFiles.size, 'ZIP central-directory entry count must match local entries.');
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+const eocdOffset = archiveBytes.length - 22;
+const centralDirectorySize = archiveView.getUint32(eocdOffset + 12, true);
+const centralDirectoryOffset = archiveView.getUint32(eocdOffset + 16, true);
+assert.equal(centralDirectoryOffset + centralDirectorySize, eocdOffset, 'ZIP central directory must terminate immediately before EOCD.');
+let centralOffset = centralDirectoryOffset;
+let centralEntries = 0;
+while (centralOffset + 46 <= eocdOffset && archiveView.getUint32(centralOffset, true) === 0x02014B50) {
+  const crc = archiveView.getUint32(centralOffset + 16, true);
+  const compressedSize = archiveView.getUint32(centralOffset + 20, true);
+  const uncompressedSize = archiveView.getUint32(centralOffset + 24, true);
+  const nameLength = archiveView.getUint16(centralOffset + 28, true);
+  const extraLength = archiveView.getUint16(centralOffset + 30, true);
+  const commentLength = archiveView.getUint16(centralOffset + 32, true);
+  const localOffset = archiveView.getUint32(centralOffset + 42, true);
+  const nameStart = centralOffset + 46;
+  const name = new TextDecoder().decode(archiveBytes.slice(nameStart, nameStart + nameLength));
+  const localNameLength = archiveView.getUint16(localOffset + 26, true);
+  const localExtraLength = archiveView.getUint16(localOffset + 28, true);
+  const localNameStart = localOffset + 30;
+  const localName = new TextDecoder().decode(archiveBytes.slice(localNameStart, localNameStart + localNameLength));
+  const dataStart = localNameStart + localNameLength + localExtraLength;
+  const fileBytes = archiveBytes.slice(dataStart, dataStart + compressedSize);
+  assert.equal(localName, name, 'Local and central ZIP entry names must match.');
+  assert.equal(archiveView.getUint32(localOffset + 14, true), crc, 'Local and central CRC values must match.');
+  assert.equal(archiveView.getUint32(localOffset + 18, true), compressedSize);
+  assert.equal(archiveView.getUint32(localOffset + 22, true), uncompressedSize);
+  assert.equal(fileBytes.length, uncompressedSize, 'Stored ZIP entries must have matching compressed and uncompressed lengths.');
+  assert.equal(crc32(fileBytes), crc, 'Every ZIP entry must pass its CRC-32 integrity check: ' + name);
+  centralEntries += 1;
+  centralOffset = nameStart + nameLength + extraLength + commentLength;
+}
+assert.equal(centralEntries, archiveFiles.size, 'Every local ZIP entry must have a central-directory record.');
+assert.equal(centralOffset, eocdOffset, 'ZIP central directory must be fully parsed without gaps.');
 const archivedHtml = new TextDecoder().decode(archiveFiles.get('index.html'));
 assert.match(archivedHtml, /assets\/asset-12345678\/hero\.png/);
 assert.doesNotMatch(archivedHtml, /secret-download-token/, 'Firebase download tokens must not leak into exported source.');
