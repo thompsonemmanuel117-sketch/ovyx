@@ -361,7 +361,6 @@ When discussing project changes, distinguish recommendations from changes actual
       multiPageBuild = generation.multiPageBuild;
       quotaInputText = generation.quotaInputText;
       quotaOutputText = generation.quotaOutputText;
-    }
     } catch (providerError) {
       if (providerError?.partialUsage) {
         await finalizeAIQuota(
