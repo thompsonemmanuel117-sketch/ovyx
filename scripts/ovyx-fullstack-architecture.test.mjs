@@ -55,6 +55,12 @@ assert.ok(architecture.security.controls.some(item => item.id === 'payment-integ
 assert.ok(architecture.security.controls.some(item => item.id === 'object-level-authorization'));
 assert.ok(architecture.security.controls.some(item => item.id === 'upload-isolation'));
 assert.equal(architecture.security.migrationPolicy.destructiveChanges, 'require-explicit-owner-approval');
+assert.match(architecture.crossLayerContracts.dataConsistency.money, /integer minor units/i);
+assert.match(architecture.crossLayerContracts.transactionSafety.duplicateDelivery, /Deduplicate/i);
+assert.match(architecture.crossLayerContracts.privacyAndRetention.lifecycle, /retention/i);
+assert.match(architecture.crossLayerContracts.observability.correlation, /correlation ID/i);
+assert.equal(architecture.graphIntegrity.missingModelReferences.length, 0);
+assert.equal(architecture.graphIntegrity.unreachableNodeIds.length, 0);
 assert.ok(architecture.backgroundWork.controls.includes('dead-letter-visibility'));
 assert.ok(architecture.testPlan.some(item => item.id === 'payment-sandbox' && item.requiresExplicitOwnerApproval === true));
 assert.ok(architecture.testPlan.every(item => item.status === 'planned-not-executed' && item.evidence === null));
@@ -99,6 +105,20 @@ const withContacts = buildFullStackArchitecture(
 assert.ok(withContacts.apiContracts.some(route => route.path === '/api/contact-submissions'));
 assert.ok(withContacts.dataModels.some(model => model.name === 'ContactSubmission'));
 assert.ok(withContacts.integrations.some(item => item.capability === 'email'));
+assert.ok(withContacts.graph.edges.some(edge => edge.relation === 'queues-delivery-through-server-adapter'));
+
+const catalogOnlyBrief = 'Build a product catalogue for a distributor with searchable products and product detail pages. No checkout or payment is requested.';
+const catalogOnly = buildFullStackArchitecture(catalogOnlyBrief, buildPromptContract(catalogOnlyBrief));
+assert.equal(catalogOnly.capabilities.commerce, true);
+assert.equal(catalogOnly.capabilities.payments, false, 'A catalog must not silently imply a payment provider.');
+assert.ok(catalogOnly.apiContracts.some(route => route.path === '/api/products'));
+assert.ok(!catalogOnly.apiContracts.some(route => route.path === '/api/checkout'));
+assert.ok(!catalogOnly.integrations.some(item => item.capability === 'payments'));
+
+const adminBrief = 'Create an admin dashboard to manage customer records and orders with staff roles.';
+const adminArchitecture = buildFullStackArchitecture(adminBrief, buildPromptContract(adminBrief));
+assert.equal(adminArchitecture.capabilities.authentication, true, 'Admin surfaces require protected identity by default.');
+assert.equal(adminArchitecture.capabilities.authorization, true);
 
 const corrupted = validateFullStackArchitectureGraph({
   nodes: [{ id: 'one' }],
