@@ -50,10 +50,11 @@ function inferCapabilities(prompt, contract) {
     /\b(?:appointment|reservation|booking|schedule a|availability calendar)\b/i.test(source);
   const contact = signals.contactForm === true || signals.emailDelivery === true ||
     /\b(?:contact form|enquiry form|inquiry form|lead capture|send a message)\b/i.test(source);
-  const email = signals.emailDelivery === true || signals.newsletter === true ||
-    /\b(?:email delivery|send confirmation|email notification|transactional email|newsletter)\b/i.test(source);
+  const newsletter = signals.newsletter === true || /\b(?:newsletter|mailing list|email updates|subscribe for updates)\b/i.test(source);
+  const email = signals.emailDelivery === true || newsletter ||
+    /\b(?:email delivery|send confirmation|email notification|transactional email)\b/i.test(source);
   const fileStorage = /\b(?:file upload|image upload|document upload|media library|file storage|user uploads?)\b/i.test(source);
-  const persistentData = signals.backendData === true || commerce || booking || auth || contact || fileStorage ||
+  const persistentData = signals.backendData === true || commerce || booking || auth || contact || email || payment || fileStorage ||
     /\b(?:database|persistent data|save records|customer records|reporting dashboard)\b/i.test(source);
   const search = /\b(?:search|filter|sort|catalogue|catalog|directory|listing)\b/i.test(source);
   const backgroundWork = email || booking || payment ||
@@ -62,7 +63,7 @@ function inferCapabilities(prompt, contract) {
   return {
     frontend: true, backend: contact || booking || payment || auth || persistentData || fileStorage || admin || backgroundWork,
     database: persistentData, authentication: auth, authorization: auth || admin,
-    payments: payment, commerce, contact, email, booking, fileStorage, admin, search, backgroundWork,
+    payments: payment, commerce, contact, email, newsletter, booking, fileStorage, admin, search, backgroundWork,
   };
 }
 
@@ -86,6 +87,7 @@ function buildDataModels(capabilities) {
   }
   if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', 'providerReference', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
   if (capabilities.email) push('DeliveryRecord', 'Outbox/delivery state with retry and provider receipt; not a claim of delivery.', ['id', 'recipientRef', 'templateKey', 'idempotencyKey', 'status', 'attemptCount', 'providerReceipt'], 'personal-data');
+  if (capabilities.newsletter) push('NewsletterSubscription', 'Permission-aware subscription state with consent evidence and secure unsubscribe lifecycle.', ['id', 'email', 'status', 'consentAt', 'confirmationTokenHash', 'createdAt'], 'personal-data');
   if (capabilities.fileStorage) push('StoredAsset', 'Owner-scoped metadata for uploaded objects stored outside public source control.', ['id', 'ownerId', 'storageKey', 'contentType', 'byteSize', 'checksum', 'createdAt'], 'private-file');
   if (capabilities.admin) push('AuditEvent', 'Append-only record of sensitive administrative actions and actor/resource context.', ['id', 'actorId', 'action', 'resourceType', 'resourceId', 'createdAt'], 'security-audit');
   return models;
@@ -103,6 +105,10 @@ function buildApiContracts(capabilities) {
   });
 
   if (capabilities.contact) add('POST', '/api/contact-submissions', 'contact', 'public-with-abuse-controls', 'Validate and persist a contact request, then enqueue owner-approved delivery.', ['model-contactsubmission'], { sideEffect: 'enqueue-delivery-after-commit' });
+  if (capabilities.newsletter) {
+    add('POST', '/api/newsletter/subscriptions', 'newsletter', 'public-with-abuse-controls-and-consent', 'Create a pending subscription and issue an owner-configured confirmation message; never assume consent before confirmation.', ['model-newslettersubscription'], { sideEffect: 'double-opt-in-outbox' });
+    add('POST', '/api/newsletter/unsubscribe', 'newsletter', 'signed-unsubscribe-token', 'Verify a scoped, expiring unsubscribe token and record the opt-out.', ['model-newslettersubscription']);
+  }
   if (capabilities.booking) {
     add('GET', '/api/availability', 'booking', 'public-read-with-rate-limit', 'Return current authoritative availability for a requested resource and time window.', ['model-booking'], { cachePolicy: 'short-lived-only-if-provider-allows' });
     add('POST', '/api/bookings', 'booking', 'public-with-abuse-controls', 'Recheck availability and atomically create a booking; never trust client availability.', ['model-booking'], { sideEffect: 'reserve-resource-with-conflict-check' });
@@ -294,6 +300,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   for (const page of pageEntries) addEdge(edges, page.id, navigationId, 'uses');
   const featureComponents = {};
   if (capabilities.contact) featureComponents.contact = addComponent('Contact form', 'Validated fields, consent/error/success states and honest submission status.');
+  if (capabilities.newsletter) featureComponents.newsletter = addComponent('Newsletter signup', 'Consent-aware double opt-in, confirmation, unsubscribe and delivery status.');
   if (capabilities.booking) featureComponents.booking = addComponent('Booking experience', 'Timezone-aware selection, authoritative availability and explicit pending/confirmed states.');
   if (capabilities.commerce) featureComponents.commerce = addComponent('Commerce experience', 'Catalog, cart and checkout using server-calculated prices.');
   if (capabilities.authentication) featureComponents.authentication = addComponent('Account experience', 'Provider-backed sign-in/session state with protected-route handling.');
@@ -323,7 +330,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     if (targetIntegration) addEdge(edges, route.id, targetIntegration, 'calls-through-server-adapter');
     const databaseIntegration = integrationIds.find(id => id === 'integration-database');
     if (databaseIntegration && route.modelIds.length) addEdge(edges, route.id, databaseIntegration, 'persists-through-server-adapter');
-    if (route.capability === 'contact') {
+    if (['contact', 'newsletter'].includes(route.capability)) {
       const emailIntegration = integrationIds.find(id => id === 'integration-email');
       if (emailIntegration) addEdge(edges, route.id, emailIntegration, 'queues-delivery-through-server-adapter');
     }
@@ -332,6 +339,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     const title = page.title;
     const pageCapabilityMatchers = {
       contact: /contact|enquir|inquir/i,
+      newsletter: /newsletter|subscribe|updates/i,
       booking: /book|reserv|appointment/i,
       commerce: /shop|product|catalog|cart|checkout|order/i,
       payments: /shop|product|catalog|cart|checkout|order|billing/i,
