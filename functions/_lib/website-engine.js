@@ -1,5 +1,5 @@
 import { buildExperienceBrief } from './experience.js';
-import { buildPromptContract } from './prompt-contract.js';
+import { buildPromptContract, getWebStudioBuildClarification } from './prompt-contract.js';
 import { buildStudioMultiPage } from './studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from './studio-singlepage.js';
 
@@ -138,6 +138,33 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
       'Use the existing Cloudflare AI routing and quota controls; do not create a second provider path.',
     ],
   };
+}
+
+
+export function buildWebsiteEngineReadiness(prompt, context = {}, options = {}) {
+  if (String(options.mode || '').toLowerCase() !== 'build') return null;
+  const source = String(prompt || '');
+  const conversationText = String(options.conversationText || '');
+  const files = context && typeof context === 'object'
+    ? (context.files || options.files || {})
+    : (options.files || {});
+  const hasExistingHtml = Object.entries(files && typeof files === 'object' ? files : {})
+    .some(([filePath, value]) => {
+      const content = typeof value === 'string' ? value : value && (value.content || value.text || value.source || value.code);
+      return /\.html?$/i.test(filePath) && typeof content === 'string' && content.length > 500 && /<body\b/i.test(content);
+    });
+  const readinessSensitiveRequest =
+    /\b(?:contact\s+forms?|enquir(?:y|ies)\s+forms?|email delivery|send (?:form )?messages|payments?|checkout|paystack|flutterwave|stripe|paypal|booking|reservations?|appointments?|newsletter|subscriptions?|login|log in|sign in|sign up|authentication|database|customer records?|order records?)\b/i.test(source) ||
+    /\b(?:add|create|include|build|put|make)\b.{0,55}\b(?:contact|email|phone|whatsapp|address|booking|reservation|newsletter)\b/i.test(source);
+  const isExistingSiteEdit = hasExistingHtml &&
+    /\b(?:fix|edit|change|update|modify|repair|tweak|adjust|redesign|remove|replace|add)\b/i.test(source) &&
+    !readinessSensitiveRequest;
+  if (isExistingSiteEdit) return null;
+  return getWebStudioBuildClarification(source, {
+    ...(context && typeof context === 'object' ? context : {}),
+    files,
+    conversationText,
+  });
 }
 
 export function buildWebsiteEngineInstructions(plan) {
