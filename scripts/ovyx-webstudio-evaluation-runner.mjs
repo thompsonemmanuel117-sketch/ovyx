@@ -313,7 +313,7 @@ function buildQualityScoreV2({ findings, designEvidence, functionalAcceptance, p
     seo: ['TITLE_MISSING', 'META_DESCRIPTION_MISSING', 'OPEN_GRAPH_TITLE_MISSING'],
     performance: ['CSS_RESOURCE_UNRESOLVED', 'IMAGE_RESOURCE_UNRESOLVED', 'IMAGE_SRCSET_UNRESOLVED', 'CSS_RESOURCE_UNRESOLVED', 'REDUCED_MOTION_MISSING'],
     responsiveness: ['VIEWPORT_MISSING', 'IMAGE_SRCSET_UNRESOLVED'],
-    security: ['SECRET_FILE_PRESENT', 'CLIENT_SECRET_PATTERN', 'JAVASCRIPT_HREF'],
+    security: ['SECRET_FILE_PRESENT', 'CLIENT_SECRET_PATTERN', 'JAVASCRIPT_HREF', 'NEW_TAB_LINK_REL', 'DANGEROUS_DYNAMIC_CODE', 'UNSAFE_HTML_SINK', 'INSECURE_HTTP_RESOURCE', 'WILDCARD_POSTMESSAGE', 'EXTERNAL_SCRIPT_NO_SRI'],
     integrity: ['STYLESHEET_UNRESOLVED', 'SCRIPT_UNRESOLVED', 'HTML_ROUTE_UNRESOLVED', 'ROUTE_UNVERIFIED', 'INTERNAL_ROUTE_UNMAPPED', 'ORPHAN_FRAGMENT', 'BROKEN_ROUTE_FRAGMENT', 'LOCAL_IMG_MISSING', 'LOCAL_CSS_ASSET_MISSING'],
   };
   const definitions = [
@@ -745,6 +745,18 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
     if (SECRET_PATTERNS.some(pattern => pattern.test(content))) {
       addFinding(findings, 'blocker', 'CLIENT_SECRET_PATTERN', 'A credential-like value or private-key marker was detected. The value is deliberately not displayed.', filePath);
     }
+    if (/\beval\s*\(|\bnew\s+Function\s*\(|\bdocument\.write\s*\(/i.test(content)) {
+      addFinding(findings, 'warning', 'DANGEROUS_DYNAMIC_CODE', 'Dynamic code execution or document.write was detected. Review the source and remove it unless a narrowly justified, trusted use is required.', filePath);
+    }
+    if (/\.(?:innerHTML|outerHTML)\s*=|\.insertAdjacentHTML\s*\(|dangerouslySetInnerHTML/i.test(content)) {
+      addFinding(findings, 'warning', 'UNSAFE_HTML_SINK', 'An HTML injection sink was detected. Ensure all untrusted content is escaped or sanitized before it reaches the DOM.', filePath);
+    }
+    if (/\b(?:src|href)\s*=\s*['"]http:\/\/|url\(\s*['"]?http:\/\//i.test(content)) {
+      addFinding(findings, 'warning', 'INSECURE_HTTP_RESOURCE', 'An HTTP resource reference was detected and may create mixed-content or transport-security risks.', filePath);
+    }
+    if (/\bpostMessage\s*\([\s\S]{0,220}?,\s*['"]\*['"]\s*\)/i.test(content)) {
+      addFinding(findings, 'warning', 'WILDCARD_POSTMESSAGE', 'A postMessage call uses a wildcard target origin. Restrict messages to the expected origin and validate message contents.', filePath);
+    }
   }
 
   for (const [filePath, content] of cssEntries) {
@@ -769,9 +781,13 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
       }
     }
     for (const match of html.matchAll(/<script\b[^>]*>/gi)) {
-      const src = attr(match[0], 'src');
+      const tag = match[0];
+      const src = attr(tag, 'src');
       if (src && !isExternal(src) && !findLocalFile(filePath, src, pathsByLower)) {
         addFinding(findings, 'blocker', 'SCRIPT_UNRESOLVED', 'A referenced local script is missing from the exported files.', filePath);
+      }
+      if (src && isExternal(src) && !attr(tag, 'integrity')) {
+        addFinding(findings, 'warning', 'EXTERNAL_SCRIPT_NO_SRI', 'An external script has no Subresource Integrity attribute. Pin and integrity-protect third-party scripts where the provider supports it.', filePath);
       }
     }
   }
