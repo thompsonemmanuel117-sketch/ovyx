@@ -356,6 +356,9 @@
       var id = clean(asset.id || asset.assetId || 'asset-' + (index + 1), 100);
       var originalName = clean(asset.name || 'asset-' + (index + 1), 180);
       var filename = originalName.replace(/[^A-Za-z0-9._-]/g, '_').replace(/^\.+/, '').slice(0, 150) || ('asset-' + (index + 1));
+      var typeHint = String(asset.contentType || asset.type || '').toLowerCase().split(';')[0].trim();
+      var mimeExtensions = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg', 'image/avif': 'avif', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'video/mp4': 'mp4', 'video/webm': 'webm', 'application/pdf': 'pdf', 'font/woff': 'woff', 'font/woff2': 'woff2' };
+      if (!/\.[A-Za-z0-9]{1,10}$/.test(filename) && mimeExtensions[typeHint]) filename += '.' + mimeExtensions[typeHint];
       var expectedSize = Number(asset.size);
       if (!asset.storagePath) {
         result.excluded.push({ path: originalName, reason: 'asset metadata has no storage path' });
@@ -481,11 +484,15 @@
       var sourceText = new TextDecoder().decode(file.bytes);
       assetUrlMappings.forEach(function (mapping) {
         var relative = relativeArchivePath(file.path, mapping.archivePath);
-        var count = sourceText.split(mapping.sourceUrl).length - 1;
-        if (!count) return;
-        sourceText = sourceText.split(mapping.sourceUrl).join(relative);
-        mapping.record.referenceRewriteCount += count;
-        rewrittenReferences += count;
+        var variants = [mapping.sourceUrl, mapping.sourceUrl.replace(/&/g, '&amp;')];
+        variants.forEach(function (sourceVariant) {
+          if (!sourceVariant) return;
+          var count = sourceText.split(sourceVariant).length - 1;
+          if (!count) return;
+          sourceText = sourceText.split(sourceVariant).join(relative);
+          mapping.record.referenceRewriteCount += count;
+          rewrittenReferences += count;
+        });
       });
       if (sourceText !== new TextDecoder().decode(file.bytes)) file.bytes = utf8(sourceText);
     });
