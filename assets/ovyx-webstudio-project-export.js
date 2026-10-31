@@ -7,6 +7,8 @@
   var MAX_FILES = 800;
   var MAX_FILE_BYTES = 8 * 1024 * 1024;
   var MAX_TOTAL_BYTES = 80 * 1024 * 1024;
+  var MAX_BINARY_ASSET_BYTES = 25 * 1024 * 1024;
+  var MAX_PROJECT_ASSETS = 200;
   var CRC_TABLE = null;
 
   function clean(value, max) {
@@ -300,6 +302,82 @@
       liveBuildVerified: false,
       note: 'OVYX preserves the generated project structure and reports framework-aware setup guidance. This profile does not install dependencies, scaffold missing files, execute a build, or verify a live deployment.',
     };
+  }
+
+  async function collectProjectAssets(project, mode) {
+    var result = { files: [], excluded: [], available: false, listedCount: 0, mode: mode };
+    if (mode === 'backend-only') {
+      result.excluded.push({ path: 'project assets', reason: 'binary project assets are excluded from backend-only archives by design' });
+      return result;
+    }
+    var store = window.OVYXAssetStore;
+    var projectId = String(project && project.id || '').trim();
+    if (!projectId || !store || typeof store.list !== 'function' || typeof store.url !== 'function') {
+      result.excluded.push({ path: 'project assets', reason: 'authenticated project asset storage is unavailable in this session' });
+      return result;
+    }
+    var assets;
+    try {
+      assets = await store.list(projectId);
+      result.available = true;
+    } catch (error) {
+      result.excluded.push({ path: 'project assets', reason: 'asset listing failed: ' + clean(error && error.message || 'storage unavailable', 160) });
+      return result;
+    }
+    assets = Array.isArray(assets) ? assets : [];
+    result.listedCount = assets.length;
+    if (assets.length > MAX_PROJECT_ASSETS) {
+      result.excluded.push({ path: 'project assets', reason: 'asset listing capped at ' + MAX_PROJECT_ASSETS + ' of ' + assets.length + ' stored assets' });
+      assets = assets.slice(0, MAX_PROJECT_ASSETS);
+    }
+    var total = 0;
+    for (var index = 0; index < assets.length; index += 1) {
+      var asset = assets[index] || {};
+      var id = clean(asset.id || asset.assetId || 'asset-' + (index + 1), 100);
+      var originalName = clean(asset.name || 'asset-' + (index + 1), 180);
+      var filename = originalName.replace(/[^A-Za-z0-9._-]/g, '_').replace(/^\.+/, '').slice(0, 150) || ('asset-' + (index + 1));
+      var expectedSize = Number(asset.size);
+      if (!asset.storagePath) {
+        result.excluded.push({ path: originalName, reason: 'asset metadata has no storage path' });
+        continue;
+      }
+      if (Number.isFinite(expectedSize) && expectedSize > MAX_BINARY_ASSET_BYTES) {
+        result.excluded.push({ path: originalName, reason: 'asset exceeds the 25 MB per-binary export limit' });
+        continue;
+      }
+      try {
+        var downloadUrl = await store.url(asset);
+        if (!downloadUrl) throw new Error('No authorized download URL was returned.');
+        var fetcher = typeof window.fetch === 'function' ? window.fetch.bind(window) : (typeof fetch === 'function' ? fetch : null);
+        if (!fetcher) throw new Error('Browser fetch is unavailable.');
+        var response = await fetcher(downloadUrl, { method: 'GET', credentials: 'omit', cache: 'no-store' });
+        if (!response || !response.ok) throw new Error('Asset download returned HTTP ' + (response && response.status || 'unknown') + '.');
+        var blob = await response.blob();
+        if (!blob || !blob.size) throw new Error('The stored asset returned an empty file.');
+        if (blob.size > MAX_BINARY_ASSET_BYTES) throw new Error('Asset exceeds the 25 MB per-binary export limit.');
+        if (total + blob.size > MAX_TOTAL_BYTES) throw new Error('Binary assets reached the 80 MB project export limit.');
+        var assetPath = safePath('assets/' + slug(id) + '/' + filename);
+        if (!assetPath) throw new Error('Asset filename could not be made safe for ZIP export.');
+        var bytes = new Uint8Array(await blob.arrayBuffer());
+        var contentType = clean(response.headers && response.headers.get && response.headers.get('content-type') || asset.contentType || asset.type || blob.type || 'application/octet-stream', 160);
+        result.files.push({
+          path: assetPath,
+          bytes: bytes,
+          asset: {
+            id: id,
+            name: originalName,
+            contentType: contentType,
+            size: bytes.byteLength,
+            archivePath: assetPath,
+          },
+          sourceUrl: String(downloadUrl),
+        });
+        total += bytes.byteLength;
+      } catch (error) {
+        result.excluded.push({ path: originalName, reason: clean(error && error.message || 'asset download failed', 220) });
+      }
+    }
+    return result;
   }
 
   function readExportFiles(graph, project, options) {
