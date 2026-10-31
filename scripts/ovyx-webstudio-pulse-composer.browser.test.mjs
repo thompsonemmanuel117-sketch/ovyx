@@ -8,7 +8,9 @@ try {
     { name: 'desktop', viewport: { width: 1440, height: 900 } },
     { name: 'mobile', viewport: { width: 390, height: 844 } },
   ]) {
+    console.log('[' + target.name + '] checkpoint: viewport started');
     const page = await browser.newPage({ viewport: target.viewport });
+    page.on('console', message => console.log('[' + target.name + '] browser console: ' + message.type() + ' ' + message.text()));
     page.setDefaultTimeout(20000);
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
@@ -95,6 +97,7 @@ try {
     assert.equal(await popover.locator('[data-ws-pulse-action="selection"]').isVisible(), true, '[' + target.name + '] selected-element helper must be accessible inside Pulse.');
     assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must be accessible inside Pulse.');
 
+    console.log('[' + target.name + '] checkpoint: mode selection');
     // Trace each mode through the real handler, not just the presence of the button.
     for (const expectedMode of ['build', 'plan', 'ask', 'fix']) {
       if (await popover.isHidden()) await pulse.click();
@@ -105,6 +108,7 @@ try {
       await page.waitForFunction(() => document.getElementById('ws-pulse-popover')?.hidden === true);
     }
 
+    console.log('[' + target.name + '] checkpoint: agent settings');
     // The AI settings control must open its own popover, close Pulse, persist a
     // useful response-depth value, and apply a real provider selection.
     await pulse.click();
@@ -133,6 +137,7 @@ try {
     assert.equal(await page.locator('#ws-brain-label').innerText(), 'Cloudflare',
       '[' + target.name + '] the composer must identify the actual managed Cloudflare engine.');
 
+    console.log('[' + target.name + '] checkpoint: project fixture and context');
     // Seed a disposable browser-only project when the shell is in its no-project
     // state. This validates that the map lists real source paths, not just an empty UI.
     await page.evaluate(() => {
@@ -177,6 +182,7 @@ try {
     await page.locator('#ovyx-code-back').click();
     await page.waitForFunction(() => document.getElementById('ws-code-workspace')?.hidden === true);
 
+    console.log('[' + target.name + '] checkpoint: selected-element actions');
     // Without a selection the tool activates the existing Visual Select flow;
     // with a selection it prepares a prompt targeted at that element.
     await page.evaluate(() => { window.WebStudio.selectedElement = null; });
@@ -195,6 +201,7 @@ try {
       '[' + target.name + '] selected-element action must switch to Build mode.');
 
 
+    console.log('[' + target.name + '] checkpoint: image and clear actions');
     // Menu actions close Pulse when selected, so reopen it before testing
     // the next action just as a real user would.
     await pulse.click();
@@ -223,6 +230,7 @@ try {
     assert.equal(await input.inputValue(), '',
       '[' + target.name + '] Clear draft must clear the prompt without touching the project.');
 
+    console.log('[' + target.name + '] checkpoint: PDF upload');
     // OVYX protects project attachments behind the same signed-in session gate as generation.
     // Establish the test identity before exercising the real file-picker/change handler.
     await page.evaluate(() => {
@@ -241,6 +249,7 @@ try {
     assert.equal(await popover.isVisible(), false, '[' + target.name + '] Pulse should close after a file has been selected.');
     // Keep the PDF staged so we can verify that removing the image leaves other files untouched.
 
+    console.log('[' + target.name + '] checkpoint: image upload and preview');
     // Any supported attachment should get a large staged preview, not only a tiny chip.
     await pulse.click();
     const [imageChooser] = await Promise.all([
@@ -271,12 +280,21 @@ try {
     assert.equal(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').count(), 0,
       '[' + target.name + '] removing the last attachment should clear the gallery.');
 
+    console.log('[' + target.name + '] checkpoint: clear-draft isolation');
     // Clear draft is deliberately scoped to the composer; project source files stay intact.
     await input.fill('This draft should be cleared.');
-    await page.evaluate(async () => {
-      const W = window.WebStudio;
-      await W.setAttachments([new File(['temporary attachment'], 'clear-me.txt', { type: 'text/plain' })]);
-      window.__pulseProjectFileListBeforeClear = Object.keys(W.graph?.files || {}).sort();
+    // Stage the fixture through the real file picker. A synthetic File passed
+    // directly into an awaited page.evaluate can leave Chromium's FileReader
+    // promise pending in headless CI, even though the actual picker path works.
+    await pulse.click();
+    const [clearDraftChooser] = await Promise.all([
+      page.waitForEvent('filechooser', { timeout: 10000 }),
+      popover.locator('#ws-attach-btn').click()
+    ]);
+    await clearDraftChooser.setFiles({ name: 'clear-me.txt', mimeType: 'text/plain', buffer: Buffer.from('temporary attachment') });
+    await page.waitForFunction(() => /clear-me\.txt/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+    await page.evaluate(() => {
+      window.__pulseProjectFileListBeforeClear = Object.keys(window.WebStudio?.graph?.files || {}).sort();
     });
     await pulse.click();
     await popover.locator('[data-ws-pulse-action="clear"]').click();
@@ -450,6 +468,7 @@ try {
     await page.locator('#ws-voice-note-panel').waitFor({state:'hidden'});
     await page.unroute('**/api/ai/transcribe');
 
+    console.log('[' + target.name + '] checkpoint: voice cancellation and AI stop');
     // Stop must abort the in-flight AI response and restore the same button to Send.
     await page.evaluate(() => {
       window.__ovyxStopTest = { started: false, aborted: false };
@@ -476,6 +495,7 @@ try {
     assert.equal(await page.evaluate(() => window.WebStudio.pendingBuild), false,
       '[' + target.name + '] pressing stop must clear the active thinking state.');
     
+    console.log('[' + target.name + '] checkpoint: image action and composer growth');
     await pulse.click();
     await popover.locator('[data-ws-pulse-action="image"]').click();
     assert.match(await input.inputValue(), /^Create an image of\s*$/, '[' + target.name + '] Create image should prepare a normal chat prompt, not open a separate studio.');
@@ -489,6 +509,7 @@ try {
     const visibleToolButtons = await page.locator('#ws-chat-composer .ovyx-ws-tools-left > button:visible').evaluateAll(nodes => nodes.map(node => node.id));
     assert.deepEqual(visibleToolButtons, ['ws-pulse-trigger', 'ws-composer-mic'], '[' + target.name + '] only pulse and microphone should remain outside the pulse menu.');
 
+    console.log('[' + target.name + '] checkpoint: generated image action');
     // Route the real chat action to the existing image endpoint with a tiny
     // fixture image; the test validates UI wiring without consuming AI quota.
     await page.route('**/api/ai/image-generation', async route => {
@@ -516,15 +537,63 @@ try {
     assert.ok(generatedImageSrc && generatedImageSrc.startsWith('data:image/png;base64,'),
       '[' + target.name + '] image requests must render inside the existing chat.');
 
-    await page.evaluate(async () => {
-      const W = window.WebStudio;
-      await W.setAttachments([new File(['keep this existing brief'], 'site-brief.txt', { type: 'text/plain' })]);
-    });
+    // Use the real file picker here too; do not await a synthetic FileReader
+    // created inside page.evaluate, which can remain pending in headless CI.
+    await pulse.click();
+    const [siteBriefChooser] = await Promise.all([
+      page.waitForEvent('filechooser', { timeout: 10000 }),
+      popover.locator('#ws-attach-btn').click()
+    ]);
+    await siteBriefChooser.setFiles({ name: 'site-brief.txt', mimeType: 'text/plain', buffer: Buffer.from('keep this existing brief') });
+    await page.waitForFunction(() => /site-brief\.txt/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
     assert.match(await page.locator('#ws-attachment-strip').innerText(), /site-brief\.txt/,
       '[' + target.name + '] fixture attachment must be staged before using the generated image.');
 
-    await page.locator('#ws-agent-thread [data-ovyx-use-generated-image]').click();
-    await page.waitForSelector('#ws-attachment-strip:not([hidden]) .ovyx-ws-attachment-chip', { state: 'visible' });
+    await page.evaluate(() => {
+      const W = window.WebStudio;
+      if (W && typeof W.renderAttachments === 'function' && !W.renderAttachments.__ovyxDiagnosticWrapped) {
+        const original = W.renderAttachments;
+        const wrapped = function () {
+          console.log('[OVYX generated-image diagnostic] renderAttachments entered');
+          const result = original.apply(this, arguments);
+          console.log('[OVYX generated-image diagnostic] renderAttachments returned');
+          return result;
+        };
+        wrapped.__ovyxDiagnosticWrapped = true;
+        W.renderAttachments = wrapped;
+      }
+    });
+    console.log('[' + target.name + '] generated-image action: click dispatch starting');
+    try {
+      await Promise.race([
+        page.locator('#ws-agent-thread [data-ovyx-use-generated-image]').click({ timeout: 8000, noWaitAfter: true }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Generated-image action did not return within 12 seconds; browser main-thread or click handler may be blocked.')), 12000))
+      ]);
+    } catch (error) {
+      const diagnostic = await Promise.race([
+        page.evaluate(() => ({
+          buttonCount: document.querySelectorAll('#ws-agent-thread [data-ovyx-use-generated-image]').length,
+          attachmentStripHidden: document.getElementById('ws-attachment-strip')?.hidden,
+          attachmentNames: (window.WebStudio?.attachments || []).map(item => item.name),
+          promptValue: document.getElementById('ws-chat-input')?.value,
+        })).catch(e => ({ pageEvaluationError: String(e?.message || e) })),
+        new Promise(resolve => setTimeout(() => resolve({ pageEvaluationError: 'Page evaluation timed out because the browser renderer is unresponsive.' }), 1500))
+      ]);
+      console.error('[' + target.name + '] generated-image click diagnostic: ' + JSON.stringify(diagnostic));
+      throw error;
+    }
+    console.log('[' + target.name + '] generated-image action: click dispatch returned');
+    const generatedImageDiagnostic = await page.evaluate(() => ({
+      attachmentNames: (window.WebStudio?.attachments || []).map(item => item.name),
+      attachmentCount: window.WebStudio?.attachments?.length || 0,
+      attachmentStripHidden: document.getElementById('ws-attachment-strip')?.hidden,
+      attachmentStripHtml: document.getElementById('ws-attachment-strip')?.innerHTML?.slice(0, 1800) || '',
+      imageStoreKeys: Object.keys(window.__OVYXGeneratedChatImages || {}),
+      generatedButtonId: document.querySelector('#ws-agent-thread [data-ovyx-use-generated-image]')?.getAttribute('data-ovyx-use-generated-image') || ''
+    })).catch(error => ({ diagnosticError: String(error?.message || error) }));
+    console.log('[' + target.name + '] generated-image post-click state: ' + JSON.stringify(generatedImageDiagnostic));
+    await page.waitForSelector('#ws-attachment-strip:not([hidden]) .ovyx-ws-attachment-chip', { state: 'visible', timeout: 8000 });
+    console.log('[' + target.name + '] generated-image action: attachment strip updated');
     const stagedAttachmentText = await page.locator('#ws-attachment-strip').innerText();
     assert.match(stagedAttachmentText, /site-brief\.txt/,
       '[' + target.name + '] using a generated image must preserve existing file attachments.');
@@ -535,6 +604,7 @@ try {
     assert.equal(await page.locator('#ws-mode-trigger-label').textContent(), 'Build',
       '[' + target.name + '] using the image must return the composer to Build mode.');
 
+    console.log('[' + target.name + '] checkpoint: embedded code editor');
     await pulse.click();
     await popover.locator('[data-ws-pulse-action="code"]').click();
     await page.waitForFunction(() => {

@@ -221,7 +221,10 @@ function buildJourneyEvidence(requirements, allSource, htmlEntries, cssEntries, 
   const hasResponsive = /name\s*=\s*["']viewport/i.test(html) && /@media\b/i.test(css);
   const hasTable = /<table\b/i.test(html);
   const hasHorizontalTableScroll = hasTable && /overflow-x\s*:\s*(?:auto|scroll)|overflow\s*:\s*(?:auto|scroll)/i.test(css);
-  const hasDetailEvidence = htmlEntries.length > 1 && /(?:product|property|project|case-study|details?)/i.test(html + '\n' + htmlEntries.map(([path]) => path).join('\n'));
+  const detailRoutePattern = /(?:^|\/)(?:products?|properties|projects?|case-studies?|work|details?)(?:\/|$)/i;
+  const hasDetailEvidence = htmlEntries.some(([filePath]) => detailRoutePattern.test(String(filePath || '').replace(/\\/g, '/')))
+    || /<a\b[^>]*href\s*=\s*["'][^"']*(?:product|property|project|case-study|detail)[^"']*["'][^>]*>[\s\S]*?<\/a\s*>/i.test(html)
+    || /<a\b[^>]*>[\s\S]*?(?:case study|project detail|product details?|view project|view property)[\s\S]*?<\/a\s*>/i.test(html);
   const hasNav = /<nav\b/i.test(html) && /<a\b[^>]*href\s*=/i.test(html);
   const hasPricingRoute = /href\s*=\s*["'][^"']*pricing[^"']*["']/i.test(html) || htmlEntries.some(([path]) => /pricing/i.test(path));
   const hasServiceRoute = /href\s*=\s*["'][^"']*services?[^"']*["']/i.test(html) || htmlEntries.some(([path]) => /services?/i.test(path));
@@ -231,7 +234,6 @@ function buildJourneyEvidence(requirements, allSource, htmlEntries, cssEntries, 
   const hasVisibleAction = /<(?:button|a)\b[^>]*>[\s\S]*?(?:contact|enquire|inquire|book|reserve|start|continue|request|send|view|explore|sign in|subscribe)[\s\S]*?<\/(?:button|a)\s*>/i.test(html);
   const hasCollectionLinks = /(?:collection|lookbook|product)/i.test(html) && /<a\b[^>]*href\s*=/i.test(html);
   const definitions = [
-    { re: /\b(?:multi-page navigation|marketing navigation|route navigation|navigation|navigate|nav links?)\b/i, test: () => hasNav, signals: ['semantic nav and href links'] },
     { re: /\b(?:pricing routes?)\b/i, test: () => hasPricingRoute, signals: ['pricing route/file or internal link'] },
     { re: /\b(?:filters?|filtering|sorting|sort(?:ing)?)\b/i, test: () => hasFilter, signals: ['filter/sort evidence plus control or event signal'] },
     { re: /\bsearch\b/i, test: () => hasSearch, signals: ['search input/role or search source reference'] },
@@ -242,7 +244,7 @@ function buildJourneyEvidence(requirements, allSource, htmlEntries, cssEntries, 
     { re: /\b(?:cart|quantity|add to cart|cart state|checkout)\b/i, test: () => hasCartActions && (hasEvents || /<button\b/i.test(html)), signals: ['cart action and button/event source'] },
     { re: /\b(?:size selection|size selector|variant)\b/i, test: () => /(?:size|variant)/i.test(html + scripts) && /<select\b|type\s*=\s*["']?radio|addEventListener\s*\(/i.test(html + scripts), signals: ['size/variant source plus selection control/event'] },
     { re: /\b(?:date|guest controls|availability|booking flow|date\/guest controls)\b/i, test: () => hasDateOrGuest, signals: ['date/time input or availability/guest-control source'] },
-    { re: /\b(?:product detail|property detail|project detail|case-study navigation|detail links?|project detail)\b/i, test: () => hasDetailEvidence || /(?:product|property|project|case-study|details?)/i.test(html + scripts) && /<a\b[^>]*href\s*=/i.test(html), signals: ['detail route/copy and links'] },
+    { re: /\b(?:product detail|property detail|project detail|case-study navigation|detail links?|project detail)\b/i, test: () => hasDetailEvidence, signals: ['detail route/copy and links'] },
     { re: /\b(?:project index|project archive)\b/i, test: () => /(?:project|work|portfolio)/i.test(html + '\n' + htmlEntries.map(([path]) => path).join('\n')) && /<a\b[^>]*href\s*=/i.test(html), signals: ['project/work source and links'] },
     { re: /\b(?:table overflow|data table)\b/i, test: () => hasHorizontalTableScroll, signals: ['HTML table plus overflow handling in CSS'] },
     { re: /\b(?:review step)\b/i, test: () => hasReviewStep, signals: ['review-step or step-indicator source signal'] },
@@ -251,6 +253,7 @@ function buildJourneyEvidence(requirements, allSource, htmlEntries, cssEntries, 
     { re: /\b(?:keyboard use|keyboard-accessible|keyboard navigation)\b/i, test: () => hasKeyboardEvidence, signals: ['focus CSS or keyboard semantics'] },
     { re: /\b(?:collection navigation)\b/i, test: () => hasCollectionLinks, signals: ['collection/product text plus internal links'] },
     { re: /\b(?:mobile navigation)\b/i, test: () => hasMobileNav, signals: ['navigation plus mobile menu disclosure signal'] },
+    { re: /\b(?:multi-page navigation|marketing navigation|route navigation|navigation|navigate|nav links?)\b/i, test: () => hasNav, signals: ['semantic nav and href links'] },
     { re: /\b(?:responsive editorial layout|mobile property-card layout|tablet dashboard layout|mobile layout)\b/i, test: () => hasResponsive, signals: ['viewport declaration and responsive media CSS'] },
   ];
   return (Array.isArray(requirements) ? requirements : []).map(requirement => {
@@ -456,7 +459,7 @@ function buildDeploymentIntelligence(files, filePaths) {
   const hasServerEntry = backendPaths.length > 0 || /(?:export\s+(?:async\s+)?function\s+(?:GET|POST|PUT|PATCH|DELETE)|app\.(?:get|post|put|patch|delete)\s*\(|createServer\s*\()/i.test(source);
   const requiresServerRuntime = hasServerEntry || framework === 'Remix';
   const runtimeProfile = requiresServerRuntime ? 'full-stack-server-runtime'
-    : frameworkDetected ? 'frontend-framework-build'
+    : frameworkDetected && framework !== 'Static HTML/CSS/JavaScript' ? 'frontend-framework-build'
       : htmlPages.length ? 'static-site' : 'unknown-project';
   const integrationSource = packagePaths.length
     ? packagePaths.map(packageFile => String(files[packageFile] || '')).join('\n').toLowerCase() + '\n' + source

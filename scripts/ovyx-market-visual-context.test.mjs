@@ -45,8 +45,10 @@ assert.equal(brief.visualAssetPlan.imageHeavy, false, 'a property-oriented brief
 assert.equal(brief.visualAssetPlan.motionRequested, true);
 assert.match(brief.designIntelligence.industryOrUseCase, /not classified into an industry/i);
 
-const gateway = await fs.readFile(new URL('../functions/api/ai/gateway.js', import.meta.url), 'utf8');
-assert.match(gateway, /marketContext:\s*experience\?\.marketContext/);
-assert.match(gateway, /visualAssetPlan:\s*experience\?\.visualAssetPlan/);
-assert.match(gateway, /designIntelligence:\s*experience\?\.designIntelligence/);
-console.log('OVYX market context and visual asset planning tests passed through the production multi-page gateway.');
+for (const route of ['assistant', 'gateway']) {
+  const source = await fs.readFile(new URL('../functions/api/ai/' + route + '.js', import.meta.url), 'utf8');
+  assert.match(source, /marketContext:\s*experience\?\.marketContext/, route + ' must pass market context into multi-page generation.');
+  assert.match(source, /visualAssetPlan:\s*experience\?\.visualAssetPlan/, route + ' must pass the visual asset plan into multi-page generation.');
+  assert.match(source, /designIntelligence:\s*experience\?\.designIntelligence/, route + ' must pass design intelligence into multi-page generation.');
+}
+console.log('OVYX market context and visual asset planning tests passed through both Assistant and Gateway generation routes.');

@@ -48,7 +48,7 @@ assert.match(modalities, /SpeechRecognition/);
 assert.match(modalities, /Image uploads.*not.*generated images|uploads.*visual references.*generated images/i, 'Image uploads and visual asset references must never be mistaken for generated images.');
 
 const websiteEngineKnowledge = buildOvyxProjectKnowledge('Explain the unified website engine, prompt contract, framework ZIP export and design intelligence.');
-assert.match(websiteEngineKnowledge, /website-engine\\.js/);
+assert.match(websiteEngineKnowledge, /website-engine\.js/);
 assert.match(websiteEngineKnowledge, /serializeWebsiteEngineModelPlan|bounded, valid JSON architecture/i);
 assert.match(websiteEngineKnowledge, /complete original user brief|complete.*brief/i);
 assert.match(websiteEngineKnowledge, /framework-aware|framework profile/i);
