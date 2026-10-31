@@ -314,7 +314,7 @@ export async function onRequestPost(context) {
             promptContract,
             websiteEnginePlan,
           }).slice(0, 16000),
-          qualityContract: WEB_STUDIO_EXCELLENCE + '\\n\\n' + websiteEngineInstructions + '\\n\\n' + globalAIIdentityDirective,
+          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' + websiteEngineInstructions + '\n\n' + globalAIIdentityDirective,
         },
         modelOptions: {
           provider: String(payload.provider || 'automatic').toLowerCase(),
@@ -324,7 +324,7 @@ export async function onRequestPost(context) {
           taskPrompt: payload.prompt || payload.message || messages[messages.length - 1]?.content || '',
           model: payload.model,
           system,
-          user: isWebStudio && projectContext ? combined + '\\n\\nPROJECT CONTEXT:\\n' + projectContext : combined,
+          user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
           authUser: user,
           maxTokens: isWebStudio
             ? Math.min(Number(payload.maxTokens || 24000), 24000)
