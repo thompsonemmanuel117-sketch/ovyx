@@ -3,11 +3,17 @@ import { chromium } from 'playwright';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || 'http://127.0.0.1:8789').trim();
 const browser = await chromium.launch({ headless: true });
+let lastCheckpoint = 'browser launch';
+const testWatchdog = setTimeout(() => {
+  console.error('[pulse-composer] hard timeout after 5 minutes; last checkpoint: ' + lastCheckpoint);
+  process.exit(1);
+}, 5 * 60 * 1000);
 try {
   for (const target of [
     { name: 'desktop', viewport: { width: 1440, height: 900 } },
     { name: 'mobile', viewport: { width: 390, height: 844 } },
   ]) {
+    lastCheckpoint = target.name + ': viewport started';
     console.log('[' + target.name + '] checkpoint: viewport started');
     const page = await browser.newPage({ viewport: target.viewport });
     page.on('console', message => console.log('[' + target.name + '] browser console: ' + message.type() + ' ' + message.text()));
@@ -97,6 +103,7 @@ try {
     assert.equal(await popover.locator('[data-ws-pulse-action="selection"]').isVisible(), true, '[' + target.name + '] selected-element helper must be accessible inside Pulse.');
     assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must be accessible inside Pulse.');
 
+    lastCheckpoint = target.name + ': mode selection';
     console.log('[' + target.name + '] checkpoint: mode selection');
     // Trace each mode through the real handler, not just the presence of the button.
     for (const expectedMode of ['build', 'plan', 'ask', 'fix']) {
@@ -108,6 +115,7 @@ try {
       await page.waitForFunction(() => document.getElementById('ws-pulse-popover')?.hidden === true);
     }
 
+    lastCheckpoint = target.name + ': agent settings';
     console.log('[' + target.name + '] checkpoint: agent settings');
     // The AI settings control must open its own popover, close Pulse, persist a
     // useful response-depth value, and apply a real provider selection.
@@ -137,6 +145,7 @@ try {
     assert.equal(await page.locator('#ws-brain-label').innerText(), 'Cloudflare',
       '[' + target.name + '] the composer must identify the actual managed Cloudflare engine.');
 
+    lastCheckpoint = target.name + ': project fixture and context';
     console.log('[' + target.name + '] checkpoint: project fixture and context');
     // Seed a disposable browser-only project when the shell is in its no-project
     // state. This validates that the map lists real source paths, not just an empty UI.
@@ -182,6 +191,7 @@ try {
     await page.locator('#ovyx-code-back').click();
     await page.waitForFunction(() => document.getElementById('ws-code-workspace')?.hidden === true);
 
+    lastCheckpoint = target.name + ': selected-element actions';
     console.log('[' + target.name + '] checkpoint: selected-element actions');
     // Without a selection the tool activates the existing Visual Select flow;
     // with a selection it prepares a prompt targeted at that element.
@@ -201,6 +211,7 @@ try {
       '[' + target.name + '] selected-element action must switch to Build mode.');
 
 
+    lastCheckpoint = target.name + ': image and clear actions';
     console.log('[' + target.name + '] checkpoint: image and clear actions');
     // Menu actions close Pulse when selected, so reopen it before testing
     // the next action just as a real user would.
@@ -225,14 +236,18 @@ try {
       '[' + target.name + '] selected-element prompt must preserve responsive/project constraints.');
 
     await input.fill('draft to clear');
+    lastCheckpoint = target.name + ': clear-draft reopening menu';
     console.log('[' + target.name + '] clear-draft: reopening menu');
     await pulse.click();
+    lastCheckpoint = target.name + ': clear-draft menu reopened';
     console.log('[' + target.name + '] clear-draft: menu reopened');
     await popover.locator('[data-ws-pulse-action="clear"]').click();
+    lastCheckpoint = target.name + ': clear-draft clear action clicked';
     console.log('[' + target.name + '] clear-draft: clear action clicked');
     assert.equal(await input.inputValue(), '',
       '[' + target.name + '] Clear draft must clear the prompt without touching the project.');
 
+    lastCheckpoint = target.name + ': PDF upload';
     console.log('[' + target.name + '] checkpoint: PDF upload');
     // OVYX protects project attachments behind the same signed-in session gate as generation.
     // Establish the test identity before exercising the real file-picker/change handler.
@@ -252,6 +267,7 @@ try {
     assert.equal(await popover.isVisible(), false, '[' + target.name + '] Pulse should close after a file has been selected.');
     // Keep the PDF staged so we can verify that removing the image leaves other files untouched.
 
+    lastCheckpoint = target.name + ': image upload and preview';
     console.log('[' + target.name + '] checkpoint: image upload and preview');
     // Any supported attachment should get a large staged preview, not only a tiny chip.
     await pulse.click();
@@ -283,44 +299,57 @@ try {
     assert.equal(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').count(), 0,
       '[' + target.name + '] removing the last attachment should clear the gallery.');
 
+    lastCheckpoint = target.name + ': clear-draft isolation';
     console.log('[' + target.name + '] checkpoint: clear-draft isolation');
     // Clear draft is deliberately scoped to the composer; project source files stay intact.
+    lastCheckpoint = target.name + ': clear-draft filling draft';
     console.log('[' + target.name + '] clear-draft: filling draft');
     await input.fill('This draft should be cleared.');
+    lastCheckpoint = target.name + ': clear-draft draft filled';
     console.log('[' + target.name + '] clear-draft: draft filled');
     // Stage the fixture through the real file picker. A synthetic File passed
     // directly into an awaited page.evaluate can leave Chromium's FileReader
     // promise pending in headless CI, even though the actual picker path works.
+    lastCheckpoint = target.name + ': clear-draft opening pulse menu for upload';
     console.log('[' + target.name + '] clear-draft: opening pulse menu for upload');
     await pulse.click();
+    lastCheckpoint = target.name + ': clear-draft pulse menu opened';
     console.log('[' + target.name + '] clear-draft: pulse menu opened');
     const [clearDraftChooser] = await Promise.all([
       page.waitForEvent('filechooser', { timeout: 10000 }),
       popover.locator('#ws-attach-btn').click()
     ]);
+    lastCheckpoint = target.name + ': clear-draft chooser received';
     console.log('[' + target.name + '] clear-draft: chooser received');
     await clearDraftChooser.setFiles({ name: 'clear-me.txt', mimeType: 'text/plain', buffer: Buffer.from('temporary attachment') });
+    lastCheckpoint = target.name + ': clear-draft fixture file selected';
     console.log('[' + target.name + '] clear-draft: fixture file selected');
     await page.waitForFunction(() => /clear-me\.txt/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+    lastCheckpoint = target.name + ': clear-draft fixture rendered';
     console.log('[' + target.name + '] clear-draft: fixture rendered');
     await page.evaluate(() => {
       window.__pulseProjectFileListBeforeClear = Object.keys(window.WebStudio?.graph?.files || {}).sort();
     });
+    lastCheckpoint = target.name + ': clear-draft project files snapshotted';
     console.log('[' + target.name + '] clear-draft: project files snapshotted');
     await pulse.click();
     await popover.locator('[data-ws-pulse-action="clear"]').click();
     assert.equal(await input.inputValue(), '',
       '[' + target.name + '] Clear draft must empty the prompt.');
+    lastCheckpoint = target.name + ': clear-draft prompt assertion passed';
     console.log('[' + target.name + '] clear-draft: prompt assertion passed');
     assert.equal(await page.evaluate(() => window.WebStudio.attachments.length), 0,
       '[' + target.name + '] Clear draft must remove staged attachments.');
+    lastCheckpoint = target.name + ': clear-draft attachment assertion passed';
     console.log('[' + target.name + '] clear-draft: attachment assertion passed');
     assert.deepEqual(await page.evaluate(() => Object.keys(window.WebStudio.graph?.files || {}).sort()),
       await page.evaluate(() => window.__pulseProjectFileListBeforeClear),
       '[' + target.name + '] Clear draft must never remove or alter the project files.');
+    lastCheckpoint = target.name + ': clear-draft project integrity assertion passed';
     console.log('[' + target.name + '] clear-draft: project integrity assertion passed');
     assert.equal(await page.locator('#ws-attachment-preview-gallery').isHidden(), true,
       '[' + target.name + '] Clear draft should also clear the visual preview gallery.');
+    lastCheckpoint = target.name + ': clear-draft all assertions passed';
     console.log('[' + target.name + '] clear-draft: all assertions passed');
 
     // The mobile camera action uses the real image picker and appends, rather than replacing, files.
@@ -483,6 +512,7 @@ try {
     await page.locator('#ws-voice-note-panel').waitFor({state:'hidden'});
     await page.unroute('**/api/ai/transcribe');
 
+    lastCheckpoint = target.name + ': voice cancellation and AI stop';
     console.log('[' + target.name + '] checkpoint: voice cancellation and AI stop');
     // Stop must abort the in-flight AI response and restore the same button to Send.
     await page.evaluate(() => {
@@ -510,6 +540,7 @@ try {
     assert.equal(await page.evaluate(() => window.WebStudio.pendingBuild), false,
       '[' + target.name + '] pressing stop must clear the active thinking state.');
     
+    lastCheckpoint = target.name + ': image action and composer growth';
     console.log('[' + target.name + '] checkpoint: image action and composer growth');
     await pulse.click();
     await popover.locator('[data-ws-pulse-action="image"]').click();
@@ -524,6 +555,7 @@ try {
     const visibleToolButtons = await page.locator('#ws-chat-composer .ovyx-ws-tools-left > button:visible').evaluateAll(nodes => nodes.map(node => node.id));
     assert.deepEqual(visibleToolButtons, ['ws-pulse-trigger', 'ws-composer-mic'], '[' + target.name + '] only pulse and microphone should remain outside the pulse menu.');
 
+    lastCheckpoint = target.name + ': generated image action';
     console.log('[' + target.name + '] checkpoint: generated image action');
     // Route the real chat action to the existing image endpoint with a tiny
     // fixture image; the test validates UI wiring without consuming AI quota.
@@ -620,6 +652,7 @@ try {
     assert.equal(await page.locator('#ws-mode-trigger-label').textContent(), 'Build',
       '[' + target.name + '] using the image must return the composer to Build mode.');
 
+    lastCheckpoint = target.name + ': embedded code editor';
     console.log('[' + target.name + '] checkpoint: embedded code editor');
     await pulse.click();
     await popover.locator('[data-ws-pulse-action="code"]').click();
@@ -631,9 +664,11 @@ try {
       '[' + target.name + '] Open Code editor must open the embedded Code workspace.');
     await page.locator('#ovyx-code-back').click();
     await page.waitForFunction(() => document.getElementById('ws-code-workspace')?.hidden === true);
+    lastCheckpoint = target.name + ': all viewport assertions passed; closing page';
     await page.close();
   }
   console.log('OVYX Web Studio pulse composer browser checks passed on desktop and mobile.');
 } finally {
   await browser.close();
+  clearTimeout(testWatchdog);
 }
