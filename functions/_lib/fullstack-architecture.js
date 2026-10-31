@@ -370,7 +370,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   if (capabilities.backgroundWork) {
     const queueId = addNode(nodes, { id: 'background-outbox', type: 'background-workflow', name: 'Reliable background outbox', status: 'implementation-required', purpose: 'Process delivery and async work with bounded retries, dead-letter visibility and idempotency.' });
     addEdge(edges, projectId, queueId, 'runs-background-work');
-    for (const route of apiContracts.filter(item => ['contact', 'payments', 'booking'].includes(item.capability))) addEdge(edges, route.id, queueId, 'enqueues-after-commit');
+    for (const route of apiContracts.filter(item => ['contact', 'newsletter', 'payments', 'booking'].includes(item.capability))) addEdge(edges, route.id, queueId, 'enqueues-after-commit');
   }
   const requirementMappings = requirements.map(requirement => {
     const text = requirement.text;
