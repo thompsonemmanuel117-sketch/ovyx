@@ -52,10 +52,32 @@ const window = {
     };
   },
   addEventListener() {},
+  setTimeout() {},
+  showToast(message, kind) { window.lastToast = { message, kind }; },
 };
-const document = { readyState: 'loading', addEventListener() {}, getElementById() { return null; } };
+let downloadedBlob = null;
+let downloadedName = '';
+const urlApi = {
+  createObjectURL(blob) { downloadedBlob = blob; return 'blob:ovyx-export-test'; },
+  revokeObjectURL() {},
+};
+const document = {
+  readyState: 'loading',
+  body: { appendChild() {} },
+  addEventListener() {},
+  getElementById() { return null; },
+  createElement() {
+    return {
+      style: {},
+      click() {},
+      remove() {},
+      set href(value) { this._href = value; },
+      set download(value) { downloadedName = value; },
+    };
+  },
+};
 vm.runInNewContext(runtime, {
-  window, document, TextEncoder, TextDecoder, Uint8Array, ArrayBuffer, DataView, Blob,
+  window, document, URL: urlApi, TextEncoder, TextDecoder, Uint8Array, ArrayBuffer, DataView, Blob,
   Date, JSON, Object, String, Math, RegExp, Error, Promise, Number, Array, Set, Map,
 });
 
@@ -108,6 +130,34 @@ assert.equal(preparedBackend.ok, true);
 assert.equal(preparedBackend.assetStorage.status, 'excluded-by-design');
 assert.ok(!preparedBackend.files.some(file => file.path.startsWith('assets/')));
 assert.equal(assetListCalls, 2, 'Backend-only export must not fetch website media.');
+
+await exporter.export({ mode: 'complete' });
+assert.ok(downloadedBlob instanceof Blob, 'Complete export must create a ZIP Blob.');
+assert.match(downloadedName, /-source-.*\.zip$/);
+const archiveBytes = new Uint8Array(await downloadedBlob.arrayBuffer());
+const archiveView = new DataView(archiveBytes.buffer);
+assert.equal(archiveView.getUint32(0, true), 0x04034B50, 'ZIP must begin with a valid local file header.');
+const archiveFiles = new Map();
+let archiveOffset = 0;
+while (archiveOffset + 30 <= archiveBytes.length && archiveView.getUint32(archiveOffset, true) === 0x04034B50) {
+  const compressedSize = archiveView.getUint32(archiveOffset + 18, true);
+  const nameLength = archiveView.getUint16(archiveOffset + 26, true);
+  const extraLength = archiveView.getUint16(archiveOffset + 28, true);
+  const nameStart = archiveOffset + 30;
+  const dataStart = nameStart + nameLength + extraLength;
+  const name = new TextDecoder().decode(archiveBytes.slice(nameStart, nameStart + nameLength));
+  archiveFiles.set(name, archiveBytes.slice(dataStart, dataStart + compressedSize));
+  archiveOffset = dataStart + compressedSize;
+}
+assert.ok(archiveFiles.has('assets/asset-12345678/hero.png'));
+assert.ok(archiveFiles.has('OVYX_EXPORT_MANIFEST.json'));
+const archivedHtml = new TextDecoder().decode(archiveFiles.get('index.html'));
+assert.match(archivedHtml, /assets\/asset-12345678\/hero\.png/);
+assert.doesNotMatch(archivedHtml, /secret-download-token/, 'Firebase download tokens must not leak into exported source.');
+const archivedManifest = JSON.parse(new TextDecoder().decode(archiveFiles.get('OVYX_EXPORT_MANIFEST.json')));
+assert.equal(archivedManifest.framework.name, 'Next.js');
+assert.equal(archivedManifest.assetStorage.includedCount, 1);
+assert.equal(archivedManifest.assetStorage.rewrittenReferences, 1);
 
 const unsupported = exporter.inspect({ mode: 'framework-only' });
 assert.equal(unsupported.ok, false);
