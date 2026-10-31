@@ -107,6 +107,15 @@ assert.equal(summary.architectureStatus, 'planned-not-provisioned');
 assert.ok(summary.apiContractCount > 0);
 assert.equal(summary.graph.valid, true);
 
+const explicitFullStackBrief = 'Build a full-stack business website with a custom backend, database and server-rendered pages. Do not add checkout or user accounts unless a later requirement asks for them.';
+const explicitFullStack = buildFullStackArchitecture(explicitFullStackBrief, buildPromptContract(explicitFullStackBrief));
+assert.equal(explicitFullStack.capabilities.fullStackRequested, true);
+assert.equal(explicitFullStack.capabilities.backend, true);
+assert.equal(explicitFullStack.capabilities.database, true);
+assert.ok(explicitFullStack.integrations.some(item => item.capability === 'database'));
+assert.equal(explicitFullStack.capabilities.payments, false);
+assert.equal(explicitFullStack.capabilities.authentication, false);
+
 const simpleBrief = 'Build a one-page personal portfolio with an about section and project gallery.';
 const simple = buildFullStackArchitecture(simpleBrief, buildPromptContract(simpleBrief));
 assert.equal(simple.capabilities.frontend, true);
