@@ -143,6 +143,14 @@ assert.equal(roleAccess.capabilities.authorization, true);
 assert.ok(roleAccess.dataModels.some(model => model.name === 'RoleAssignment'));
 
 
+const publicUploadBrief = 'Build a full-stack public media submission site with image uploads, moderation and a database, but no user login.';
+const publicUpload = buildFullStackArchitecture(publicUploadBrief, buildPromptContract(publicUploadBrief));
+const uploadRoute = publicUpload.apiContracts.find(route => route.path === '/api/assets' && route.method === 'POST');
+const assetReadRoute = publicUpload.apiContracts.find(route => route.path === '/api/assets/:assetId');
+assert.equal(publicUpload.capabilities.authentication, false);
+assert.equal(uploadRoute.authPolicy, 'public-with-abuse-controls-and-quarantine');
+assert.equal(assetReadRoute.authPolicy, 'public-only-for-explicitly-published-assets');
+
 const simpleBrief = 'Build a one-page personal portfolio with an about section and project gallery.';
 const simple = buildFullStackArchitecture(simpleBrief, buildPromptContract(simpleBrief));
 assert.equal(simple.capabilities.frontend, true);
