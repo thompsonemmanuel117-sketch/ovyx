@@ -86,6 +86,7 @@ const CARDS = [
       'The artifact evaluator scripts/ovyx-webstudio-evaluation-runner.mjs checks generated files, local routes/resources and risk markers. Report only observed outcomes; disclose skipped, incomplete, sandboxed and live-integration checks. Quality inspection stays read-only; a repair requires a separate preview and appropriate human approval.',
     ].join('\n'),
   },
+  {
     id: 'app-studio',
     title: 'App Studio, plans and feature entitlements',
     keywords: ['app studio', 'app generation', 'generate app', 'application', 'entitlement', 'plan', 'subscription', 'feature gate', 'paid plan', 'quota plans'],
