@@ -344,6 +344,8 @@ if (!fs.existsSync(fullStackArchitecturePath) || !fs.existsSync(fullStackArchite
     !fullStackTest.includes('business-state-transitions') ||
     !fullStackTest.includes('newsletter-consent-evidence') ||
     !fullStackTest.includes('needs-semantic-mapping') ||
+    !fullStackTest.includes('Authentication alone must not invent role-based authorization') ||
+    !fullStackTest.includes('public-with-abuse-controls-and-quarantine') ||
     !packageJson.includes('scripts/ovyx-fullstack-architecture.test.mjs')
   ) {
     errors.push('OVYX full-stack architecture: cross-layer graph, safe migration/background-work contracts, requirement evidence or standard regression coverage is incomplete.');
@@ -374,7 +376,9 @@ if (!fs.existsSync(fullStackSourceAuditPath) || !fs.existsSync(fullStackSourceAu
     !evaluator.includes('options.fullStackArchitecture') ||
     !evaluator.includes('fullStackSourceEvidence') ||
     !auditTest.includes('signed-unsubscribe-token') ||
+    !auditTest.includes('indexSourceEvidenceCount') ||
     !evaluatorTest.includes('fullStackSourceContracts') ||
+    !evaluatorTest.includes('no-backend-contracts-requested') ||
     !packageJson.includes('scripts/ovyx-fullstack-source-contracts.test.mjs')
   ) {
     errors.push('OVYX full-stack source auditor: route/method/auth, model/relationship evidence and honest runtime boundary must be covered by the standard test suite.');
