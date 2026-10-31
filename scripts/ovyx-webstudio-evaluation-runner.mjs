@@ -978,6 +978,7 @@ async function readProjectFolder(folder) {
   }
   await walk(folder);
   let metadata = {};
+  let fullStackArchitecture = null;
   try {
     const value = JSON.parse(await fs.readFile(path.join(folder, 'run-metadata.json'), 'utf8'));
     metadata = {
@@ -986,9 +987,19 @@ async function readProjectFolder(folder) {
       generatedAt: clean(value.generatedAt, 80),
       generationDurationMs: Number.isFinite(Number(value.generationDurationMs)) ? Number(value.generationDurationMs) : null,
       promptHash: clean(value.promptHash, 100),
+      fullStackArchitectureVersion: value.fullStackArchitecture && value.fullStackArchitecture.engine === 'ovyx-fullstack-architecture'
+        ? Number(value.fullStackArchitecture.version) || null : null,
     };
+    if (value.fullStackArchitecture && value.fullStackArchitecture.engine === 'ovyx-fullstack-architecture') {
+      const serialized = JSON.stringify(value.fullStackArchitecture);
+      if (serialized.length <= 80000 && !SECRET_PATTERNS.some(pattern => pattern.test(serialized))) {
+        fullStackArchitecture = value.fullStackArchitecture;
+      } else {
+        intakeWarnings.push('The full-stack architecture metadata was excluded because it exceeded the safe metadata bound or matched a secret-screening pattern.');
+      }
+    }
   } catch {}
-  return { files, filePaths, secretFiles, intakeWarnings, metadata };
+  return { files, filePaths, secretFiles, intakeWarnings, metadata, fullStackArchitecture };
 }
 
 export async function evaluateEvaluationRoot(root, suite) {
@@ -1009,7 +1020,11 @@ export async function evaluateEvaluationRoot(root, suite) {
     }
     try {
       const loaded = await readProjectFolder(folder);
-      const result = evaluateSiteFiles(loaded.files, category, { filePaths: loaded.filePaths, secretFiles: loaded.secretFiles });
+      const result = evaluateSiteFiles(loaded.files, category, {
+        filePaths: loaded.filePaths,
+        secretFiles: loaded.secretFiles,
+        fullStackArchitecture: loaded.fullStackArchitecture,
+      });
       result.metadata = loaded.metadata;
       result.intakeWarnings = loaded.intakeWarnings;
       results.push(result);
