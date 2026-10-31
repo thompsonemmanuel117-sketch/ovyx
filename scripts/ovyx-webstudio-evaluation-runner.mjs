@@ -259,13 +259,335 @@ function buildJourneyEvidence(requirements, allSource, htmlEntries, cssEntries, 
     return {
       requirement: clean(requirement, 160),
       status: present ? 'source-evidence-present-behavior-unverified' : 'no-matching-static-evidence',
+      assessment: !matched ? 'not-assessable' : present ? 'source-evidence-present' : 'missing-source-evidence',
       matchedSignals: present ? matched.signals : [],
+      matchedRule: matched ? clean(matched.signals.join('; '), 220) : '',
       browserBehaviorVerified: false,
       integrationVerified: false,
     };
   });
 }
 
+
+function buildPerformanceEvidence(htmlEntries, cssEntries, scriptEntries) {
+  const html = htmlEntries.map(([, content]) => String(content || '')).join('\n');
+  const css = cssEntries.map(([, content]) => String(content || '')).join('\n');
+  const scripts = scriptEntries.map(([, content]) => String(content || '')).join('\n');
+  const imageTags = [...html.matchAll(/<img\b[^>]*>/gi)].map(match => match[0]);
+  const scriptTags = [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*(["'])(.*?)\1[^>]*>/gi)].map(match => match[0]);
+  const fontFaceDeclared = /@font-face\b/i.test(css);
+  return {
+    images: {
+      total: imageTags.length,
+      lazyLoaded: imageTags.filter(tag => /\bloading\s*=\s*["']lazy["']/i.test(tag)).length,
+      dimensioned: imageTags.filter(tag => /\bwidth\s*=\s*["']?\d+/i.test(tag) && /\bheight\s*=\s*["']?\d+/i.test(tag)).length,
+      responsiveCandidates: (html.match(/\bsrcset\s*=/gi) || []).length,
+    },
+    scripts: {
+      externalOrLocalSrcCount: scriptTags.length,
+      blockingCount: scriptTags.filter(tag => !/\b(?:async|defer)\b/i.test(tag)).length,
+      dynamicImportSignals: (scripts.match(/\bimport\s*\(/g) || []).length,
+    },
+    styles: {
+      mediaQueries: (css.match(/@media\b/gi) || []).length,
+      fluidTypography: (css.match(/font-size\s*:\s*[^;}]*\bclamp\s*\(/gi) || []).length,
+      fontFaceDeclared,
+      fontDisplaySwap: /font-display\s*:\s*swap/i.test(css),
+      reducedMotion: /prefers-reduced-motion\s*:\s*reduce/i.test(css),
+    },
+    networkHints: {
+      preconnects: (html.match(/<link\b[^>]*\brel\s*=\s*["']preconnect["']/gi) || []).length,
+      preloads: (html.match(/<link\b[^>]*\brel\s*=\s*["']preload["']/gi) || []).length,
+    },
+    runtimeMeasurements: {
+      coreWebVitalsMeasured: false,
+      transferSizeMeasured: false,
+      realNetworkLatencyMeasured: false,
+    },
+  };
+}
+
+function buildQualityScoreV2({ findings, designEvidence, functionalAcceptance, performanceEvidence, counts, hasHtml, hasCss, hasText }) {
+  const codes = {
+    design: ['PLACEHOLDER_COPY'],
+    functionality: ['PLACEHOLDER_LINK', 'JAVASCRIPT_HREF', 'FORM_DELIVERY_UNDECLARED', 'ROUTE_UNVERIFIED', 'LINK_HREF_MISSING'],
+    accessibility: ['LANG_MISSING', 'MAIN_LANDMARK_MISSING', 'H1_MISSING', 'IMAGE_ALT_MISSING', 'LABEL_TARGET_MISSING', 'ARIA_REFERENCE_TARGET_MISSING', 'FORM_CONTROL_LABEL_MISSING', 'BUTTON_NAME_MISSING', 'LINK_NAME_MISSING', 'DUPLICATE_IDS'],
+    seo: ['TITLE_MISSING', 'META_DESCRIPTION_MISSING', 'OPEN_GRAPH_TITLE_MISSING'],
+    performance: ['CSS_RESOURCE_UNRESOLVED', 'IMAGE_RESOURCE_UNRESOLVED', 'IMAGE_SRCSET_UNRESOLVED', 'REDUCED_MOTION_MISSING'],
+    responsiveness: ['VIEWPORT_MISSING', 'IMAGE_SRCSET_UNRESOLVED'],
+    security: ['SECRET_FILE_PRESENT', 'CLIENT_SECRET_PATTERN', 'JAVASCRIPT_HREF', 'NEW_TAB_LINK_REL', 'DANGEROUS_DYNAMIC_CODE', 'UNSAFE_HTML_SINK', 'INSECURE_HTTP_RESOURCE', 'WILDCARD_POSTMESSAGE', 'EXTERNAL_SCRIPT_NO_SRI'],
+    integrity: ['STYLESHEET_UNRESOLVED', 'SCRIPT_UNRESOLVED', 'HTML_ROUTE_UNRESOLVED', 'ROUTE_UNVERIFIED', 'INTERNAL_ROUTE_UNMAPPED', 'ORPHAN_FRAGMENT', 'BROKEN_ROUTE_FRAGMENT', 'LOCAL_IMG_MISSING', 'LOCAL_CSS_ASSET_MISSING'],
+  };
+  const missingRequirementEvidence = functionalAcceptance.filter(item => item.assessment === 'missing-source-evidence');
+  const unassessedRequirements = functionalAcceptance.filter(item => item.assessment === 'not-assessable');
+  const definitions = [
+    { key: 'design', label: 'Design system', weight: 15, assessed: hasHtml && hasCss, penalty: Math.max(0, designEvidence.signalCountAvailable - designEvidence.observedSignalCount) * 2, evidence: designEvidence.observedSignalCount + '/' + designEvidence.signalCountAvailable + ' source design signals observed' },
+    { key: 'functionality', label: 'Functionality', weight: 20, assessed: hasHtml, penalty: missingRequirementEvidence.length * 5, evidence: (functionalAcceptance.length - missingRequirementEvidence.length - unassessedRequirements.length) + '/' + functionalAcceptance.length + ' supported requirement rules have source evidence; browser behavior remains unverified' },
+    { key: 'accessibility', label: 'Accessibility', weight: 15, assessed: hasHtml, penalty: 0, evidence: counts.controls + ' controls and ' + counts.images + ' images inspected' },
+    { key: 'seo', label: 'SEO', weight: 10, assessed: hasHtml, penalty: 0, evidence: counts.htmlPages + ' HTML pages inspected for metadata' },
+    { key: 'performance', label: 'Performance', weight: 10, assessed: hasHtml && hasCss, penalty:
+      (performanceEvidence.images.total > 0 && performanceEvidence.images.lazyLoaded === 0 ? 7 : 0) +
+      (performanceEvidence.images.total > 0 && performanceEvidence.images.responsiveCandidates === 0 ? 5 : 0) +
+      (performanceEvidence.scripts.blockingCount > 0 ? Math.min(12, performanceEvidence.scripts.blockingCount * 3) : 0) +
+      (performanceEvidence.styles.fontFaceDeclared && !performanceEvidence.styles.fontDisplaySwap ? 4 : 0), evidence: performanceEvidence.images.total + ' images and ' + performanceEvidence.scripts.externalOrLocalSrcCount + ' script references inspected; no real load metrics' },
+    { key: 'responsiveness', label: 'Responsive behavior', weight: 10, assessed: hasHtml, penalty:
+      (performanceEvidence.styles.mediaQueries === 0 ? 12 : 0) +
+      (performanceEvidence.styles.fluidTypography === 0 ? 4 : 0) +
+      (performanceEvidence.images.total > 0 && performanceEvidence.images.responsiveCandidates === 0 ? 4 : 0), evidence: performanceEvidence.styles.mediaQueries + ' media queries and ' + performanceEvidence.styles.fluidTypography + ' fluid type rules found' },
+    { key: 'security', label: 'Security', weight: 10, assessed: hasText, penalty: 0, evidence: counts.textFiles + ' text files scanned for credential patterns' },
+    { key: 'integrity', label: 'Routes and assets', weight: 10, assessed: hasHtml, penalty: 0, evidence: counts.links + ' links and local source references inspected' },
+  ];
+  const dimensions = {};
+  let weightedTotal = 0;
+  let assessedWeight = 0;
+  for (const definition of definitions) {
+    if (!definition.assessed) {
+      dimensions[definition.key] = {
+        label: definition.label, weight: definition.weight, score: null,
+        status: 'not-evaluated', evidence: 'Required source files were not supplied.',
+        blockers: 0, warnings: 0,
+      };
+      continue;
+    }
+    const relevant = findings.filter(item => codes[definition.key].includes(item.code));
+    const blockers = relevant.filter(item => item.severity === 'blocker').length;
+    const warnings = relevant.filter(item => item.severity === 'warning').length;
+    const score = Math.max(0, Math.min(100, Math.round(100 - blockers * 18 - warnings * 7 - definition.penalty)));
+    dimensions[definition.key] = {
+      label: definition.label,
+      weight: definition.weight,
+      score,
+      status: blockers ? 'needs-attention' : warnings || definition.penalty ? 'review-recommended' : 'static-checks-clear',
+      evidence: definition.evidence,
+      blockers,
+      warnings,
+    };
+    weightedTotal += score * definition.weight;
+    assessedWeight += definition.weight;
+  }
+  const overallScore = assessedWeight ? Math.round(weightedTotal / assessedWeight) : null;
+  const dimensionAssessmentCoveragePercent = Math.round(assessedWeight / definitions.reduce((sum, item) => sum + item.weight, 0) * 100);
+  const blockerCount = findings.filter(item => item.severity === 'blocker').length;
+  const automatedSourceGate = blockerCount > 0 || missingRequirementEvidence.length
+    ? 'fail'
+    : unassessedRequirements.length ? 'needs-review' : 'no-static-blockers';
+  return {
+    version: 2,
+    overallScore,
+    dimensionAssessmentCoveragePercent,
+    // Backwards-compatible alias: this is dimension-input coverage, not
+    // the percentage of user requirements or real journeys proven.
+    evidenceCoveragePercent: dimensionAssessmentCoveragePercent,
+    coverageDefinition: 'Percentage of weighted score dimensions with enough supplied source files to run static checks. It is not requirement coverage, browser acceptance or integration verification.',
+    functionalRequirementEvidence: {
+      total: functionalAcceptance.length,
+      supportedRuleCount: functionalAcceptance.length - missingRequirementEvidence.length - unassessedRequirements.length,
+      missingSourceEvidenceCount: missingRequirementEvidence.length,
+      notAssessableCount: unassessedRequirements.length,
+      browserBehaviorVerifiedCount: functionalAcceptance.filter(item => item.browserBehaviorVerified === true).length,
+      integrationVerifiedCount: functionalAcceptance.filter(item => item.integrationVerified === true).length,
+    },
+    status: blockerCount || missingRequirementEvidence.length ? 'needs-attention'
+      : unassessedRequirements.length || dimensionAssessmentCoveragePercent < 100 ? 'partial-evidence'
+        : 'automated-source-checks-complete-human-review-pending',
+    dimensions,
+    releaseDecision: {
+      automatedSourceGate,
+      missingRequirementEvidenceCount: missingRequirementEvidence.length,
+      unassessedRequirementCount: unassessedRequirements.length,
+      humanVisualReviewRequired: true,
+      humanEditorialReviewRequired: true,
+      browserBehaviorVerificationRequired: true,
+      liveIntegrationVerificationRequired: true,
+      coreWebVitalsMeasurementRequired: true,
+      productionDeploymentVerificationRequired: true,
+      certifiedProductionReady: false,
+    },
+    limitations: [
+      'This score is a static-source readiness signal, not a measurement of visual originality, conversion, real browser behavior or business quality.',
+      'Dimension assessment coverage reports which weighted score dimensions could be statically inspected; it does not mean user requirements have passed.',
+      'Performance scores do not replace measured Core Web Vitals, transfer size, real device testing or network profiling.',
+      'A connected integration is not considered live-verified until its real service workflow is exercised and independently confirmed.',
+    ],
+  };
+}
+
+function buildDeploymentIntelligence(files, filePaths) {
+  const paths = Array.isArray(filePaths) ? filePaths : Object.keys(files || {});
+  const packagePaths = paths.filter(item => /(^|\/)package\.json$/i.test(item));
+  const rootPackagePath = packagePaths.includes('package.json') ? 'package.json' : '';
+  const packageManifestAmbiguous = !rootPackagePath && packagePaths.length > 1;
+  const packagePath = rootPackagePath || (packagePaths.length === 1 ? packagePaths[0] : '');
+  let packageJson = null;
+  if (packagePath && typeof files[packagePath] === 'string') {
+    try { packageJson = JSON.parse(files[packagePath]); } catch {}
+  }
+  const dependencies = {
+    ...(packageJson && packageJson.dependencies || {}),
+    ...(packageJson && packageJson.devDependencies || {}),
+    ...(packageJson && packageJson.optionalDependencies || {}),
+  };
+  const dependencyNames = Object.keys(dependencies).map(name => name.toLowerCase());
+  const source = Object.values(files || {}).join('\n').toLowerCase();
+  const htmlPages = paths.filter(filePath => /\.html?$/i.test(filePath));
+  const backendPaths = paths.filter(filePath =>
+    /(^|\/)(?:api|functions|server|backend|migrations|prisma|drizzle|convex|database|db)(?:\/|$)/i.test(filePath) ||
+    /(^|\/)(?:app|pages)\/api(?:\/|$)/i.test(filePath) ||
+    /(^|\/)(?:schema\.sql|schema\.prisma)$/i.test(filePath)
+  );
+  const configFramework = paths.some(filePath => /(^|\/)next\.config\.[cm]?[jt]s$/i.test(filePath)) ? 'Next.js'
+    : paths.some(filePath => /(^|\/)svelte\.config\.[cm]?[jt]s$/i.test(filePath)) ? 'SvelteKit'
+      : paths.some(filePath => /(^|\/)nuxt\.config\.[cm]?[jt]s$/i.test(filePath)) ? 'Nuxt'
+        : paths.some(filePath => /(^|\/)astro\.config\.[cm]?[jt]s$/i.test(filePath)) ? 'Astro'
+          : paths.some(filePath => /(^|\/)vite\.config\.[cm]?[jt]s$/i.test(filePath)) ? 'Vite' : '';
+  const framework = packageManifestAmbiguous ? 'Unknown'
+    : dependencyNames.includes('next') || configFramework === 'Next.js' ? 'Next.js'
+      : dependencyNames.includes('@sveltejs/kit') || configFramework === 'SvelteKit' ? 'SvelteKit'
+        : dependencyNames.includes('nuxt') || configFramework === 'Nuxt' ? 'Nuxt'
+          : dependencyNames.includes('astro') || configFramework === 'Astro' ? 'Astro'
+            : dependencyNames.includes('@remix-run/react') || dependencyNames.includes('@remix-run/dev') ? 'Remix'
+              : dependencyNames.includes('vite') || configFramework === 'Vite' ? 'Vite'
+                : dependencyNames.includes('@angular/core') ? 'Angular'
+                  : dependencyNames.includes('react') ? 'React'
+                    : dependencyNames.includes('vue') ? 'Vue'
+                      : packageJson ? 'Node.js project (framework not identified)'
+                        : htmlPages.length ? 'Static HTML/CSS/JavaScript' : 'Unknown';
+  const frameworkDetected = framework !== 'Unknown';
+  const hasServerEntry = backendPaths.length > 0 || /(?:export\s+(?:async\s+)?function\s+(?:GET|POST|PUT|PATCH|DELETE)|app\.(?:get|post|put|patch|delete)\s*\(|createServer\s*\()/i.test(source);
+  const requiresServerRuntime = hasServerEntry || framework === 'Remix';
+  const runtimeProfile = requiresServerRuntime ? 'full-stack-server-runtime'
+    : frameworkDetected ? 'frontend-framework-build'
+      : htmlPages.length ? 'static-site' : 'unknown-project';
+  const integrationSource = packagePaths.length
+    ? packagePaths.map(packageFile => String(files[packageFile] || '')).join('\n').toLowerCase() + '\n' + source
+    : source;
+  const detectedIntegrations = [
+    ['payments', /\b(?:stripe|paystack|flutterwave|paypal)\b/i],
+    ['database', /\b(?:prisma|drizzle|supabase|firestore|cloudflare d1|postgres|mysql|mongodb)\b/i],
+    ['authentication', /\b(?:firebase auth|supabase auth|clerk|auth0|nextauth|better-auth)\b/i],
+    ['email', /\b(?:resend|sendgrid|mailgun|postmark|nodemailer)\b/i],
+    ['booking', /\b(?:calendly|cal\.com|booking provider|reservation api)\b/i],
+    ['storage', /\b(?:firebase storage|cloudflare r2|supabase storage|s3 bucket)\b/i],
+  ].filter(([, pattern]) => pattern.test(integrationSource)).map(([capability]) => ({
+    capability, sourceReference: 'detected', connection: 'not-verified', liveWorkflowTest: 'not-run',
+  }));
+  const scripts = packageJson && packageJson.scripts && typeof packageJson.scripts === 'object' ? packageJson.scripts : {};
+  const buildCommand = typeof scripts.build === 'string' ? scripts.build : '';
+  const startCommand = typeof scripts.start === 'string' ? scripts.start : '';
+  const packageDirectory = packagePath && packagePath.includes('/')
+    ? packagePath.slice(0, packagePath.lastIndexOf('/') + 1) : '';
+  const lockfiles = [
+    ['pnpm-lock.yaml', 'pnpm', 'pnpm install --frozen-lockfile'],
+    ['yarn.lock', 'yarn', 'yarn install --frozen-lockfile'],
+    ['bun.lockb', 'bun', 'bun install --frozen-lockfile'],
+    ['bun.lock', 'bun', 'bun install --frozen-lockfile'],
+    ['package-lock.json', 'npm', 'npm ci'],
+  ];
+  const packageManager = packageManifestAmbiguous ? null
+    : lockfiles.find(([file]) => paths.includes(packageDirectory + file) || packageDirectory && paths.includes(file)) || null;
+  const installCommand = packageManifestAmbiguous ? ''
+    : packageManager ? packageManager[2] : 'npm install';
+  const deploymentTarget = requiresServerRuntime ? 'framework-or-node-hosting-with-server-runtime'
+    : frameworkDetected ? 'framework-aware-static-or-edge-hosting'
+      : htmlPages.length && !packageManifestAmbiguous ? 'static-hosting'
+        : 'requires-manual-project-inspection';
+  const issues = [];
+  if (packageManifestAmbiguous) {
+    issues.push('Multiple nested package.json manifests were found without a root package.json. Framework, install and build commands are ambiguous; select the intended workspace application before deployment.');
+  }
+  if (frameworkDetected && framework !== 'Static HTML/CSS/JavaScript' && !buildCommand && !packageManifestAmbiguous) {
+    issues.push('No selected package.json build script was detected; confirm the framework build command before deployment.');
+  }
+  if (requiresServerRuntime && !startCommand && framework === 'Node.js project (framework not identified)') {
+    issues.push('Server source exists but no package.json start script was detected.');
+  }
+  if (backendPaths.length && !packageJson && !packageManifestAmbiguous) {
+    issues.push('Backend source exists without a selected package manifest; inspect runtime/dependency setup before deployment.');
+  }
+  return {
+    framework: {
+      name: framework, detected: frameworkDetected,
+      packageManifestFound: Boolean(packageJson), packageManifestCount: packagePaths.length,
+      packageManifestAmbiguous, packageName: clean(packageJson && packageJson.name, 120),
+    },
+    runtimeProfile,
+    deploymentTarget,
+    requiresServerRuntime,
+    staticOnlyCompatible: !requiresServerRuntime && !packageManifestAmbiguous,
+    backendSourcePaths: backendPaths.slice(0, 80),
+    frontendPageCount: htmlPages.length,
+    packageScripts: {
+      buildDetected: Boolean(buildCommand), startDetected: Boolean(startCommand),
+      buildCommand: clean(buildCommand, 160), startCommand: clean(startCommand, 160),
+    },
+    packageManager: packageManager ? packageManager[1] : packageManifestAmbiguous ? 'workspace-root-ambiguous' : 'npm (default; no lockfile detected)',
+    installCommand,
+    detectedIntegrations,
+    issues,
+    liveDeploymentVerified: false,
+    note: 'This is source-based hosting guidance. It does not install dependencies, test a provider, provision a database, or confirm a deployed runtime.',
+  };
+}
+function buildIntegrationReadiness(category, deployment) {
+  const requested = Array.isArray(category && category.integrationTruth) ? category.integrationTruth : [];
+  return requested.map(item => {
+    const requirement = clean(item, 180);
+    const requirementPatterns = {
+      payments: /payment|checkout|stripe|paystack|flutterwave|paypal/i,
+      database: /database|persistence|data store|prisma|drizzle|supabase|firestore/i,
+      authentication: /auth|login|identity|user account/i,
+      email: /email|mail|notification delivery/i,
+      booking: /booking|reservation|calendar|scheduling/i,
+      storage: /storage|asset upload|file upload|media/i,
+    };
+    const match = (deployment.detectedIntegrations || []).find(integration => {
+      const pattern = requirementPatterns[integration.capability];
+      return pattern ? pattern.test(requirement) : false;
+    });
+    return {
+      requirement,
+      sourceReference: match ? match.sourceReference : 'not-detected',
+      connection: 'not-verified',
+      liveWorkflowTest: 'not-run',
+      verified: false,
+    };
+  });
+}
+
+function buildProductionReadiness(findings, deployment, integrationReadiness, qualityScoreV2) {
+  const blockers = findings.filter(item => item.severity === 'blocker').length;
+  const sourceGate = qualityScoreV2.releaseDecision.automatedSourceGate === 'no-static-blockers';
+  const sourceNeedsReview = qualityScoreV2.releaseDecision.automatedSourceGate === 'needs-review';
+  return {
+    status: sourceGate ? 'automated-source-checks-passed-external-verification-pending'
+      : sourceNeedsReview ? 'source-gate-needs-human-review' : 'source-gate-needs-attention',
+    readyForProduction: false,
+    gates: {
+      sourceValidation: sourceGate ? 'passed' : sourceNeedsReview ? 'needs-review' : 'needs-attention',
+      browserAcceptance: 'not-verified',
+      integrationWorkflows: integrationReadiness.length ? 'not-verified' : 'not-requested',
+      hostingCompatibility: deployment.framework.packageManifestAmbiguous ? 'ambiguous-workspace' : deployment.issues.length ? 'needs-configuration' : 'source-profile-detected',
+      deployment: 'not-deployed-or-not-verified',
+      humanVisualReview: 'required',
+      humanEditorialReview: 'required',
+      performanceMeasurements: 'core-web-vitals-not-measured',
+    },
+    blockerCount: blockers,
+    missingRequirementEvidenceCount: qualityScoreV2.releaseDecision.missingRequirementEvidenceCount,
+    unassessedRequirementCount: qualityScoreV2.releaseDecision.unassessedRequirementCount,
+    externalDependencies: integrationReadiness.filter(item => !item.verified).map(item => item.requirement).slice(0, 30),
+    requiredNextEvidence: [
+      'Resolve every supported user requirement without matching source evidence.',
+      'Have a reviewer assess requirements outside the static evaluator rule set.',
+      'Run every generated route in a real browser at the required viewports.',
+      'Exercise each interaction and verify its resulting state.',
+      'Test requested integrations against their real providers and confirm the resulting transaction or delivery.',
+      'Run the framework-specific production build and deployment smoke test.',
+      'Measure Core Web Vitals on representative devices and networks.',
+      'Complete human visual and editorial review.',
+    ],
+  };
+}
 export function evaluateSiteFiles(rawFiles, category, options = {}) {
   const files = {};
   if (rawFiles && typeof rawFiles === 'object' && !Array.isArray(rawFiles)) {
@@ -483,6 +805,18 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
     if (SECRET_PATTERNS.some(pattern => pattern.test(content))) {
       addFinding(findings, 'blocker', 'CLIENT_SECRET_PATTERN', 'A credential-like value or private-key marker was detected. The value is deliberately not displayed.', filePath);
     }
+    if (/\beval\s*\(|\bnew\s+Function\s*\(|\bdocument\.write\s*\(/i.test(content)) {
+      addFinding(findings, 'warning', 'DANGEROUS_DYNAMIC_CODE', 'Dynamic code execution or document.write was detected. Review the source and remove it unless a narrowly justified, trusted use is required.', filePath);
+    }
+    if (/\.(?:innerHTML|outerHTML)\s*=|\.insertAdjacentHTML\s*\(|dangerouslySetInnerHTML/i.test(content)) {
+      addFinding(findings, 'warning', 'UNSAFE_HTML_SINK', 'An HTML injection sink was detected. Ensure all untrusted content is escaped or sanitized before it reaches the DOM.', filePath);
+    }
+    if (/\b(?:src|href)\s*=\s*['"]http:\/\/|url\(\s*['"]?http:\/\//i.test(content)) {
+      addFinding(findings, 'warning', 'INSECURE_HTTP_RESOURCE', 'An HTTP resource reference was detected and may create mixed-content or transport-security risks.', filePath);
+    }
+    if (/\bpostMessage\s*\([\s\S]{0,220}?,\s*['"]\*['"]\s*\)/i.test(content)) {
+      addFinding(findings, 'warning', 'WILDCARD_POSTMESSAGE', 'A postMessage call uses a wildcard target origin. Restrict messages to the expected origin and validate message contents.', filePath);
+    }
   }
 
   for (const [filePath, content] of cssEntries) {
@@ -507,9 +841,13 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
       }
     }
     for (const match of html.matchAll(/<script\b[^>]*>/gi)) {
-      const src = attr(match[0], 'src');
+      const tag = match[0];
+      const src = attr(tag, 'src');
       if (src && !isExternal(src) && !findLocalFile(filePath, src, pathsByLower)) {
         addFinding(findings, 'blocker', 'SCRIPT_UNRESOLVED', 'A referenced local script is missing from the exported files.', filePath);
+      }
+      if (src && isExternal(src) && !attr(tag, 'integrity')) {
+        addFinding(findings, 'warning', 'EXTERNAL_SCRIPT_NO_SRI', 'An external script has no Subresource Integrity attribute. Pin and integrity-protect third-party scripts where the provider supports it.', filePath);
       }
     }
   }
@@ -528,6 +866,21 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
   const status = blockers ? 'needs-attention' : warnings ? 'pass-with-warnings' : 'pass';
   const exercise = Array.isArray(category && category.mustExercise) ? category.mustExercise : [];
   const integrations = Array.isArray(category && category.integrationTruth) ? category.integrationTruth : [];
+  const designEvidence = buildDesignEvidence(categoryId, allSource, htmlEntries, cssEntries);
+  const functionalAcceptance = buildJourneyEvidence(exercise, allSource, htmlEntries, cssEntries, scriptEntries);
+  const performanceEvidence = buildPerformanceEvidence(htmlEntries, cssEntries, scriptEntries);
+  const qualityScoreV2 = buildQualityScoreV2({
+    findings, designEvidence, functionalAcceptance, performanceEvidence, counts: {
+      controls: controlCount, images: imageCount, htmlPages: htmlEntries.length,
+      links: linkCount, textFiles: Object.keys(files).length,
+    },
+    hasHtml: htmlEntries.length > 0,
+    hasCss: cssEntries.length > 0,
+    hasText: Object.keys(files).length > 0,
+  });
+  const deploymentIntelligence = buildDeploymentIntelligence(files, filePaths);
+  const integrationReadiness = buildIntegrationReadiness(category, deploymentIntelligence);
+  const productionReadiness = buildProductionReadiness(findings, deploymentIntelligence, integrationReadiness, qualityScoreV2);
 
   return {
     caseId: categoryId,
@@ -554,8 +907,13 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
       info: infos,
     },
     findings,
-    designEvidence: buildDesignEvidence(categoryId, allSource, htmlEntries, cssEntries),
-    functionalAcceptance: buildJourneyEvidence(exercise, allSource, htmlEntries, cssEntries, scriptEntries),
+    designEvidence,
+    functionalAcceptance,
+    performanceEvidence,
+    qualityScoreV2,
+    deploymentIntelligence,
+    integrationReadiness,
+    productionReadiness,
     integrationTruth: integrations.map(integration => ({ integration, status: 'unverified-unless-checked-against-the-real-service' })),
     limitations: [
       'The score measures static technical artifact readiness, not premium visual design or business value.',

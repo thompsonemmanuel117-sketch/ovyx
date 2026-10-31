@@ -7,10 +7,10 @@ import {
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
 import { cloudflareOnlyModelOptions } from '../../_lib/cloudflare-routing.js';
-import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
+import { runWebsiteGeneration, buildWebsiteEnginePlan, buildWebsiteEngineInstructions, websiteEngineClientSummary, buildWebsiteEngineReadiness } from '../../_lib/website-engine.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
-import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
-import { buildPromptContract, getWebStudioBuildClarification } from '../../_lib/prompt-contract.js';
+import { isWebStudioPrompt } from '../../_lib/experience.js';
+import { isScopedWebStudioEdit } from '../../_lib/webstudio-source.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import {
   saveChatTurn,
@@ -169,40 +169,28 @@ export async function onRequestPost(context) {
       .map(item => String(item.content || '').trim().slice(0, 30_000))
       .filter(Boolean)
       .slice(-12);
-    const conversationText = userTurns.join('\n\n');
+    const conversationText = userTurns.join('\\n\\n');
     const studioPromptText = isWebStudio && conversationText ? conversationText : String(promptText || '');
-    const promptContract = isWebStudio ? buildPromptContract(studioPromptText) : null;
+    const websiteEnginePlan = isWebStudio ? buildWebsiteEnginePlan(studioPromptText, payload.context || {}) : null;
+    const experience = websiteEnginePlan?.experience || null;
+    const websiteEngineInstructions = buildWebsiteEngineInstructions(websiteEnginePlan);
+    const submittedFiles = payload.context?.files || payload.files || {};
+    const scopedWebStudioEdit = isWebStudio && mode === 'build' &&
+      isScopedWebStudioEdit(studioPromptText, !!(submittedFiles && typeof submittedFiles === 'object' && Object.keys(submittedFiles).length));
 
     const projectContext = payload.context && typeof payload.context === 'object'
       ? JSON.stringify(payload.context).slice(0, 80_000)
       : '';
 
-    const experience = isWebStudio
-      ? buildExperienceBrief(
-          studioPromptText,
-          payload.context || {}
-        )
-      : null;
-
-    // For a fresh build, ask for essential public details or real integration
-    // readiness before spending tokens on a site that could otherwise contain
-    // invented contact data or pretend-live features. Existing-site edits stay fast.
-    const studioFilesForReadiness = payload.context?.files || payload.files || {};
-    const hasExistingHtml = Object.entries(studioFilesForReadiness && typeof studioFilesForReadiness === 'object' ? studioFilesForReadiness : {})
-      .some(([path, value]) => {
-        const text = typeof value === 'string' ? value : value && (value.content || value.text || value.source || value.code);
-        return /\.html?$/i.test(path) && typeof text === 'string' && text.length > 500 && /<body\b/i.test(text);
-      });
-    const readinessSensitiveRequest =
-      /\b(?:contact\s+forms?|enquir(?:y|ies)\s+forms?|email delivery|send (?:form )?messages|payments?|checkout|paystack|flutterwave|stripe|paypal|booking|reservations?|appointments?|newsletter|subscriptions?|login|log in|sign in|sign up|authentication|database|customer records?|order records?)\b/i.test(studioPromptText) ||
-      /\b(?:add|create|include|build|put|make)\b.{0,55}\b(?:contact|email|phone|whatsapp|address|booking|reservation|newsletter)\b/i.test(studioPromptText);
-    const isExistingSiteEdit = hasExistingHtml &&
-      /\b(?:fix|edit|change|update|modify|repair|tweak|adjust|redesign|remove|replace|add)\b/i.test(String(studioPromptText || '')) &&
-      !readinessSensitiveRequest;
-    const buildReadiness = isWebStudio && mode === 'build' && !isExistingSiteEdit
-      ? getWebStudioBuildClarification(studioPromptText, {
+    // Shared readiness contract: fresh builds ask for essential public details and real integration configuration before model spend.
+    const buildReadiness = isWebStudio
+      ? buildWebsiteEngineReadiness(studioPromptText, {
           ...(payload.context && typeof payload.context === 'object' ? payload.context : {}),
+          files: submittedFiles,
+        }, {
+          mode,
           conversationText,
+          files: submittedFiles,
         })
       : null;
 
@@ -216,6 +204,7 @@ export async function onRequestPost(context) {
         message: buildReadiness.message,
         answer: buildReadiness.message,
         experience,
+        websiteEngine: websiteEngineClientSummary(websiteEnginePlan),
       });
     }
 
@@ -227,10 +216,9 @@ export async function onRequestPost(context) {
         ? WEB_STUDIO_SYSTEM_PROMPT +
           '\n\n' +
           WEB_STUDIO_EXCELLENCE +
-          '\n\nEXPERIENCE INTELLIGENCE:\n' +
-          JSON.stringify(experience || {}) +
-          '\n\nPROMPT REQUIREMENT CONTRACT (preserve every item):\n' +
-          JSON.stringify(promptContract || {}) +
+          '\n\nEXPERIENCE INTELLIGENCE: the bounded design plan is included in the authoritative Website Engine instructions below.' +
+          '\n\nPROMPT REQUIREMENT CONTRACT: the compact requirement index below refers to the complete original brief supplied separately; preserve every source requirement.' +
+          '\n\n' + websiteEngineInstructions +
           '\n\nPROMPT-FIDELITY RULES:\n' +
           '- Treat every explicit request, restriction and named page as a delivery contract. Do not silently omit requirements.\n' +
           '- For edits, inspect supplied project files and change only what the request needs; preserve unrelated working sections, routes and styling.\n' +
@@ -276,34 +264,13 @@ export async function onRequestPost(context) {
     let quotaOutputText = '';
 
     try {
-      if (isWebStudio && mode === 'build') {
-        const project = payload.context?.project || payload.project || {};
-        const projectFiles = payload.context?.files || payload.files || {};
-        const studioHints = JSON.stringify({
-          // Keep deterministic experience context early because the multi-page builder bounds
-          // the context forwarded into every model phase.
-          marketContext: experience?.marketContext || null,
-          visualAssetPlan: experience?.visualAssetPlan || null,
-          designIntelligence: experience?.designIntelligence || null,
-          experiencePrinciples: experience?.experiencePrinciples || [],
-          qualityGates: experience?.qualityGates || [],
-          contentRules: experience?.contentRules || [],
-          primaryOutcome: experience?.designIntelligence?.primaryOutcome || null,
-          activeView: payload.context?.activeView || '',
-          brandProfile: brandProfile && typeof brandProfile === 'object' ? {
-            colors: brandProfile.colors && typeof brandProfile.colors === 'object' ? brandProfile.colors : {},
-            layoutRules: Array.isArray(brandProfile.layoutRules) ? brandProfile.layoutRules.slice(0, 50) : [],
-            logoConfigured: Boolean(brandProfile.logoDataUrl),
-            version: Number(brandProfile.version) || 1,
-          } : null,
-          theme: payload.context?.theme || null,
-          viewport: payload.context?.viewport || null,
-          promptContract,
-        }).slice(0, 10000);
-
-        const generated = await buildStudioMultiPage({
-          env: context.env,
-          callModel: routeCallModel,
+      const generation = await runWebsiteGeneration({
+        env: context.env,
+        callModel: routeCallModel,
+        shouldBuild: isWebStudio && mode === 'build',
+        scopedEdit: scopedWebStudioEdit,
+        initialQuotaInputText: quotaInputText,
+        multiPageOptions: {
           provider: String(payload.provider || 'automatic').toLowerCase(),
           preferredProvider: String(payload.preferredProvider || ''),
           providerRouting: String(payload.providerRouting || 'automatic'),
@@ -311,41 +278,53 @@ export async function onRequestPost(context) {
           model: payload.model,
           authUser: user,
           prompt: studioPromptText,
-          project,
-          files: projectFiles,
+          project: payload.context?.project || payload.project || {},
+          files: submittedFiles,
           mode,
-          context: studioHints,
-          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' + globalAIIdentityDirective,
-        });
-
-        if (generated) {
-          result = generated;
-          multiPageBuild = true;
-          quotaInputText = generated.quotaInputText || quotaInputText;
-          quotaOutputText = generated.quotaOutputText || generated.text || '';
-        }
-      }
-
-      if (!result) {
-        result = await routeCallModel(
-          context.env,
-          {
-            provider: String(payload.provider || 'automatic').toLowerCase(),
-            preferredProvider: String(payload.preferredProvider || ''),
-            providerRouting: String(payload.providerRouting || 'automatic'),
+          context: JSON.stringify({
+            activeView: payload.context?.activeView || '',
+            brandProfile: brandProfile && typeof brandProfile === 'object' ? {
+              colors: brandProfile.colors && typeof brandProfile.colors === 'object' ? brandProfile.colors : {},
+              layoutRules: Array.isArray(brandProfile.layoutRules) ? brandProfile.layoutRules.slice(0, 50) : [],
+              logoConfigured: Boolean(brandProfile.logoDataUrl),
+              version: Number(brandProfile.version) || 1,
+            } : null,
+            theme: payload.context?.theme || null,
+            viewport: payload.context?.viewport || null,
+            websiteEngine: websiteEngineClientSummary(websiteEnginePlan),
+          }),
+          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' + websiteEngineInstructions + '\n\n' + globalAIIdentityDirective,
+        },
+        modelOptions: {
+          provider: String(payload.provider || 'automatic').toLowerCase(),
+          preferredProvider: String(payload.preferredProvider || ''),
+          providerRouting: String(payload.providerRouting || 'automatic'),
           fallback: String(payload.fallback || 'automatic'),
-            taskPrompt: payload.prompt || payload.message || messages[messages.length - 1]?.content || '',
-            model: payload.model,
-            system,
-            user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
-            authUser: user,
-            maxTokens: isWebStudio
-              ? Math.min(Number(payload.maxTokens || 24000), 24000)
-              : Math.min(Number(payload.maxTokens || 4096), 8192),
-          }
-        );
-        quotaOutputText = result.text || '';
-      }
+          taskPrompt: payload.prompt || payload.message || messages[messages.length - 1]?.content || '',
+          model: payload.model,
+          system,
+          user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
+          authUser: user,
+          maxTokens: isWebStudio
+            ? Math.min(Number(payload.maxTokens || 24000), 24000)
+            : Math.min(Number(payload.maxTokens || 4096), 8192),
+        },
+        singlePageOptions: {
+          provider: String(payload.provider || 'automatic').toLowerCase(),
+          preferredProvider: String(payload.preferredProvider || ''),
+          providerRouting: String(payload.providerRouting || 'automatic'),
+          fallback: String(payload.fallback || 'automatic'),
+          model: payload.model,
+          authUser: user,
+          prompt: studioPromptText,
+          system,
+          projectContext,
+        },
+      });
+      result = generation.result;
+      multiPageBuild = generation.multiPageBuild;
+      quotaInputText = generation.quotaInputText;
+      quotaOutputText = generation.quotaOutputText;
     } catch (providerError) {
       if (providerError?.partialUsage) {
         await finalizeAIQuota(
@@ -449,6 +428,8 @@ export async function onRequestPost(context) {
       routedProvider: result.routedProvider,
       conversationId,
       experience: isWebStudio ? experience : null,
+      websiteEngine: websiteEngineClientSummary(websiteEnginePlan),
+      scopedWebStudioEdit,
       brandDNA: isAppStudio ? { ...brandDNAClientSummary(brandDNA), applied: brandDNAApplied, applyError: brandDNAApplyError || null } : null,
       history: {
         saved: historySaved,

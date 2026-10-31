@@ -291,23 +291,29 @@ if (fs.existsSync(multiPageHelperPath) && fs.existsSync(multiPageOrchestratorPat
 }
 
 const studioMultiPagePath = path.join(root, 'functions/_lib/studio-multipage.js');
+const websiteEnginePath = path.join(root, 'functions/_lib/website-engine.js');
 const studioAssistantPath = path.join(root, 'functions/api/ai/assistant.js');
 const studioGatewayPath = path.join(root, 'functions/api/ai/gateway.js');
-if (!fs.existsSync(studioMultiPagePath) || !fs.existsSync(studioAssistantPath) || !fs.existsSync(studioGatewayPath)) {
-  errors.push('OVYX Web Studio: multi-page build helper or one of the authenticated AI endpoints is missing.');
+if (!fs.existsSync(studioMultiPagePath) || !fs.existsSync(websiteEnginePath) || !fs.existsSync(studioAssistantPath) || !fs.existsSync(studioGatewayPath)) {
+  errors.push('OVYX Web Studio: shared website engine, multi-page build helper or one of the authenticated AI endpoints is missing.');
 } else {
   const studioMultiPage = fs.readFileSync(studioMultiPagePath, 'utf8');
+  const websiteEngine = fs.readFileSync(websiteEnginePath, 'utf8');
   const studioAssistant = fs.readFileSync(studioAssistantPath, 'utf8');
   const studioGateway = fs.readFileSync(studioGatewayPath, 'utf8');
   if (
     !studioMultiPage.includes('createSiteBuildBatches') ||
     !studioMultiPage.includes('WEBSTUDIO_BATCH_MISSING_FILES') ||
-    !studioAssistant.includes('buildStudioMultiPage') ||
+    !websiteEngine.includes('buildStudioMultiPage') ||
+    !websiteEngine.includes('validateOrRepairSinglePageBuild') ||
+    !websiteEngine.includes('if (shouldBuild && !scopedEdit)') ||
+    !websiteEngine.includes('if (!result)') ||
+    !studioAssistant.includes('runWebsiteGeneration') ||
     !studioAssistant.includes('multiPageBuild') ||
-    !studioGateway.includes('buildStudioMultiPage') ||
+    !studioGateway.includes('runWebsiteGeneration') ||
     !studioGateway.includes('multiPageBuild')
   ) {
-    errors.push('OVYX Web Studio: real AI assistant/gateway routes must use verified multi-page batches and refuse incomplete output.');
+    errors.push('OVYX Web Studio: Assistant and Gateway must share verified multi-page generation, scoped-edit isolation and deterministic single-page repair.');
   }
 }
 
@@ -353,12 +359,26 @@ if (!fs.existsSync(promptContractPath) || !fs.existsSync(promptContractTestPath)
   const promptContract = fs.readFileSync(promptContractPath, 'utf8');
   const promptContractTest = fs.readFileSync(promptContractTestPath, 'utf8');
   const promptGateway = fs.existsSync(studioGatewayPath) ? fs.readFileSync(studioGatewayPath, 'utf8') : '';
+  const promptAssistant = fs.existsSync(studioAssistantPath) ? fs.readFileSync(studioAssistantPath, 'utf8') : '';
+  const promptEngine = fs.existsSync(websiteEnginePath) ? fs.readFileSync(websiteEnginePath, 'utf8') : '';
   const promptMultiPage = fs.existsSync(studioMultiPagePath) ? fs.readFileSync(studioMultiPagePath, 'utf8') : '';
   const packageJson = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
   if (
-    !promptGateway.includes('buildPromptContract') ||
-    !promptGateway.includes('getWebStudioBuildClarification') ||
-    !promptGateway.includes('PROMPT REQUIREMENT CONTRACT') ||
+    !promptGateway.includes('buildWebsiteEnginePlan') ||
+    !promptEngine.includes('buildPromptContract') ||
+    !promptGateway.includes('buildWebsiteEngineReadiness') ||
+    !promptAssistant.includes('buildWebsiteEngineReadiness') ||
+    !promptEngine.includes('getWebStudioBuildClarification') ||
+    !promptEngine.includes('sourcePromptRemainsAuthoritative') ||
+    !promptEngine.includes('serializeWebsiteEngineModelPlan') ||
+    !promptAssistant.includes('websiteEngineClientSummary(websiteEnginePlan)') ||
+    promptAssistant.includes('websiteEnginePlan: websiteEnginePlan') ||
+    promptAssistant.includes('.slice(0, 12000)') ||
+    !promptGateway.includes('compact requirement index below') ||
+    !promptGateway.includes('websiteEngineClientSummary(websiteEnginePlan)') ||
+    promptGateway.includes('websiteEnginePlan,') ||
+    promptGateway.includes('.slice(0, 16000)') ||
+    promptGateway.includes('JSON.stringify(promptContract || {})') ||
     !promptMultiPage.includes('verifyPromptContractOutput') ||
     !promptMultiPage.includes('promptContract.explicitPages') ||
     !promptContractTest.includes('CONTACT_FORM_MISSING') ||

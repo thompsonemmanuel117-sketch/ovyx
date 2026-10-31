@@ -224,7 +224,44 @@ assert.ok(brokenIntegrity.totalFindings >= 5);
 assert.ok(brokenIntegrity.summary.includes('source-level'));
 
 const plannedPages = [
-  { title: 'Home', goal: 'Explain the restaurant and primary booking path.' },
+  {
+    title: 'Home',
+    goal: 'Explain the restaurant and primary booking path.',
+    audience: 'First-time local diners',
+    primaryAction: 'Explore the menu or reserve a table',
+    sections: [
+      { title: 'Hero', purpose: 'Communicate the restaurant promise', contentNotes: 'Use verified restaurant positioning' },
+      { title: 'Signature dishes', purpose: 'Show the food offer', contentNotes: 'Use supplied menu data only' },
+    ],
+    visualDirection: 'Warm editorial food photography with restrained typography',
+    interactionRequirements: ['Accessible primary navigation', 'Working reservation route'],
+    dataRequirements: ['Menu items from configured source'],
+    components: ['Site navigation', 'Dish card'],
+    componentContracts: [{
+      name: 'DishCard',
+      purpose: 'Present a menu item with dietary details',
+      variants: ['featured', 'compact'],
+      shared: true,
+      dependsOn: ['PriceLabel', 'DietaryTag'],
+      accessibilityContract: 'Readable item name, price and dietary labels',
+    }],
+    imageSlots: [{
+      name: 'signature-dish',
+      subject: 'A signature plated dish from the supplied menu',
+      purpose: 'Show a real featured menu item',
+      placement: 'Home signature dishes section',
+      aspectRatio: '5:4',
+      composition: 'Close-up with natural restaurant light',
+      altText: 'Signature dish served at the restaurant',
+      sourcePreference: 'user-upload',
+      mustRepresentRealSubject: true,
+    }],
+    seoIntent: 'Restaurant discovery and table reservations',
+    responsiveNotes: ['Stack menu cards on mobile'],
+    accessibilityNotes: ['Descriptive image alt text'],
+    performanceNotes: ['Responsive image sources'],
+    integrationBoundaries: ['Do not claim a reservation is confirmed until provider response'],
+  },
   { title: 'Menu', goal: 'Browse menu categories and featured dishes.' },
   { title: 'About', goal: 'Tell the restaurant story.' },
   { title: 'Reservations', goal: 'Help visitors reserve a table.' },
@@ -244,6 +281,16 @@ const callModel = async (_env, options) => {
         summary: 'Restaurant website sitemap',
         siteMap: {
           architecture: 'Five separate selectable pages using a shared visual system.',
+          designSystem: {
+            artDirection: 'Warm editorial restaurant identity',
+            typography: 'Expressive display serif and readable sans-serif',
+            palette: ['deep olive', 'warm cream', 'copper'],
+            typeScale: ['display', 'title', 'body', 'caption'],
+            spacingScale: ['8', '16', '24', '40'],
+            componentPrinciples: ['Shared navigation', 'Consistent menu cards'],
+            motionPrinciples: ['Purposeful short transitions'],
+            accessibilityPrinciples: ['AA contrast', 'Visible keyboard focus'],
+          },
           pages: plannedPages,
         },
       }),
@@ -384,7 +431,19 @@ const result = await buildStudioMultiPage({
 
 assert(result, 'A multi-page website build should return a result.');
 assert.equal(result.siteMap.pages.length, 5);
+assert.equal(result.siteMap.designSystem.artDirection, 'Warm editorial restaurant identity');
+assert.equal(result.siteMap.pages[0].audience, 'First-time local diners');
+assert.equal(result.siteMap.pages[0].sections[1].title, 'Signature dishes');
+assert.equal(result.siteMap.pages[0].integrationBoundaries[0], 'Do not claim a reservation is confirmed until provider response');
+assert.equal(result.siteMap.pages[0].componentContracts[0].name, 'DishCard');
+assert.equal(result.siteMap.pages[0].imageSlots[0].mustRepresentRealSubject, true);
 assert.equal(result.project.pages.length, 5);
+assert.equal(result.project.designSystem.artDirection, 'Warm editorial restaurant identity');
+assert.equal(result.project.pages[0].blueprint.audience, 'First-time local diners');
+assert.equal(result.project.pages[0].blueprint.sections[0].title, 'Hero');
+assert.equal(result.project.pages[0].blueprint.primaryAction, 'Explore the menu or reserve a table');
+assert.equal(result.project.pages[0].blueprint.componentContracts[0].name, 'DishCard');
+assert.equal(result.project.pages[0].blueprint.imageSlots[0].sourcePreference, 'user-upload');
 assert.equal(Object.keys(result.files).filter(path => path.startsWith('src/pages/')).length, 5);
 assert(result.files['src/pages/Home.html'].includes('<h1>Home</h1>'));
 assert.equal(malformedHomeEnvelopeServed, true, 'The fixture must exercise malformed JSON wrapped HTML recovery.');
@@ -414,6 +473,11 @@ for (const call of targetBatchCalls) {
   const allowedPaths = JSON.parse(allowed[1]);
   assert.equal(targets.length, 1, 'Every batch manifest must contain exactly one required file.');
   assert.deepEqual(allowedPaths, targets.map(item => item.path), 'The model must only return the files explicitly assigned to this batch.');
+  if (/\\.html?$/i.test(String(targets[0].path || ''))) {
+    assert.equal(targets[0].pageBlueprint.audience, 'First-time local diners');
+    assert.ok(call.user.includes('shared design system') || call.user.includes('shared visual system'));
+    assert.ok(call.user.includes('Do not claim a reservation is confirmed until provider response'));
+  }
   assert.ok(call.system.includes('Follow the exact response contract specified for this single-file batch.'),
     'The high-priority system contract must enforce the response format for this exact target.');
   if (/\.css$/i.test(String(targets[0].path || ''))) {

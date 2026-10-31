@@ -30,3 +30,12 @@ Web Studio must preserve unrelated website content when editing, avoid fabricate
 The standard `npm test` suite now includes `scripts/prompt-contract.test.mjs`, alongside a regression test that makes the sitemap planner omit a required page and verifies that the route is recovered. `npm run validate` also checks that the prompt-contract service and regression tests remain wired into the authenticated Web Studio gateway and multi-page generator.
 
 These changes improve prompt fidelity, but they do not promise perfect generation for every possible brief. Browser-level end-to-end tests are still required before treating the full Web Studio experience as production-verified.
+
+
+## Unified Website Engine lifecycle
+
+Web Studio's shared architecture pass is implemented in `functions/_lib/website-engine.js` and used by both authenticated generation entry points: `functions/api/ai/assistant.js` and `functions/api/ai/gateway.js`. It composes the existing prompt contract, adaptive experience intelligence, market context, visual-asset plan, page plan, requested integration inventory and quality gates. Both routes preserve Cloudflare Workers AI routing and the existing authentication, entitlement, quota/refund and scoped-edit safeguards.
+
+The model-facing plan is serialized as bounded, valid JSON. Every retained requirement keeps its stable ID; clause excerpts may be shortened, but the complete original user brief is passed separately and remains authoritative. The plan must never be cut in the middle of JSON or used as a substitute for the original brief. Scoped website edits bypass full-site rebuilding; new builds use the shared multi-page lifecycle and its existing single-page validation/repair fallback.
+
+The dedicated regression in `scripts/ovyx-website-engine.test.mjs` constructs a long brief with 180 requirement clauses, parses the serialized JSON, checks the 18,000-character budget and verifies the first and last IDs. Assistant context passes a compact engine summary instead of serializing the full plan a second time. These source changes are recorded in PR #359; do not describe their CI checks as passed until the exact PR head has completed its required workflows.

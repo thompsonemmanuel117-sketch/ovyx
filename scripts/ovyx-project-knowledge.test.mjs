@@ -47,6 +47,15 @@ assert.match(modalities, /POST \/api\/ai\/image-generation/);
 assert.match(modalities, /SpeechRecognition/);
 assert.match(modalities, /Image uploads.*not.*generated images|uploads.*visual references.*generated images/i, 'Image uploads and visual asset references must never be mistaken for generated images.');
 
+const websiteEngineKnowledge = buildOvyxProjectKnowledge('Explain the unified website engine, prompt contract, framework ZIP export and design intelligence.');
+assert.match(websiteEngineKnowledge, /website-engine\\.js/);
+assert.match(websiteEngineKnowledge, /serializeWebsiteEngineModelPlan|bounded, valid JSON architecture/i);
+assert.match(websiteEngineKnowledge, /complete original user brief|complete.*brief/i);
+assert.match(websiteEngineKnowledge, /framework-aware|framework profile/i);
+assert.match(websiteEngineKnowledge, /does not scaffold|does not install dependencies|does not execute.*build/i);
+assert.match(websiteEngineKnowledge, /Cloudflare Workers AI/);
+assert.match(websiteEngineKnowledge, /App Studio.*unchanged|App Studio.*separately routed/i);
+
 const general = buildOvyxProjectKnowledge('Hello, thank you.');
 assert.match(general, /IMPORTANT SCOPE BOUNDARY/);
 assert.doesNotMatch(general, /Source paths:/, 'Unrelated greetings should not load detailed topic cards.');

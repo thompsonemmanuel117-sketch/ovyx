@@ -7,6 +7,8 @@
   var MAX_FILES = 800;
   var MAX_FILE_BYTES = 8 * 1024 * 1024;
   var MAX_TOTAL_BYTES = 80 * 1024 * 1024;
+  var MAX_BINARY_ASSET_BYTES = 25 * 1024 * 1024;
+  var MAX_PROJECT_ASSETS = 200;
   var CRC_TABLE = null;
 
   function clean(value, max) {
@@ -43,6 +45,10 @@
     var parts = path.split('/');
     if (parts.some(function (part) { return !part || part === '.' || part === '..'; })) return null;
     if (parts.some(function (part) { return part === '__proto__' || part === 'constructor' || part === 'prototype'; })) return null;
+    if (parts.some(function (part) {
+      return /[<>:"|?*]/.test(part) || /[. ]$/.test(part) ||
+        /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$/i.test(part);
+    })) return null;
     return path;
   }
   function isSensitivePath(path) {
@@ -162,21 +168,266 @@
     var path = String(rawPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
     var base = path.split('/').pop() || '';
     if (isSensitivePath(path) || /(^|\/)FULL_STACK_SETUP\.md$/i.test(path)) return true;
-    if (path.indexOf('/') !== -1) return false;
-    return /^(?:package\.json|package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lock(?:b)?|wrangler\.(?:toml|jsonc?)|vercel\.json|render\.yaml|fly\.toml|railway\.(?:json|toml)|Dockerfile|docker-compose\.(?:yml|yaml)|compose\.(?:yml|yaml)|requirements\.txt|pyproject\.toml|Pipfile(?:\.lock)?|go\.(?:mod|sum)|Cargo\.(?:toml|lock)|tsconfig\.json|\.node-version|\.nvmrc|\.env\.(?:example|sample|template|dist))$/i.test(base);
+    var supportFile = /^(?:package\.json|package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lock(?:b)?|wrangler\.(?:toml|jsonc?)|vercel\.json|render\.yaml|fly\.toml|railway\.(?:json|toml)|Dockerfile|docker-compose\.(?:yml|yaml)|compose\.(?:yml|yaml)|requirements\.txt|pyproject\.toml|Pipfile(?:\.lock)?|go\.(?:mod|sum)|Cargo\.(?:toml|lock)|tsconfig\.json|\.node-version|\.nvmrc|\.env\.(?:example|sample|template|dist))$/i.test(base);
+    if (path.indexOf('/') === -1) return supportFile;
+    var parent = path.slice(0, path.lastIndexOf('/'));
+    return supportFile && /^(?:(?:api|functions|server|backend|migrations|prisma|drizzle|convex|database|db)(?:\/.*)?|(?:packages|apps|services)\/api(?:\/.*)?)$/i.test(parent);
   }
   function isLikelyFrontendSourcePath(path) {
     return /\.(?:html?|css|scss|sass|less|jsx?|tsx?|vue|svelte|astro)$/i.test(String(path || '')) && !isBackendImplementationPath(path) && !/(^|\/)FULL_STACK_SETUP\.md$/i.test(String(path || ''));
   }
-  function readExportFiles(graph, project, options) {
+  function detectFrameworkProfile(files, backendPaths, frontendPaths, mode, backendExcludedCount) {
+    var packageEntries = files.filter(function (file) { return /(^|\/)package\.json$/i.test(file.path); });
+    var parsedPackages = [];
+    var packageWarnings = [];
+    packageEntries.forEach(function (file) {
+      try {
+        var parsed = JSON.parse(new TextDecoder().decode(file.bytes));
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          parsedPackages.push({ path: file.path, data: parsed });
+        }
+      } catch (_) {
+        packageWarnings.push('Could not parse ' + file.path + '; framework/dependency detection may be incomplete.');
+      }
+    });
+    parsedPackages.sort(function (a, b) {
+      if (a.path === 'package.json') return -1;
+      if (b.path === 'package.json') return 1;
+      return a.path.localeCompare(b.path);
+    });
+    var rootPackage = parsedPackages.find(function (item) { return item.path === 'package.json'; }) || parsedPackages[0] || null;
+    var dependencies = {};
+    parsedPackages.forEach(function (item) {
+      ['dependencies', 'devDependencies', 'optionalDependencies'].forEach(function (field) {
+        var source = item.data[field];
+        if (source && typeof source === 'object') Object.keys(source).forEach(function (name) {
+          dependencies[name.toLowerCase()] = true;
+        });
+      });
+    });
+    var paths = files.map(function (file) { return file.path; });
+    var hasPath = function (pattern) { return paths.some(function (path) { return pattern.test(path); }); };
+    var framework = 'Unknown';
+    var confidence = 'low';
+    if (dependencies.next || hasPath(/(^|\/)next\.config\.[cm]?[jt]s$/i)) { framework = 'Next.js'; confidence = dependencies.next ? 'high' : 'medium'; }
+    else if (dependencies['@sveltejs/kit'] || hasPath(/(^|\/)svelte\.config\.[cm]?[jt]s$/i)) { framework = 'SvelteKit'; confidence = dependencies['@sveltejs/kit'] ? 'high' : 'medium'; }
+    else if (dependencies.nuxt || hasPath(/(^|\/)nuxt\.config\.[cm]?[jt]s$/i)) { framework = 'Nuxt'; confidence = dependencies.nuxt ? 'high' : 'medium'; }
+    else if (dependencies.astro || hasPath(/(^|\/)astro\.config\.[cm]?[jt]s$/i)) { framework = 'Astro'; confidence = dependencies.astro ? 'high' : 'medium'; }
+    else if (dependencies['@remix-run/react'] || dependencies['@remix-run/dev']) { framework = 'Remix'; confidence = 'high'; }
+    else if (dependencies.vite || hasPath(/(^|\/)vite\.config\.[cm]?[jt]s$/i)) { framework = 'Vite'; confidence = dependencies.vite ? 'high' : 'medium'; }
+    else if (dependencies['@angular/core']) { framework = 'Angular'; confidence = 'high'; }
+    else if (dependencies.vue || dependencies['@vue/cli-service']) { framework = 'Vue'; confidence = 'high'; }
+    else if (dependencies.react || dependencies['react-scripts']) { framework = 'React'; confidence = 'high'; }
+    else if (frontendPaths.some(function (path) { return /\.html?$/i.test(path); })) { framework = 'Static HTML/CSS/JavaScript'; confidence = 'high'; }
+
+    var scripts = rootPackage && rootPackage.data.scripts && typeof rootPackage.data.scripts === 'object'
+      ? rootPackage.data.scripts : {};
+    var lockfiles = [
+      ['pnpm-lock.yaml', 'pnpm', 'pnpm install --frozen-lockfile'],
+      ['yarn.lock', 'yarn', 'yarn install --frozen-lockfile'],
+      ['bun.lockb', 'bun', 'bun install --frozen-lockfile'],
+      ['bun.lock', 'bun', 'bun install --frozen-lockfile'],
+      ['package-lock.json', 'npm', 'npm ci'],
+    ];
+    var packageManager = lockfiles.find(function (item) { return paths.indexOf(item[0]) !== -1; });
+    var installCommand = packageManager ? packageManager[2] : 'npm install';
+    var buildCommand = typeof scripts.build === 'string' ? scripts.build : '';
+    var startCommand = typeof scripts.start === 'string' ? scripts.start : '';
+    var previewCommand = typeof scripts.preview === 'string' ? scripts.preview : '';
+    var frameworkBuildDefaults = {
+      'Next.js': 'next build',
+      'Vite': 'vite build',
+      'Astro': 'astro build',
+      'SvelteKit': 'vite build',
+      'Nuxt': 'nuxt build',
+      'Remix': 'remix vite:build',
+      'Angular': 'ng build',
+      'Vue': 'vite build',
+      'React': 'Use the build script defined by this project (for example, react-scripts build).',
+    };
+    var recommendedBuild = buildCommand || (parsedPackages.length ? frameworkBuildDefaults[framework] || '' : '');
+    var missingExpectedFiles = [];
+    if (mode !== 'backend-only' && framework === 'Next.js' && !hasPath(/(^|\/)(?:app\/(?:.*\/)?page|pages\/.+)\.[cm]?[jt]sx?$/i)) {
+      missingExpectedFiles.push('No conventional Next.js app/page or pages/index entry was detected.');
+    }
+    if (mode !== 'backend-only' && framework === 'Vite' && !hasPath(/(^|\/)index\.html$/i)) {
+      missingExpectedFiles.push('No Vite root index.html was detected in the selected export.');
+    }
+    if (mode !== 'backend-only' && framework === 'Astro' && !hasPath(/(^|\/)src\/pages\/.+\.astro$/i)) {
+      missingExpectedFiles.push('No Astro src/pages route was detected in the selected export.');
+    }
+    if (mode !== 'backend-only' && framework === 'SvelteKit' && !hasPath(/(^|\/)src\/routes\/.+/i)) {
+      missingExpectedFiles.push('No SvelteKit src/routes entry was detected in the selected export.');
+    }
+    if (framework !== 'Unknown' && framework !== 'Static HTML/CSS/JavaScript' && !parsedPackages.length) {
+      missingExpectedFiles.push('Framework source/configuration was detected without a package.json in this export.');
+    }
+    if (framework !== 'Unknown' && framework !== 'Static HTML/CSS/JavaScript' && !buildCommand) {
+      packageWarnings.push('No root package.json build script was detected; confirm the framework build command before deployment.');
+    }
+    if (mode === 'website-only' && (backendPaths.length || backendExcludedCount > 0) && ['Next.js', 'Nuxt', 'SvelteKit', 'Remix'].indexOf(framework) !== -1) {
+      packageWarnings.push('This framework can colocate server routes with frontend routes. Website-only export excludes recognized backend paths; use Complete ZIP if the frontend depends on those routes.');
+    }
+    if (parsedPackages.length > 1) {
+      packageWarnings.push('Multiple package.json files were found. This may be a monorepo; install/build commands must be run from the correct workspace root.');
+    }
+    var nextStaticExport = framework === 'Next.js' && files.some(function (file) {
+      return /(^|\/)next\.config\.[cm]?[jt]s$/i.test(file.path) && /output\s*:\s*['"]export['"]/.test(new TextDecoder().decode(file.bytes));
+    });
+    var svelteStaticAdapter = framework === 'SvelteKit' && dependencies['@sveltejs/adapter-static'];
+    var astroServerAdapter = framework === 'Astro' && Object.keys(dependencies).some(function (name) {
+      return /^@astrojs\/(?:node|cloudflare|vercel|netlify)$/.test(name);
+    });
+    var serverFramework = framework === 'Next.js' ? !nextStaticExport
+      : framework === 'Nuxt' || framework === 'Remix'
+        ? true
+        : framework === 'SvelteKit' ? !svelteStaticAdapter
+          : framework === 'Astro' ? astroServerAdapter : false;
+    var hasBackend = backendPaths.length > 0;
+    if (nextStaticExport && hasBackend) packageWarnings.push('Next.js static export is configured, but backend/API source paths are also present. Static output cannot host those server routes; deploy the API separately or remove static-export mode.');
+    var runtimeProfile = hasBackend || serverFramework
+      ? 'framework-or-node-server-runtime'
+      : framework === 'Static HTML/CSS/JavaScript' || framework === 'Vite' || nextStaticExport || svelteStaticAdapter || framework === 'Astro' && !astroServerAdapter
+        ? 'static-site'
+        : framework === 'Unknown' ? 'unknown-project' : 'frontend-framework-build';
+    var deploymentTarget = hasBackend || serverFramework
+      ? 'hosting-with-compatible-framework-or-server-runtime'
+      : runtimeProfile === 'static-site' ? 'static-hosting-after-build'
+        : framework === 'Unknown' ? 'manual-hosting-review-required' : 'framework-compatible-hosting';
+    return {
+      name: framework,
+      confidence: confidence,
+      packageManifests: parsedPackages.map(function (item) { return item.path; }),
+      rootPackageName: clean(rootPackage && rootPackage.data.name || '', 120),
+      packageManager: packageManager ? packageManager[1] : 'npm (default; no lockfile detected)',
+      installCommand: installCommand,
+      scripts: {
+        build: clean(buildCommand, 180),
+        start: clean(startCommand, 180),
+        preview: clean(previewCommand, 180),
+      },
+      recommendedBuildCommand: clean(recommendedBuild, 180),
+      runtimeProfile: runtimeProfile,
+      deploymentTarget: deploymentTarget,
+      backendPathsIncluded: backendPaths.slice(0, 100),
+      backendFilesExcludedByDesign: mode === 'website-only' ? Number(backendExcludedCount) || 0 : 0,
+      frontendPathsIncluded: frontendPaths.slice(0, 100),
+      missingExpectedFiles: missingExpectedFiles,
+      warnings: packageWarnings,
+      sourcePathsPreserved: true,
+      frameworkScaffoldGenerated: false,
+      liveBuildVerified: false,
+      note: 'OVYX preserves the generated project structure and reports framework-aware setup guidance. This profile does not install dependencies, scaffold missing files, execute a build, or verify a live deployment.',
+    };
+  }
+
+  async function collectProjectAssets(project, mode) {
+    var result = { files: [], excluded: [], available: false, listedCount: 0, mode: mode, status: 'not-available' };
+    if (mode === 'backend-only') {
+      result.status = 'excluded-by-design';
+      return result;
+    }
+    var store = window.OVYXAssetStore;
+    var projectId = String(project && project.id || '').trim();
+    if (!projectId || !store || typeof store.list !== 'function' || typeof store.url !== 'function') {
+      result.status = 'unavailable';
+      result.excluded.push({ path: 'project assets', reason: 'authenticated project asset storage is unavailable in this session' });
+      return result;
+    }
+    var assets;
+    try {
+      assets = await store.list(projectId);
+      result.available = true;
+    } catch (error) {
+      result.status = 'unavailable';
+      result.excluded.push({ path: 'project assets', reason: 'asset listing failed: ' + clean(error && error.message || 'storage unavailable', 160) });
+      return result;
+    }
+    assets = Array.isArray(assets) ? assets : [];
+    result.listedCount = assets.length;
+    result.status = assets.length ? 'listed' : 'none';
+    if (assets.length > MAX_PROJECT_ASSETS) {
+      result.excluded.push({ path: 'project assets', reason: 'asset listing capped at ' + MAX_PROJECT_ASSETS + ' of ' + assets.length + ' stored assets' });
+      assets = assets.slice(0, MAX_PROJECT_ASSETS);
+    }
+    var total = 0;
+    for (var index = 0; index < assets.length; index += 1) {
+      var asset = assets[index] || {};
+      var id = clean(asset.id || asset.assetId || 'asset-' + (index + 1), 100);
+      var originalName = clean(asset.name || 'asset-' + (index + 1), 180);
+      var filename = originalName.replace(/[^A-Za-z0-9._-]/g, '_').replace(/^\.+/, '').slice(0, 150) || ('asset-' + (index + 1));
+      var typeHint = String(asset.contentType || asset.type || '').toLowerCase().split(';')[0].trim();
+      var mimeExtensions = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/svg+xml': 'svg', 'image/avif': 'avif', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'video/mp4': 'mp4', 'video/webm': 'webm', 'application/pdf': 'pdf', 'font/woff': 'woff', 'font/woff2': 'woff2' };
+      if (!/\.[A-Za-z0-9]{1,10}$/.test(filename) && mimeExtensions[typeHint]) filename += '.' + mimeExtensions[typeHint];
+      var expectedSize = Number(asset.size);
+      if (!asset.storagePath) {
+        result.excluded.push({ path: originalName, reason: 'asset metadata has no storage path' });
+        continue;
+      }
+      if (Number.isFinite(expectedSize) && expectedSize > MAX_BINARY_ASSET_BYTES) {
+        result.excluded.push({ path: originalName, reason: 'asset exceeds the 25 MB per-binary export limit' });
+        continue;
+      }
+      try {
+        var downloadUrl = await store.url(asset);
+        if (!downloadUrl) throw new Error('No authorized download URL was returned.');
+        var fetcher = typeof window.fetch === 'function' ? window.fetch.bind(window) : (typeof fetch === 'function' ? fetch : null);
+        if (!fetcher) throw new Error('Browser fetch is unavailable.');
+        var response = await fetcher(downloadUrl, { method: 'GET', credentials: 'omit', cache: 'no-store' });
+        if (!response || !response.ok) throw new Error('Asset download returned HTTP ' + (response && response.status || 'unknown') + '.');
+        var blob = await response.blob();
+        if (!blob || !blob.size) throw new Error('The stored asset returned an empty file.');
+        if (blob.size > MAX_BINARY_ASSET_BYTES) throw new Error('Asset exceeds the 25 MB per-binary export limit.');
+        if (total + blob.size > MAX_TOTAL_BYTES) throw new Error('Binary assets reached the 80 MB project export limit.');
+        var assetPath = safePath('assets/' + slug(id) + '/' + filename);
+        if (!assetPath) throw new Error('Asset filename could not be made safe for ZIP export.');
+        var bytes = new Uint8Array(await blob.arrayBuffer());
+        var contentType = clean(response.headers && response.headers.get && response.headers.get('content-type') || asset.contentType || asset.type || blob.type || 'application/octet-stream', 160);
+        result.files.push({
+          path: assetPath,
+          bytes: bytes,
+          asset: {
+            id: id,
+            name: originalName,
+            contentType: contentType,
+            size: bytes.byteLength,
+            archivePath: assetPath,
+          },
+          sourceUrl: String(downloadUrl),
+        });
+        total += bytes.byteLength;
+      } catch (error) {
+        result.excluded.push({ path: originalName, reason: clean(error && error.message || 'asset download failed', 220) });
+      }
+    }
+    result.status = result.files.length ? (result.excluded.length ? 'partial' : 'included') : (result.excluded.length ? 'unavailable' : 'none');
+    return result;
+  }
+
+  function relativeArchivePath(sourcePath, targetPath) {
+    var from = String(sourcePath || '').split('/');
+    from.pop();
+    var to = String(targetPath || '').split('/');
+    while (from.length && to.length && from[0] === to[0]) {
+      from.shift();
+      to.shift();
+    }
+    return new Array(from.length + 1).join('../') + to.join('/');
+  }
+
+  function readExportFiles(graph, project, options, assetBundle) {
     var mode = options && options.mode || 'complete';
     var backendOnly = mode === 'backend-only';
     var websiteOnly = mode === 'website-only';
+    if (['complete', 'website-only', 'backend-only'].indexOf(mode) === -1) {
+      throw new Error('Unsupported export mode. Choose complete, website-only or backend-only.');
+    }
     var output = [];
     var excluded = [];
     var frontendExcludedCount = 0;
     var backendExcludedCount = 0;
     var total = 0;
+    var seenPaths = new Set();
     var entries = Object.entries(graph.files || {}).sort(function (a, b) { return String(a[0]).localeCompare(String(b[0])); });
     entries.forEach(function (entry) {
       var path = safePath(entry[0]);
@@ -184,7 +435,7 @@
         frontendExcludedCount += 1;
         return;
       }
-      if (path && websiteOnly && (isBackendImplementationPath(path) || /(^|\/)FULL_STACK_SETUP\.md$/i.test(path) || /^OVYX_BACKEND_EXPORT_/i.test(path) || /^README_OVYX_BACKEND_EXPORT\.md$/i.test(path))) {
+      if (path && websiteOnly && (isBackendImplementationPath(path) || (path.indexOf('/') !== -1 && isBackendSupportPath(path)) || /(^|\/)FULL_STACK_SETUP\.md$/i.test(path) || /^OVYX_BACKEND_EXPORT_/i.test(path) || /^README_OVYX_BACKEND_EXPORT\.md$/i.test(path))) {
         backendExcludedCount += 1;
         return;
       }
@@ -193,12 +444,82 @@
       if (!path || text === null) { excluded.push({ path: clean(entry[0], 180), reason: 'invalid path or non-text file' }); return; }
       if (isSensitivePath(path)) { excluded.push({ path: path, reason: 'secret or credential file' }); return; }
       if (containsLikelySecret(text)) { excluded.push({ path: path, reason: 'possible embedded credential' }); return; }
+      var pathKey = path.normalize('NFC').toLowerCase();
+      if (seenPaths.has(pathKey)) { excluded.push({ path: path, reason: 'duplicate or case-insensitive path collision' }); return; }
       var bytes = utf8(text);
       if (bytes.byteLength > MAX_FILE_BYTES) { excluded.push({ path: path, reason: 'file exceeds export size limit' }); return; }
       if (total + bytes.byteLength > MAX_TOTAL_BYTES) { excluded.push({ path: path, reason: 'project export size limit' }); return; }
-      output.push({ path: path, bytes: bytes });
+      output.push({ path: path, bytes: bytes, textSource: true });
+      seenPaths.add(pathKey);
       total += bytes.byteLength;
     });
+    assetBundle = assetBundle && typeof assetBundle === 'object' ? assetBundle : { files: [], excluded: [], status: 'not-loaded-during-sync-inspection', listedCount: 0 };
+    (assetBundle.excluded || []).forEach(function (item) { excluded.push(item); });
+    var assetExcludedCount = (assetBundle.excluded || []).length;
+    var assetRecords = [];
+    var assetUrlMappings = [];
+    (assetBundle.files || []).forEach(function (assetFile) {
+      var path = safePath(assetFile && assetFile.path);
+      var bytes = assetFile && assetFile.bytes;
+      if (!path || !(bytes instanceof Uint8Array)) {
+        excluded.push({ path: clean(assetFile && assetFile.path || 'project asset', 180), reason: 'invalid binary asset path or data' });
+        assetExcludedCount += 1;
+        return;
+      }
+      var pathKey = path.normalize('NFC').toLowerCase();
+      if (seenPaths.has(pathKey)) { excluded.push({ path: path, reason: 'duplicate or case-insensitive path collision' }); assetExcludedCount += 1; return; }
+      if (output.length >= MAX_FILES) { excluded.push({ path: path, reason: 'project file-count limit' }); assetExcludedCount += 1; return; }
+      if (bytes.byteLength > MAX_BINARY_ASSET_BYTES) { excluded.push({ path: path, reason: 'binary asset exceeds per-file export limit' }); assetExcludedCount += 1; return; }
+      if (total + bytes.byteLength > MAX_TOTAL_BYTES) { excluded.push({ path: path, reason: 'project export size limit' }); assetExcludedCount += 1; return; }
+      output.push({ path: path, bytes: bytes, binaryAsset: true });
+      seenPaths.add(pathKey);
+      total += bytes.byteLength;
+      var record = Object.assign({}, assetFile.asset || {}, { archivePath: path, size: bytes.byteLength, referenceRewriteCount: 0 });
+      assetRecords.push(record);
+      if (assetFile.sourceUrl) assetUrlMappings.push({ sourceUrl: String(assetFile.sourceUrl), archivePath: path, record: record });
+    });
+    var rewrittenReferences = 0;
+    var sanitizedFirebaseTokenReferences = 0;
+    output.forEach(function (file) {
+      if (!file.textSource) return;
+      var sourceText = new TextDecoder().decode(file.bytes);
+      assetUrlMappings.forEach(function (mapping) {
+        var relative = relativeArchivePath(file.path, mapping.archivePath);
+        var variants = [mapping.sourceUrl, mapping.sourceUrl.replace(/&/g, '&amp;')];
+        variants.forEach(function (sourceVariant) {
+          if (!sourceVariant) return;
+          var count = sourceText.split(sourceVariant).length - 1;
+          if (!count) return;
+          sourceText = sourceText.split(sourceVariant).join(relative);
+          mapping.record.referenceRewriteCount += count;
+          rewrittenReferences += count;
+        });
+      });
+      sourceText = sourceText.replace(/https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^"'\s<>]+/gi, function (downloadUrl) {
+        var sanitizedUrl = downloadUrl.replace(/(\?|&|&amp;)token=[^&"'\s<>]*(?:&amp;|&)?/i, function (tokenParameter, delimiter) {
+          return delimiter === '?' ? '?' : '';
+        }).replace(/\?&/g, '?').replace(/\?$/g, '');
+        if (sanitizedUrl !== downloadUrl) sanitizedFirebaseTokenReferences += 1;
+        return sanitizedUrl;
+      });
+      if (sourceText !== new TextDecoder().decode(file.bytes)) file.bytes = utf8(sourceText);
+    });
+    if (sanitizedFirebaseTokenReferences) {
+      excluded.push({
+        path: 'Firebase Storage references',
+        reason: sanitizedFirebaseTokenReferences + ' download-token reference(s) were stripped because their media could not be rewritten to an included local asset. Reconnect or re-upload those assets after extraction.',
+      });
+    }
+    var assetStorage = {
+      status: assetExcludedCount && assetBundle.status !== 'excluded-by-design' ? (assetRecords.length ? 'partial' : 'unavailable') : (assetBundle.status || 'not-loaded-during-sync-inspection'),
+      listedCount: Number(assetBundle.listedCount) || 0,
+      includedCount: assetRecords.length,
+      excludedCount: assetExcludedCount,
+      rewrittenReferences: rewrittenReferences,
+      sanitizedFirebaseTokenReferences: sanitizedFirebaseTokenReferences,
+      firebaseDownloadTokensExcludedFromExport: true,
+      files: assetRecords,
+    };
     var slugName = slug(project && (project.name || project.title || project.slug));
     var backendPaths = output.map(function (file) { return file.path; }).filter(isBackendImplementationPath);
     var frontendPaths = output.map(function (file) { return file.path; }).filter(isLikelyFrontendSourcePath);
@@ -211,6 +532,27 @@
     var hasSetup = output.some(function (file) { return /(^|\/)FULL_STACK_SETUP\.md$/i.test(file.path); });
     var envExample = output.some(function (file) { return /(^|\/)\.env\.(?:example|sample|template|dist)$/i.test(file.path); });
     var timestamp = new Date().toISOString();
+    var frameworkProfile = detectFrameworkProfile(output, backendPaths, frontendPaths, mode, backendExcludedCount);
+    var frameworkGuide = [
+      '## Framework-aware build profile',
+      '',
+      '- Detected framework: ' + frameworkProfile.name + ' (' + frameworkProfile.confidence + ' confidence).',
+      '- Runtime profile: ' + frameworkProfile.runtimeProfile + '.',
+      '- Hosting target: ' + frameworkProfile.deploymentTarget + '.',
+      '- Install command: ' + frameworkProfile.installCommand + '.',
+      frameworkProfile.recommendedBuildCommand ? '- Build command: ' + frameworkProfile.recommendedBuildCommand + '.' : '- No framework build command was inferred; inspect the source and hosting requirements.',
+      frameworkProfile.scripts.start ? '- Start script: ' + frameworkProfile.scripts.start + '.' : '',
+      frameworkProfile.scripts.preview ? '- Preview script: ' + frameworkProfile.scripts.preview + '.' : '',
+      frameworkProfile.packageManifests.length ? '- Package manifests: ' + frameworkProfile.packageManifests.join(', ') + '.' : '- No package.json was included.',
+      frameworkProfile.missingExpectedFiles.map(function (item) { return '- CHECK: ' + item; }).join('\n'),
+      frameworkProfile.warnings.map(function (item) { return '- WARNING: ' + item; }).join('\n'),
+      '- Asset packaging status: ' + assetStorage.status + '.',
+      '- Stored binary assets: ' + assetStorage.includedCount + ' included, ' + assetStorage.excludedCount + ' excluded; ' + assetStorage.rewrittenReferences + ' source references rewritten.',
+      '- Firebase download tokens are stripped whenever a media URL cannot be rewritten to an included local asset.',
+      '- Original source paths are preserved; OVYX does not silently convert or scaffold a different framework.',
+      '- The ZIP has not been built or deployed by this profile. Run the commands above in the extracted project and verify the actual result.',
+      ''
+    ].filter(Boolean).join('\n');
     var readmeName = backendOnly ? 'README_OVYX_BACKEND_EXPORT.md' : websiteOnly ? 'README_OVYX_WEBSITE_EXPORT.md' : 'README_OVYX_EXPORT.md';
     var manifestName = backendOnly ? 'OVYX_BACKEND_EXPORT_MANIFEST.json' : websiteOnly ? 'OVYX_WEBSITE_EXPORT_MANIFEST.json' : 'OVYX_EXPORT_MANIFEST.json';
     var exclusionName = backendOnly ? 'OVYX_BACKEND_EXPORT_EXCLUSIONS.md' : websiteOnly ? 'OVYX_WEBSITE_EXPORT_EXCLUSIONS.md' : 'OVYX_EXPORT_EXCLUSIONS.md';
@@ -244,7 +586,7 @@
         '- Frontend pages, styles, and client-only source files are intentionally excluded. This is not a complete website download.',
         '- Some frameworks colocate server routes with frontend source and require additional framework files to build or deploy. When the framework/setup guide indicates that, use the complete project ZIP instead.',
         '- This export does not create a repository, provision a database, connect live services, or deploy anything automatically.',
-        '- Only text-based files saved in the project graph are exported. Binary assets not stored in that graph are not reconstructed.',
+        '- Website/media binary assets are excluded by design from backend-only archives. Export backend source and configure its storage integration separately.',
         '- Recognizable credential files/secrets are omitted. Review the backend exclusion report if present and recreate required secrets in secure provider settings.',
         '',
         'Exported from OVYX Web Studio on ' + timestamp + '.',
@@ -254,10 +596,10 @@
       readme = [
         '# OVYX website-only export',
         '',
-        'This advanced archive contains recognizable frontend/browser source files saved in the current OVYX Web Studio project graph. Backend/server implementation files and the full-stack backend setup guide are intentionally excluded.',
+        'This advanced archive contains recognizable frontend/browser source files saved in the OVYX Web Studio project graph plus retrievable binary project assets. Backend/server implementation files and the full-stack backend setup guide are intentionally excluded.',
         '',
         '## Included',
-        '- Frontend pages, browser-side JavaScript/TypeScript, styles, and other text-based site source saved in the project graph.',
+        '- Frontend pages, browser-side JavaScript/TypeScript, styles, and other text-based site source saved in the project graph, plus retrievable project binaries under assets/.',
         '- Shared root-level project configuration/manifests may be included when needed to build or run the frontend; inspect them before deploying.',
         '',
         '## Deploy the website',
@@ -270,7 +612,7 @@
         '## Important limits',
         '- Backend handlers, migrations, server schemas, and FULL_STACK_SETUP.md are excluded by design. Use the backend-only option for recognized separated backend source, or the complete project ZIP for a combined deployment.',
         '- This export does not deploy the site, provision a backend, or connect third-party services.',
-        '- Only text-based files saved in the current project graph are exported. Binary assets not stored in that graph are not reconstructed.',
+        '- Text source is read from the project graph. Retrievable binaries are downloaded from the authenticated OVYX asset store into assets/; oversized or unavailable files are listed in the exclusion report.',
         '- Credential files and files with recognizable high-risk embedded secret patterns are omitted. Review the exclusion report if present.',
         '',
         'Exported from OVYX Web Studio on ' + timestamp + '.',
@@ -280,10 +622,10 @@
       readme = [
         '# OVYX website project export',
         '',
-        'This archive contains the text-based project files that were saved in OVYX Web Studio at export time. Keep the directory structure intact.',
+        'This archive contains the text-based project source saved in OVYX Web Studio and retrievable binary assets from its authenticated project asset store. Keep the directory structure intact.',
         '',
         '## What is included',
-        '- The current website source files and assets that are stored in the Web Studio project graph.',
+        '- Website source files from the project graph and retrievable project binaries placed under assets/.',
         '- Backend/API routes, data models, migrations, tests, and configuration files if they were generated and saved in the project.',
         '- FULL_STACK_SETUP.md if the full-stack upgrade created it.',
         '',
@@ -305,18 +647,20 @@
         '- Downloading this ZIP does not publish the website, create a GitHub repository, provision a database, or connect external services automatically.',
         '- Generated source code is not proof of a live connection. Configure and test authentication, database, email, payments, storage or other providers required by this project.',
         '- Credential files and files containing recognizable high-risk secret patterns are deliberately omitted. Check the export notice and recreate needed secrets in your hosting provider secret settings.',
-        '- This archive includes text-based files stored in the current Web Studio project graph. Binary files or assets not stored in that graph are not reconstructed by this exporter.',
+        '- Text source is read from the project graph. Retrievable binaries are downloaded from the authenticated OVYX asset store into assets/; oversized or unavailable files are listed in the exclusion report.',
         '',
         'Exported from OVYX Web Studio on ' + timestamp + '.',
         ''
       ].join('\n');
     }
+    readme += '\n' + frameworkGuide;
     var manifest = {
-      schemaVersion: 1,
+      schemaVersion: 2,
+      framework: frameworkProfile,
       exportMode: mode,
       project: clean(project && (project.name || project.title || project.slug) || 'OVYX website', 160),
       exportedAt: timestamp,
-      source: 'OVYX Web Studio current project graph',
+      source: 'OVYX Web Studio project graph + authenticated project asset store',
       fileCount: output.length + 2 + (excluded.length ? 1 : 0),
       backendPathsDetected: backendPaths.slice(0, 100),
       frontendPathsDetected: frontendPaths.slice(0, 100),
@@ -324,7 +668,8 @@
       backendFilesExcludedByDesign: websiteOnly ? backendExcludedCount : 0,
       setupGuideIncluded: hasSetup,
       environmentExampleIncluded: envExample,
-      credentialsIntentionallyExcluded: true
+      credentialsIntentionallyExcluded: true,
+      assetStorage: assetStorage
     };
     output.push({ path: readmeName, bytes: utf8(readme) });
     output.push({ path: manifestName, bytes: utf8(JSON.stringify(manifest, null, 2) + '\n') });
@@ -343,7 +688,7 @@
       ].join('\n');
       output.push({ path: exclusionName, bytes: utf8(exclusionReport) });
     }
-    return { files: output, excluded: excluded, slug: slugName, mode: mode, backendExcludedCount: backendExcludedCount, frontendExcludedCount: frontendExcludedCount };
+    return { files: output, excluded: excluded, slug: slugName, mode: mode, framework: frameworkProfile, assetStorage: assetStorage, backendExcludedCount: backendExcludedCount, frontendExcludedCount: frontendExcludedCount };
   }
   function showMessage(message, kind) {
     try {
@@ -351,20 +696,31 @@
       else if (typeof window.toast === 'function') window.toast(clean(message, 420), kind || 'info');
     } catch (_) {}
   }
-  function exportProject(options) {
+  var exportBusy = false;
+  async function prepareProjectExport(options) {
+    var mode = options && options.mode || 'complete';
+    var studio = getStudio();
+    var graph = studio && getGraph(studio);
+    if (!graph || !Object.keys(graph.files || {}).length) throw new Error('No saved website files were found. Build or open a website first.');
+    var project = getProject(studio);
+    var assetBundle = await collectProjectAssets(project, mode);
+    var data = readExportFiles(graph, project, { mode: mode }, assetBundle);
+    if (!data.files.length) throw new Error('No safe project files were available to export.');
+    return { data: data, project: project };
+  }
+  async function exportProject(options) {
+    if (exportBusy) {
+      showMessage('A project export is already being prepared. Please wait for it to finish.', 'info');
+      return;
+    }
+    exportBusy = true;
+    showMessage('Preparing the project ZIP, retrieving stored assets and checking export safety…', 'info');
     var mode = options && options.mode || 'complete';
     var backendOnly = mode === 'backend-only';
     var websiteOnly = mode === 'website-only';
-    var studio = getStudio();
-    var graph = studio && getGraph(studio);
-    if (!graph || !Object.keys(graph.files || {}).length) {
-      showMessage('No saved website files were found. Build or open a website first.', 'warning');
-      return;
-    }
     try {
-      var project = getProject(studio);
-      var data = readExportFiles(graph, project, { mode: mode });
-      if (!data.files.length) throw new Error('No safe text files were available to export.');
+      var prepared = await prepareProjectExport(options);
+      var data = prepared.data;
       var blob = buildZip(data.files);
       var url = URL.createObjectURL(blob);
       var anchor = document.createElement('a');
@@ -376,20 +732,22 @@
       anchor.remove();
       window.setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
       if (backendOnly) {
-        var backendMessage = 'Backend-only ZIP downloaded with ' + data.files.length + ' files. Frontend source files were excluded by design.';
+        var backendMessage = 'Backend-only ZIP downloaded with ' + data.files.length + ' files. Frontend source and website media were excluded by design.';
         if (data.excluded.length) backendMessage += ' ' + data.excluded.length + ' backend/config file(s) were excluded for safety or size; review README_OVYX_BACKEND_EXPORT.md and the export notice.';
         showMessage(backendMessage, data.excluded.length ? 'warning' : 'success');
       } else if (websiteOnly) {
-        var websiteMessage = 'Website-only ZIP downloaded with ' + data.files.length + ' files. Backend/server source was excluded by design.';
+        var websiteMessage = 'Website-only ZIP downloaded with ' + data.files.length + ' files, including ' + data.assetStorage.includedCount + ' stored media asset(s). Backend/server source was excluded by design.';
         if (data.excluded.length) websiteMessage += ' ' + data.excluded.length + ' website file(s) were excluded for safety or size; review README_OVYX_WEBSITE_EXPORT.md and the export notice.';
         showMessage(websiteMessage, data.excluded.length ? 'warning' : 'success');
       } else if (data.excluded.length) {
-        showMessage('Project ZIP downloaded with ' + data.files.length + ' files. ' + data.excluded.length + ' file(s) were excluded for safety or size; review README_OVYX_EXPORT.md and the export notice.', 'warning');
+        showMessage('Project ZIP downloaded with ' + data.files.length + ' files, including ' + data.assetStorage.includedCount + ' stored media asset(s). ' + data.excluded.length + ' file(s) were excluded for safety, availability or size; review README_OVYX_EXPORT.md and the export notice.', 'warning');
       } else {
-        showMessage('Project ZIP downloaded with ' + data.files.length + ' files. Backend/API files are included when saved in this project.', 'success');
+        showMessage('Project ZIP downloaded with ' + data.files.length + ' files, including ' + data.assetStorage.includedCount + ' stored media asset(s) and ' + data.assetStorage.rewrittenReferences + ' local media reference(s).', 'success');
       }
     } catch (error) {
       showMessage((backendOnly ? 'Could not export backend-only ZIP: ' : websiteOnly ? 'Could not export website-only ZIP: ' : 'Could not export project ZIP: ') + clean(error && error.message || 'unknown export error', 300), 'error');
+    } finally {
+      exportBusy = false;
     }
   }
   function ensureCodeControlsStyles() {
@@ -604,11 +962,11 @@
     heading.className = 'ovyx-code-download-menu-heading';
     heading.textContent = 'Advanced download options';
     menu.appendChild(heading);
-    var websiteOption = addMenuOption(menu, toggle, 'data-ovyx-project-export-website-only', 'Website only (.zip)', 'Frontend pages, browser scripts and styles. Backend/server implementation files are left out.', function () { exportProject({ mode: 'website-only' }); });
+    var websiteOption = addMenuOption(menu, toggle, 'data-ovyx-project-export-website-only', 'Website only (.zip)', 'Frontend pages, browser scripts, styles and retrievable project media. Backend/server implementation files are left out.', function () { exportProject({ mode: 'website-only' }); });
     addMenuOption(menu, toggle, 'data-ovyx-project-export-backend-only', 'Backend only (.zip)', 'Advanced: API/server code, schemas, migrations and setup files. Frontend pages and styles are left out.', function () { exportProject({ mode: 'backend-only' }); });
     var note = document.createElement('span');
     note.className = 'ovyx-code-download-menu-note';
-    note.textContent = 'Use Download code for one complete ZIP with the website and backend together.';
+    note.textContent = 'Download code creates one complete ZIP with website, backend and retrievable stored project assets.';
     menu.appendChild(note);
 
     toggle.addEventListener('click', function (event) {
@@ -692,5 +1050,46 @@
   window.addEventListener('ovyx:view-changed', boot);
   window.addEventListener('firebase-auth-state-ready', boot);
   window.addEventListener('ovyx:webstudio-initial-site-built', function () { window.setTimeout(boot, 0); });
-  window.OVYXWebStudioProjectExport = { export: exportProject, version: '2.0.0', modes: ['complete', 'website-only', 'backend-only'] };
+  window.OVYXWebStudioProjectExport = {
+    export: exportProject,
+    prepare: async function (options) {
+      try {
+        var prepared = await prepareProjectExport(options);
+        return {
+          ok: true,
+          mode: prepared.data.mode,
+          fileCount: prepared.data.files.length,
+          framework: prepared.data.framework,
+          assetStorage: prepared.data.assetStorage,
+          excluded: prepared.data.excluded,
+          files: prepared.data.files.map(function (file) { return { path: file.path, size: file.bytes.byteLength }; }),
+        };
+      } catch (error) {
+        return { ok: false, error: clean(error && error.message || 'Export preparation failed.', 300) };
+      }
+    },
+    inspect: function (options) {
+      var mode = options && options.mode || 'complete';
+      var studio = getStudio();
+      var graph = studio && getGraph(studio);
+      if (!graph || !Object.keys(graph.files || {}).length) {
+        return { ok: false, error: 'No saved website files were found.', modes: ['complete', 'website-only', 'backend-only'] };
+      }
+      try {
+        var result = readExportFiles(graph, getProject(studio), { mode: mode });
+        return {
+          ok: true,
+          mode: result.mode,
+          fileCount: result.files.length,
+          excludedCount: result.excluded.length,
+          framework: result.framework,
+          modes: ['complete', 'website-only', 'backend-only'],
+        };
+      } catch (error) {
+        return { ok: false, error: clean(error && error.message || 'Export inspection failed.', 300), modes: ['complete', 'website-only', 'backend-only'] };
+      }
+    },
+    version: '2.2.0',
+    modes: ['complete', 'website-only', 'backend-only'],
+  };
 })();

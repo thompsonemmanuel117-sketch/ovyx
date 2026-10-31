@@ -398,7 +398,13 @@ function makeSiteMap(raw, limit) {
     const path = 'src/pages/' + slug(title) + '.html';
     if (seen.has(path.toLowerCase())) continue;
     seen.add(path.toLowerCase());
-    pages.push({ title, path, url: /^home(?:page)?$/i.test(title) ? '/' : '/' + slug(title).toLowerCase() + '/', goal: String((entry && (entry.goal || entry.purpose)) || '').slice(0, 300) });
+    pages.push({
+      ...(entry && typeof entry === 'object' ? entry : {}),
+      title,
+      path,
+      url: /^home(?:page)?$/i.test(title) ? '/' : '/' + slug(title).toLowerCase() + '/',
+      goal: String((entry && (entry.goal || entry.purpose)) || '').slice(0, 300),
+    });
   }
   if (!pages.some(page => /^home(?:page)?$/i.test(page.title))) pages.unshift({ title: 'Home', path: 'src/pages/Home.html', url: '/', goal: 'Main website landing page.' });
   else {
@@ -410,9 +416,19 @@ function makeSiteMap(raw, limit) {
     { path: 'src/styles.css', purpose: 'Shared responsive styles and reusable components.' },
     { path: 'src/main.js', purpose: 'Shared navigation and interactive behavior.' },
   ];
-  const result = normalizeSiteMap({ architecture: raw.architecture || 'Web Studio multi-page site', pages, sharedFiles, foundationPaths: [pages[0].path, 'src/styles.css', 'src/main.js'] }, limit);
+  const result = normalizeSiteMap({
+    architecture: raw.architecture || 'Web Studio multi-page site',
+    designSystem: raw.designSystem || {},
+    pages,
+    sharedFiles,
+    foundationPaths: [pages[0].path, 'src/styles.css', 'src/main.js'],
+  }, limit);
   if (!result.siteMap) return { siteMap: null, overflow };
-  result.siteMap.pages = pages;
+  const normalizedPages = new Map(result.siteMap.pages.map(page => [page.path, page]));
+  result.siteMap.pages = pages.map(page => ({
+    ...(normalizedPages.get(page.path) || {}),
+    url: page.url,
+  }));
   result.siteMap.sharedFiles = sharedFiles;
   result.siteMap.foundationPaths = [pages[0].path, 'src/styles.css', 'src/main.js'];
   return { siteMap: result.siteMap, overflow: Math.max(overflow, result.overflow) };
@@ -482,9 +498,14 @@ function accountingError(error, usage, hasUsage, inputs, outputs) {
 function planPrompt(prompt, project, paths, requireMulti, limit, extraContext, promptContract) {
   return [
     'OVYX WEB STUDIO WEBSITE ARCHITECTURE PLANNING PHASE.',
-    'Return strict JSON only: {"summary":"...","siteMap":{"architecture":"...","pages":[{"title":"Home","goal":"..."}]}}.',
+    'Return strict JSON only: {"summary":"...","siteMap":{"architecture":"...","designSystem":{"artDirection":"...","typography":"...","palette":["..."],"typeScale":["..."],"spacingScale":["..."],"componentPrinciples":["..."],"motionPrinciples":["..."],"accessibilityPrinciples":["..."]},"pages":[{"title":"Home","goal":"...","audience":"...","primaryAction":"...","sections":[{"title":"...","purpose":"...","contentNotes":"..."}],"visualDirection":"...","interactionRequirements":["..."],"dataRequirements":["..."],"components":["..."],"componentContracts":[{"name":"...","purpose":"...","variants":["..."],"shared":true,"dependsOn":["..."],"accessibilityContract":"..."}],"imageSlots":[{"name":"...","subject":"...","purpose":"...","placement":"...","aspectRatio":"...","composition":"...","altText":"...","sourcePreference":"project-asset|ai-generated|user-upload|none","mustRepresentRealSubject":false}],"seoIntent":"...","responsiveNotes":["..."],"accessibilityNotes":["..."],"performanceNotes":["..."],"integrationBoundaries":["..."]}]}}.',
     'Plan independently selectable page documents, not only sections on one homepage. For a full business/product/portfolio website, default to 3–8 useful distinct pages. An explicit one-page/landing-page-only request stays one page.',
     'Include every page explicitly requested by the user. Add supporting pages only when they materially improve the same goal. Include Home and unique page titles.',
+    'Create a genuine page blueprint for every page: intended audience, primary action, ordered content sections with purpose, page-specific visual direction, interactions, data needs, reusable components, SEO intent, responsive behavior, accessibility notes, performance constraints and integration boundaries. Do not return the same generic section list for every page.',
+    'Create one shared design system with an intentional art direction, typography hierarchy, restrained palette, type scale, spacing scale, reusable-component principles, motion principles and accessibility/contrast principles. Page visual directions must fit this system without making every page look identical.',
+    'Create explicit reusable component contracts where reuse is appropriate: component name, purpose, variants, shared ownership, dependencies and accessibility contract. Do not create a component abstraction for a one-off element without a real reuse or behavior reason.',
+    'Plan image slots per page with subject, purpose, placement, aspect ratio, composition, truthful alt text and source preference. Prefer existing project assets when suitable; request/generated assets only when needed. Never fabricate an asset URL or claim an image was generated when no asset exists.',
+    'Separate content that can be generated honestly from facts/data that must come from a real feed, user input or configured integration. State those boundaries in the page blueprint.',
     'Each page will be a full HTML document at src/pages/<Page-Name>.html. Use src/pages/Home.html for Home. Shared CSS is src/styles.css and shared interactions are src/main.js.',
     'Do not generate code in this phase. Do not invent business facts. Do not merge requested pages.',
     'Configured page ceiling: ' + limit + '. If the brief explicitly requires more, say so in summary rather than silently omitting pages.',
@@ -532,7 +553,11 @@ function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFi
     'ALLOWED OUTPUT PATHS JSON:\n' + JSON.stringify(batch.allowedPaths),
     'ALREADY GENERATED PATHS JSON:\n' + JSON.stringify(stagedChanges.map(item => item.path)),
     'Create every required target. Never skip a page or merge separate routes into one document.',
-    'Use the complete route manifest to keep navigation and links consistent. Each page needs unique content, a title and description, responsive layout, accessible controls and working interactions.',
+    'Use the complete route manifest and its per-page blueprint to keep navigation, page goals, section order, visual hierarchy, content, interactions and links consistent. Do not flatten the approved page-specific plan into one repeated template.',
+    'Apply the shared design system consistently, but honor each page blueprint’s unique audience, primary action, section purpose, visual direction, SEO intent and responsive notes.',
+    'Honor the component contracts and their shared/variant/dependency rules. Keep repeated navigation, cards, forms and controls behaviorally consistent across pages.',
+    'Place imagery according to the page image-slot manifest. Reuse real project assets where available, keep the correct subject/composition/crop, write the planned alt text and never invent file paths or external image URLs.',
+    'Implement every listed interaction with real state and feedback. If a listed data/integration dependency is not configured, build a clearly pending or UI-only boundary; never simulate a successful live transaction.',
     'Preserve the shared design language. Reuse staged CSS/JS; update shared files only when truly required.',
     'Do not invent facts or output placeholder copy, dead controls, secrets or files outside the allowlist.',
     'Do not output more than ' + batch.maxChangedFiles + ' files.',
@@ -948,6 +973,22 @@ function projectPages(project, siteMap) {
       path: page.path,
       route: page.url,
       sections: old && Array.isArray(old.sections) ? old.sections : [],
+      blueprint: {
+        audience: page.audience || '',
+        primaryAction: page.primaryAction || '',
+        sections: Array.isArray(page.sections) ? page.sections : [],
+        visualDirection: page.visualDirection || '',
+        interactionRequirements: Array.isArray(page.interactionRequirements) ? page.interactionRequirements : [],
+        dataRequirements: Array.isArray(page.dataRequirements) ? page.dataRequirements : [],
+        components: Array.isArray(page.components) ? page.components : [],
+        componentContracts: Array.isArray(page.componentContracts) ? page.componentContracts : [],
+        imageSlots: Array.isArray(page.imageSlots) ? page.imageSlots : [],
+        seoIntent: page.seoIntent || '',
+        responsiveNotes: Array.isArray(page.responsiveNotes) ? page.responsiveNotes : [],
+        accessibilityNotes: Array.isArray(page.accessibilityNotes) ? page.accessibilityNotes : [],
+        performanceNotes: Array.isArray(page.performanceNotes) ? page.performanceNotes : [],
+        integrationBoundaries: Array.isArray(page.integrationBoundaries) ? page.integrationBoundaries : [],
+      },
       order: index,
     };
   });
@@ -1418,6 +1459,7 @@ async function buildStudioMultiPageOnce(options) {
     name: project.name,
     description: project.description,
     assets: Array.isArray(project.assets) ? project.assets : [],
+    designSystem: siteMap.designSystem || project.designSystem || {},
     pages: projectPages(project, siteMap),
   } : null;
   const rawUsage = hasUsage ? {
