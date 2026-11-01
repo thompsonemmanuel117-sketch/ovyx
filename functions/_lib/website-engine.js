@@ -453,7 +453,7 @@ function parseBackendFiles(response) {
     for (const [rawPath, value] of Object.entries(files)) {
       const filePath = String(rawPath || '').trim().replace(/^\\/+/, '');
       const content = typeof value === 'string' ? value : value && (value.content || value.text || value.code);
-      if (!filePath || filePath.length > 300 || filePath.includes('..') || filePath.includes('\\\\') ||
+      if (!filePath || filePath.length > 300 || filePath.includes('..') || filePath.includes('\\') ||
           /(?:^|\\/)\\.env(?:\\.|$)|secret|credential|private[-_]?key|service[-_]?account/i.test(filePath) ||
           !/\\.(?:[cm]?[jt]sx?|prisma|sql|graphql|gql|ya?ml|toml|json)$/i.test(filePath) ||
           !/^(?:functions\\/|api\\/|app\\/api\\/|src\\/app\\/api\\/|pages\\/api\\/|src\\/pages\\/api\\/|prisma\\/|migrations\\/|db\\/|database\\/|server\\/|src\\/server\\/|src\\/lib\\/server\\/|tests?\\/|__tests__\\/)/i.test(filePath) ||
@@ -483,9 +483,9 @@ function auditBackendFiles(files, architecture) {
     const method = String(route.method || 'GET').toUpperCase();
     const pascal = method.charAt(0) + method.slice(1).toLowerCase();
     const methodOk = !!file && (
-      new RegExp('\\\\bonRequest' + pascal + '\\\\b').test(code) ||
-      new RegExp('\\\\bexport\\\\s+(?:async\\\\s+)?function\\\\s+' + method + '\\\\b').test(code) ||
-      new RegExp('\\\\b(?:router|app|server)\\\\s*\\\\.\\\\s*' + method.toLowerCase() + '\\\\s*\\\\(').test(code)
+      new RegExp('\\bonRequest' + pascal + '\\b').test(code) ||
+      new RegExp('\\bexport\\s+(?:async\\s+)?function\\s+' + method + '\\b').test(code) ||
+      new RegExp('\\b(?:router|app|server)\\s*\\.\\s*' + method.toLowerCase() + '\\s*\\(').test(code)
     );
     const policy = String(route.authPolicy || '').toLowerCase();
     const publicRoute = /^(?:public|public-read|public-with-abuse-controls|public-only)/.test(policy);
@@ -502,8 +502,8 @@ function auditBackendFiles(files, architecture) {
     const name = String(model.name || '');
     const snake = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
     const plural = snake.endsWith('s') ? snake : snake + 's';
-    const present = new RegExp('\\\\bmodel\\\\s+' + name + '\\\\b').test(schema) ||
-      new RegExp('\\\\bCREATE\\\\s+TABLE\\\\s+(?:IF\\\\s+NOT\\\\s+EXISTS\\\\s+)?["\\\\x27]?' + plural + '["\\\\x27]?(?=\\\\s|\\\\(|;|$)', 'i').test(schema);
+    const present = new RegExp('\\bmodel\\s+' + name + '\\b').test(schema) ||
+      new RegExp('\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["\\x27]?' + plural + '["\\x27]?(?=\\s|\\(|;|$)', 'i').test(schema);
     return { id: model.id, name, present };
   });
   const relations = (architecture.dataIntegrity && architecture.dataIntegrity.relationships || []).map(relation => ({
