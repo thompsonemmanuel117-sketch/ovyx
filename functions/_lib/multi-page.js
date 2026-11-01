@@ -65,6 +65,7 @@ function normalizeDesignSystem(value) {
     spacingScale: boundedTextList(source.spacingScale || source.spacing, 8, 100),
     componentPrinciples: boundedTextList(source.componentPrinciples || source.components, 10, 180),
     motionPrinciples: boundedTextList(source.motionPrinciples || source.motion, 8, 180),
+    motionTokens: boundedTextList(source.motionTokens || source.motionTiming, 8, 120),
     accessibilityPrinciples: boundedTextList(source.accessibilityPrinciples || source.accessibility, 8, 180),
   };
 }
@@ -118,6 +119,7 @@ function normalizePageBlueprint(item) {
     primaryAction: boundedText(item.primaryAction || item.primaryCTA, 180),
     sections: normalizePageSections(item.sections || item.contentSections),
     visualDirection: boundedText(item.visualDirection || item.artDirection, 320),
+    motionChoreography: boundedTextList(item.motionChoreography || item.motionNotes, 8, 200),
     interactionRequirements: boundedTextList(item.interactionRequirements || item.interactions, 12, 180),
     dataRequirements: boundedTextList(item.dataRequirements || item.dataNeeds, 10, 180),
     components: boundedTextList(item.components || item.reusableComponents, 10, 140),
@@ -397,7 +399,7 @@ export function buildSiteBatchContext({
     pages: pages.map(page => ({
       title: page.title, path: page.path, url: page.url, goal: page.goal,
       audience: page.audience, primaryAction: page.primaryAction, sections: page.sections,
-      visualDirection: page.visualDirection, interactionRequirements: page.interactionRequirements,
+      visualDirection: page.visualDirection, motionChoreography: page.motionChoreography, interactionRequirements: page.interactionRequirements,
       dataRequirements: page.dataRequirements, components: page.components,
       componentContracts: page.componentContracts, imageSlots: page.imageSlots, seoIntent: page.seoIntent,
       responsiveNotes: page.responsiveNotes, accessibilityNotes: page.accessibilityNotes,

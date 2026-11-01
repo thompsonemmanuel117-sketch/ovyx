@@ -234,6 +234,7 @@ const plannedPages = [
       { title: 'Signature dishes', purpose: 'Show the food offer', contentNotes: 'Use supplied menu data only' },
     ],
     visualDirection: 'Warm editorial food photography with restrained typography',
+    motionChoreography: ['Reveal the signature menu story once as it enters view', 'Use a short route transition and tactile reservation button feedback'],
     interactionRequirements: ['Accessible primary navigation', 'Working reservation route'],
     dataRequirements: ['Menu items from configured source'],
     components: ['Site navigation', 'Dish card'],
@@ -289,6 +290,7 @@ const callModel = async (_env, options) => {
             spacingScale: ['8', '16', '24', '40'],
             componentPrinciples: ['Shared navigation', 'Consistent menu cards'],
             motionPrinciples: ['Purposeful short transitions'],
+            motionTokens: ['micro: 140ms', 'transition: 240ms', 'entrance: 420ms'],
             accessibilityPrinciples: ['AA contrast', 'Visible keyboard focus'],
           },
           pages: plannedPages,
@@ -433,6 +435,8 @@ assert(result, 'A multi-page website build should return a result.');
 assert.equal(result.siteMap.pages.length, 5);
 assert.equal(result.siteMap.designSystem.artDirection, 'Warm editorial restaurant identity');
 assert.equal(result.siteMap.pages[0].audience, 'First-time local diners');
+assert.deepEqual(result.siteMap.pages[0].motionChoreography, ['Reveal the signature menu story once as it enters view', 'Use a short route transition and tactile reservation button feedback']);
+assert.deepEqual(result.siteMap.designSystem.motionTokens, ['micro: 140ms', 'transition: 240ms', 'entrance: 420ms']);
 assert.equal(result.siteMap.pages[0].sections[1].title, 'Signature dishes');
 assert.equal(result.siteMap.pages[0].integrationBoundaries[0], 'Do not claim a reservation is confirmed until provider response');
 assert.equal(result.siteMap.pages[0].componentContracts[0].name, 'DishCard');
@@ -442,6 +446,7 @@ assert.equal(result.project.designSystem.artDirection, 'Warm editorial restauran
 assert.equal(result.project.pages[0].blueprint.audience, 'First-time local diners');
 assert.equal(result.project.pages[0].blueprint.sections[0].title, 'Hero');
 assert.equal(result.project.pages[0].blueprint.primaryAction, 'Explore the menu or reserve a table');
+assert.deepEqual(result.project.pages[0].blueprint.motionChoreography, ['Reveal the signature menu story once as it enters view', 'Use a short route transition and tactile reservation button feedback']);
 assert.equal(result.project.pages[0].blueprint.componentContracts[0].name, 'DishCard');
 assert.equal(result.project.pages[0].blueprint.imageSlots[0].sourcePreference, 'user-upload');
 assert.equal(Object.keys(result.files).filter(path => path.startsWith('src/pages/')).length, 5);
@@ -465,6 +470,10 @@ assert.equal(calls.length, 9, 'The five-page site should use one planning call, 
 assert.equal(result.batchCount, 7, 'Every generated file batch must contain exactly one target file.');
 const targetBatchCalls = calls.filter(call => String(call.user).includes('REQUIRED TARGET FILES JSON:'));
 assert.equal(targetBatchCalls.length, 7);
+assert.ok(calls[0].user.includes('"motionTokens"'), 'The sitemap planning schema must request shared motion timing tokens.');
+assert.ok(calls[0].user.includes('"motionChoreography"'), 'The sitemap planning schema must request page-specific motion choreography.');
+assert.ok(calls[0].user.includes('at most one purpose-led signature moment'), 'The planning prompt must limit signature motion to intentional moments.');
+
 for (const call of targetBatchCalls) {
   const manifest = String(call.user).match(/REQUIRED TARGET FILES JSON:\n([\s\S]*?)\n\nREQUIRED TARGET PATHS JSON:/);
   const allowed = String(call.user).match(/ALLOWED OUTPUT PATHS JSON:\n([\s\S]*?)\n\nALREADY GENERATED PATHS JSON:/);

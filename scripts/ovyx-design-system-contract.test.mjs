@@ -14,6 +14,18 @@ assert.equal(contract.authority.suppliedAssetCount, 1);
 assert.equal(contract.seoSystem.canonicalOriginKnown, true);
 assert.equal(contract.seoSystem.multiPageIntent, true);
 assert.equal(contract.motionSystem.requested, true);
+assert.equal(contract.motionSystem.intensity, 'purposeful');
+assert.ok(contract.motionSystem.choreography.some(item => item.id === 'section-reveal'));
+assert.ok(contract.motionSystem.choreography.some(item => item.id === 'navigation-transition'));
+assert.ok(contract.motionSystem.choreography.some(item => item.id === 'signature-moment'));
+assert.equal(contract.motionSystem.choreography.length, 6);
+assert.ok(contract.motionSystem.timing.microInteraction);
+assert.ok(contract.motionSystem.performance.some(item => /transform and opacity/i.test(item)));
+assert.ok(contract.motionSystem.accessibility.some(item => /prefers-reduced-motion/i.test(item)));
+const expressiveMotion = buildDesignSystemContract('Create a cinematic, immersive, high-motion portfolio with scroll reveals and 3D transitions.');
+assert.equal(expressiveMotion.motionSystem.intensity, 'expressive');
+assert.ok(expressiveMotion.motionSystem.rules.some(item => /coherent choreography/i.test(item)));
+
 assert.ok(contract.componentSystem.requirements.some(item => /component-to-page usage/i.test(item)));
 assert.ok(contract.componentSystem.requirements.some(item => /variants/i.test(item)));
 assert.ok(contract.interactionSystem.requiredStates.includes('focus-visible'));
