@@ -500,11 +500,37 @@ function serializeWebsiteEngineModelPlan(plan) {
       });
       groupedRequirements.get(key).requirementIds.push(item.requirementId);
     }
+    const compactRoutes = fullStack.apiContracts || [];
+    const prioritizedRoutes = [];
+    const routeKeys = new Set();
+    const addCompactRoute = route => {
+      if (!route) return;
+      const key = route.method + ' ' + route.path;
+      if (!routeKeys.has(key)) { routeKeys.add(key); prioritizedRoutes.push(route); }
+    };
+    const criticalRoutePaths = ['/api/payments/intents', '/api/bookings', '/api/assets', '/api/forms/:formId/submissions', '/api/cart', '/api/subscriptions/checkout'];
+    for (const route of compactRoutes) if (criticalRoutePaths.includes(route.path)) addCompactRoute(route);
+    for (const route of compactRoutes) if (prioritizedRoutes.length < 10) addCompactRoute(route);
+    const compactControls = fullStack.security?.controls || [];
+    const prioritizedControls = [
+      ...compactControls.filter(item => ['payment-integrity', 'upload-isolation', 'tenant-isolation'].includes(item.id)),
+      ...compactControls.filter(item => !['payment-integrity', 'upload-isolation', 'tenant-isolation'].includes(item.id)),
+    ].slice(0, 8);
+    const compactConstraints = fullStack.dataIntegrity?.constraints || [];
+    const prioritizedConstraints = [
+      ...compactConstraints.filter(item => ['money-minor-units', 'inventory-reservation-integrity', 'booking-conflict-integrity'].includes(item.id)),
+      ...compactConstraints.filter(item => !['money-minor-units', 'inventory-reservation-integrity', 'booking-conflict-integrity'].includes(item.id)),
+    ].slice(0, 6);
+    const compactTests = fullStack.testPlan || [];
+    const prioritizedTests = [
+      ...compactTests.filter(item => ['upload-isolation', 'payment-integrity', 'booking-conflicts', 'tenant-isolation'].includes(item.id)),
+      ...compactTests.filter(item => !['upload-isolation', 'payment-integrity', 'booking-conflicts', 'tenant-isolation'].includes(item.id)),
+    ].slice(0, 8);
     minimal.fullStackArchitecture = {
       version: fullStack.version,
       capabilities: fullStack.capabilities,
       pages: (fullStack.pages || []).slice(0, 8).map(page => [page.id, clean(page.title, 48), clean(page.route, 64)]),
-      apiContracts: (fullStack.apiContracts || []).slice(0, 10).map(route => ({
+      apiContracts: prioritizedRoutes.map(route => ({
         id: route.id, method: route.method, path: route.path, capability: route.capability,
         authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 3),
         sideEffect: clean(route.sideEffect, 48),
@@ -515,7 +541,7 @@ function serializeWebsiteEngineModelPlan(plan) {
       dataIntegrity: {
         relationships: (fullStack.dataIntegrity?.relationships || []).slice(0, 6).map(item =>
           [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional]),
-        constraints: (fullStack.dataIntegrity?.constraints || []).slice(0, 6).map(item =>
+        constraints: prioritizedConstraints.map(item =>
           [item.id, clean(item.appliesTo, 64), clean(item.rule, 96)]),
         indexes: (fullStack.dataIntegrity?.indexes || []).slice(0, 4).map(item =>
           [item.entity, (item.fields || []).slice(0, 5), item.unique === true]),
@@ -531,7 +557,7 @@ function serializeWebsiteEngineModelPlan(plan) {
       },
       security: {
         defaultPosture: fullStack.security?.defaultPosture,
-        controls: (fullStack.security?.controls || []).slice(0, 8).map(item => [item.id, clean(item.requirement, 100)]),
+        controls: prioritizedControls.map(item => [item.id, clean(item.requirement, 100)]),
         migrationPolicy: fullStack.security?.migrationPolicy,
       },
       backgroundWork: {
@@ -547,7 +573,7 @@ function serializeWebsiteEngineModelPlan(plan) {
           [item.from, item.to, clean(item.authority, 88), clean(item.sideEffect, 72)]),
         invariant: clean(machine.invariant, 100),
       })),
-      testPlan: (fullStack.testPlan || []).slice(0, 8).map(test =>
+      testPlan: prioritizedTests.map(test =>
         [test.id, test.type, test.status, test.requiresExplicitOwnerApproval === true]),
       honestyRules: compactPlanList(fullStack.honestyRules, 5, 80),
     };
