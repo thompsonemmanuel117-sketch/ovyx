@@ -608,10 +608,26 @@ function auditBackendFiles(files, architecture) {
       schema.includes("createtable('" + plural + "'");
     return { id: model.id, name, present };
   });
-  const relations = (architecture.dataIntegrity && architecture.dataIntegrity.relationships || []).map(relation => ({
-    id: relation.id, field: relation.foreignKeyField,
-    present: !!schema && schema.includes(String(relation.foreignKeyField || '').toLowerCase()),
-  }));
+  const relations = (architecture.dataIntegrity && architecture.dataIntegrity.relationships || []).map(relation => {
+    const field = String(relation.foreignKeyField || '').toLowerCase();
+    const from = String(relation.from || '').replace(/^model-/, '');
+    const to = String(relation.to || '').replace(/^model-/, '');
+    const toTable = value => {
+      const snake = String(value || '').replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+      return snake.endsWith('s') ? snake : snake + 's';
+    };
+    const relationSignal = /foreign key|references|@relation|relation|reference|ref\b/i.test(schema);
+    const polymorphic = relation.kind === 'polymorphic-reference'
+      ? /sourceType|targetType|entityType/i.test(schema)
+      : schema.includes(from.toLowerCase()) || schema.includes(toTable(from));
+    const targetPresent = relation.kind === 'polymorphic-reference'
+      ? true
+      : schema.includes(to.toLowerCase()) || schema.includes(toTable(to));
+    return {
+      id: relation.id, field,
+      present: !!field && schema.includes(field) && polymorphic && targetPresent && relationSignal,
+    };
+  });
   const indexes = (architecture.dataIntegrity && architecture.dataIntegrity.indexes || []).map(index => {
     const entity = String(index.entity || '');
     const snake = entity.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
