@@ -492,7 +492,20 @@ function auditBackendFiles(files, architecture) {
     suffix = suffix.split('/').filter(Boolean).map(part =>
       part.startsWith(':') ? '[' + part.slice(1) + ']' : part
     ).join('/');
-    const remixSuffix = suffix.split('/').map(part => part.startsWith('[') ? '
+    const remixSuffix = suffix.split('/').map(part => part.startsWith('[') ? String.fromCharCode(36) + part.slice(1, -1) : part).join('.');
+    const verb = String(route.method || 'GET').toLowerCase();
+    const candidates = [
+      'functions/api/' + suffix + '.js', 'functions/api/' + suffix + '.ts',
+      'functions/api/' + suffix + '/index.js', 'app/api/' + suffix + '/route.js',
+      'app/api/' + suffix + '/route.ts', 'src/app/api/' + suffix + '/route.ts',
+      'pages/api/' + suffix + '.js', 'pages/api/' + suffix + '.ts',
+      'src/routes/api/' + suffix + '/+server.js', 'src/routes/api/' + suffix + '/+server.ts',
+      'server/api/' + suffix + '.' + verb + '.js', 'server/api/' + suffix + '.' + verb + '.ts',
+      'server/api/' + suffix + '.js', 'server/api/' + suffix + '.ts',
+      'app/routes/api.' + remixSuffix + '.js', 'app/routes/api.' + remixSuffix + '.ts',
+      'server/routes/' + suffix + '.js', 'server/routes/' + suffix + '.ts',
+      'api/' + suffix + '.js', 'api/' + suffix + '.ts',
+    ];
     const file = candidates.map(candidate => pathMap.get(candidate.toLowerCase())).find(Boolean) || '';
     const code = file ? String(files[file]) : '';
     const method = String(route.method || 'GET').toUpperCase();
