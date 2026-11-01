@@ -749,7 +749,7 @@ export async function runWebsiteGeneration(options = {}) {
           : typeof result.text === 'string' ? result.text : '';
       if (result.files && typeof result.files === 'object' && Object.keys(result.files).length) {
         multiPageBuild = true;
-      } else if (/<(?:!doctype\\s+html|html\\b)/i.test(frontendHtml)) {
+      } else if (/<(?:!doctype\s+html|html\b)/i.test(frontendHtml)) {
         result = { ...result, files: { 'index.html': frontendHtml } };
         multiPageBuild = true;
       } else {
