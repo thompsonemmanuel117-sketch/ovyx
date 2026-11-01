@@ -73,6 +73,7 @@ const files = {
   'package.json': '{ "scripts": { "build": "vite build" } }',
   'src/credentials.json': '{ "private_key": "not-for-repair" }',
   'src/secret.js': 'const token = "sk_live_12345678901234567890";',
+  'src/firebase.js': 'export const firebaseConfig = { apiKey: "AIzaSyDUMMY0123456789abcdefghijklmnopqrstuv" };',
 };
 
 const findings = [
@@ -82,6 +83,7 @@ const findings = [
   { channel: 'backend', severity: 'blocker', code: 'MIGRATION', message: 'Migration must be reviewed manually.', file: 'migrations/0001.sql' },
   { channel: 'security', severity: 'blocker', code: 'SECRET', message: 'Secret file must never be sent to repair.', file: '.env' },
   { channel: 'security', severity: 'blocker', code: 'SECRET', message: 'Credential-shaped source must not be sent.', file: 'src/secret.js' },
+  { channel: 'security', severity: 'blocker', code: 'FIREBASE_KEY', message: 'Firebase config key must not be included in AI repair context.', file: 'src/firebase.js' },
   { channel: 'security', severity: 'blocker', code: 'TRAVERSAL', message: 'Traversal is rejected.', file: '../outside.js' },
 ];
 
@@ -118,13 +120,14 @@ for (const [repairOutput, reason] of [
 }
 
 const sensitivePrompt = buildAutonomousRepairPrompt({
-  originalBrief: 'Connect with sk_live_12345678901234567890 and API_KEY=abcdef0123456789',
+  originalBrief: 'Connect with sk_live_12345678901234567890 and API_KEY=abcdef0123456789 and Firebase key AIzaSyDUMMY0123456789abcdefghijklmnopqrstuv',
   findings: [{ channel: 'backend', severity: 'blocker', code: 'PROVIDER_ERROR', message: 'Provider rejected sk_test_12345678901234567890', file: 'src/checkout.js' }],
   targets: [{ path: 'src/checkout.js', content: 'export function checkout(){ return false; }' }],
 });
 assert.doesNotMatch(sensitivePrompt, /sk_live_12345678901234567890/);
 assert.doesNotMatch(sensitivePrompt, /sk_test_12345678901234567890/);
 assert.doesNotMatch(sensitivePrompt, /abcdef0123456789/);
+assert.doesNotMatch(sensitivePrompt, /AIzaSyDUMMY0123456789abcdefghijklmnopqrstuv/);
 
 
 const initialEvidence = [
