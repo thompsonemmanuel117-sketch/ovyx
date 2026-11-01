@@ -67,10 +67,18 @@ export function buildVisualAssetPlan(prompt = '', context = {}) {
     ],
     responsiveTargets: [
       { width: 320, height: 720 },
+      { width: 360, height: 800 },
+      { width: 375, height: 812 },
       { width: 390, height: 844 },
+      { width: 430, height: 932 },
+      { width: 540, height: 900 },
+      { width: 640, height: 960 },
       { width: 768, height: 1024 },
+      { width: 820, height: 1180 },
       { width: 1024, height: 768 },
+      { width: 1280, height: 800 },
       { width: 1440, height: 900 },
+      { width: 1920, height: 1080 },
     ],
     visualAcceptanceCriteria: [
       'Review rendered screenshots for art direction, hierarchy, spacing, image crops and section rhythm; static source scores are not visual scores.',
