@@ -439,7 +439,13 @@ function parseBackendFiles(response) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
     let files = item.files || item.generatedFiles || item.projectFiles;
     if (!files && typeof item.text === 'string') {
-      const raw = item.text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+      let raw = item.text.trim();
+      const fence = String.fromCharCode(96).repeat(3);
+      if (raw.startsWith(fence)) {
+        const newline = raw.indexOf('\n');
+        raw = newline >= 0 ? raw.slice(newline + 1) : '';
+      }
+      if (raw.endsWith(fence)) raw = raw.slice(0, -3).trim();
       try { files = JSON.parse(raw).files; } catch {
         const first = raw.indexOf('{');
         const last = raw.lastIndexOf('}');
@@ -451,14 +457,25 @@ function parseBackendFiles(response) {
     if (!files || typeof files !== 'object' || Array.isArray(files)) continue;
     const output = {};
     for (const [rawPath, value] of Object.entries(files)) {
-      const filePath = String(rawPath || '').trim().replace(/^\\/+/, '');
-      const content = typeof value === 'string' ? value : value && (value.content || value.text || value.code);
-      if (!filePath || filePath.length > 300 || filePath.includes('..') || filePath.includes('\\') ||
-          /(?:^|\\/)\\.env(?:\\.|$)|secret|credential|private[-_]?key|service[-_]?account/i.test(filePath) ||
-          !/\\.(?:[cm]?[jt]sx?|prisma|sql|graphql|gql|ya?ml|toml|json)$/i.test(filePath) ||
-          !/^(?:functions\\/|api\\/|app\\/api\\/|src\\/app\\/api\\/|pages\\/api\\/|src\\/pages\\/api\\/|prisma\\/|migrations\\/|db\\/|database\\/|server\\/|src\\/server\\/|src\\/lib\\/server\\/|tests?\\/|__tests__\\/)/i.test(filePath) ||
-          typeof content !== 'string' || !content.trim() || content.length > 180000) continue;
-      output[filePath] = content;
+      let filePath = String(rawPath || '').trim();
+      while (filePath.startsWith('/')) filePath = filePath.slice(1);
+      const fileContent = typeof value === 'string' ? value : value && (value.content || value.text || value.code);
+      const allowedRoot = [
+        'functions/', 'api/', 'app/api/', 'src/app/api/', 'pages/api/', 'src/pages/api/',
+        'prisma/', 'migrations/', 'db/', 'database/', 'server/', 'src/server/',
+        'src/lib/server/', 'tests/', 'test/', '__tests__/',
+      ].some(prefix => filePath.startsWith(prefix));
+      const allowedExtension = [
+        '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.prisma', '.sql',
+        '.graphql', '.gql', '.yaml', '.yml', '.toml', '.json',
+      ].some(extension => filePath.toLowerCase().endsWith(extension));
+      const lowerPath = filePath.toLowerCase();
+      if (!filePath || filePath.length > 300 || filePath.includes('..') || filePath.includes(String.fromCharCode(92)) ||
+          lowerPath.includes('.env') || lowerPath.includes('secret') || lowerPath.includes('credential') ||
+          lowerPath.includes('private-key') || lowerPath.includes('service-account') ||
+          !allowedExtension || !allowedRoot || typeof fileContent !== 'string' ||
+          !fileContent.trim() || fileContent.length > 180000) continue;
+      output[filePath] = fileContent;
     }
     if (Object.keys(output).length) return output;
   }
@@ -469,8 +486,12 @@ function auditBackendFiles(files, architecture) {
   const entries = Object.entries(files || {});
   const pathMap = new Map(entries.map(([filePath]) => [filePath.toLowerCase(), filePath]));
   const routes = (architecture.apiContracts || []).map(route => {
-    const suffix = String(route.path || '').replace(/^\\/?api\\//i, '')
-      .split('/').filter(Boolean).map(part => part.charAt(0) === ':' ? '[' + part.slice(1) + ']' : part).join('/');
+    let suffix = String(route.path || '').trim();
+    while (suffix.startsWith('/')) suffix = suffix.slice(1);
+    if (suffix.toLowerCase().startsWith('api/')) suffix = suffix.slice(4);
+    suffix = suffix.split('/').filter(Boolean).map(part =>
+      part.startsWith(':') ? '[' + part.slice(1) + ']' : part
+    ).join('/');
     const candidates = [
       'functions/api/' + suffix + '.js', 'functions/api/' + suffix + '.ts',
       'functions/api/' + suffix + '/index.js', 'app/api/' + suffix + '/route.js',
@@ -483,32 +504,41 @@ function auditBackendFiles(files, architecture) {
     const method = String(route.method || 'GET').toUpperCase();
     const pascal = method.charAt(0) + method.slice(1).toLowerCase();
     const methodOk = !!file && (
-      new RegExp('\\bonRequest' + pascal + '\\b').test(code) ||
-      new RegExp('\\bexport\\s+(?:async\\s+)?function\\s+' + method + '\\b').test(code) ||
-      new RegExp('\\b(?:router|app|server)\\s*\\.\\s*' + method.toLowerCase() + '\\s*\\(').test(code)
+      code.includes('onRequest' + pascal) ||
+      code.includes('function ' + method) ||
+      code.includes('function ' + pascal) ||
+      code.toLowerCase().includes('router.' + method.toLowerCase() + '(') ||
+      code.toLowerCase().includes('app.' + method.toLowerCase() + '(')
     );
     const policy = String(route.authPolicy || '').toLowerCase();
-    const publicRoute = /^(?:public|public-read|public-with-abuse-controls|public-only)/.test(policy);
-    const authOk = publicRoute || (/provider-signature/.test(policy)
-      ? /verify(?:Webhook)?Signature|signatureValid|constructEvent/i.test(code)
-      : /administrator|role|permission/.test(policy)
-        ? /requireAdmin|requireRole|authorize|assertPermission/i.test(code)
-        : /requireAuth|assertAuthenticated|getAuthenticatedUser|verifySession|auth\\.getUser/i.test(code));
+    const publicRoute = policy.startsWith('public');
+    const authOk = publicRoute || (
+      policy.includes('provider-signature')
+        ? code.includes('verifyWebhookSignature') || code.includes('verifySignature') || code.includes('constructEvent')
+        : policy.includes('administrator') || policy.includes('role') || policy.includes('permission')
+          ? code.includes('requireAdmin') || code.includes('requireRole') || code.includes('authorize') || code.includes('assertPermission')
+          : code.includes('requireAuth') || code.includes('assertAuthenticated') || code.includes('getAuthenticatedUser') || code.includes('verifySession')
+    );
     return { id: route.id, method, path: route.path, file: file || null, methodOk, authOk };
   });
-  const schemaFiles = entries.filter(([filePath]) => /schema|migration|migrations|prisma|drizzle|database/i.test(filePath));
-  const schema = schemaFiles.map(entry => entry[1]).join('\\n');
+  const schemaFiles = entries.filter(([filePath]) => {
+    const lower = filePath.toLowerCase();
+    return lower.includes('schema') || lower.includes('migration') || lower.includes('prisma') || lower.includes('drizzle') || lower.includes('database');
+  });
+  const schema = schemaFiles.map(entry => entry[1]).join('\n').toLowerCase();
   const models = (architecture.dataModels || []).map(model => {
     const name = String(model.name || '');
     const snake = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
     const plural = snake.endsWith('s') ? snake : snake + 's';
-    const present = new RegExp('\\bmodel\\s+' + name + '\\b').test(schema) ||
-      new RegExp('\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["\\x27]?' + plural + '["\\x27]?(?=\\s|\\(|;|$)', 'i').test(schema);
+    const present = schema.includes('model ' + name.toLowerCase()) ||
+      schema.includes('create table ' + plural) ||
+      schema.includes('createtable("' + plural + '"') ||
+      schema.includes("createtable('" + plural + "'");
     return { id: model.id, name, present };
   });
   const relations = (architecture.dataIntegrity && architecture.dataIntegrity.relationships || []).map(relation => ({
     id: relation.id, field: relation.foreignKeyField,
-    present: !!schema && schema.includes(String(relation.foreignKeyField || '')),
+    present: !!schema && schema.includes(String(relation.foreignKeyField || '').toLowerCase()),
   }));
   const missing = [];
   routes.forEach(route => {
@@ -546,7 +576,7 @@ function buildBackendSourcePrompt(architecture, originalPrompt, existingPaths, f
     failures.length ? 'Fix these missing source contracts: ' + failures.join(' | ') : '',
     'Original user brief:\n' + String(originalPrompt || '').slice(0, 80000),
     'Architecture contract:\n' + JSON.stringify(contract),
-  ].filter(Boolean).join('\\n\\n');
+  ].filter(Boolean).join('\n\n');
 }
 
 export async function runWebsiteGeneration(options = {}) {
