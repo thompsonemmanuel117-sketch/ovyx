@@ -24,6 +24,7 @@
     { id: 'source', label: 'Existing source tests', status: 'pending', detail: 'Waiting to review website files.' },
     { id: 'audit', label: 'Pages, navigation and accessibility', status: 'pending', detail: 'Waiting to review website files.' },
     { id: 'browser', label: 'Desktop and mobile checks', status: 'pending', detail: 'Waiting to review the website preview.' },
+    { id: 'backend', label: 'Disposable backend and database tests', status: 'pending', detail: 'Waiting to test generated backend routes.' },
     { id: 'truth', label: 'Integration and result reporting', status: 'pending', detail: 'Waiting to summarize the review results.' }
   ];
 
@@ -45,6 +46,68 @@
     if (typeof value === 'string') return value;
     if (!value || typeof value !== 'object') return '';
     return text(value.content != null ? value.content : value.text != null ? value.text : value.source != null ? value.source : value.code);
+  }
+  function currentFirebaseUser() {
+    var candidates = [];
+    try { if (window.firebase && typeof window.firebase.auth === 'function') candidates.push(window.firebase.auth().currentUser); } catch (_) {}
+    [window.auth, window.firebaseAuth, window.OVYXFirebaseAuth, window.OVYX_AUTH, window.firebaseAuthInstance].forEach(function (candidate) {
+      if (candidate && candidate.currentUser) candidates.push(candidate.currentUser);
+      else if (candidate && typeof candidate.getIdToken === 'function') candidates.push(candidate);
+    });
+    return candidates.find(function (candidate) { return candidate && typeof candidate.getIdToken === 'function'; }) || null;
+  }
+  function backendRuntimeSourceFiles(files) {
+    var allowedRoot = new Set(['wrangler.jsonc', 'wrangler.json', 'package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'ovyx-qa-plan.json', '_routes.json', '_headers', 'tsconfig.json', 'vite.config.js', 'vite.config.ts']);
+    return Object.keys(files || {}).map(function (rawPath) {
+      var path = normalizePath(rawPath);
+      if (!path || !(allowedRoot.has(path) || /^(?:functions|migrations|src|lib|api|server)\//i.test(path))) return null;
+      var content = fileText(files[rawPath]);
+      return typeof content === 'string' && content.length ? { path: path, content: content } : null;
+    }).filter(Boolean);
+  }
+  async function runBackendRuntime(projectId, files, qaPlan) {
+    var planPath = Object.keys(files || {}).find(function (key) { return normalizePath(key).toLowerCase() === 'ovyx-qa-plan.json'; });
+    var wranglerPath = Object.keys(files || {}).find(function (key) { return ['wrangler.jsonc', 'wrangler.json'].indexOf(normalizePath(key).toLowerCase()) >= 0; });
+    var rawPlan = null;
+    try { rawPlan = planPath ? JSON.parse(fileText(files[planPath])) : null; } catch (_) {}
+    var backendArtifacts = Object.keys(files || {}).some(function (key) { return /^(?:functions|migrations|api|server)\//i.test(normalizePath(key)); });
+    var wranglerDeclaresBindings = !!(wranglerPath && /\b(?:d1_databases|kv_namespaces|r2_buckets)\b/.test(fileText(files[wranglerPath])));
+    var planRequiresBackend = !!(rawPlan && rawPlan.backendRequired === true) || !!(qaPlan && qaPlan.backendRequired === true);
+    if ((backendArtifacts || wranglerDeclaresBindings) && !planRequiresBackend) {
+      return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'BACKEND_QA_PLAN_MISSING', message: 'Backend functions, migrations or database bindings were found, but the QA plan does not declare backendRequired with executable backendChecks. Backend verification is blocked rather than skipped.' }] };
+    }
+    if (!planRequiresBackend) return { channel: 'backend', status: 'not-required', testsRun: 0, findings: [] };
+    if (!qaPlan || !Array.isArray(qaPlan.backendChecks) || !qaPlan.backendChecks.length) {
+      return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'BACKEND_QA_PLAN_INVALID', message: 'The project declares backend functionality, but its backend QA plan is invalid or missing required checks. Backend verification is blocked.' }] };
+    }
+    var user = currentFirebaseUser();
+    if (!user) return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'BACKEND_RUNTIME_AUTH_REQUIRED', message: 'Sign in again to run isolated backend and database checks.' }] };
+    var sourceFiles = backendRuntimeSourceFiles(files);
+    if (!sourceFiles.some(function (item) { return item.path === 'wrangler.jsonc' || item.path === 'wrangler.json'; })) {
+      return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'BACKEND_RUNTIME_CONFIG_REQUIRED', message: 'The disposable backend runtime currently requires a Cloudflare Pages wrangler.json or wrangler.jsonc project configuration.' }] };
+    }
+    try {
+      var token = await user.getIdToken();
+      if (!token) throw new Error('Firebase session token unavailable.');
+      var response = await fetch('/api/webstudio/backend-runtime', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Bearer ' + token },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        body: JSON.stringify({
+          projectId: text(projectId),
+          qaPlan: { version: 1, backendRequired: true, backendChecks: qaPlan.backendChecks },
+          files: sourceFiles
+        })
+      });
+      var evidence = await response.json();
+      if (!evidence || evidence.channel !== 'backend' || !['passed', 'failed', 'blocked', 'not-required'].includes(evidence.status)) {
+        throw new Error('The isolated backend runtime returned an invalid evidence report.');
+      }
+      return evidence;
+    } catch (error) {
+      return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'BACKEND_RUNTIME_REQUEST_FAILED', message: trim(error && error.message || 'The isolated backend runtime could not be reached.', 260) }] };
+    }
   }
   function normalizePath(path) {
     var parts = text(path).replace(/\\/g, '/').replace(/^\/+/, '').split('/');
@@ -581,7 +644,6 @@
     if (detectedButtons) {
       addCheck(report, 'Forms and interactions', 'Interactive controls', 'info', detectedButtons + ' interactive control(s) found. Their labels were reviewed; potentially destructive, payment, booking, and account actions are not triggered automatically.');
     }
-    addCheck(report, 'Backend runtime', 'Database persistence and authorization', 'info', 'The in-browser preview is intentionally network-isolated. This inspection does not execute generated D1/KV/R2 bindings, database migrations, CRUD transactions or cross-tenant authorization. Those workflows require a disposable backend runtime adapter; no production database or external provider is contacted.');
     addCheck(report, 'Coverage', 'Source audit coverage', 'pass', 'Page structure and controls were reviewed across ' + pages.length + ' website page(s), including ' + checkedIds + ' page elements.');
   }
   function safeSandboxPayload(page, files, token) {
@@ -1319,10 +1381,6 @@
           journeyAudit.failed + ' failed and ' + journeyAudit.skipped + ' were skipped. No real form submissions, payments, bookings or external service actions were performed.' +
           (journeyAudit.failed ? '\n' + journeyAudit.results.filter(function (item) { return item.status === 'failed'; }).slice(0, 8).map(function (item) { return item.name + ': ' + item.steps.filter(function (step) { return step.status === 'failed'; }).map(function (step) { return step.action + ' — ' + step.detail; }).join('; '); }).join('\n') : ''));
       }
-      if (qaPlan.backendChecks && qaPlan.backendChecks.length) {
-        addCheck(report, 'Backend runtime', 'Requirement-derived backend checks', 'info',
-          qaPlan.backendChecks.length + ' disposable-backend API check(s) are declared. They must run in the network-isolated Cloudflare Pages/D1 runtime evaluator; static-host and iframe previews do not execute these checks.');
-      }
       if (qaPlan.apiChecks && qaPlan.apiChecks.length) {
         addCheck(report, 'Integrations', 'Read-only backend API probes', 'info',
           qaPlan.apiChecks.length + ' read-only API contract probe(s) are declared in the QA plan. The in-editor preview intentionally blocks all network connections, so these probes are not executed here. The current generated-site browser evaluator can check static-host route responses, but it does not execute Cloudflare Functions, framework server routes or database bindings. Database writes, auth-provider flows and external delivery remain unverified until a disposable backend runtime adapter runs.');
@@ -1402,13 +1460,30 @@
     stageStatus('browser', 'done', report.browser.completed + ' actual isolated browser viewport check(s) completed.');
     renderFindings(report);
 
+    stageStatus('backend', 'running', qaPlan.backendRequired ? 'Starting a fresh isolated Pages/D1 runtime for generated backend checks.' : 'This project declares no generated backend runtime requirements.');
+    var backendEvidence = await runBackendRuntime(report.projectId, files, qaPlan);
+    report.backendRuntime = backendEvidence;
+    if (backendEvidence.status === 'passed') {
+      addCheck(report, 'Backend runtime', 'Disposable backend, database and authorization tests', 'pass',
+        (Number(backendEvidence.testsRun) || 0) + ' generated backend check(s) passed in a fresh Cloudflare Pages/D1 sandbox. Migrations, API responses and synthetic authorization/tenant-isolation assertions were executed without production database or external provider access.');
+    } else if (backendEvidence.status === 'not-required') {
+      addCheck(report, 'Backend runtime', 'Disposable backend, database and authorization tests', 'info', 'The project QA plan declares no backend runtime checks; no backend execution was required.');
+    } else {
+      var backendFindings = Array.isArray(backendEvidence.findings) ? backendEvidence.findings : [];
+      addCheck(report, 'Backend runtime', 'Disposable backend, database and authorization tests', 'fail',
+        backendFindings.slice(0, 8).map(function (finding) { return trim(finding.code + ': ' + finding.message, 260); }).join('\n') || 'The required disposable backend runtime did not return passing evidence. Backend verification remains blocked.');
+    }
+    stageStatus('backend', backendEvidence.status === 'passed' || backendEvidence.status === 'not-required' ? 'done' : 'failed',
+      backendEvidence.status === 'passed' ? (Number(backendEvidence.testsRun) || 0) + ' backend checks passed in an isolated runtime.' : backendEvidence.status === 'not-required' ? 'No backend runtime checks were declared.' : 'Required backend runtime checks are blocked or failed.');
+    renderFindings(report);
+
     stageStatus('truth', 'running', 'Summarizing only observed test results.');
     addCheck(report, 'Integrations', 'Live integration verification', 'info', 'This report covers website structure and the preview. Email, data saving, sign-in, payments, bookings, and account-connected actions have not been verified unless tested separately.');
     report.finishedAt = new Date().toISOString();
     report.status = reportStatus(report);
     report.counts = countIssues(report);
-    stageStatus('truth', 'done', 'Report assembled from completed source and browser checks.');
-    progressFraction(report.browser.completed + 4, report.browser.total + 4);
+    stageStatus('truth', 'done', 'Report assembled from completed source, browser and backend runtime checks.');
+    progressFraction(report.browser.completed + 5, report.browser.total + 5);
     currentReport = report;
     renderFindings(report);
     dispatch('ovyx:webstudio-quality-report', clone(report));

@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { randomUUID } from 'node:crypto';
-import { lstat, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { copyFile, lstat, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { networkInterfaces, tmpdir } from 'node:os';
 
@@ -203,6 +203,33 @@ function validateWranglerConfig(config) {
   return { ok: true, bindings, kvBindings: kv.map(item => item.binding), r2Bindings: r2.map(item => item.binding) };
 }
 
+async function copyInstalledDependencies(source, destination) {
+  let sourceInfo;
+  try { sourceInfo = await lstat(source); } catch { return { copied: false, files: 0, bytes: 0 }; }
+  if (!sourceInfo.isDirectory() || sourceInfo.isSymbolicLink()) throw new Error('installed-dependency-directory-invalid');
+  let files = 0;
+  let bytes = 0;
+  async function walk(from, to) {
+    const entries = await readdir(from, { withFileTypes: true });
+    await mkdir(to, { recursive: true });
+    for (const entry of entries) {
+      if (entry.name === '.bin') continue;
+      const sourcePath = path.join(from, entry.name);
+      const destinationPath = path.join(to, entry.name);
+      const info = await lstat(sourcePath);
+      if (info.isSymbolicLink()) continue;
+      if (info.isDirectory()) await walk(sourcePath, destinationPath);
+      else if (info.isFile()) {
+        files += 1;
+        bytes += info.size;
+        if (files > 50000 || bytes > 350 * 1024 * 1024) throw new Error('installed-dependency-copy-limit');
+        await copyFile(sourcePath, destinationPath);
+      }
+    }
+  }
+  await walk(source, destination);
+  return { copied: files > 0, files, bytes };
+}
 async function nextPort() {
   const server = createServer();
   await new Promise((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve));
@@ -300,8 +327,11 @@ async function executeChecks(origin, checks, testSecret) {
 }
 
 export async function runCloudflarePagesBackendRuntime(options = {}) {
-  if (process.env.OVYX_QA_NETWORK_ISOLATION !== 'docker-none' || !isLoopbackOnlyNetworkNamespace()) {
-    return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'NETWORK_SANDBOX_REQUIRED', message: 'Cloudflare Pages Functions runtime was not started because the process is not inside a verified loopback-only network namespace.' }] };
+  const networkMode = process.env.OVYX_QA_NETWORK_ISOLATION;
+  const cloudflareSandboxNoEgress = networkMode === 'cloudflare-sandbox-no-egress';
+  const verifiedDockerIsolation = networkMode === 'docker-none' && isLoopbackOnlyNetworkNamespace();
+  if (!cloudflareSandboxNoEgress && !verifiedDockerIsolation) {
+    return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'NETWORK_SANDBOX_REQUIRED', message: 'Cloudflare Pages Functions runtime was not started because neither the verified Docker no-network namespace nor the trusted Cloudflare Sandbox no-egress runner was detected.' }] };
   }
   const projectRoot = path.resolve(String(options.root || ''));
   const sourceRoot = path.resolve(String(options.sourceRoot || process.cwd()));
@@ -373,6 +403,21 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
       if (!destination.startsWith(workspace + path.sep)) throw new Error('artifact-path-escape-blocked');
       await mkdir(path.dirname(destination), { recursive: true });
       await writeFile(destination, await readFile(file.full));
+    }
+    const installedDependencies = await copyInstalledDependencies(
+      path.join(projectRoot, 'node_modules'),
+      path.join(workspace, 'node_modules')
+    );
+    const packageManifestPath = path.join(workspace, 'package.json');
+    try {
+      const packageManifest = JSON.parse(await readFile(packageManifestPath, 'utf8'));
+      const declaredDependencies = { ...(packageManifest.dependencies || {}), ...(packageManifest.devDependencies || {}) };
+      if (Object.keys(declaredDependencies).length && !installedDependencies.copied) {
+        throw new Error('project-dependencies-not-installed-in-disposable-sandbox');
+      }
+    } catch (error) {
+      if (error?.message === 'project-dependencies-not-installed-in-disposable-sandbox') throw error;
+      if (error?.code !== 'ENOENT') throw new Error('package-json-invalid');
     }
     const configName = path.basename(actualConfigPath);
     const isolatedConfig = { ...config };

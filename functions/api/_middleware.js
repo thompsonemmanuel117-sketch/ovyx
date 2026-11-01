@@ -20,7 +20,8 @@ const INTEGRATION_GATED_PATHS = new Set([
   '/api/deploy',
   '/api/payments/create',
   '/api/github/repos',
-  '/api/workspace/activate'
+  '/api/workspace/activate',
+  '/api/webstudio/backend-runtime'
 ]);
 
 const CLOUDFLARE_FREE_AI_PATHS = new Set([
@@ -37,6 +38,7 @@ const FEATURE_REQUIREMENTS_BY_PATH = new Map([
   ['/api/github/repos', ['github']],
   ['/api/workspace/activate', ['teamWorkspace']],
   ['/api/app-studio/url-analyzer', ['appStudio']],
+  ['/api/webstudio/backend-runtime', ['webStudio']],
 ]);
 
 
