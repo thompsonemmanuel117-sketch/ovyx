@@ -360,11 +360,12 @@ try {
   await page.locator('[data-quality-run]').click();
   await page.waitForFunction(() => {
     const report = window.OVYXWebStudioQuality?.getReport();
-    return !!report?.finishedAt && report.browser.completed === 15;
-  }, null, { timeout: 30000 });
+    return !!report?.finishedAt;
+  }, null, { timeout: 90000 });
   const first = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
-  assert.equal(first.browser.total, 15, 'Three generated pages must each receive five real viewport checks.');
-  assert.equal(first.browser.completed, 15, 'Every planned viewport check must report completion.');
+  assert.equal(first.browser.total, 39, 'Three generated pages must each receive all thirteen real viewport checks.');
+  assert.equal(first.browser.completed, 39, 'Every planned viewport check must report completion.');
+  assert.deepEqual(first.browser.widths, [320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920], 'The inspector must report the complete thirteen-width responsive matrix.');
   assert.ok(first.browser.forms.candidates >= 2, 'The generated-site browser fixture must report its discovered forms.');
   assert.ok(first.browser.forms.tested >= 1, 'The isolated browser must execute at least one native form-constraint check.');
   assert.ok(first.browser.forms.invalidRejected >= 1, 'An invalid email value must be rejected by native form validation.');
