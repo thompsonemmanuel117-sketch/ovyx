@@ -1,8 +1,8 @@
 # OVYX Core Engine Reconstruction — Audit and Work Register
 
 **Audit date:** 2026-11-01  
-**Baseline:** `main` at `bc61f239aadf31fbdcb9280aa64105f76f03dd90`  
-**Upgrade branch:** `feat/ovyx-maximum-core-engine-upgrade`
+**Baseline:** `main` at `1a95e4d79b15e56a6cdf7c07b6cef1c8de0c00c7`  
+**Upgrade branch:** `feat/ovyx-phase-2-core-engine-maximum`
 
 ## Mission
 
@@ -54,3 +54,25 @@ Strengthen the existing OVYX Website Engine without replacing working systems or
 - [ ] Requirement-derived test cases cover long, contradictory, negative, multi-turn and unfamiliar briefs.
 - [x] Existing regression coverage for Cloudflare AI routing, Firebase ownership, App Studio isolation, project persistence and approval/rollback passed on the same PR head.
 - [ ] Live generation and deployed-browser acceptance are recorded separately from CI.
+
+
+## Core reconstruction continuation — 2026-11-01
+
+The current continuation branch starts from the latest merged `main` and preserves the prior PR #363 work rather than recreating it.
+
+### Additional implementation in this continuation
+
+- Requirement intelligence now distinguishes affirmative “do not forget” instructions from prohibitions, avoids treating comparative phrases such as “no more than” as exclusions, records negation evidence and confidence, validates requirement dependency IDs, carries explicit acceptance criteria when supplied by architecture mapping, and detects near-identical positive/prohibited clauses using bounded token similarity. This remains deterministic assistance; semantic ambiguity must still be surfaced rather than guessed.
+- The read-only project file graph now resolves extensionless local page routes against common HTML, Pages Router and App Router entry files; it also records responsive `srcset` assets and JavaScript `new URL(..., import.meta.url)` dependencies.
+- Integration-connection context traversal is now cycle-safe and bounded by depth and visited-node limits, preventing cyclic or adversarial context objects from causing unbounded recursion.
+- The browser-local inference experiment previously present on the baseline has been removed from this continuation: lab page, model workers, client runtime, prototype tests, smoke scripts, CI workflow and related static routing/header exceptions. The product inference boundary remains Cloudflare Workers AI only. This is a cleanup of pre-existing experimental code, not a new AI provider or a new inference path.
+
+### Continuation acceptance gates
+
+- [ ] Requirement-intelligence tests pass, including negation scope, near-duplicate conflict detection and dependency validation.
+- [ ] File-graph tests pass for route entry resolution, responsive image references, module asset references and transitive impact.
+- [ ] Cloudflare-only product-boundary test passes; no browser-local model runtime or local-AI lab is shipped.
+- [ ] Full `npm test`, `npm run validate`, `npm run build` and Wrangler validation pass on the exact continuation PR head.
+- [ ] Relevant Assistant Workspace and Web Studio browser regressions pass on the exact PR head.
+- [ ] Live generation remains Cloudflare Workers AI only and is tested separately with healthy quota/Firestore configuration; no fallback to local or third-party model inference.
+- [ ] Requirement-derived browser journeys and deployed runtime acceptance are evidenced separately; source-level CI alone is not production acceptance.
