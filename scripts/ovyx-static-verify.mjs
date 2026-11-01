@@ -335,6 +335,13 @@ if (!fs.existsSync(fullStackArchitecturePath) || !fs.existsSync(fullStackArchite
     !websiteEngine.includes('OVYX FULL-STACK ARCHITECTURE CONTRACT — ONE COHERENT APPLICATION') ||
     !websiteEngine.includes('do not silently return a frontend-only site') ||
     !websiteEngine.includes('Generate the declared domain schema, relationships, constraints and indexes') ||
+    !websiteEngine.includes('function parseBackendFiles') ||
+    !websiteEngine.includes('maxBackendFiles = 80') ||
+    !websiteEngine.includes('maxBackendSourceBytes = 900000') ||
+    !websiteEngine.includes('containsUnsafeExecution') ||
+    !websiteEngine.includes('function auditBackendFiles') ||
+    !websiteEngine.includes('mergeGenerationUsage') ||
+    !websiteEngine.includes('source-generated-runtime-unverified') ||
     !fullStackArchitecture.includes('validateFullStackArchitectureGraph') ||
     !fullStackArchitecture.includes('buildDataIntegrityContracts') ||
     !fullStackArchitecture.includes('buildWorkflowStateMachines') ||
@@ -348,7 +355,8 @@ if (!fs.existsSync(fullStackArchitecturePath) || !fs.existsSync(fullStackArchite
     !fullStackTest.includes('needs-semantic-mapping') ||
     !fullStackTest.includes('Authentication alone must not invent role-based authorization') ||
     !fullStackTest.includes('public-with-abuse-controls-and-quarantine') ||
-    !packageJson.includes('scripts/ovyx-fullstack-architecture.test.mjs')
+    !packageJson.includes('scripts/ovyx-fullstack-architecture.test.mjs') ||
+    !packageJson.includes('scripts/ovyx-fullstack-d1-migration.test.mjs')
   ) {
     errors.push('OVYX full-stack architecture: cross-layer graph, safe migration/background-work contracts, requirement evidence or standard regression coverage is incomplete.');
   }
