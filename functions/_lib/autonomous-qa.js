@@ -284,7 +284,7 @@ export async function runAutonomousRepairCycle(options = {}) {
 }
 
 
-export function evaluateGeneratedWebsiteFiles(rawFiles = {}) {
+export function evaluateGeneratedWebsiteFiles(rawFiles = {}, options = {}) {
   const files = {};
   const entries = rawFiles && typeof rawFiles === 'object' && !Array.isArray(rawFiles)
     ? Object.entries(rawFiles).slice(0, 500) : [];
@@ -367,6 +367,9 @@ export function evaluateGeneratedWebsiteFiles(rawFiles = {}) {
     testsRun += 1;
     try {
       const plan = JSON.parse(qaPlan);
+      if (options.backendRequired === true && plan?.backendRequired !== true) {
+        add('blocker', 'QA_BACKEND_REQUIRED_FLAG_MISSING', 'The full-stack architecture requires backend runtime tests, but the generated QA plan does not declare backendRequired:true.', 'ovyx-qa-plan.json');
+      }
       if (!plan || plan.version !== 1 || !Array.isArray(plan.journeys) || !Array.isArray(plan.apiChecks)) {
         add('warning', 'QA_PLAN_SCHEMA_INVALID', 'The generated QA plan must contain version 1, journeys and apiChecks arrays.', 'ovyx-qa-plan.json');
       } else if (plan.journeys.length > 12 || plan.apiChecks.length > 20 ||
