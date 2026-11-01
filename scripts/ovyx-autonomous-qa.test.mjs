@@ -96,6 +96,16 @@ for (const [repairOutput, reason] of [
   assert.equal(result.reason, reason);
 }
 
+const sensitivePrompt = buildAutonomousRepairPrompt({
+  originalBrief: 'Connect with sk_live_12345678901234567890 and API_KEY=abcdef0123456789',
+  findings: [{ channel: 'backend', severity: 'blocker', code: 'PROVIDER_ERROR', message: 'Provider rejected sk_test_12345678901234567890', file: 'src/checkout.js' }],
+  targets: [{ path: 'src/checkout.js', content: 'export function checkout(){ return false; }' }],
+});
+assert.doesNotMatch(sensitivePrompt, /sk_live_12345678901234567890/);
+assert.doesNotMatch(sensitivePrompt, /sk_test_12345678901234567890/);
+assert.doesNotMatch(sensitivePrompt, /abcdef0123456789/);
+
+
 const initialEvidence = [
   { channel: 'static', status: 'passed', testsRun: 5 },
   { channel: 'browser', status: 'failed', testsRun: 8, findings: [
