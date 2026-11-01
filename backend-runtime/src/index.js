@@ -9,7 +9,7 @@ const MAX_OUTPUT_CHARS = 150_000;
 const MAX_RUN_MS = 210_000;
 const ALLOWED_ROOT_FILES = new Set([
   'wrangler.jsonc', 'wrangler.json', 'package.json', 'package-lock.json',
-  'npm-shrinkwrap.json', 'ovyx-qa-plan.json', '_routes.json', '_headers',
+  'npm-shrinkwrap.json', 'ovyx-qa-plan.json', '_routes.json', '_headers', 'tsconfig.json', 'vite.config.js', 'vite.config.ts',
 ]);
 const SECRET_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
@@ -30,7 +30,7 @@ function safePath(raw) {
   if (/(?:^|\/)(?:\.git|node_modules|\.wrangler|\.next|coverage)(?:\/|$)/i.test(path)) return '';
   if (/(?:^|\/)(?:\.env(?:\..*)?|\.dev\.vars(?:\..*)?)$/i.test(path)) return '';
   if (ALLOWED_ROOT_FILES.has(path)) return path;
-  if (/^(?:functions|migrations)\//i.test(path)) return path;
+  if (/^(?:functions|migrations|src|lib|api|server)\//i.test(path)) return path;
   return '';
 }
 
