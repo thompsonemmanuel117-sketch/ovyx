@@ -176,3 +176,15 @@ assert.match(inferredLuxury.designIntelligence.pricePositioning.value, /premium 
 assert.match(inferredLuxury.designIntelligence.brandPersonality.basis, /provisional/i);
 
 console.log('OVYX adaptive experience intelligence tests passed: arbitrary concepts, no industry buckets, and workflow requirements inferred only from the brief.');
+
+const inferredAudience = buildExperienceBrief(
+  'Create a community platform designed for independent musicians and music producers to share work.'
+);
+assert.match(inferredAudience.designIntelligence.targetAudience, /independent musicians and music producers/i);
+assert.equal(inferredAudience.designIntelligence.audienceEvidence.confidence, 'medium');
+assert.match(inferredAudience.designIntelligence.audienceEvidence.basis, /explicit audience phrase/i);
+
+const unknownAudience = buildExperienceBrief('Create a portfolio website with a clean layout.');
+assert.equal(unknownAudience.designIntelligence.audienceEvidence.confidence, 'low');
+assert.match(unknownAudience.designIntelligence.assumptions.join(' '), /intended audience is not explicitly identified/i);
+assert.equal(premiumPropertyBrief.designIntelligence.audienceEvidence.confidence, 'high');
