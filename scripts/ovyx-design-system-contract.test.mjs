@@ -17,7 +17,7 @@ assert.equal(contract.motionSystem.requested, true);
 assert.ok(contract.componentSystem.requirements.some(item => /component-to-page usage/i.test(item)));
 assert.ok(contract.componentSystem.requirements.some(item => /variants/i.test(item)));
 assert.ok(contract.interactionSystem.requiredStates.includes('focus-visible'));
-assert.ok(contract.interactionSystem.rules.some(item => /real availability/i.test(item)));
+assert.ok(contract.interactionSystem.rules.some(item => /Booking flows must distinguish availability/i.test(item)));
 assert.ok(contract.interactionSystem.rules.some(item => /Forms must have associated labels/i.test(item)));
 assert.ok(contract.responsiveSystem.viewports.some(item => item.width === 320));
 assert.ok(contract.responsiveSystem.viewports.some(item => item.width === 1440));
