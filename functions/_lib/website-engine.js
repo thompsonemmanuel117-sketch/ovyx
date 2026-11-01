@@ -7,8 +7,8 @@ import { buildWebsiteFileGraph, analyzeWebsiteFileImpact } from './website-file-
 import { buildRequirementIntelligence } from './requirement-intelligence.js';
 
 const clean = (value, max = 240) => String(value == null ? '' : value)
-  .replace(/[\\u0000-\\u001f\\u007f]/g, ' ')
-  .replace(/\\s+/g, ' ')
+  .replace(/[\u0000-\u001f\u007f]/g, ' ')
+  .replace(/\s+/g, ' ')
   .trim()
   .slice(0, max);
 
