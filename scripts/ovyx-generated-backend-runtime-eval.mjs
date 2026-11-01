@@ -15,7 +15,13 @@ const OMIT_DIRS = new Set(['.git', '.wrangler', 'node_modules', '.next', 'covera
 const OMIT_FILES = /^(?:\.env(?:\..*)?|\.dev\.vars|\.dev\.vars\..*|wrangler\.lock)$/i;
 
 function clean(value, limit = 240) {
-  return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, limit);
+  return String(value ?? '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/(?:sk_(?:live|test|proj)_[A-Za-z0-9_-]{12,}|whsec_[A-Za-z0-9]{12,}|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,})/gi, '[REDACTED]')
+    .replace(/((?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*)[^\s,;]+/gi, '$1[REDACTED]')
+    .trim()
+    .slice(0, limit);
 }
 
 function jsonPath(value, key) {
@@ -201,11 +207,19 @@ function runCommand(command, args, options = {}) {
     });
     let stdout = '';
     let stderr = '';
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGKILL');
+    }, options.timeoutMs || 60000);
+    timer.unref?.();
     child.stdout.on('data', chunk => { stdout = (stdout + chunk).slice(-12000); });
     child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-12000); });
-    child.once('error', reject);
+    child.once('error', error => { clearTimeout(timer); reject(error); });
     child.once('close', code => {
-      if (code === 0) resolve({ stdout, stderr });
+      clearTimeout(timer);
+      if (timedOut) reject(new Error('command-timeout:' + path.basename(command)));
+      else if (code === 0) resolve({ stdout, stderr });
       else reject(new Error('command-failed:' + path.basename(command) + ':' + clean(stderr || stdout, 500)));
     });
   });
@@ -240,7 +254,23 @@ async function executeChecks(origin, checks, testSecret) {
         method: check.method, headers, body: ['GET', 'HEAD'].includes(check.method) ? undefined : body,
         redirect: 'manual', signal: AbortSignal.timeout(8000),
       });
-      const text = check.method === 'HEAD' ? '' : await response.text();
+      let text = '';
+      if (check.method !== 'HEAD' && response.body) {
+        const reader = response.body.getReader();
+        const chunks = [];
+        let bytes = 0;
+        while (true) {
+          const part = await reader.read();
+          if (part.done) break;
+          bytes += part.value.byteLength;
+          if (bytes > 65536) {
+            await reader.cancel();
+            throw new Error('backend-response-size-limit');
+          }
+          chunks.push(part.value);
+        }
+        text = new TextDecoder().decode(Buffer.concat(chunks.map(chunk => Buffer.from(chunk))));
+      }
       let parsed;
       try { parsed = text ? JSON.parse(text) : null; } catch {}
       let failure = '';
