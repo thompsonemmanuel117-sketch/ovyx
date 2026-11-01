@@ -70,12 +70,16 @@ The shared Website Engine now appends explicit implementation rules after the bo
 ### Generated source contract audit
 
 `scripts/ovyx-fullstack-source-contracts.mjs` is now used by the Web Studio artifact evaluator when a trusted architecture manifest is included in `run-metadata.json`. It checks bounded source evidence for:
-- framework-specific route file and HTTP method declarations,
-- protected-route authentication/role checks and provider webhook signature/replay checks,
-- declared data-model/schema declarations,
-- declared model relationship source evidence.
+- framework-specific route file and HTTP method declarations across Cloudflare Pages Functions, Next.js, SvelteKit, Remix, Nuxt and Node server layouts,
+- authenticated identity, role/permission checks, object/tenant ownership scope, credential-provider verification and signed unsubscribe/webhook verification,
+- public-route rate limits, consent evidence, upload quarantine and published-asset resolution policies,
+- declared data-model/schema evidence, versioned SQL migration or explicit Firestore schema artifacts,
+- relationship endpoints and foreign-key/reference declarations,
+- SQL/Prisma/Drizzle/Firestore index declarations and unique-value enforcement evidence,
+- every declared business state machine, its states and transition implementation evidence,
+- generated backend regression tests covering authorization, idempotency and workflow transitions.
 
-The report separates missing route/method/auth/schema/relationship source evidence from evidence that is merely present in source. Even when all source evidence exists, the report explicitly keeps runtime behavior, database persistence, integration delivery and deployment unverified. It also audits declared SQL, Prisma and Drizzle index source declarations, while leaving query performance and live integrity unverified. Login/session authentication is modeled separately from role/permission authorization; public upload flows without accounts are explicitly quarantined and only published assets may be publicly resolved. Architecture metadata is accepted only when it has the expected engine identifier, stays within a bounded size and passes secret-pattern screening; it is not copied into the public client response.
+The report separates missing route/method/auth/schema/migration/relationship/index/workflow/test evidence from evidence that is merely present in source. Even when all source evidence exists, it explicitly keeps runtime behavior, database persistence, integration delivery and deployment unverified. It leaves query performance and live integrity unverified, and does not claim that a generated migration has been applied. Login/session authentication is modeled separately from role/permission authorization; public upload flows without accounts are explicitly quarantined and only published assets may be publicly resolved. Architecture metadata is accepted only when it has the expected engine identifier, stays within a bounded size and passes secret-pattern screening; it is not copied into the public client response.
 
 
 ### Full-stack source-generation stage added
@@ -84,7 +88,7 @@ The shared `runWebsiteGeneration` lifecycle now performs a separate backend-sour
 
 The backend pass asks the existing guarded model route to return complete source files for the declared API contracts, domain models, database schema/migrations, relationships, constraints, indexes, authorization boundaries, workflow services and safe tests. It preserves detected project paths/frameworks and uses Cloudflare Pages Functions with D1-compatible migrations only as the no-existing-framework target. It does not introduce a new AI provider route.
 
-Returned files are constrained to backend/server/schema/migration/test locations, bounded in size, and filtered against traversal and secret-bearing paths. A bounded source audit checks each planned API route's handler file and method, authorization/signature evidence, declared model schema and relationship fields. One targeted repair generation is attempted when source evidence is incomplete. If the second pass still misses required contracts, the full-stack build fails rather than silently presenting a frontend-only site as complete.
+Returned files are constrained to backend/server/schema/migration/test locations, bounded in size, and filtered against traversal and secret-bearing paths. A bounded source audit checks each planned API route's handler file and method, identity/role/owner scope, public abuse and consent controls, signature/replay protection, model schema, versioned migration, relationship/index declarations, state-machine evidence and safe generated tests. One targeted repair generation is attempted when source evidence is incomplete. A single-page HTML result is packaged as `index.html` alongside generated backend files so the API source is not lost on the non-multi-page path. If the second pass still misses required contracts, the full-stack build fails rather than silently presenting a frontend-only site as complete.
 
 Successful output is explicitly labelled `source-generated-runtime-unverified`. This is real generated source, not database provisioning: the pass does not create Cloudflare D1 resources, configure bindings or credentials, run migrations, prove database persistence, establish external provider delivery, or certify a production deployment. Those remain separate release and acceptance gates.
 
@@ -94,8 +98,8 @@ This is an architecture and code-generation contract. It does **not** provision 
 ## Engineering roadmap
 
 ### A. Close the architecture-to-source gap
-- Add route-to-file and schema-to-model evidence for supported framework layouts: Cloudflare Pages Functions, Next.js App Router/Pages Router, Vite/Node, Remix, SvelteKit, Nuxt and other supported frameworks.
-- Check that every requested API contract has a matching implementation or an explicit server-action equivalent.
+- [x] Add first-pass route-to-file, HTTP-method, schema, migration, relationship, index, workflow and test evidence for Cloudflare Pages Functions, Next.js App Router/Pages Router, SvelteKit, Remix, Nuxt and Node server layouts.
+- [ ] Strengthen exact requirement-to-handler traceability and verify every frontend consumer uses the exact API contract or an explicit server-action equivalent.
 - Check that UI calls the exact route contract and that API request/response shapes agree with the shared domain schema.
 - Keep unresolved or unassessable requirements visible. Do not let a generic page reference count as proof of a backend feature.
 
