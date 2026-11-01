@@ -279,6 +279,23 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
     }
     const sourceFiles = await walkSafe(projectRoot);
     if (sourceFiles.length > 500 || sourceFiles.reduce((sum, file) => sum + file.bytes, 0) > 20 * 1024 * 1024) throw new Error('generated-artifact-size-limit');
+    for (const file of sourceFiles) {
+      if (file.bytes > 2 * 1024 * 1024) throw new Error('generated-source-file-size-limit');
+      if (/\\.(?:m?js|jsx|tsx?)$/i.test(file.relative)) {
+        const source = await readFile(file.full, 'utf8');
+        for (const match of source.matchAll(/(?:from\\s*|import\\s*\\(|require\\s*\\()\\s*['"]([^'"]+)['"]/g)) {
+          const specifier = match[1];
+          if (/^(?:\\.{1,2}\\/|\\/|node:|cloudflare:|workerd:)/.test(specifier)) continue;
+          throw new Error('third-party-package-import-requires-pinned-isolated-dependency-adapter');
+        }
+      }
+      if (/\\.(?:js|mjs|cjs|json|html|sql|toml|jsonc)$/i.test(file.relative)) {
+        const source = await readFile(file.full, 'utf8');
+        if (/(?:sk_(?:live|test|proj)_[A-Za-z0-9_-]{12,}|whsec_[A-Za-z0-9]{12,}|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/i.test(source)) {
+          throw new Error('credential-shaped-generated-source-blocked');
+        }
+      }
+    }
     if (!sourceFiles.some(file => file.relative.startsWith('functions/'))) throw new Error('cloudflare-pages-functions-not-found');
     if (sourceFiles.some(file => /(?:^|\/)\.env(?:\.|$)|\.dev\.vars/i.test(file.relative))) throw new Error('environment-file-blocked');
     const migrations = [];
@@ -375,6 +392,6 @@ async function main() {
   const serialized = JSON.stringify(result, null, 2);
   if (outIndex >= 0 && args[outIndex + 1]) await writeFile(path.resolve(args[outIndex + 1]), serialized);
   process.stdout.write(serialized + '\n');
-  if (result.status === 'failed') process.exitCode = 1;
+  if (!['passed', 'not-required'].includes(result.status)) process.exitCode = 1;
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) await main();
