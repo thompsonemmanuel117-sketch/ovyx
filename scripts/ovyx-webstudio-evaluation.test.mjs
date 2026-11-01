@@ -71,7 +71,7 @@ assert.equal(suite.siteCategories.length, 11, 'The evaluation set must cover all
 assert.equal(suite.failureScenarios.length, 9, 'The evaluation set must cover all nine failure/regression scenarios.');
 assert.deepEqual(suite.siteCategories.map(item => item.id).sort(), [...requiredCategories].sort(), 'Every requested site category must have one unique evaluation prompt.');
 assert.deepEqual(suite.failureScenarios.map(item => item.id).sort(), [...requiredFailureCases].sort(), 'Every high-risk or failure case must have explicit expected behavior.');
-assert.deepEqual(suite.requiredResponsiveWidths, [320, 390, 768, 1024, 1440], 'The evaluation viewport sizes must match the actual browser matrix.');
+assert.deepEqual(suite.requiredResponsiveWidths, [320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920], 'The evaluation viewport sizes must match the actual browser matrix.');
 assert.ok(runtime.includes('WIDTHS = [' + suite.requiredResponsiveWidths.join(', ') + ']'), 'The evaluation viewport matrix must stay aligned with the inspector.');
 assert.ok(suite.acceptanceCriteria.length >= 9, 'Evaluation must cover more than visual appearance.');
 assert.ok(suite.acceptanceCriteria.some(item => /integration/i.test(item) && /unverified/i.test(item)), 'Live integrations must be evaluated truthfully.');

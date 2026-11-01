@@ -3,13 +3,33 @@ on:
     branches:
       - main
     paths:
+      - 'functions/_lib/website-file-graph.js'
+      - 'scripts/ovyx-website-file-graph.test.mjs'
+      - 'scripts/ovyx-webstudio-cross-browser.smoke.mjs'
+      - 'functions/_lib/design-system-contract.js'
+      - 'functions/_lib/experience-quality.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/site-integrity.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'scripts/ovyx-design-system-contract.test.mjs'
+      - 'scripts/ovyx-experience-quality.test.mjs'
+      - 'package.json'
+      - 'docs/OVYX-PHASE-3-DESIGN-FUNCTIONALITY.md'
+      - 'functions/_lib/design-system-contract.js'
+      - 'functions/_lib/experience-quality.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/site-integrity.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'scripts/ovyx-design-system-contract.test.mjs'
+      - 'scripts/ovyx-experience-quality.test.mjs'
+      - 'package.json'
+      - 'docs/OVYX-PHASE-3-DESIGN-FUNCTIONALITY.md'
       - 'assets/ovyx-webstudio-quality.js'
       - 'assets/ovyx-webstudio-navigation-polish.js'
       - 'assets/ovyx-webstudio-code-search.js'
       - 'scripts/ovyx-webstudio-code-search.test.mjs'
       - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
       - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
-      - 'scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs'
       - 'scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs'
       - 'scripts/ovyx-app-shell-favicon.browser.test.mjs'
       - 'index.html'
@@ -34,6 +54,18 @@ on:
     branches:
       - main
     paths:
+      - 'functions/_lib/website-file-graph.js'
+      - 'scripts/ovyx-website-file-graph.test.mjs'
+      - 'scripts/ovyx-webstudio-cross-browser.smoke.mjs'
+      - 'functions/_lib/design-system-contract.js'
+      - 'functions/_lib/experience-quality.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/site-integrity.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'scripts/ovyx-design-system-contract.test.mjs'
+      - 'scripts/ovyx-experience-quality.test.mjs'
+      - 'package.json'
+      - 'docs/OVYX-PHASE-3-DESIGN-FUNCTIONALITY.md'
       - 'assets/ovyx-webstudio-quality.js'
       - 'assets/ovyx-webstudio-navigation-polish.js'
       - 'assets/ovyx-webstudio-code-search.js'
@@ -76,11 +108,17 @@ jobs:
       - name: Install project dependencies
         run: npm install --ignore-scripts
 
+      - name: Run full repository tests
+        run: npm test
+      - name: Run static validation
+        run: npm run validate
+      - name: Run production build validation
+        run: npm run build
       - name: Install browser test dependency
         run: npm install --ignore-scripts --no-save playwright@^1.55.0
 
-      - name: Install Chromium
-        run: npx playwright install chromium --only-shell
+      - name: Install Chromium, Firefox and WebKit
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Start local Cloudflare Pages app shell
         run: |
@@ -103,6 +141,8 @@ jobs:
         run: node scripts/ovyx-webstudio-pulse-composer.browser.test.mjs
       - name: Test app-shell favicon in Chromium against local Pages runtime
         run: node scripts/ovyx-app-shell-favicon.browser.test.mjs
+      - name: Test generated-site responsive behavior in Chromium, Firefox and WebKit
+        run: node scripts/ovyx-webstudio-cross-browser.smoke.mjs
       - name: Test Web Studio quality inspector in Chromium
         run: node scripts/ovyx-webstudio-quality.browser.test.mjs
       - name: Test code workspace search and sidebar logo in Chromium
@@ -113,6 +153,6 @@ jobs:
         # Keep this independent recovery probe on successful/other-failure runs,
         # but don't delay the focused composer regression report when its own
         # browser assertions fail.
-        if: always() && steps.pulse-composer.outcome != 'failure'
+        if: always() && steps.pulse-composer.outcome == 'success'
         run: node scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs
 # Regression coverage: sidebar inline-SVG full-draw state, brand-mark favicon fallback, and project/app favicon isolation.

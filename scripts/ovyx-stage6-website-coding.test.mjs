@@ -37,7 +37,7 @@ assert.match(client, /Live external integrations and form delivery were not test
 assert.match(client, /No source was changed/);
 assert.match(client, /function redactQualityText/);
 assert.ok(client.includes('[REDACTED PRIVATE KEY]'), 'The quality report redaction must replace private key material with a safe marker.');
-assert.match(inspector, /var WIDTHS = \[320, 390, 768, 1024, 1440\]/);
+assert.match(inspector, /var WIDTHS = \[320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920\]/);
 assert.match(inspector, /setAttribute\('sandbox', 'allow-scripts'\)/);
 assert.match(inspector, /connect-src 'none'/);
 assert.match(inspector, /form-action 'none'/);

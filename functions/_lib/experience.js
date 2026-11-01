@@ -1,5 +1,6 @@
 import { buildMarketContext } from './market-context.js';
 import { buildVisualAssetPlan } from './visual-asset-plan.js';
+import { buildDesignSystemContract } from './design-system-contract.js';
 
 /**
  * OVYX Experience Intelligence
@@ -418,6 +419,7 @@ export function buildExperienceBrief(prompt, context = {}) {
     motion: source.motion,
     marketContext: buildMarketContext(prompt, context),
     visualAssetPlan: buildVisualAssetPlan(prompt, context),
+    designSystemContract: buildDesignSystemContract(prompt, context),
     signatureMoments: [
       'one memorable interaction or reveal that belongs to the project’s actual purpose, not automatically a hero animation',
       'one high-confidence moment in the primary workflow, supported by accurate state and feedback',

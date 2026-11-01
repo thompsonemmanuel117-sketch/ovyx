@@ -20,7 +20,7 @@ await fs.writeFile(path.join(good,'ovyx-live-generation.json'),JSON.stringify({
 }));
 await fs.writeFile(path.join(bad,'index.html'),'<!doctype html><html><head><title>Bad</title></head><body><h1>Lorem ipsum</h1><a href="#">Click here</a></body></html>');
 await fs.writeFile(path.join(bad,'ovyx-live-generation.json'),JSON.stringify({industry:'generic',siteMap:{pages:[{title:'Home',path:'index.html',url:'/'}]}}));
-const widths=[320,390,768,1024,1440];
+const widths=[320,360,375,390,430,540,640,768,820,1024,1280,1440,1920];
 const pages=()=>['index.html','contact.html'].flatMap((file,index)=>widths.map(width=>({page:file,route:index?'/contact/':'/',viewport:String(width),screenshot:(index?'contact':'home')+'-'+width+'.png'})));
 const results=[
  {site:'fixture-real-estate',status:'browser-checked-no-obvious-blockers',viewportWidths:widths,qaLocalPosts:1,formInteractionStatus:'qa-local-post-tested',pages:pages()},

@@ -360,11 +360,12 @@ try {
   await page.locator('[data-quality-run]').click();
   await page.waitForFunction(() => {
     const report = window.OVYXWebStudioQuality?.getReport();
-    return !!report?.finishedAt && report.browser.completed === 15;
-  }, null, { timeout: 30000 });
+    return !!report?.finishedAt;
+  }, null, { timeout: 90000 });
   const first = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
-  assert.equal(first.browser.total, 15, 'Three generated pages must each receive five real viewport checks.');
-  assert.equal(first.browser.completed, 15, 'Every planned viewport check must report completion.');
+  assert.equal(first.browser.total, 39, 'Three generated pages must each receive all thirteen real viewport checks.');
+  assert.equal(first.browser.completed, 39, 'Every planned viewport check must report completion.');
+  assert.deepEqual(first.browser.widths, [320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920], 'The inspector must report the complete thirteen-width responsive matrix.');
   assert.ok(first.browser.forms.candidates >= 2, 'The generated-site browser fixture must report its discovered forms.');
   assert.ok(first.browser.forms.tested >= 1, 'The isolated browser must execute at least one native form-constraint check.');
   assert.ok(first.browser.forms.invalidRejected >= 1, 'An invalid email value must be rejected by native form validation.');
@@ -380,6 +381,8 @@ try {
   assert.ok(first.checks.some(item => item.title === 'Rendered text contrast sample' && item.status === 'pass'), 'The accessible fixture must pass the rendered contrast audit.');
   assert.ok(first.browser.accessibility.focusControls > 0, 'The mobile browser pass must inspect keyboard-focusable controls.');
   assert.ok(first.checks.some(item => item.title === 'Visible keyboard focus indicators' && item.status === 'pass'), 'The accessible fixture must report visible focus cues.');
+  assert.ok(Array.isArray(first.browser.accessibility.focusObscured), 'The browser inspector must return a focus-obscuration evidence list.');
+  assert.ok(first.checks.some(item => item.title === 'Keyboard focus is not obscured' && item.status === 'pass'), 'The accessible fixture must confirm sampled focus targets are not covered by another element.');
   assert.ok(first.browser.performance.samples > 0, 'The browser matrix must collect isolated render and DOM metrics.');
   assert.ok(first.browser.performance.maxDomNodes > 0, 'The diagnostic must count rendered DOM nodes.');
   assert.ok(first.checks.some(item => item.title === 'Page loading performance' && item.status === 'pass'), 'The small fixture must pass the inspector\'s current isolated render and DOM budget check.');
@@ -416,7 +419,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.ok(pageErrors.length === 0, 'The host page should have no unhandled runtime errors: ' + pageErrors.join('; '));
 
   await page.locator('[data-quality-repair]').click();
-  await page.waitForFunction(() => window.__qualityRepairCalls.length === 1 && window.OVYXWebStudioQuality.getReport()?.checks.some(item => item.group === 'Automatic repair'));
+  await page.waitForFunction(() => window.__qualityRepairCalls.length === 1 && window.OVYXWebStudioQuality.getReport()?.checks.some(item => item.group === 'Automatic repair'), null, { timeout: 120000 });
   const finalReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
   assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 1, 'Only one bounded repair pass should be sent.');
   assert.ok((await page.evaluate(() => window.__qualityRepairCalls[0].prompt)).includes('OVYX QUALITY INSPECTOR REPAIR'), 'The repair must use a targeted evidence-based prompt.');
@@ -443,7 +446,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   await page.waitForFunction(() => {
     const report = window.OVYXWebStudioQuality?.getReport();
     return !!report?.finishedAt && report.checks.some(item => item.group === 'Automatic build gate' && item.title === 'Post-build quality gate' && item.status === 'pass');
-  }, null, { timeout: 60000 });
+  }, null, { timeout: 150000 });
   const autoReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
   const calls = await page.evaluate(() => window.__qualityRepairCalls);
   assert.equal(calls.length, 3, 'The initial manual repair plus a normal build and one automatic repair must be the only calls.');
@@ -498,11 +501,11 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   await page.locator('[data-quality-run]').click();
   await page.waitForFunction(() => {
     const report = window.OVYXWebStudioQuality?.getReport();
-    return report?.finishedAt && report.browser.pagesAvailable === 18 && report.browser.total === 45 && report.browser.completed === 45;
+    return report?.finishedAt && report.browser.pagesAvailable === 18 && report.browser.total === 69 && report.browser.completed === 69;
   }, null, { timeout: 120000 });
   const largeReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
   assert.equal(largeReport.browser.pagesTested, 18, 'All routes, including routes after the former 12-route cap, must be browser-tested.');
-  assert.equal(largeReport.browser.total, 45, 'Three core routes receive five viewport checks each; fifteen additional routes receive mobile and desktop checks.');
+  assert.equal(largeReport.browser.total, 69, 'Three core routes receive thirteen viewport checks each; fifteen additional routes receive mobile and desktop checks.');
   assert.equal(largeReport.browser.interactions.candidates, 11, 'The inspector must discover the home disclosure, front-end Add to Cart action, and nine safe details controls.');
   assert.equal(largeReport.browser.interactions.tested, 10, 'The per-route sampling limit should test both home controls and eight controls from the large route.');
   assert.equal(largeReport.browser.interactions.responded, 10, 'The disclosure, local cart action, and safe details controls must show observable state changes.');

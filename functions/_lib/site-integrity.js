@@ -6,6 +6,8 @@
  * The browser quality inspector remains responsible for runtime checks.
  */
 
+import { auditExperienceQuality } from './experience-quality.js';
+
 function cleanPath(value) {
   let path = String(value || '').replace(/\\/g, '/').trim();
   try { path = decodeURIComponent(path); } catch {}
@@ -326,6 +328,7 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
     }
   }
 
+  const experienceQuality = auditExperienceQuality(files, siteMap);
   const limited = issues.slice(0, 100);
   const counts = limited.reduce((out, issue) => {
     out[issue.code] = (out[issue.code] || 0) + 1;
@@ -344,5 +347,6 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
       : 'No duplicate page routes, unresolved internal routes, broken same-page or cross-page fragments, placeholder links, missing local asset and responsive-image references, duplicate IDs, images without alt attributes, or obvious source-level form/ARIA label references were found.',
     externalResourcesVerified: false,
     runtimeBehaviorVerified: false,
+    experienceQuality,
   };
 }

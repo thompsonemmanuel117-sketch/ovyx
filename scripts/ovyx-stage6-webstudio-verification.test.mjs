@@ -19,7 +19,7 @@ assert.match(runtime, /connect-src 'none'; form-action 'none'/,
 assert.match(runtime, /function safeSandboxPayload\(page, files, token\)/);
 assert.match(runtime, /function auditSources\(report, pages, files, project\)/);
 assert.match(runtime, /var routePlan = \[\]/);
-assert.match(runtime, /WIDTHS = \[320, 390, 768, 1024, 1440\]/);
+assert.match(runtime, /WIDTHS = \[320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920\]/);
 assert.match(runtime, /function rejectBuildForQuality\(studio, snapshot, reason\)/);
 assert.match(runtime, /restoreSnapshot\(studio, snapshot\)/);
 assert.match(runtime, /qualityGateActive = true/);
