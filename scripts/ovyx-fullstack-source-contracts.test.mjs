@@ -55,6 +55,9 @@ const policyArchitecture = {
     { id: 'auth-session', method: 'POST', path: '/api/auth/session', authPolicy: 'public-with-credential-provider' },
     { id: 'unsubscribe', method: 'POST', path: '/api/newsletter/unsubscribe', authPolicy: 'signed-unsubscribe-token' },
     { id: 'admin-audit', method: 'GET', path: '/api/admin/audit-events', authPolicy: 'administrator-role-and-resource-scope' },
+    { id: 'booking-availability', method: 'GET', path: '/api/booking/availability', authPolicy: 'session-or-authenticated' },
+    { id: 'newsletter-subscribe', method: 'POST', path: '/api/newsletter/subscribe', authPolicy: 'public-with-abuse-controls-and-consent' },
+    { id: 'health-ping', method: 'GET', path: '/api/health/ping', authPolicy: 'public-read-with-rate-limit' },
   ],
   dataModels: [],
   dataIntegrity: { relationships: [] },
@@ -63,6 +66,9 @@ const policyFiles = {
   'functions/api/auth/session.js': 'export async function onRequestPost(context) { const identity = await verifyCredentials(context.data); return Response.json(identity); }',
   'functions/api/newsletter/unsubscribe.js': 'export async function onRequestPost(context) { const claim = verifyUnsubscribeToken(context.request); return Response.json(claim); }',
   'functions/api/admin/audit-events.js': 'export async function onRequestGet(context) { const user = assertAuthenticated(context.data.user); requireAdmin(user); return Response.json({ events: [] }); }',
+  'src/routes/api/booking/availability/+server.ts': 'export const GET = async ({ locals }) => { requireAuth(locals.user); return Response.json({ slots: [] }); };',
+  'app/routes/api.newsletter.subscribe.ts': 'export const action = async ({ request }) => { return Response.json({ accepted: true }); };',
+  'server/api/health/ping.get.ts': 'export default defineEventHandler(() => ({ ok: true }));',
 };
 const policyEvidence = evaluateFullStackSourceContracts(policyFiles, policyArchitecture);
 assert.equal(policyEvidence.status, 'source-evidence-present-runtime-unverified');
