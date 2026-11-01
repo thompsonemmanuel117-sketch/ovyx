@@ -53,7 +53,7 @@ function inferCapabilities(prompt, contract) {
     hasPositiveIntent(source, /\b(?:e-commerce|ecommerce|online store|sell products|product catalogue|product catalog|shopping cart|add to cart)\b/i);
   const payment = signals.payments === true ||
     hasPositiveIntent(source, /\b(?:payment|paystack|flutterwave|stripe|paypal|checkout|pay now|subscription billing|recurring billing)\b/i);
-  const auth = signals.authentication === true || admin ||
+  const auth = signals.authentication === true || admin || subscriptions || notifications || dashboards ||
     hasPositiveIntent(source, /\b(?:member portal|sign in|sign up|login|authentication|user account|customer account|staff accounts?)\b/i);
   const authorization = admin ||
     hasPositiveIntent(source, /\b(?:user roles?|role-based access|admin access|permissions?|permission policies|tenant access|workspace roles?|staff permissions?)\b/i);
@@ -74,15 +74,15 @@ function inferCapabilities(prompt, contract) {
   const fileStorage = hasPositiveIntent(source, /\b(?:file uploads?|image uploads?|document uploads?|media library|file storage|user uploads?|user[- ]uploaded|uploaded by users|users?\s+to\s+upload)\b/i) ||
     hasPositiveIntent(source, /\b(?:upload|store)\b.{0,60}\b(?:files?|documents?|images?|media)\b/i) ||
     hasPositiveIntent(source, /\b(?:files?|documents?|images?|media)\b.{0,60}\b(?:upload|store)\b/i);
-  const persistentData = explicitFullStack || signals.backendData === true || commerce || booking || auth || contact || forms || email || payment || fileStorage ||
+  const persistentData = explicitFullStack || signals.backendData === true || commerce || booking || auth || contact || forms || email || payment || fileStorage || subscriptions || notifications || dashboards || integrations || automation ||
     hasPositiveIntent(source, /\b(?:database|persistent data|save records|customer records|reporting dashboard)\b/i);
   const search = hasPositiveIntent(source, /\b(?:search|filter|sort|catalogue|catalog|directory|listing)\b/i);
-  const backgroundWork = email || booking || payment ||
+  const backgroundWork = email || booking || payment || subscriptions || notifications || integrations || automation ||
     hasPositiveIntent(source, /\b(?:background job|scheduled task|queue|webhook|async processing|cron)\b/i);
 
   return {
     frontend: true,
-    backend: explicitFullStack || contact || forms || booking || payment || auth || persistentData || fileStorage || admin || backgroundWork,
+    backend: explicitFullStack || contact || forms || booking || payment || auth || persistentData || fileStorage || admin || subscriptions || notifications || dashboards || integrations || automation || backgroundWork,
     fullStackRequested: explicitFullStack,
     database: persistentData,
     authentication: auth,
@@ -131,6 +131,7 @@ function buildDataModels(capabilities) {
   }
   if (capabilities.commerce) {
     push('Product', 'Catalog item and purchasable offer; price and availability come from an authoritative source.', ['id', 'name', 'sku', 'priceAmount', 'currency', 'stockOnHand', 'stockReserved', 'trackInventory', 'status']);
+    push('InventoryMovement', 'Auditable stock reservation, release, receipt and adjustment ledger.', ['id', 'productId', 'quantityDelta', 'reason', 'referenceType', 'referenceId', 'actorId', 'createdAt']);
     push('Cart', 'User or session cart with server-recomputed prices and inventory validation.', ['id', 'ownerId', 'sessionKeyHash', 'currency', 'updatedAt']);
     push('CartItem', 'A selected product and quantity; client prices are never authoritative.', ['id', 'cartId', 'productId', 'quantity', 'addedAt']);
     push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'taxAmount', 'totalAmount', 'status', 'createdAt'], 'financial');
@@ -177,6 +178,7 @@ function buildDataIntegrityContracts(capabilities) {
     addRelation('CartItem', 'Product', 'many-to-one', 'Each cart line references an active catalog product.', 'productId');
     addRelation('OrderLine', 'Order', 'many-to-one', 'Each immutable order line belongs to one order.', 'orderId');
     addRelation('OrderLine', 'Product', 'many-to-one', 'Each order line references its catalog source and preserves a purchase-time snapshot.', 'productId');
+    addRelation('InventoryMovement', 'Product', 'many-to-one', 'Every stock change is attributed to one catalog product.', 'productId');
     if (capabilities.authentication) addRelation('Order', 'UserAccount', 'many-to-one', 'The order belongs to the verified principal.', 'ownerId', true);
   }
   if (capabilities.payments && capabilities.commerce) addRelation('PaymentAttempt', 'Order', 'many-to-one', 'Payment attempts reconcile against an order.', 'orderId');
@@ -184,9 +186,14 @@ function buildDataIntegrityContracts(capabilities) {
     addRelation('CustomerSubscription', 'SubscriptionPlan', 'many-to-one', 'Every subscription uses a server-owned recurring plan.', 'planId');
     addRelation('SubscriptionInvoice', 'CustomerSubscription', 'many-to-one', 'Every recurring invoice belongs to one subscription.', 'subscriptionId');
     if (capabilities.authentication) addRelation('CustomerSubscription', 'UserAccount', 'many-to-one', 'A subscription entitlement belongs to the verified account owner.', 'ownerId');
-    if (capabilities.payments) addRelation('PaymentAttempt', 'CustomerSubscription', 'many-to-one', 'Recurring payment attempts reconcile to their subscription.', 'subscriptionId', true);
+    if (capabilities.payments) {
+      addRelation('PaymentAttempt', 'CustomerSubscription', 'many-to-one', 'Recurring payment attempts reconcile to their subscription.', 'subscriptionId', true);
+      addRelation('SubscriptionInvoice', 'PaymentAttempt', 'many-to-one', 'An invoice is paid only by its reconciled payment attempt.', 'paymentAttemptId', true);
+    }
   }
   if (capabilities.notifications && capabilities.authentication) addRelation('Notification', 'UserAccount', 'many-to-one', 'A private notification belongs to the verified account owner.', 'ownerId');
+  if (capabilities.integrations && capabilities.authentication) addRelation('IntegrationEvent', 'UserAccount', 'many-to-one', 'Tenant-scoped integration event belongs to its verified application owner.', 'ownerId', true);
+  if (capabilities.automation && capabilities.authentication) addRelation('AutomationRun', 'UserAccount', 'many-to-one', 'Automation execution is scoped to its verified application owner.', 'ownerId', true);
   if (capabilities.fileStorage && capabilities.authentication) addRelation('StoredAsset', 'UserAccount', 'many-to-one', 'Private assets belong to the verified owner.', 'ownerId');
   if (capabilities.admin && capabilities.authentication) addRelation('AuditEvent', 'UserAccount', 'many-to-one', 'Sensitive actions record the verified actor.', 'actorId');
   if (capabilities.email && capabilities.contact) addRelation('DeliveryRecord', 'ContactSubmission', 'many-to-one', 'Contact delivery events retain a link to the original submission.', 'sourceId', false, 'polymorphic-reference');
@@ -275,6 +282,7 @@ function buildDataIntegrityContracts(capabilities) {
     addIndex('CartItem', ['cartId', 'productId'], true, 'Avoid duplicate product lines in one cart.');
     addIndex('Order', ['ownerId', 'createdAt'], false, 'List an owner’s order history efficiently.');
     addIndex('OrderLine', ['orderId'], false, 'Load order details with bounded queries.');
+    addIndex('InventoryMovement', ['productId', 'createdAt'], false, 'Audit stock movement and reconcile inventory changes.');
   }
   if (capabilities.payments) addIndex('PaymentAttempt', ['provider', 'providerReference'], true, 'Prevent duplicate provider payment references.');
   if (capabilities.subscriptions) {
