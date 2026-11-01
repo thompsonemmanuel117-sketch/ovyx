@@ -9,7 +9,7 @@
   var CORE_BROWSER_ROUTE_COUNT = 3;
   var ADDITIONAL_ROUTE_WIDTHS = [390, 1440];
   var MAX_SAFE_CONTROLS_PER_ROUTE = 8;
-  var FRAME_TIMEOUT_MS = 5000;
+  var FRAME_TIMEOUT_MS = 15000;
   var root = null;
   var studioRef = null;
   var currentReport = null;
