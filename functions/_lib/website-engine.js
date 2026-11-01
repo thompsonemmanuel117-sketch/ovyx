@@ -524,3 +524,224 @@ function auditBackendFiles(files, architecture) {
     suffix = suffix.split('/').filter(Boolean).map(part =>
       part.startsWith(':') ? '[' + part.slice(1) + ']' : part
     ).join('/');
+    const remixSuffix = suffix.split('/').map(part => part.startsWith('[') ? String.fromCharCode(36) + part.slice(1, -1) : part).join('.');
+    const verb = String(route.method || 'GET').toLowerCase();
+    const candidates = [
+      'functions/api/' + suffix + '.js', 'functions/api/' + suffix + '.ts',
+      'functions/api/' + suffix + '/index.js', 'app/api/' + suffix + '/route.js',
+      'app/api/' + suffix + '/route.ts', 'src/app/api/' + suffix + '/route.ts',
+      'pages/api/' + suffix + '.js', 'pages/api/' + suffix + '.ts',
+      'src/routes/api/' + suffix + '/+server.js', 'src/routes/api/' + suffix + '/+server.ts',
+      'server/api/' + suffix + '.' + verb + '.js', 'server/api/' + suffix + '.' + verb + '.ts',
+      'server/api/' + suffix + '.js', 'server/api/' + suffix + '.ts',
+      'app/routes/api.' + remixSuffix + '.js', 'app/routes/api.' + remixSuffix + '.ts',
+      'server/routes/' + suffix + '.js', 'server/routes/' + suffix + '.ts',
+      'api/' + suffix + '.js', 'api/' + suffix + '.ts',
+    ];
+    const file = candidates.map(candidate => pathMap.get(candidate.toLowerCase())).find(Boolean) || '';
+    const code = file ? String(files[file]) : '';
+    const method = String(route.method || 'GET').toUpperCase();
+    const pascal = method.charAt(0) + method.slice(1).toLowerCase();
+    const lowerFile = file.toLowerCase();
+    const methodOk = !!file && (
+      code.includes('onRequest' + pascal) ||
+      code.includes('export const ' + method) ||
+      code.includes('export async function ' + method) ||
+      code.includes('export const ' + (method === 'GET' ? 'loader' : 'action')) ||
+      code.includes('function ' + method) ||
+      code.includes('function ' + pascal) ||
+      (lowerFile.startsWith('server/api/') && code.includes('defineEventHandler')) ||
+      code.toLowerCase().includes('router.' + method.toLowerCase() + '(') ||
+      code.toLowerCase().includes('app.' + method.toLowerCase() + '(') ||
+      (lowerFile.includes('/+server.') && code.includes('export const ' + method)) ||
+      (lowerFile.includes('/routes/api.') && code.includes(method === 'GET' ? 'loader' : 'action')) ||
+      (lowerFile.startsWith('server/api/') && lowerFile.includes('.' + method.toLowerCase() + '.') && code.includes('defineEventHandler'))
+    );
+    const policy = String(route.authPolicy || '').toLowerCase();
+    const publicRoute = policy.startsWith('public');
+    const abuseExpected = policy.includes('abuse-controls') || policy.includes('rate-limit');
+    const abuseDetected = !abuseExpected || /enforceRateLimit|checkRateLimit|rateLimiter|rateLimitRequest|verifyTurnstile|verifyCaptcha|throttleRequest/i.test(code);
+    const consentExpected = policy.includes('consent');
+    const consentDetected = !consentExpected || /consent|doubleOptIn|confirmedAt/i.test(code);
+    const authorizationDetected = publicRoute ? abuseDetected && consentDetected : (
+      policy.includes('provider-signature')
+        ? /verifyWebhookSignature|verifySignature|constructEvent/i.test(code)
+        : policy.includes('administrator') || policy.includes('role') || policy.includes('permission')
+          ? /requireAdmin|requireRole|authorize|assertPermission/i.test(code)
+          : /requireAuth|assertAuthenticated|getAuthenticatedUser|verifySession/i.test(code)
+    );
+    return { id: route.id, method, path: route.path, file: file || null, methodOk, authOk: authorizationDetected };
+  });
+  const schemaFiles = entries.filter(([filePath]) => {
+    const lower = filePath.toLowerCase();
+    return lower.includes('schema') || lower.includes('migration') || lower.includes('prisma') || lower.includes('drizzle') || lower.includes('database') || lower.includes('index');
+  });
+  const schema = schemaFiles.map(entry => entry[1]).join('\n').toLowerCase();
+  const models = (architecture.dataModels || []).map(model => {
+    const name = String(model.name || '');
+    const snake = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+    const plural = snake.endsWith('s') ? snake : snake + 's';
+    const present = schema.includes('model ' + name.toLowerCase()) ||
+      schema.includes(name.toLowerCase() + 'schema') ||
+      schema.includes('collection(' + String.fromCharCode(39) + plural + String.fromCharCode(39) + ')') ||
+      schema.includes('create table ' + plural) ||
+      schema.includes('create table if not exists ' + plural) ||
+      schema.includes('create table "' + plural + '"') ||
+      schema.includes("create table '" + plural + "'") ||
+      schema.includes('createtable("' + plural + '"') ||
+      schema.includes("createtable('" + plural + "'");
+    return { id: model.id, name, present };
+  });
+  const relations = (architecture.dataIntegrity && architecture.dataIntegrity.relationships || []).map(relation => ({
+    id: relation.id, field: relation.foreignKeyField,
+    present: !!schema && schema.includes(String(relation.foreignKeyField || '').toLowerCase()),
+  }));
+  const missing = [];
+  routes.forEach(route => {
+    if (!route.file) missing.push('Missing route file: ' + route.method + ' ' + route.path);
+    else if (!route.methodOk) missing.push('Missing HTTP method handler: ' + route.method + ' ' + route.path);
+    if (!route.authOk) missing.push('Missing authorization/signature evidence: ' + route.path);
+  });
+  models.filter(model => !model.present).forEach(model => missing.push('Missing database schema model: ' + model.name));
+  relations.filter(relation => !relation.present).forEach(relation => missing.push('Missing database relationship field: ' + relation.field));
+  return {
+    status: missing.length ? 'incomplete-source-generation' : 'source-evidence-present-runtime-unverified',
+    routeCount: routes.length, routeSourceCount: routes.filter(route => route.file).length,
+    routeMethodCount: routes.filter(route => route.methodOk).length,
+    authorizationEvidenceCount: routes.filter(route => route.authOk).length,
+    modelCount: models.length, modelSchemaEvidenceCount: models.filter(model => model.present).length,
+    relationshipCount: relations.length, relationshipEvidenceCount: relations.filter(relation => relation.present).length,
+    runtimeBehaviorVerified: false, databasePersistenceVerified: false, integrationDeliveryVerified: false,
+    missing: missing.slice(0, 40), routeEvidence: routes,
+  };
+}
+
+function buildBackendSourcePrompt(architecture, originalPrompt, existingPaths, failures) {
+  const contract = fullStackArchitectureModelContract(architecture);
+  return [
+    'OVYX FULL-STACK SOURCE GENERATION — REQUIRED IMPLEMENTATION STAGE',
+    'Return only valid JSON: {"files":{"relative/path":"complete source text"}}. No Markdown fences.',
+    'Generate real server route handlers, database schema, versioned migrations, relationships, constraints, indexes and safe tests for every declared API contract and model. A frontend-only response is not acceptable.',
+    'Preserve the framework detected in existing project paths: Cloudflare Pages Functions, Next.js App Router/Pages Router, SvelteKit, Remix, Nuxt or an existing Node server. Use that framework’s native route-handler conventions. Prefer the explicitly selected database/auth/payment/email provider in the architecture contract; its connection metadata is not proof of live access, so generate server-only adapters and fail safely when bindings are absent. Only when no framework or database provider is selected, target Cloudflare Pages Functions with Cloudflare D1-compatible SQLite migrations and matching onRequestGet/onRequestPost/onRequestPut/onRequestPatch/onRequestDelete exports.',
+    'Use prepared database statements, strict server-side validation, safe error envelopes, size limits, owner scoping, deny-by-default authorization, idempotency and transactional business-state changes. Missing DB/auth bindings must fail explicitly; never simulate persistence or success.',
+    'Generate provider-appropriate schemas, migrations, relationships, constraints and indexes for every model. Use SQL CREATE TABLE/foreign keys for relational databases; for Firestore generate explicit collection/document validators, reference fields and required composite-index declarations. Keep money in integer minor units with ISO currency and timestamps in UTC with IANA timezone context.',
+    'Generate protected identity/authorization middleware and negative permission tests when requested. Payment webhooks require signature and replay verification; booking commits must recheck availability; external email requires an outbox and verified receipt.',
+    'Never include secrets, .env files, credentials, private keys, real customer data or invented production prices/availability. Do not execute migrations or contact real providers.',
+    'Only output backend, schema, migration, server-service and test files. Do not overwrite frontend pages, styles, browser scripts, package manifests or unrelated files.',
+    'Existing project paths: ' + existingPaths.join(', '),
+    failures.length ? 'Fix these missing source contracts: ' + failures.join(' | ') : '',
+    'Original user brief:\n' + String(originalPrompt || '').slice(0, 80000),
+    'Architecture contract:\n' + JSON.stringify(contract),
+  ].filter(Boolean).join('\n\n');
+}
+
+export async function runWebsiteGeneration(options = {}) {
+  const {
+    env,
+    callModel,
+    shouldBuild = false,
+    scopedEdit = false,
+    multiPageOptions = {},
+    modelOptions = {},
+    singlePageOptions = {},
+    initialQuotaInputText = '',
+    buildMultiPage = buildStudioMultiPage,
+    repairSinglePage = validateOrRepairSinglePageBuild,
+    fullStackArchitecture = null,
+    originalPrompt = '',
+  } = options;
+  if (typeof callModel !== 'function') throw new TypeError('Website generation requires a model caller.');
+
+  let result = null;
+  let multiPageBuild = false;
+  let quotaInputText = String(initialQuotaInputText || '');
+  let quotaOutputText = '';
+
+  if (shouldBuild && !scopedEdit) {
+    const generated = await buildMultiPage({ ...multiPageOptions, env, callModel });
+    if (generated) {
+      result = generated;
+      multiPageBuild = true;
+      quotaInputText = generated.quotaInputText || quotaInputText;
+      quotaOutputText = generated.quotaOutputText || generated.text || '';
+    }
+  }
+
+  if (!result) {
+    result = await callModel(env, modelOptions);
+    quotaOutputText = result?.text || '';
+    if (shouldBuild && !scopedEdit) {
+      const repaired = await repairSinglePage({
+        ...singlePageOptions,
+        env,
+        callModel,
+        result,
+        quotaInputText,
+        quotaOutputText,
+      });
+      result = repaired?.result || result;
+      quotaInputText = repaired?.quotaInputText || quotaInputText;
+      quotaOutputText = repaired?.quotaOutputText || result?.text || quotaOutputText;
+    }
+  }
+
+  if (!result) throw new Error('Website generation returned no result.');
+
+  let fullStackSourceEvidence = null;
+  if (shouldBuild && !scopedEdit && fullStackArchitecture &&
+      fullStackArchitecture.capabilities && fullStackArchitecture.capabilities.backend === true) {
+    let failures = [];
+    let generatedFiles = {};
+    let backendResponse = null;
+    let backendUsage = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const sourcePrompt = buildBackendSourcePrompt(
+        fullStackArchitecture, originalPrompt || multiPageOptions.prompt || modelOptions.taskPrompt || '',
+        [...new Set(Object.keys(multiPageOptions.files || {}).concat(Object.keys(result.files || {})))], failures
+      );
+      quotaInputText += (quotaInputText ? '\n\n' : '') + sourcePrompt;
+      try {
+        backendResponse = await callModel(env, {
+          ...modelOptions,
+          taskPrompt: sourcePrompt,
+          system: [String(modelOptions.system || ''), 'Generate complete backend source code and output only the requested JSON files object. Never simulate database writes, identity verification or provider success.'].filter(Boolean).join('\n\n'),
+          responseFormat: 'json',
+        });
+      } catch (generationError) {
+        generationError.partialUsage = mergeGenerationUsage(result.rawUsage, backendUsage, generationError.partialUsage);
+        generationError.quotaInputText = quotaInputText;
+        generationError.quotaOutputText = quotaOutputText;
+        throw generationError;
+      }
+      backendUsage = mergeGenerationUsage(backendUsage, backendResponse && (backendResponse.usage || backendResponse.rawUsage));
+      quotaOutputText += (quotaOutputText ? '\n\n' : '') + String(backendResponse && backendResponse.text || '');
+      generatedFiles = parseBackendFiles(backendResponse);
+      fullStackSourceEvidence = auditBackendFiles(generatedFiles, fullStackArchitecture);
+      if (fullStackSourceEvidence.status === 'source-evidence-present-runtime-unverified') break;
+      failures = fullStackSourceEvidence.missing.length
+        ? fullStackSourceEvidence.missing
+        : ['No valid backend files object was returned.'];
+    }
+    if (!Object.keys(generatedFiles).length ||
+        fullStackSourceEvidence.status !== 'source-evidence-present-runtime-unverified') {
+      const error = new Error('Full-stack source generation did not satisfy the required route, authorization, schema and relationship contracts.');
+      error.code = 'WEBSTUDIO_FULLSTACK_SOURCE_INCOMPLETE';
+      error.fullStackSourceEvidence = fullStackSourceEvidence;
+      error.partialUsage = mergeGenerationUsage(result.rawUsage, backendUsage);
+      error.quotaInputText = quotaInputText;
+      error.quotaOutputText = quotaOutputText;
+      throw error;
+    }
+    result = {
+      ...result,
+      files: { ...(result.files || {}), ...generatedFiles },
+      rawUsage: mergeGenerationUsage(result.rawUsage, backendUsage) || result.rawUsage || null,
+      fullStackSourceEvidence,
+      fullStackGeneration: {
+        status: 'source-generated-runtime-unverified',
+        filesGenerated: Object.keys(generatedFiles).length,
+      },
+    };
+  }
+  return { result, multiPageBuild, quotaInputText, quotaOutputText, fullStackSourceEvidence };
+}
