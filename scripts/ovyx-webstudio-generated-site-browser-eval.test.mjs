@@ -41,13 +41,14 @@ await fs.writeFile(path.join(site, 'ovyx-qa-plan.json'), JSON.stringify({
 }, null, 2));
 await fs.mkdir(badSite, { recursive: true });
 await fs.writeFile(path.join(badSite, 'index.html'), '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Placeholder copy fixture</title></head><body><main><h1>Meet the team</h1><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p></main></body></html>');
-await fs.writeFile(path.join(badSite, 'ovyx-qa-plan.json'), JSON.stringify({ version: 1, backendRequired: false, journeys: [], apiChecks: [{ id: 'secret-query', name: 'Unsafe token query', route: '/?token=do-not-report-this', method: 'GET', expectedStatus: 200 }, { id: 'secret-fragment', name: 'OAuth fragment is stripped', route: '/#access_token=do-not-report-this', method: 'GET', expectedStatus: 200 }], backendChecks: [] }));
+await fs.writeFile(path.join(badSite, 'ovyx-qa-plan.json'), JSON.stringify({ version: 1, backendRequired: true, journeys: [], apiChecks: [{ id: 'secret-query', name: 'Unsafe token query', route: '/?token=do-not-report-this', method: 'GET', expectedStatus: 200 }, { id: 'secret-fragment', name: 'OAuth fragment is stripped', route: '/#access_token=do-not-report-this', method: 'GET', expectedStatus: 200 }], backendChecks: [{ id: 'backend-records', method: 'GET', route: '/api/records', expectedStatus: 200 }] }));
 
 const script = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'ovyx-webstudio-generated-site-browser-eval.mjs');
 const run = spawnSync(process.execPath, [script, path.join(root, 'sites'), out], { encoding: 'utf8', timeout: 60000 });
 assert.equal(run.status, 1, 'Browser evaluator should detect the deliberate placeholder-copy fixture. stderr: ' + run.stderr);
 const report = JSON.parse(await fs.readFile(path.join(out, 'browser-report.json'), 'utf8'));
 assert.equal(report.status, 'needs-attention');
+assert.equal(report.backendRuntime.status, 'blocked', 'A static-site browser run must never claim a required backend runtime passed.');
 assert.equal(report.sitesFound, 2);
 assert.deepEqual(report.viewportWidths, [320, 390, 768, 1024, 1440]);
 const good = report.results.find(item => item.site === 'fixture-real-estate');
@@ -68,9 +69,11 @@ assert.equal(good.journeyResults[0].steps.length, 5);
 assert.equal(good.declaredApiChecks, 2, 'Declared safe read-only backend/API probes must execute.');
 assert.equal(good.passedApiChecks, 2);
 assert.equal(good.failedApiChecks.length, 0);
+assert.equal(good.backendRuntime.status, 'not-required');
 
 assert.ok(good.buttonInteractionResults.some(item => item.status === 'observable-state-change'), 'Browser evidence must record an observable button interaction.');
 assert.equal(bad.status, 'needs-attention', 'Placeholder copy must be a reported quality issue.');
+assert.equal(bad.backendRuntime.status, 'blocked', 'A required backend must remain blocked until its own runtime tests run.');
 assert.equal(bad.journeyPlanMissing, true, 'A generated website without a requirement-derived journey must not pass browser QA.');
 assert.equal(bad.failedApiChecks[0]?.status, 'blocked', 'Sensitive query-string API probes must be blocked.');
 assert.equal(bad.failedApiChecks[0]?.route, '', 'Sensitive query values must not be copied into QA evidence.');
