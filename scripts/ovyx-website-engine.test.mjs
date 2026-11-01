@@ -334,6 +334,34 @@ assert.equal(scopedBuildCalls, 0);
 assert.equal(scopedRepairCalls, 0);
 
 await assert.rejects(() => runWebsiteGeneration({ shouldBuild: true }), /requires a model caller/);
+
+const backendPlanBuild = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  originalPrompt: 'Build a full-stack contact app with persistent enquiries.',
+  modelOptions: { system: 'OVYX website generation system', maxTokens: 12000 },
+  callModel: async () => { throw new Error('A valid static/backend QA manifest must not require a repair call.'); },
+  buildMultiPage: async () => ({
+    text: 'Generated full-stack contact app.',
+    files: {
+      'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Contact app</title></head><body><h1>Contact app</h1></body></html>',
+      'ovyx-qa-plan.json': JSON.stringify({
+        version: 1,
+        backendRequired: true,
+        journeys: [{ id: 'contact-home', name: 'Contact app home', startRoute: '/', steps: [{ action: 'expectText', text: 'Contact app' }] }],
+        apiChecks: [],
+        backendChecks: [{ id: 'health', name: 'API health', method: 'GET', route: '/api/health', expectedStatus: 200 }],
+      }),
+    },
+  }),
+});
+assert.equal(backendPlanBuild.autonomousQa.backendPlan.required, true);
+assert.equal(backendPlanBuild.autonomousQa.backendPlan.declaredChecks, 1);
+assert.equal(backendPlanBuild.autonomousQa.backendPlan.runtimeStatus, 'blocked-no-generated-backend-runtime-adapter');
+assert.equal(backendPlanBuild.autonomousQa.channels.find(channel => channel.channel === 'backend').status, 'blocked',
+  'A generated backend must remain unverified until its own disposable runtime adapter executes the declared checks.');
+
+
 console.log('OVYX unified website engine tests passed.');
 
 
