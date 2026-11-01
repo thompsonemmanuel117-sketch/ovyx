@@ -100,6 +100,7 @@ try {
     const w = window.WebStudio;
     w.recordHistory();
     w.graph.files['index.html'].content = w.graph.files['index.html'].content.replace('Feature copy', 'Section history fixture');
+    w.syncGraphToProject();
     w.render();
   });
   assert.match(await page.evaluate(() => window.WebStudio.graph.files['index.html'].content), /Section history fixture/);
