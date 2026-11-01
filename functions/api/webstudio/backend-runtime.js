@@ -84,7 +84,7 @@ function resolveRuntimeTarget(env) {
 export async function onRequestPost(context) {
   try {
     if (!enforceSameOrigin(context.request)) {
-      return errorResponse('Cross-origin backend runtime requests are not allowed.', 403, 'CORS_DENIED');
+      return errorResponse(403, 'CORS_DENIED', 'Cross-origin backend runtime requests are not allowed.');
     }
     const user = assertAuthenticated(context.data?.user);
     const payload = await readJson(context.request, MAX_BODY_BYTES);
@@ -155,6 +155,6 @@ export async function onRequestPost(context) {
       runtimeService: 'cloudflare-sandbox-pages-d1',
     }, 200);
   } catch (error) {
-    return errorResponse(error?.message || 'The isolated backend runtime request failed.', error?.status || 500, error?.code || 'BACKEND_RUNTIME_FAILED');
+    return errorResponse(error?.status || 500, error?.code || 'BACKEND_RUNTIME_FAILED', error?.message || 'The isolated backend runtime request failed.');
   }
 }
