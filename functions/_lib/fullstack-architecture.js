@@ -53,8 +53,6 @@ function inferCapabilities(prompt, contract) {
     hasPositiveIntent(source, /\b(?:e-commerce|ecommerce|online store|sell products|product catalogue|product catalog|shopping cart|add to cart)\b/i);
   const payment = signals.payments === true ||
     hasPositiveIntent(source, /\b(?:payment|paystack|flutterwave|stripe|paypal|checkout|pay now|paid subscriptions?|paid memberships?|subscription billing|recurring billing)\b/i);
-  const auth = signals.authentication === true || admin || subscriptions || notifications || dashboards ||
-    hasPositiveIntent(source, /\b(?:member portal|sign in|sign up|login|authentication|user account|customer account|staff accounts?)\b/i);
   const authorization = admin ||
     hasPositiveIntent(source, /\b(?:user roles?|role-based access|admin access|permissions?|permission policies|tenant access|workspace roles?|staff permissions?)\b/i);
   const booking = signals.bookings === true ||
@@ -70,6 +68,8 @@ function inferCapabilities(prompt, contract) {
   const dashboards = admin || hasPositiveIntent(source, /\b(?:dashboard|analytics|reports?|reporting|business metrics)\b/i);
   const integrations = hasPositiveIntent(source, /\b(?:integrations?|connect to|third[- ]party services?|external services?|sync with|webhook integrations?)\b/i);
   const automation = hasPositiveIntent(source, /\b(?:automations?|automated workflows?|workflow automation|scheduled reports?|recurring jobs?)\b/i);
+  const auth = signals.authentication === true || admin || subscriptions || notifications || dashboards ||
+    hasPositiveIntent(source, /\b(?:member portal|sign in|sign up|login|authentication|user account|customer account|staff accounts?)\b/i);
   const email = signals.emailDelivery === true || newsletter ||
     hasPositiveIntent(source, /\b(?:email delivery|send\b.{0,80}\bemails?\b|emails?\b.{0,80}\b(?:send|deliver|dispatch)|email notification|transactional email)\b/i);
   const fileStorage = hasPositiveIntent(source, /\b(?:file uploads?|image uploads?|document uploads?|media library|file storage|user uploads?|user[- ]uploaded|uploaded by users|users?\s+to\s+upload)\b/i) ||
