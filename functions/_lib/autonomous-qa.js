@@ -396,8 +396,8 @@ export function evaluateGeneratedWebsiteFiles(rawFiles = {}, options = {}) {
           testsRun += 1;
           const method = String(check?.method || 'GET').toUpperCase();
           const route = String(check?.route || '');
-          const sourceFile = String(check?.sourceFile || '').replace(/\\\\/g, '/');
-          const sourceFileSafe = sourceFile.startsWith('functions/') && !sourceFile.split('/').some(part => !part || part === '.' || part === '..') && /\\.(?:m?js|ts)$/i.test(sourceFile);
+          const sourceFile = String(check?.sourceFile || '').replace(/\\/g, '/');
+          const sourceFileSafe = sourceFile.startsWith('functions/') && !sourceFile.split('/').some(part => !part || part === '.' || part === '..') && /\.(?:m?js|ts)$/i.test(sourceFile);
           const routeSafe = route.startsWith('/api/') && !route.startsWith('//') &&
             !/[?#]/.test(route) && !route.includes(String.fromCharCode(92)) &&
             !/[\\u0000-\\u001f]/.test(route) && !route.split('/').some(part => part === '.' || part === '..');
