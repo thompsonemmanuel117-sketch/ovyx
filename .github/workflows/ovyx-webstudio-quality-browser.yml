@@ -117,7 +117,7 @@ jobs:
       - name: Install browser test dependency
         run: npm install --ignore-scripts --no-save playwright@^1.55.0
 
-      - name: Install Chromium
+      - name: Install Chromium, Firefox and WebKit
         run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Start local Cloudflare Pages app shell
