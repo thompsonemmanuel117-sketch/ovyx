@@ -292,7 +292,8 @@ try {
             { action: 'expectHidden', selector: '#info' }
           ]
         }],
-        apiChecks: []
+        apiChecks: [],
+        backendChecks: []
       })
     };
   });
