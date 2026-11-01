@@ -69,6 +69,10 @@ const QA_CONTRACT = [
   '6. Provide semantic HTML, market-matched language metadata, title, meta description, viewport, accessible contrast, visible keyboard focus, responsive design and prefers-reduced-motion support.',
   '7. Browser JavaScript must run directly in a real browser: use window.document, never import or instantiate jsdom/JSDOM, Node modules, require, process, or server-only APIs. A shared script must guard optional page-specific elements before attaching event listeners.',
   '8. Each requested HTML file must contain exactly one complete document, use unescaped valid HTML attributes, and match its requested page title and route. Never append another document or a model/JSON wrapper to the file.',
+  '9. Include a root ovyx-qa-plan.json with strict JSON {version:1,backendRequired:boolean,journeys:[],apiChecks:[],backendChecks:[]}. Include at least one route-specific user journey for every requested page, using stable data-testid selectors and expected text/visibility assertions. Limit to 12 journeys, 4 per route, 30 steps each.',
+  '10. Set backendRequired:false and backendChecks:[] for a genuinely static site. If the brief requires APIs, authentication, persistent data, bookings, commerce or subscriptions, set backendRequired:true and provide safe backendChecks. Each backend check must include id, name, method, /api/ route, sourceFile (exact functions/ file implementing that route), expectedStatus, and optional expect assertions. Mutating checks must set sideEffect:"disposable-local-only" and use synthetic data only.',
+  '11. Never include credentials, personal data, external provider actions, payment settlement, live email delivery or real bookings in backendChecks. The acceptance runner executes supported Cloudflare Pages Functions with fresh local D1 and local KV/R2 inside an outbound-network-disabled container; unsupported bindings/frameworks must remain blocked, not marked passed.',
+
 ].join('\n');
 
 function decodeBase64Url(value) {
