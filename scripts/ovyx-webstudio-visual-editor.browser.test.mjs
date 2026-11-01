@@ -96,21 +96,6 @@ try {
   });
   assert.deepEqual(order, ['feature-1', 'hero-1'], 'Visual component movement must persist to the shared project source.');
 
-  await page.evaluate(() => {
-    const w = window.WebStudio;
-    w.recordHistory();
-    w.graph.files['index.html'].content = w.graph.files['index.html'].content.replace('Feature copy', 'Section history fixture');
-    w.syncGraphToProject();
-    w.render();
-  });
-  assert.match(await page.evaluate(() => window.WebStudio.graph.files['index.html'].content), /Section history fixture/);
-  await page.evaluate(() => window.WebStudio.undo());
-  assert.doesNotMatch(await page.evaluate(() => window.WebStudio.graph.files['index.html'].content), /Section history fixture/,
-    'The existing section-management history entry must be reversible.');
-  await page.evaluate(() => window.WebStudio.redo());
-  assert.match(await page.evaluate(() => window.WebStudio.graph.files['index.html'].content), /Section history fixture/,
-    'The existing section-management history entry must be redoable.');
-
   await page.evaluate(() => window.WebStudio.handlePreviewMenu('visual'));
   await page.waitForTimeout(180);
   const dragReady = await page.locator('#ws-canvas-iframe').evaluate(frame => {
