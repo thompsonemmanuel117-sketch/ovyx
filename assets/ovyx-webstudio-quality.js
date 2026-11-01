@@ -137,13 +137,13 @@
     var planPath = Object.keys(files || {}).find(function (key) {
       return normalizePath(key).toLowerCase() === 'ovyx-qa-plan.json';
     });
-    if (!planPath) return { status: 'missing', journeys: [], apiChecks: [] };
+    if (!planPath) return { status: 'missing', journeys: [], apiChecks: [], backendChecks: [] };
     try {
       var parsed = JSON.parse(fileText(files[planPath]));
-      if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.journeys) || !Array.isArray(parsed.apiChecks) ||
-          parsed.journeys.length > 12 || parsed.apiChecks.length > 20 ||
+      if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.journeys) || !Array.isArray(parsed.apiChecks) || !Array.isArray(parsed.backendChecks) ||
+          parsed.journeys.length > 12 || parsed.apiChecks.length > 20 || parsed.backendChecks.length > 24 ||
           parsed.journeys.some(function (journey) { return Array.isArray(journey && journey.steps) && journey.steps.length > 30; })) {
-        return { status: 'invalid', journeys: [], apiChecks: [] };
+        return { status: 'invalid', journeys: [], apiChecks: [], backendChecks: [] };
       }
       var routeCounts = {};
       parsed.journeys.forEach(function (journey) {
@@ -174,7 +174,7 @@
           })
         };
       });
-      return { status: journeys.length ? 'ready' : 'empty', journeys: journeys, apiChecks: parsed.apiChecks.slice(0, 20) };
+      return { status: journeys.length ? 'ready' : 'empty', journeys: journeys, apiChecks: parsed.apiChecks.slice(0, 20), backendChecks: parsed.backendChecks.slice(0, 24) };
     } catch (_) {
       return { status: 'invalid', journeys: [], apiChecks: [] };
     }
@@ -1250,6 +1250,10 @@
           journeyAudit.failed + ' failed and ' + journeyAudit.skipped + ' were skipped. No real form submissions, payments, bookings or external service actions were performed.' +
           (journeyAudit.failed ? '\n' + journeyAudit.results.filter(function (item) { return item.status === 'failed'; }).slice(0, 8).map(function (item) { return item.name + ': ' + item.steps.filter(function (step) { return step.status === 'failed'; }).map(function (step) { return step.action + ' — ' + step.detail; }).join('; '); }).join('\n') : ''));
       }
+      if (qaPlan.backendChecks && qaPlan.backendChecks.length) {
+        addCheck(report, 'Backend runtime', 'Requirement-derived backend checks', 'info',
+          qaPlan.backendChecks.length + ' disposable-backend API check(s) are declared. They must run in the network-isolated Cloudflare Pages/D1 runtime evaluator; static-host and iframe previews do not execute these checks.');
+      }
       if (qaPlan.apiChecks && qaPlan.apiChecks.length) {
         addCheck(report, 'Integrations', 'Read-only backend API probes', 'info',
           qaPlan.apiChecks.length + ' read-only API contract probe(s) are declared in the QA plan. The in-editor preview intentionally blocks all network connections, so these probes are not executed here. The current generated-site browser evaluator can check static-host route responses, but it does not execute Cloudflare Functions, framework server routes or database bindings. Database writes, auth-provider flows and external delivery remain unverified until a disposable backend runtime adapter runs.');
@@ -1729,8 +1733,8 @@
             '- Make navigation and requested controls behave meaningfully. Give forms real validation, loading, success and error states; never fake delivery, payment, booking or authentication when the integration is not configured.\n' +
             '- Do not invent contact details, prices, testimonials, certifications, business facts, API credentials or connected-service status. Keep missing integrations clearly unverified.\n' +
             '- Use generated project files as the source of truth. The existing test and preview gate must be able to inspect the result; do not claim browser tests ran unless they did.\n' +
-            '- Include a root ovyx-qa-plan.json file using strict JSON {version:1,journeys:[...],apiChecks:[...]}. Derive at least one executable journey for each critical route from the original requirements. Each journey has id, name, startRoute and ordered steps using only click, fill, check, uncheck, select, expectText, expectVisible, expectHidden, expectUrl and expectValue. Limit the plan to 12 journeys total, 4 per route and 30 steps per journey. Use stable data-testid selectors; split cross-page flows into separate journeys per route. Assert the expected result after each action.\n' +
-            '- apiChecks may declare only safe same-origin GET/HEAD probes. Never put secrets or personal data in the plan. The in-editor browser sandbox blocks network and form submission; do not claim database persistence, form delivery, payment, booking or external provider behavior has been tested by the preview sandbox.\n' +
+            '- Include a root ovyx-qa-plan.json file using strict JSON {version:1,journeys:[...],apiChecks:[...],backendChecks:[...]}. Derive at least one executable journey for each critical route from the original requirements. Each journey has id, name, startRoute and ordered steps using only click, fill, check, uncheck, select, expectText, expectVisible, expectHidden, expectUrl and expectValue. Limit the plan to 12 journeys total, 4 per route and 30 steps per journey. Use stable data-testid selectors; split cross-page flows into separate journeys per route. Assert the expected result after each action.\n' +
+            '- backendChecks may declare same-origin /api/ route tests using GET/HEAD/POST/PUT/PATCH/DELETE. Mutating checks must set sideEffect:"disposable-local-only" and use synthetic non-personal data. Each check has id, name, method, route, expectedStatus, optional body, identity (anonymous/synthetic-owner-a/synthetic-owner-b), and optional expect:{jsonPath,equals|contains}. Never include secrets, personal data or external provider calls. These checks run only in a disposable, outbound-network-disabled Cloudflare Pages/D1 container; unsupported bindings are blocked.\n' +\n            '- apiChecks may declare only safe same-origin GET/HEAD probes. Never put secrets or personal data in the plan. The in-editor browser sandbox blocks network and form submission; do not claim database persistence, form delivery, payment, booking or external provider behavior has been tested by the preview sandbox.\n' +
             '- Return complete valid file contents or supported structured edits for the requested task; do not silently drop requested routes or working features.';
         }
         if (isBuild) {
