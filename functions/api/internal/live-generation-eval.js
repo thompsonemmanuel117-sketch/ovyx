@@ -262,6 +262,14 @@ export function chooseProvider(env, requested) {
     ? 'automatic'
     : null;
 }
+function safeBackendRepairPath(value) {
+  const filePath = String(value || '').trim().replace(/\\/g, '/');
+  if (!filePath.startsWith('functions/') || filePath.length > 240 ||
+      filePath.split('/').some(part => !part || part === '.' || part === '..') ||
+      /(?:^|\\/)(?:secrets?|credentials?|private[-_]?keys?)(?:\\/|\\.|$)/i.test(filePath) ||
+      !/\\.(?:m?js|ts)$/i.test(filePath)) return '';
+  return filePath;
+}
 function safePath(value) {
   const path = String(value || '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
   if (!path || path.length > 400 || path.split('/').some(part => !part || part === '.' || part === '..') ||
@@ -505,7 +513,7 @@ export async function performBackendRuntimeRepair(payload, env, options = {}) {
   const files = {};
   let totalChars = 0;
   for (const [rawPath, content] of entries) {
-    const filePath = safeSourcePath(rawPath);
+    const filePath = safeBackendRepairPath(rawPath);
     if (!filePath || !filePath.startsWith('functions/') || !/\.(?:m?js|ts)$/i.test(filePath) ||
         typeof content !== 'string' || !content.trim() || content.length > 24_000) {
       return { ok: false, reason: 'repair-file-invalid' };
@@ -519,7 +527,7 @@ export async function performBackendRuntimeRepair(payload, env, options = {}) {
   }
   const findings = [];
   for (const finding of payload.findings) {
-    const file = safeSourcePath(finding?.file || '');
+    const file = safeBackendRepairPath(finding?.file || '');
     if (!file || !Object.hasOwn(files, file) || finding?.code !== 'BACKEND_CHECK_FAILED') {
       return { ok: false, reason: 'backend-finding-not-mapped-to-supplied-source' };
     }
