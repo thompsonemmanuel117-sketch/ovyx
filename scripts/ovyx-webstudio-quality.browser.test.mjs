@@ -453,9 +453,16 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   await page.locator('[data-quality-repair]').click();
   await page.waitForFunction(() => window.__qualityRepairCalls.length === 1 && window.OVYXWebStudioQuality.getReport()?.checks.some(item => item.group === 'Automatic repair'), null, { timeout: 120000 });
   const finalReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
+  const repairDiagnostics = await page.evaluate(() => ({
+    repairCalls: window.__qualityRepairCalls.map(call => ({ repair: call.repair, promptHasFinding: call.prompt.includes('Horizontal overflow') })),
+    about: window.WebStudio.graph.files['src/pages/About.html']?.content || '',
+    qaPlan: window.WebStudio.graph.files['ovyx-qa-plan.json']?.content || null,
+    journeys: window.OVYXWebStudioQuality.getReport()?.browser?.journeys || null,
+    projectPages: window.KernelState.activeProject.pages.map(page => ({ route: page.route, file: page.__ovyxFile }))
+  }));
   assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 1, 'Only one bounded repair pass should be sent.');
   assert.ok((await page.evaluate(() => window.__qualityRepairCalls[0].prompt)).includes('OVYX QUALITY INSPECTOR REPAIR'), 'The repair must use a targeted evidence-based prompt.');
-  assert.ok(finalReport.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'pass'), 'The repaired project must be tested again and pass the same overflow check. Findings: ' + JSON.stringify(finalReport.checks.filter(item => item.status === 'fail' || item.status === 'warn')));
+  assert.ok(finalReport.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'pass'), 'The repaired project must be tested again and pass the same overflow check. Findings: ' + JSON.stringify(finalReport.checks.filter(item => item.status === 'fail' || item.status === 'warn')) + ' Diagnostics: ' + JSON.stringify({ repairCalls: repairDiagnostics.repairCalls, aboutStyleFixed: repairDiagnostics.about.includes('width:100%;max-width:100%'), aboutStyleStillBroken: repairDiagnostics.about.includes('width:1100px;max-width:none'), qaPlanPresent: !!repairDiagnostics.qaPlan, journeys: repairDiagnostics.journeys, projectPages: repairDiagnostics.projectPages }));
   assert.ok(finalReport.checks.some(item => item.group === 'Automatic repair' && item.status === 'pass'), 'The inspector must record a successful re-verification only after the observed score improves.');
   assert.ok((await page.evaluate(() => window.__qualityToasts.some(item => item.kind === 'success'))), 'The UI may announce success only after the verified re-check.');
   assert.ok(pageErrors.length === 0, 'The inspector must not create host-page errors: ' + pageErrors.join('; '));
