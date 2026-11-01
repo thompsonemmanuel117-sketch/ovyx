@@ -578,7 +578,7 @@ function auditBackendFiles(files, architecture) {
       authorizationDetected = abuseDetected && consentDetected && credentialDetected;
     } else {
       const authenticated = /requireAuth|assertAuthenticated|getAuthenticatedUser|verifySession|verifyIdToken/i.test(code);
-      const elevated = !(/administrator|role|permission/.test(policy)) ||
+      const elevated = !(/administrator|role|permission|staff/.test(policy)) ||
         /requireAdmin|requireRole|authorize|assertPermission/i.test(code);
       authorizationDetected = authenticated && elevated && ownerScopeDetected;
     }
