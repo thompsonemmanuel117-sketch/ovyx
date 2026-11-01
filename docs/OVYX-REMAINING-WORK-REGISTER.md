@@ -1,11 +1,11 @@
 # OVYX — Remaining Work Register
 
-**Updated:** 2026-10-31  
+**Updated:** 2026-11-01  
 **Purpose:** Keep unfinished work visible across AI migration and existing platform QA. Items close only when the listed evidence exists; a green build or mocked test is not proof of a live external service.
 
 ## Maximum Website Engine program
 
-The separate seven-phase Website Engine upgrade is tracked in `docs/OVYX-MAXIMUM-WEBSITE-ENGINE.md`. Phase 1 foundation PR #359 was merged to `main` as `ed990654cea6b5b75291aec94c9de5050839237e`. Its first post-merge verification on 2026-10-31 failed across eight workflows because of two defects: a missing object brace in `functions/_lib/ovyx-project-knowledge.js` blocked Cloudflare Functions bundling, and `website-engine.js` flattened line breaks before prompt-contract extraction, collapsing the 180-item test to one requirement. Phase 1 closeout fixes are on PR #361. The 180-requirement regression also exposed a compact-serializer fallback that dropped `mustHave` and `conversionPrinciples`; the fallback now retains both as bounded lists. Verify PR #361's exact-head Actions/Pages checks before calling Phase 1 complete. PR #360 is the separate Phase 2 track and must not be merged as part of Phase 1 closeout. Preserve Cloudflare Workers AI routing, App Studio, Firebase state, quotas and existing production boundaries. Source implementation, CI, provider preflight, real generation and external delivery remain separate evidence levels.
+Phase 1 foundation and closeout work, plus Phase 2 full-stack architecture/source-generation foundation PR #360, are integrated into `main`; PR #360 merged as `bc61f239aadf31fbdcb9280aa64105f76f03dd90`. The current Phase 2 core-engine reconstruction now audits and strengthens architecture, website intelligence, prompt understanding, planning, page generation and file management on top of that baseline. Do not treat the historical register text as a current acceptance report: inspect the exact current `main` commit and CI before relying on older status notes. Preserve Cloudflare Workers AI routing, App Studio, Firebase state, quotas and production safety boundaries. Source implementation, CI, provider preflight, real generation and external delivery remain separate evidence levels.
 
 ## AI migration stages
 
