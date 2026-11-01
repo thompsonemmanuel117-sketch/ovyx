@@ -14,7 +14,7 @@ const ALLOWED_ROOT_FILES = new Set([
 const SECRET_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
   /\b(?:sk_(?:live|test|proj)_|whsec_|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_)[A-Za-z0-9_-]{12,}/i,
-  /"(?:password|passcode|secret|token|api[_-]?key|authorization|card|cvv|cvc|iban|bank[_-]?account)"\s*:/i,
+  /(?:["'](?:password|passcode|secret|token|api[_-]?key|authorization|card|cvv|cvc|iban|bank[_-]?account)["']\s*:\s*["'][^"']{12,}["']|(?:password|passcode|secret|token|api[_-]?key|authorization)\s*[:=]\s*["'][^"']{16,}["'])/i,
 ];
 
 const json = (value, status = 200) => new Response(JSON.stringify(value), {
