@@ -1059,3 +1059,16 @@ assert.equal(recoveryCalls, 4, 'a malformed output must trigger at most one boun
 assert.match(retryPlanSystem, /STAGE 4 SMOKE RECOVERY/,
   'the bounded retry should name the prior truncation failure and request compact, fully closed HTML');
 
+
+const duplicateRouteAudit = auditWebsiteIntegrity({
+  'index.html': '<!doctype html><html><body><h1>Home</h1></body></html>',
+  'src/app/page.tsx': 'export default function Page(){ return <main>Landing</main> }',
+}, {
+  pages: [
+    { title: 'Home', path: 'index.html', url: '/' },
+    { title: 'Landing', path: 'src/app/page.tsx', url: '/' },
+  ],
+});
+assert.equal(duplicateRouteAudit.routeCollisionCount, 1);
+assert.equal(duplicateRouteAudit.findings.some(item => item.code === 'DUPLICATE_PAGE_ROUTE'), true);
+assert.match(duplicateRouteAudit.summary, /duplicate page route/i);
