@@ -1,8 +1,7 @@
-import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { randomUUID } from 'node:crypto';
-import { mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -12,7 +11,7 @@ const MAX_MIGRATION_BYTES = 1024 * 1024;
 const MAX_BODY_BYTES = 4096;
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE']);
 const SAFE_HEADERS = new Set(['accept', 'content-type', 'x-idempotency-key', 'x-request-id']);
-const OMIT_DIRS = new Set(['.git', '.wrangler', 'node_modules', '.next', 'dist', 'build', 'coverage']);
+const OMIT_DIRS = new Set(['.git', '.wrangler', 'node_modules', '.next', 'coverage']);
 const OMIT_FILES = /^(?:\.env(?:\..*)?|\.dev\.vars|\.dev\.vars\..*|wrangler\.lock)$/i;
 
 function clean(value, limit = 240) {
@@ -140,8 +139,8 @@ async function walkSafe(root, relative = '') {
     if (entry.name === '.' || entry.name === '..' || OMIT_DIRS.has(entry.name) || OMIT_FILES.test(entry.name)) continue;
     const rel = path.posix.join(relative.split(path.sep).join('/'), entry.name);
     const full = path.join(root, rel);
-    const info = await stat(full);
-    if (entry.isSymbolicLink?.()) throw new Error('symlink-artifact-blocked');
+    const info = await lstat(full);
+    if (info.isSymbolicLink()) throw new Error('symlink-artifact-blocked');
     if (info.isDirectory()) found.push(...await walkSafe(root, rel));
     else if (info.isFile()) found.push({ relative: rel.split(path.sep).join('/'), full, bytes: info.size });
   }
@@ -154,8 +153,10 @@ function validateWranglerConfig(config) {
   if (unsupported.some(key => Array.isArray(config[key]) && config[key].length)) {
     return { ok: false, reason: 'unsupported-cloudflare-binding-requires-dedicated-adapter' };
   }
+  if (config.env && Object.keys(config.env).length) return { ok: false, reason: 'wrangler-environment-overrides-require-dedicated-adapter' };
   const vars = config.vars && typeof config.vars === 'object' ? config.vars : {};
-  if (Object.keys(vars).some(key => /secret|token|password|credential|api[_-]?key/i.test(key))) {
+  if (Object.keys(vars).some(key => /secret|token|password|credential|api[_-]?key/i.test(key)) ||
+      Object.values(vars).some(value => typeof value === 'string' && /(?:sk_(?:live|test)_|whsec_|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,})/i.test(value))) {
     return { ok: false, reason: 'secret-like-wrangler-var-blocked' };
   }
   const databases = Array.isArray(config.d1_databases) ? config.d1_databases : [];
@@ -255,7 +256,6 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
   let workspace = '';
   let child = null;
   try {
-    const configFile = ['wrangler.jsonc', 'wrangler.json'].map(name => path.join(projectRoot, name)).find(async file => file);
     const configPath = ['wrangler.jsonc', 'wrangler.json'].map(name => path.join(projectRoot, name));
     let configSource = '';
     let actualConfigPath = '';
@@ -270,6 +270,7 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
     const validated = validateBackendChecks(plan);
     if (!validated.ok) throw new Error(validated.reason);
     const sourceFiles = await walkSafe(projectRoot);
+    if (sourceFiles.length > 500 || sourceFiles.reduce((sum, file) => sum + file.bytes, 0) > 20 * 1024 * 1024) throw new Error('generated-artifact-size-limit');
     if (!sourceFiles.some(file => file.relative.startsWith('functions/'))) throw new Error('cloudflare-pages-functions-not-found');
     if (sourceFiles.some(file => /(?:^|\/)\.env(?:\.|$)|\.dev\.vars/i.test(file.relative))) throw new Error('environment-file-blocked');
     const migrations = [];
@@ -320,7 +321,9 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
       await runCommand(wrangler, ['d1', 'execute', migration.binding.databaseName, '--local', '--persist-to', stateDir, '--file', migration.file], { cwd: workspace, env });
     }
     const port = await nextPort();
-    const args = ['pages', 'dev', '.', '--ip', '127.0.0.1', '--port', String(port), '--persist-to', stateDir, '--log-level', 'error'];
+    const outputDir = typeof config.pages_build_output_dir === 'string' ? config.pages_build_output_dir : '.';
+    if (path.isAbsolute(outputDir) || outputDir.split(/[\\/]/).includes('..')) throw new Error('pages-output-path-invalid');
+    const args = ['pages', 'dev', outputDir, '--ip', '127.0.0.1', '--port', String(port), '--persist-to', stateDir, '--log-level', 'error'];
     for (const binding of configCheck.bindings) args.push('--d1', binding.binding + '=' + binding.databaseId);
     child = spawn(wrangler, args, { cwd: workspace, env, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout.on('data', () => {});
