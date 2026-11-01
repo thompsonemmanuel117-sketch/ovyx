@@ -31,6 +31,14 @@ const bookingRouteSource = [
   "export async function onRequestPost({ request, env }) { const user = authenticate(request); if (!user) return json({ error: { code: 'UNAUTHENTICATED' } }, 401); let input; try { input = await request.json(); } catch { return json({ error: { code: 'INVALID_JSON' } }, 400); } const start = Date.parse(input?.startAt); const end = Date.parse(input?.endAt); if (typeof input?.resourceId !== 'string' || !input.resourceId || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return json({ error: { code: 'VALIDATION_FAILED' } }, 400); const id = crypto.randomUUID(); const startIso = new Date(start).toISOString(); const endIso = new Date(end).toISOString(); const result = await env.DB.prepare(\"INSERT INTO bookings (id, owner_id, resource_id, start_at, end_at, status, created_at) SELECT ?, ?, ?, ?, ?, 'confirmed', ? WHERE NOT EXISTS (SELECT 1 FROM bookings WHERE resource_id = ? AND status IN ('held', 'confirmed') AND start_at < ? AND end_at > ?)\").bind(id, user.id, input.resourceId, startIso, endIso, new Date().toISOString(), input.resourceId, endIso, startIso).run(); if (!result.meta || result.meta.changes !== 1) return json({ error: { code: 'SLOT_UNAVAILABLE' } }, 409); return json({ data: { id, owner_id: user.id, resource_id: input.resourceId, start_at: startIso, end_at: endIso } }, 201); }",
 ].join('\n');
 
+const uploadRouteSource = [
+  "const json = (body, status = 200) => Response.json(body, { status });",
+  "function authenticate(request) { const token = request.headers.get('authorization') || ''; if (token === 'Bearer test-owner-a') return { id: 'owner-a' }; if (token === 'Bearer test-owner-b') return { id: 'owner-b' }; return null; }",
+  "function validPng(bytes) { return bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71 && bytes[4] === 13 && bytes[5] === 10 && bytes[6] === 26 && bytes[7] === 10; }",
+  "export async function onRequestPost({ request, env }) { const user = authenticate(request); if (!user) return json({ error: { code: 'UNAUTHENTICATED' } }, 401); const type = request.headers.get('content-type') || ''; if (type !== 'image/png') return json({ error: { code: 'UNSUPPORTED_MEDIA_TYPE' } }, 415); const declaredSize = Number(request.headers.get('content-length') || 0); if (declaredSize > 2097152) return json({ error: { code: 'FILE_TOO_LARGE' } }, 413); const bytes = new Uint8Array(await request.arrayBuffer()); if (!validPng(bytes)) return json({ error: { code: 'INVALID_FILE_CONTENT' } }, 400); const id = crypto.randomUUID(); const key = 'private/' + user.id + '/' + id + '.png'; await env.ASSETS.put(key, bytes, { httpMetadata: { contentType: 'image/png' }, customMetadata: { ownerId: user.id, assetId: id, scanStatus: 'quarantined' } }); await env.DB.prepare('INSERT INTO file_assets (id, owner_id, object_key, content_type, byte_size, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, user.id, key, 'image/png', bytes.byteLength, 'quarantined', new Date().toISOString()).run(); return json({ data: { id, status: 'quarantined', byteSize: bytes.byteLength } }, 201); }",
+  "export async function onRequestGet({ request, env }) { const user = authenticate(request); if (!user) return json({ error: { code: 'UNAUTHENTICATED' } }, 401); const id = new URL(request.url).searchParams.get('id'); if (!id) return json({ error: { code: 'VALIDATION_FAILED' } }, 400); const asset = await env.DB.prepare('SELECT object_key, content_type, status FROM file_assets WHERE id = ? AND owner_id = ?').bind(id, user.id).first(); if (!asset) return json({ error: { code: 'NOT_FOUND' } }, 404); if (asset.status !== 'approved') return json({ error: { code: 'ASSET_NOT_PUBLISHED' } }, 403); const object = await env.ASSETS.get(asset.object_key); if (!object) return json({ error: { code: 'ASSET_MISSING' } }, 404); return new Response(object.body, { headers: { 'content-type': asset.content_type, 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff' } }); }",
+].join('\\n');
+
 const migrationSql = [
   'CREATE TABLE records (',
   '  id TEXT PRIMARY KEY,',
@@ -41,6 +49,8 @@ const migrationSql = [
   '  updated_at TEXT NOT NULL',
   ');',
   'CREATE INDEX idx_records_owner_created ON records(owner_id, created_at);',
+  'CREATE TABLE file_assets (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, object_key TEXT NOT NULL UNIQUE, content_type TEXT NOT NULL, byte_size INTEGER NOT NULL, status TEXT NOT NULL CHECK (status IN (\'quarantined\', \'approved\', \'rejected\')), created_at TEXT NOT NULL);',
+  'CREATE INDEX idx_file_assets_owner ON file_assets(owner_id, created_at);',
   "CREATE TABLE bookings (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, resource_id TEXT NOT NULL, start_at TEXT NOT NULL, end_at TEXT NOT NULL, status TEXT NOT NULL CHECK (status IN ('held', 'confirmed', 'cancelled')), created_at TEXT NOT NULL);",
   'CREATE INDEX idx_bookings_resource_window ON bookings(resource_id, status, start_at, end_at);',
 ].join('\n');
@@ -55,7 +65,7 @@ try {
   await writeFile(configPath, JSON.stringify({
     name: 'ovyx-generated-backend-runtime',
     compatibility_date: '2026-10-31',
-    d1_databases: [{
+    r2_buckets: [{ binding: 'ASSETS', bucket_name: 'ovyx-generated-backend-runtime-assets' }],\n    d1_databases: [{
       binding: 'DB',
       database_name: databaseName,
       database_id: '00000000-0000-0000-0000-000000000000',
@@ -64,7 +74,7 @@ try {
   }, null, 2));
   await writeFile(migrationPath, migrationSql);
   await writeFile(routePath, routeSource);
-  await writeFile(join(functionsDir, 'bookings.js'), bookingRouteSource);
+  await writeFile(join(functionsDir, 'bookings.js'), bookingRouteSource);\n  await writeFile(join(functionsDir, 'assets.js'), uploadRouteSource);
 
   const wrangler = (...args) => {
     const child = spawn(wranglerBin, args, {
@@ -171,6 +181,28 @@ try {
   const afterDelete = await request('/api/records?id=' + encodeURIComponent(created.data.id), 'test-owner-a');
   assert.equal(afterDelete.status, 404, 'Deleted data must no longer be returned.');
 
+  const pngBytes = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]);
+  const upload = await fetch(baseUrl + '/api/assets', {
+    method: 'POST',
+    headers: { authorization: 'Bearer test-owner-a', 'content-type': 'image/png' },
+    body: pngBytes,
+    signal: AbortSignal.timeout(5000),
+  });
+  assert.equal(upload.status, 201, 'Valid content-verified uploads must enter private quarantine.');
+  const uploadedAsset = await upload.json();
+  assert.equal(uploadedAsset.data.status, 'quarantined');
+  const crossOwnerAsset = await request('/api/assets?id=' + encodeURIComponent(uploadedAsset.data.id), 'test-owner-b');
+  assert.equal(crossOwnerAsset.status, 404, 'Private uploaded assets must not cross owner boundaries.');
+  const quarantinedAsset = await request('/api/assets?id=' + encodeURIComponent(uploadedAsset.data.id), 'test-owner-a');
+  assert.equal(quarantinedAsset.status, 403, 'Quarantined uploads must not be publicly served before approval.');
+  const invalidUpload = await fetch(baseUrl + '/api/assets', {
+    method: 'POST',
+    headers: { authorization: 'Bearer test-owner-a', 'content-type': 'image/png' },
+    body: Uint8Array.from([0, 1, 2, 3, 4]),
+    signal: AbortSignal.timeout(5000),
+  });
+  assert.equal(invalidUpload.status, 400, 'MIME claims must be checked against file signatures.');
+
   const bookingPayload = { resourceId: 'studio-room-1', startAt: '2026-11-05T10:00:00.000Z', endAt: '2026-11-05T11:00:00.000Z' };
   const competingBookings = await Promise.all([
     request('/api/bookings', 'test-owner-a', 'POST', bookingPayload),
@@ -181,7 +213,7 @@ try {
     resourceId: 'studio-room-1', startAt: '2026-11-05T11:00:00.000Z', endAt: '2026-11-05T10:00:00.000Z',
   });
   assert.equal(invalidBooking.status, 400, 'Bookings with invalid time windows must be rejected.');
-  process.stdout.write('OVYX generated-backend runtime integration test passed: auth, validation, D1 CRUD, tenant isolation and booking conflicts.\n');
+  process.stdout.write('OVYX generated-backend runtime integration test passed: auth, validation, D1 CRUD, tenant isolation, private upload quarantine and booking conflicts.\n');
 } finally {
   if (server && server.exitCode === null) {
     server.kill('SIGTERM');
