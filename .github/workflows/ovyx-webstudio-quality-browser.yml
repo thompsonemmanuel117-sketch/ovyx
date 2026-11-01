@@ -3,6 +3,24 @@ on:
     branches:
       - main
     paths:
+      - 'functions/_lib/design-system-contract.js'
+      - 'functions/_lib/experience-quality.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/site-integrity.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'scripts/ovyx-design-system-contract.test.mjs'
+      - 'scripts/ovyx-experience-quality.test.mjs'
+      - 'package.json'
+      - 'docs/OVYX-PHASE-3-DESIGN-FUNCTIONALITY.md'
+      - 'functions/_lib/design-system-contract.js'
+      - 'functions/_lib/experience-quality.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/site-integrity.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'scripts/ovyx-design-system-contract.test.mjs'
+      - 'scripts/ovyx-experience-quality.test.mjs'
+      - 'package.json'
+      - 'docs/OVYX-PHASE-3-DESIGN-FUNCTIONALITY.md'
       - 'assets/ovyx-webstudio-quality.js'
       - 'assets/ovyx-webstudio-navigation-polish.js'
       - 'assets/ovyx-webstudio-code-search.js'
@@ -34,6 +52,15 @@ on:
     branches:
       - main
     paths:
+      - 'functions/_lib/design-system-contract.js'
+      - 'functions/_lib/experience-quality.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/site-integrity.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'scripts/ovyx-design-system-contract.test.mjs'
+      - 'scripts/ovyx-experience-quality.test.mjs'
+      - 'package.json'
+      - 'docs/OVYX-PHASE-3-DESIGN-FUNCTIONALITY.md'
       - 'assets/ovyx-webstudio-quality.js'
       - 'assets/ovyx-webstudio-navigation-polish.js'
       - 'assets/ovyx-webstudio-code-search.js'
