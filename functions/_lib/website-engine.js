@@ -16,10 +16,19 @@ function connectedFor(context, kind) {
   const source = context && typeof context === 'object' ? context : {};
   const roots = [source.connections, source.activeConnections, source.integrations,
     source.connectionStatus, source.connectedServices];
-  const flatten = value => {
-    if (Array.isArray(value)) return value.flatMap(flatten);
-    if (!value || typeof value !== 'object') return [];
-    return [value, ...Object.values(value).flatMap(flatten)];
+  const seen = new WeakSet();
+  let visited = 0;
+  const flatten = (value, depth = 0) => {
+    if (!value || typeof value !== 'object' || depth > 8 || visited >= 300 || seen.has(value)) return [];
+    seen.add(value);
+    visited += 1;
+    const children = Array.isArray(value) ? value : Object.values(value);
+    const result = Array.isArray(value) ? [] : [value];
+    for (const child of children) {
+      if (visited >= 300) break;
+      result.push(...flatten(child, depth + 1));
+    }
+    return result;
   };
   const patterns = {
     payments: /stripe|paypal|paystack|flutterwave|payment|checkout/i,
