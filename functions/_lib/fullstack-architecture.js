@@ -1084,7 +1084,7 @@ export function fullStackArchitectureModelContract(architecture) {
       rateLimit: route.rateLimit, sideEffect: text(route.sideEffect),
     })).slice(0, 64),
     dataModels: architecture.dataModels.map(model => ({
-      id: model.id, name: model.name, fields: model.fields.slice(0, 10), securityClass: model.securityClass,
+      id: model.id, name: model.name, fields: model.fields.slice(0, 24), securityClass: model.securityClass,
     })).slice(0, 32),
     dataIntegrity: {
       relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional, text(item.purpose)]).slice(0, 40),
