@@ -233,75 +233,87 @@ export function buildWebsiteEngineReadiness(prompt, context = {}, options = {}) 
 const WEBSITE_ENGINE_PLAN_JSON_LIMIT = 18000;
 
 function compactWebsiteFullStackContract(architecture) {
-  const contract = fullStackArchitectureModelContract(architecture);
-  if (!contract) return contract;
-  const routes = Array.isArray(contract.apiContracts) ? contract.apiContracts : [];
+  const source = fullStackArchitectureModelContract(architecture);
+  if (!source) return source;
+  const routes = source.apiContracts || [];
   const selected = [];
-  const seenCapabilities = new Set();
-  for (const route of routes) {
-    if (!seenCapabilities.has(route.capability)) {
+  const selectedKeys = new Set();
+  const addRoute = route => {
+    if (!route) return;
+    const key = route.method + ' ' + route.path;
+    if (!selectedKeys.has(key)) {
+      selectedKeys.add(key);
       selected.push(route);
-      seenCapabilities.add(route.capability);
     }
-  }
+  };
+  const capabilitySeen = new Set();
   for (const route of routes) {
-    if (selected.length >= 32) break;
-    if (!selected.includes(route)) selected.push(route);
-  }
-  contract.apiContracts = selected.slice(0, 18).map(route => ({
-    method: route.method, path: route.path, capability: route.capability,
-    authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 4),
-  }));
-  contract.dataModels = (contract.dataModels || []).slice(0, 20).map(model => ({
-    id: model.id, name: model.name, fields: (model.fields || []).slice(0, 6),
-    securityClass: model.securityClass,
-  }));
-  contract.dataIntegrity.relationships = (contract.dataIntegrity.relationships || []).slice(0, 18);
-  contract.dataIntegrity.constraints = (contract.dataIntegrity.constraints || []).slice(0, 18);
-  contract.dataIntegrity.indexes = (contract.dataIntegrity.indexes || []).slice(0, 16);
-  contract.integrations = (contract.integrations || []).slice(0, 10);
-  contract.dependencyEdges = (contract.dependencyEdges || []).slice(0, 48);
-  contract.security.controls = (contract.security.controls || []).slice(0, 16);
-  contract.stateMachines = (contract.stateMachines || []).slice(0, 10).map(machine => ({
-    entity: machine.entity, initialState: machine.initialState,
-    states: (machine.states || []).slice(0, 8),
-    transitions: (machine.transitions || []).slice(0, 5),
-    invariant: machine.invariant,
-  }));
-  contract.testPlan = (contract.testPlan || []).slice(0, 14);
-  return contract;
-}
-
-function compactPlanValue(value, depth = 0) {
-  if (value === null || typeof value === 'boolean' || typeof value === 'number') return value;
-  if (typeof value === 'string') return clean(value, depth >= 3 ? 120 : 200);
-  if (Array.isArray(value)) {
-    const limit = depth >= 2 ? 6 : 10;
-    return value.slice(0, limit).map(item => compactPlanValue(item, depth + 1));
-  }
-  if (value && typeof value === 'object') {
-    const limit = depth >= 2 ? 8 : 12;
-    const output = {};
-    for (const [key, child] of Object.entries(value).slice(0, limit)) {
-      output[String(key).slice(0, 64)] = compactPlanValue(child, depth + 1);
+    if (!capabilitySeen.has(route.capability)) {
+      addRoute(route);
+      capabilitySeen.add(route.capability);
     }
-    return output;
   }
-  return clean(value, 120);
+  const criticalPaths = new Set([
+    '/api/bookings', '/api/checkout', '/api/payments/intents',
+    '/api/auth/session', '/api/forms/:formId/submissions',
+    '/api/assets', '/api/cart/items', '/api/subscriptions/checkout',
+    '/api/notifications', '/api/dashboard/summary', '/api/webhooks/:provider',
+  ]);
+  for (const route of routes) if (criticalPaths.has(route.path)) addRoute(route);
+  return {
+    version: source.version,
+    capabilities: source.capabilities,
+    pages: (source.pages || []).slice(0, 10),
+    apiContracts: selected.slice(0, 20).map(route => ({
+      method: route.method, path: route.path, capability: route.capability,
+      authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 3),
+    })),
+    dataModels: (source.dataModels || []).slice(0, 28).map(model => ({
+      id: model.id, name: model.name, securityClass: model.securityClass,
+    })),
+    dataIntegrity: {
+      relationships: (source.dataIntegrity?.relationships || []).slice(0, 8),
+      constraints: (source.dataIntegrity?.constraints || []).slice(0, 10),
+      indexes: (source.dataIntegrity?.indexes || []).slice(0, 8),
+    },
+    integrations: (source.integrations || []).slice(0, 10).map(item =>
+      [item.capability, item.provider, item.connectionMetadata]),
+    requirementTraceabilityGroups: source.requirementTraceabilityGroups || [],
+    requirementsNeedingSemanticMapping: (source.requirementsNeedingSemanticMapping || []).slice(0, 20),
+    dependencyEdges: (source.dependencyEdges || []).slice(0, 24),
+    graphIntegrity: {
+      valid: source.graphIntegrity?.valid === true,
+      nodeCount: source.graphIntegrity?.nodeCount || 0,
+      edgeCount: source.graphIntegrity?.edgeCount || 0,
+      unreachableNodeIds: (source.graphIntegrity?.unreachableNodeIds || []).slice(0, 5),
+    },
+    crossLayerContracts: source.crossLayerContracts,
+    security: {
+      defaultPosture: source.security?.defaultPosture,
+      controls: (source.security?.controls || []).slice(0, 10),
+      migrationPolicy: source.security?.migrationPolicy,
+    },
+    backgroundWork: {
+      required: source.backgroundWork?.required === true,
+      pattern: source.backgroundWork?.pattern,
+      controls: (source.backgroundWork?.controls || []).slice(0, 5),
+    },
+    stateMachines: (source.stateMachines || []).slice(0, 14).map(machine => ({
+      entity: machine.entity,
+      initialState: machine.initialState,
+      states: (machine.states || []).slice(0, 6),
+      transitions: (machine.transitions || []).slice(0, 3),
+      invariant: machine.invariant,
+    })),
+    testPlan: (source.testPlan || []).slice(0, 12).map(test => ({
+      id: test.id, type: test.type, status: test.status,
+      requiresExplicitOwnerApproval: test.requiresExplicitOwnerApproval === true,
+    })),
+    deployment: source.deployment,
+    honestyRules: (source.honestyRules || []).slice(0, 8),
+  };
 }
 
-function compactPlanList(values, maxItems, maxChars) {
-  return (Array.isArray(values) ? values : []).slice(0, maxItems).map(item => {
-    if (typeof item === 'string') return clean(item, maxChars);
-    return compactPlanValue(item);
-  });
-}
-
-/**
- * Keep the model-facing plan valid JSON even for the largest accepted brief.
- * The complete user brief is already sent as the task prompt; this bounded
- * index keeps every requirement ID while making long clause excerpts shorter.
- */
 function serializeWebsiteEngineModelPlan(plan) {
   const requirements = Array.isArray(plan.requirementManifest?.requirements)
     ? plan.requirementManifest.requirements
