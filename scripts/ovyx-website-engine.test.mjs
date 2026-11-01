@@ -156,6 +156,7 @@ const backendArchitecture = buildWebsiteEnginePlan(
   'Build a full-stack contact website with a contact form and database persistence.'
 ).fullStackArchitecture;
 const workflowSource = 'export const workflowContracts = ' + JSON.stringify(backendArchitecture.stateMachines || []) + '; export function transitionContactSubmission(state, nextState) { return { state, nextState }; }';
+const backendTestSource = "import { test } from 'node:test'; import assert from 'node:assert/strict'; test('authorization owner rate-limit idempotency workflow transition', () => { assert.ok(['authorization', 'owner', 'rate-limit', 'idempotency', 'transition'].length === 5); });";
 let backendCalls = 0;
 const backendBuild = await runWebsiteGeneration({
   env: {},
@@ -173,6 +174,7 @@ const backendBuild = await runWebsiteGeneration({
           'db/schema.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'migrations/0001_initial.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'server/workflows/contact-submission.js': workflowSource,
+          'tests/backend-contracts.test.js': backendTestSource,
         },
       }),
       usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
@@ -192,6 +194,7 @@ assert.ok(backendBuild.result.files['db/schema.sql']);
 assert.equal(backendBuild.fullStackSourceEvidence.runtimeBehaviorVerified, false);
 assert.equal(backendBuild.fullStackSourceEvidence.databasePersistenceVerified, false);
 assert.equal(backendBuild.fullStackSourceEvidence.workflowEvidenceCount, backendArchitecture.stateMachines.length);
+assert.equal(backendBuild.fullStackSourceEvidence.generatedTestEvidence, true);
 assert.deepEqual(backendBuild.result.rawUsage, { prompt_tokens: 13, completion_tokens: 24, total_tokens: 37 }, 'Backend model usage must be added to frontend generation usage before quota settlement.');
 
 
@@ -216,6 +219,7 @@ const singlePageBackend = await runWebsiteGeneration({
           'db/schema.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'migrations/0001_initial.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'server/workflows/contact-submission.js': workflowSource,
+          'tests/backend-contracts.test.js': backendTestSource,
         },
       }),
       usage: { prompt_tokens: 4, completion_tokens: 6, total_tokens: 10 },
@@ -248,6 +252,7 @@ const secureBackendBuild = await runWebsiteGeneration({
           'db/schema.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'migrations/0001_initial.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'server/workflows/contact-submission.js': workflowSource,
+          'tests/backend-contracts.test.js': backendTestSource,
         },
       }),
     };
