@@ -67,13 +67,18 @@
   }
   async function runBackendRuntime(projectId, files, qaPlan) {
     var planPath = Object.keys(files || {}).find(function (key) { return normalizePath(key).toLowerCase() === 'ovyx-qa-plan.json'; });
+    var wranglerPath = Object.keys(files || {}).find(function (key) { return ['wrangler.jsonc', 'wrangler.json'].indexOf(normalizePath(key).toLowerCase()) >= 0; });
     var rawPlan = null;
     try { rawPlan = planPath ? JSON.parse(fileText(files[planPath])) : null; } catch (_) {}
-    if (rawPlan && rawPlan.backendRequired === true && (!qaPlan || !qaPlan.backendChecks || !qaPlan.backendChecks.length)) {
-      return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'BACKEND_QA_PLAN_INVALID', message: 'The project declares backend functionality, but its backend QA plan is invalid or missing required checks. Backend verification is blocked.' }] };
+    var backendArtifacts = Object.keys(files || {}).some(function (key) { return /^(?:functions|migrations|api|server)\//i.test(normalizePath(key)); });
+    var wranglerDeclaresBindings = !!(wranglerPath && /\b(?:d1_databases|kv_namespaces|r2_buckets)\b/.test(fileText(files[wranglerPath])));
+    var planRequiresBackend = !!(rawPlan && rawPlan.backendRequired === true) || !!(qaPlan && qaPlan.backendRequired === true);
+    if ((backendArtifacts || wranglerDeclaresBindings) && !planRequiresBackend) {
+      return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'BACKEND_QA_PLAN_MISSING', message: 'Backend functions, migrations or database bindings were found, but the QA plan does not declare backendRequired with executable backendChecks. Backend verification is blocked rather than skipped.' }] };
     }
-    if (!qaPlan || qaPlan.backendRequired !== true) {
-      return { channel: 'backend', status: 'not-required', testsRun: 0, findings: [] };
+    if (!planRequiresBackend) return { channel: 'backend', status: 'not-required', testsRun: 0, findings: [] };
+    if (!qaPlan || !Array.isArray(qaPlan.backendChecks) || !qaPlan.backendChecks.length) {
+      return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'BACKEND_QA_PLAN_INVALID', message: 'The project declares backend functionality, but its backend QA plan is invalid or missing required checks. Backend verification is blocked.' }] };
     }
     var user = currentFirebaseUser();
     if (!user) return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'BACKEND_RUNTIME_AUTH_REQUIRED', message: 'Sign in again to run isolated backend and database checks.' }] };
