@@ -74,11 +74,11 @@ const policyEvidence = evaluateFullStackSourceContracts(policyFiles, policyArchi
 assert.equal(policyEvidence.status, 'source-evidence-present-runtime-unverified');
 assert.ok(policyEvidence.routeEvidence.every(item => item.authorizationDetected));
 assert.ok(policyEvidence.routeEvidence.filter(item => !String(item.authPolicy).startsWith('public')).every(item => item.authorizationExpected));
-assert.equal(policyEvidence.routeEvidence.find(item => item.id === 'booking-availability').sourceFile,
+assert.equal(policyEvidence.routeEvidence.find(item => item.path === '/api/booking/availability').sourceFile,
   'src/routes/api/booking/availability/+server.ts', 'SvelteKit +server route files must be recognized.');
-assert.equal(policyEvidence.routeEvidence.find(item => item.id === 'newsletter-subscribe').sourceFile,
+assert.equal(policyEvidence.routeEvidence.find(item => item.path === '/api/newsletter/subscribe').sourceFile,
   'app/routes/api.newsletter.subscribe.ts', 'Remix action route files must be recognized.');
-assert.equal(policyEvidence.routeEvidence.find(item => item.id === 'health-ping').sourceFile,
+assert.equal(policyEvidence.routeEvidence.find(item => item.path === '/api/health/ping').sourceFile,
   'server/api/health/ping.get.ts', 'Nuxt method-suffixed server API files must be recognized.');
 
 const sqlAndDrizzleArchitecture = {
