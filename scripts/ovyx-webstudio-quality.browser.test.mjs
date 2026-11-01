@@ -275,6 +275,27 @@ try {
   assert.equal(await brandingPage.locator('#qa-competing-favicon').getAttribute('href'), '/assets/ovyx-brand-mark.svg', 'Unrelated favicon must not be rewritten.');
 
   await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => {
+    window.WebStudio.graph.files['ovyx-qa-plan.json'] = {
+      type: 'application/json',
+      content: JSON.stringify({
+        version: 1,
+        journeys: [{
+          id: 'home-disclosure',
+          name: 'Open and close the home details disclosure',
+          startRoute: '/',
+          steps: [
+            { action: 'click', selector: '#toggle-info' },
+            { action: 'expectVisible', selector: '#info' },
+            { action: 'expectText', selector: '#info', text: 'Helpful details appear here.' },
+            { action: 'click', selector: '#toggle-info' },
+            { action: 'expectHidden', selector: '#info' }
+          ]
+        }],
+        apiChecks: []
+      })
+    };
+  });
   await page.addScriptTag({ path: runtimePath });
   await page.addScriptTag({ path: navigationPolishPath });
   // Exercise the actual production project-navigation controller from the
@@ -373,6 +394,12 @@ try {
   assert.ok(first.browser.forms.noNativeValidation.length >= 1, 'A form without detectable native constraints must be called out for manual review.');
   assert.ok(first.checks.some(item => item.title === 'Safe form validation smoke test' && item.status === 'info'),
     'The report must disclose when custom/native validation coverage is incomplete instead of marking all forms passed.');
+  assert.equal(first.browser.journeys.total, 1, 'The generated QA plan journey must run in the actual Web Studio preview sandbox.');
+  assert.equal(first.browser.journeys.passed, 1, 'The requirement-derived disclosure journey must pass all expected UI state assertions.');
+  assert.equal(first.browser.journeys.failed, 0);
+  assert.equal(first.browser.journeys.results[0].steps.length, 5);
+  assert.ok(first.checks.some(item => item.title === 'Requirement-derived user journeys' && item.status === 'pass'),
+    'The quality report must include explicit requirement-derived journey evidence.');
   assert.ok(first.browser.interactions.tested >= 1, 'The inspector must actually click at least one safe stateful control in the generated page sandbox.');
   assert.ok(first.browser.interactions.responded >= 1, 'The inspector must observe a state change from the working disclosure control.');
   assert.ok(first.browser.interactions.noOp.every(label => !/add to cart/i.test(label)), 'A front-end Add to Cart action that updates local cart state must not be reported as a no-op.');
