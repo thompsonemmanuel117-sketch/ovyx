@@ -74,7 +74,7 @@ function routeCollisionGroups(siteMap) {
     if (!path) continue;
     const route = normalizeRoute(page.url || '/');
     const group = groups.get(route) || [];
-    if (!group.some(item => item.path.toLowerCase() === path.toLowerCase())) {
+    if (!group.some(item => item.path === path)) {
       group.push({ path, url: page.url || '/', title: String(page.title || page.name || path).slice(0, 120) });
     }
     groups.set(route, group);
