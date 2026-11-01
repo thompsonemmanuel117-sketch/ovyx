@@ -12,6 +12,8 @@ const packageJson = JSON.parse(await readFile(new URL('../package.json', import.
 const backendRuntime = await readFile(new URL('./ovyx-generated-backend-runtime-eval.mjs', import.meta.url), 'utf8');
 const autonomousQa = await readFile(new URL('../functions/_lib/autonomous-qa.js', import.meta.url), 'utf8');
 const backendWorkflow = await readFile(new URL('../.github/workflows/ovyx-stage5-backend-runtime.yml', import.meta.url), 'utf8');
+const backendRepairRoute = await readFile(new URL('../functions/api/internal/live-generation-eval.js', import.meta.url), 'utf8');
+const backendRepairClient = await readFile(new URL('./ovyx-cloudflare-backend-repair-client.mjs', import.meta.url), 'utf8');
 
 // The preview inspector must run the complete source as valid JavaScript and
 // keep executable project files inside the existing isolated iframe contract.
@@ -43,6 +45,11 @@ assert.match(backendRuntime, /--persist-to/);
 assert.match(backendWorkflow, /--network none/);
 assert.match(backendWorkflow, /--cap-drop=ALL/);
 assert.match(backendWorkflow, /--read-only/);
+assert.match(backendRepairRoute, /operation === 'repair-backend'/);
+assert.match(backendRepairRoute, /performBackendRuntimeRepair/);
+assert.match(backendRepairRoute, /verifyGithubOidcToken\(match\[1\], options\)/);
+assert.match(backendRepairClient, /--restore/);
+assert.match(backendRepairClient, /changedPaths/);
 assert.match(backendRuntime, /third-party-package-import-requires-pinned-isolated-dependency-adapter/);
 assert.match(runtime, /var routePlan = \[\]/);
 assert.match(runtime, /WIDTHS = \[320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920\]/);
