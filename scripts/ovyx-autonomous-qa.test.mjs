@@ -21,7 +21,7 @@ assert.ok(staticPass.testsRun >= 10);
 const staticFailure = evaluateGeneratedWebsiteFiles({
   'index.html': '<html><body><h1>TODO</h1><a href="/missing.html">Broken</a><script src="app.js"></script></body></html>',
   'app.js': 'eval("alert(1)")',
-  'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: false, journeys: [{ id: 'unsafe', steps: [{ action: 'goto', route: 'https://example.com' }] }], apiChecks: [{ method: 'POST', route: '/api/charge' }], backendChecks: [], backendChecks: [] }),
+  'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: false, journeys: [{ id: 'unsafe', steps: [{ action: 'goto', route: 'https://example.com' }] }], apiChecks: [{ method: 'POST', route: '/api/charge' }], backendChecks: [] }),
 });
 assert.equal(staticFailure.status, 'failed');
 assert.ok(staticFailure.findings.some(item => item.code === 'HTML_ENTRY_MISSING' || item.code === 'TITLE_MISSING'));
