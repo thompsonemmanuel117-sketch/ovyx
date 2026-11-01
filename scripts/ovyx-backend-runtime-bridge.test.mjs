@@ -7,6 +7,7 @@ const api = fs.readFileSync('functions/api/webstudio/backend-runtime.js', 'utf8'
 const worker = fs.readFileSync('backend-runtime/src/index.js', 'utf8');
 const workerConfig = fs.readFileSync('backend-runtime/wrangler.jsonc', 'utf8');
 const dockerfile = fs.readFileSync('backend-runtime/Dockerfile', 'utf8');
+const dockerignore = fs.readFileSync('.dockerignore', 'utf8');
 const evaluator = fs.readFileSync('scripts/ovyx-generated-backend-runtime-eval.mjs', 'utf8');
 const setup = fs.readFileSync('docs/OVYX-BACKEND-RUNTIME-SETUP.md', 'utf8');
 
@@ -42,6 +43,7 @@ assert.ok(workerConfig.includes('"image_build_context": ".."'), 'The container i
 assert.ok(workerConfig.includes('"new_sqlite_classes": ["OvyxBackendSandbox"]'), 'The sandbox Durable Object must have SQLite-backed storage.');
 assert.ok(dockerfile.includes('cloudflare/sandbox:0.12.14'), 'The container image and Sandbox SDK must use the same pinned version.');
 assert.ok(dockerfile.includes('scripts/ovyx-generated-backend-runtime-eval.mjs'), 'The production sandbox image must contain the actual Pages/D1 evaluator.');
+assert.ok(dockerignore.includes('**/node_modules') && dockerignore.includes('**/.env.*'), 'The container build context must exclude local dependencies and environment secrets.');
 assert.ok(evaluator.includes("networkMode === 'cloudflare-sandbox-no-egress'"), 'The evaluator must recognize the trusted Cloudflare no-egress container mode.');
 assert.ok(evaluator.includes('copyInstalledDependencies'), 'Installed project dependencies must be copied into the disposable Wrangler workspace.');
 assert.ok(setup.includes('Workers Paid plan') && setup.includes('OVYX_BACKEND_RUNTIME_SECRET'), 'Deployment prerequisites and shared secret configuration must be documented.');
