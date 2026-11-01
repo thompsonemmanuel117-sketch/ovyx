@@ -67,6 +67,7 @@ assert.equal(good.failedApiChecks.length, 0);
 
 assert.ok(good.buttonInteractionResults.some(item => item.status === 'observable-state-change'), 'Browser evidence must record an observable button interaction.');
 assert.equal(bad.status, 'needs-attention', 'Placeholder copy must be a reported quality issue.');
+assert.equal(bad.journeyPlanMissing, true, 'A generated website without a requirement-derived journey must not pass browser QA.');
 assert.equal(bad.pages.length, 5, 'The placeholder page should be inspected at all five widths.');
 for (const page of good.pages) {
   await fs.access(path.join(out, 'fixture-real-estate', page.screenshot));
