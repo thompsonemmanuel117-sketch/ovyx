@@ -47,8 +47,9 @@ Strengthen the existing OVYX Website Engine without replacing working systems or
 
 ## Acceptance gates for this workstream
 
-- [x] File-graph unit and Website Engine integration tests pass on exact PR head `54ae918e979d343b4ae2cb94b05460ef9805d875`.
-- [x] Full `npm test`, `npm run validate`, `npm run build`, and Wrangler validation pass on that exact head.
+- [x] File-graph unit and Website Engine integration tests passed on exact PR head `54ae918e979d343b4ae2cb94b05460ef9805d875`.
+- [ ] Requirement-intelligence classification, conflict detection and engine integration tests pass on the latest exact PR head.
+- [x] Full `npm test`, `npm run validate`, `npm run build`, and Wrangler validation passed on the earlier file-graph-only head; rerun on the combined head before merge.
 - [ ] Add browser-level coverage specifically for dependency-aware file-impact reporting and existing-site scoped edits. Existing Assistant Workspace and Web Studio desktop/mobile regression suites passed, but they do not yet directly assert the new file-graph result.
 - [ ] Requirement-derived test cases cover long, contradictory, negative, multi-turn and unfamiliar briefs.
 - [x] Existing regression coverage for Cloudflare AI routing, Firebase ownership, App Studio isolation, project persistence and approval/rollback passed on the same PR head.
