@@ -127,5 +127,13 @@ const boundedImpact = buildWorkspaceFileImpact({ ovyxGraph: { files: manyWorkspa
 assert.equal(boundedImpact.status, 'bounded-partial');
 assert.equal(boundedImpact.truncated, true);
 assert.equal(boundedImpact.filesAnalyzed, 500);
+const oversizedWorkspaceImpact = buildWorkspaceFileImpact({
+  ovyxGraph: { files: {
+    'src/large.js': { type: 'text/javascript', content: 'x'.repeat(900_001) },
+  } },
+}, 'src/large.js');
+assert.equal(oversizedWorkspaceImpact.status, 'bounded-partial');
+assert.equal(oversizedWorkspaceImpact.truncated, true);
+assert.equal(oversizedWorkspaceImpact.filesAnalyzed, 0);
 
 console.log('OVYX workspace tool tests passed.');
