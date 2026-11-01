@@ -1207,7 +1207,22 @@
                 var entry = page.path + ': ' + trim(finding, 100);
                 if (accessibilityAudit.focusObscured.indexOf(entry) < 0) accessibilityAudit.focusObscured.push(entry);
               });
-              var interactionAudit = report.browser.interactions;
+              var journeyAudit = report.browser.journeys;
+      if (qaPlan.status !== 'ready' || !journeyAudit.total) {
+        addCheck(report, 'Coverage', 'Requirement-derived user journeys', 'warn',
+          qaPlan.status === 'missing'
+            ? 'No ovyx-qa-plan.json was found. The page matrix and safe-control smoke test ran, but requirement-derived user journeys were not executed.'
+            : qaPlan.status === 'invalid' || qaPlan.status === 'empty'
+              ? 'The generated QA plan is invalid or contains no executable journeys. Critical user journeys remain unverified.'
+              : 'No declared user journey matched a generated page route. Check each journey startRoute against the actual project routes.');
+      } else {
+        addCheck(report, 'Browser testing', 'Requirement-derived user journeys',
+          journeyAudit.failed ? 'fail' : journeyAudit.skipped ? 'warn' : 'pass',
+          journeyAudit.passed + ' of ' + journeyAudit.total + ' declared user journey/journeys passed in the isolated preview. ' +
+          journeyAudit.failed + ' failed and ' + journeyAudit.skipped + ' were skipped. No real form submissions, payments, bookings or external service actions were performed.' +
+          (journeyAudit.failed ? '\n' + journeyAudit.results.filter(function (item) { return item.status === 'failed'; }).slice(0, 8).map(function (item) { return item.name + ': ' + item.steps.filter(function (step) { return step.status === 'failed'; }).map(function (step) { return step.action + ' — ' + step.detail; }).join('; '); }).join('\n') : ''));
+      }
+      var interactionAudit = report.browser.interactions;
               interactionAudit.pagesProbed += 1;
               interactionAudit.candidates += Number(browserResult.interactions.candidates || 0);
               interactionAudit.tested += Number(browserResult.interactions.tested || 0);
@@ -1239,22 +1254,7 @@
             }
             if (width === 390 && browserResult.forms) {
               var formResult = browserResult.forms;
-              var journeyAudit = report.browser.journeys;
-      if (qaPlan.status !== 'ready' || !journeyAudit.total) {
-        addCheck(report, 'Coverage', 'Requirement-derived user journeys', 'warn',
-          qaPlan.status === 'missing'
-            ? 'No ovyx-qa-plan.json was found. The page matrix and safe-control smoke test ran, but requirement-derived user journeys were not executed.'
-            : qaPlan.status === 'invalid' || qaPlan.status === 'empty'
-              ? 'The generated QA plan is invalid or contains no executable journeys. Critical user journeys remain unverified.'
-              : 'No declared user journey matched a generated page route. Check each journey startRoute against the actual project routes.');
-      } else {
-        addCheck(report, 'Browser testing', 'Requirement-derived user journeys',
-          journeyAudit.failed ? 'fail' : journeyAudit.skipped ? 'warn' : 'pass',
-          journeyAudit.passed + ' of ' + journeyAudit.total + ' declared user journey/journeys passed in the isolated preview. ' +
-          journeyAudit.failed + ' failed and ' + journeyAudit.skipped + ' were skipped. No real form submissions, payments, bookings or external service actions were performed.' +
-          (journeyAudit.failed ? '\n' + journeyAudit.results.filter(function (item) { return item.status === 'failed'; }).slice(0, 8).map(function (item) { return item.name + ': ' + item.steps.filter(function (step) { return step.status === 'failed'; }).map(function (step) { return step.action + ' — ' + step.detail; }).join('; '); }).join('\n') : ''));
-      }
-      var formAudit = report.browser.forms;
+              var formAudit = report.browser.forms;
               ['candidates', 'tested', 'invalidRejected', 'skipped'].forEach(function (key) {
                 formAudit[key] += Math.max(0, Number(formResult[key]) || 0);
               });
