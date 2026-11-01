@@ -320,6 +320,13 @@ assert.deepEqual(filePlan.fileArchitecture.impactAnalysis.impactedPaths, ['src/m
 assert.ok(buildWebsiteEngineInstructions(filePlan).includes('fileArchitecture'));
 assert.equal(websiteEngineClientSummary(filePlan).fileArchitecture.dependencyCount, 2);
 
+const cyclicIntegrationContext = { connections: {} };
+cyclicIntegrationContext.connections.self = cyclicIntegrationContext.connections;
+cyclicIntegrationContext.connections.provider = { provider: 'Resend', connected: true };
+const cyclicContextPlan = buildWebsiteEnginePlan('Build a contact form with email delivery.', cyclicIntegrationContext);
+assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').connection, 'connected-in-context',
+  'Integration inspection must safely traverse cyclic connection context without unbounded recursion.');
+
 const conflictedPlan = buildWebsiteEnginePlan('Include a customer login and account dashboard.\nDo not include a customer login and account dashboard.');
 assert.equal(conflictedPlan.requirementIntelligence.counts.total, conflictedPlan.requirementManifest.total);
 assert.equal(conflictedPlan.requirementIntelligence.conflicts.length, 1);
