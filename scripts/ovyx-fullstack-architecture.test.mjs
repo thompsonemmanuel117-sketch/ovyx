@@ -3,6 +3,7 @@ import {
   buildFullStackArchitecture,
   buildFullStackArchitectureInstructions,
   fullStackArchitectureClientSummary,
+  fullStackArchitectureModelContract,
   validateFullStackArchitectureGraph,
 } from '../functions/_lib/fullstack-architecture.js';
 import { buildPromptContract } from '../functions/_lib/prompt-contract.js';
@@ -287,4 +288,54 @@ assert.equal(long.requirementMappings[0].requirementId, 'R001');
 assert.equal(long.requirementMappings.at(-1).requirementId, 'R180');
 assert.equal(long.graphIntegrity.valid, true);
 
-console.log('OVYX full-stack architecture tests passed: graph integrity, frontend/backend/data/auth/security/integrations/verification contracts, secret isolation and honest unverified states.');
+const stage4Brief = 'Build a full-stack marketplace with products, persistent shopping cart, stock inventory, checkout, customer orders, paid subscriptions with monthly renewals, account notifications, owner and admin dashboards, Paystack integration, webhooks and automated order emails.';
+const stage4 = buildFullStackArchitecture(stage4Brief, buildPromptContract(stage4Brief), {}, []);
+assert.equal(stage4.capabilities.commerce, true);
+assert.equal(stage4.capabilities.subscriptions, true);
+assert.equal(stage4.capabilities.payments, true);
+assert.equal(stage4.capabilities.notifications, true);
+assert.equal(stage4.capabilities.dashboards, true);
+assert.equal(stage4.capabilities.integrations, true);
+assert.equal(stage4.capabilities.email, true, 'Transactional order emails must be detected from the requested workflow.');
+assert.ok(stage4.dataModels.some(model => model.name === 'CustomerSubscription'));
+assert.ok(stage4.dataModels.some(model => model.name === 'SubscriptionPlan'));
+assert.ok(stage4.dataModels.some(model => model.name === 'SubscriptionInvoice'));
+assert.ok(stage4.dataModels.some(model => model.name === 'Notification'));
+assert.ok(stage4.dataModels.some(model => model.name === 'IntegrationEvent'));
+assert.ok(stage4.dataModels.some(model => model.name === 'InventoryMovement'));
+assert.ok(stage4.dataModels.some(model => model.name === 'Promotion'));
+assert.ok(stage4.dataModels.some(model => model.name === 'Shipment'));
+assert.ok(stage4.dataModels.some(model => model.name === 'Refund'));
+for (const route of ['/api/cart','/api/cart/items','/api/orders','/api/orders/:orderId/shipments','/api/promotions/validate','/api/admin/inventory','/api/admin/products','/api/admin/inventory/adjustments','/api/admin/promotions','/api/admin/orders/:orderId/shipments','/api/subscription-plans','/api/subscriptions/checkout','/api/subscriptions/:subscriptionId/cancel','/api/subscriptions/:subscriptionId/invoices','/api/notifications','/api/dashboard/summary','/api/admin/dashboard/metrics','/api/payments','/api/payments/:paymentId/refunds','/api/admin/integrations/health','/api/webhooks/:provider']) {
+  assert.ok(stage4.apiContracts.some(item => item.path === route), 'Stage 4 must declare ' + route);
+}
+for (const entity of ['Order','PaymentAttempt','Refund','Shipment','CustomerSubscription','Notification','IntegrationEvent']) {
+  assert.ok(stage4.stateMachines.some(machine => machine.entity === entity), 'Stage 4 must define the ' + entity + ' lifecycle.');
+}
+assert.ok(stage4.testPlan.some(item => item.id === 'commerce-journey'));
+assert.ok(stage4.testPlan.some(item => item.id === 'subscription-lifecycle' && item.requiresExplicitOwnerApproval));
+assert.ok(stage4.testPlan.some(item => item.id === 'notification-journey'));
+assert.ok(stage4.testPlan.some(item => item.id === 'dashboard-data-integrity'));
+assert.ok(stage4.testPlan.some(item => item.id === 'integration-contracts' && item.requiresExplicitOwnerApproval));
+assert.ok(stage4.security.controls.some(item => item.id === 'subscription-entitlement-integrity'));
+assert.ok(stage4.security.controls.some(item => item.id === 'notification-privacy'));
+assert.equal(stage4.graphIntegrity.valid, true);
+assert.ok(stage4.apiContracts.every(route => route.modelIds.every(id => stage4.dataModels.some(model => model.id === id))));
+const stage4BackendContract = fullStackArchitectureModelContract(stage4);
+assert.ok(stage4BackendContract.apiContracts.length >= stage4.apiContracts.length, 'Backend generation must receive every Stage 4 API route rather than a truncated prefix.');
+assert.ok(stage4BackendContract.dataModels.some(model => model.name === 'CustomerSubscription'));
+assert.ok(stage4BackendContract.dataModels.some(model => model.name === 'Notification'));
+assert.ok(stage4BackendContract.dataModels.some(model => model.name === 'IntegrationEvent'));
+assert.ok(stage4BackendContract.stateMachines.some(machine => machine.entity === 'CustomerSubscription'));
+const freeMembershipBrief = 'Build a free community membership website with member accounts and a member dashboard, no paid plans.';
+const freeMembership = buildFullStackArchitecture(freeMembershipBrief, buildPromptContract(freeMembershipBrief));
+assert.equal(freeMembership.capabilities.subscriptions, true);
+assert.equal(freeMembership.capabilities.payments, false, 'Free memberships must not silently require a payment provider.');
+assert.ok(freeMembership.apiContracts.some(route => route.path === '/api/subscriptions' && route.method === 'POST'));
+const newsletterAndPaidMembershipBrief = 'Build a community website with a newsletter signup and paid memberships with monthly billing.';
+const newsletterAndPaidMembership = buildFullStackArchitecture(newsletterAndPaidMembershipBrief, buildPromptContract(newsletterAndPaidMembershipBrief));
+assert.equal(newsletterAndPaidMembership.capabilities.newsletter, true);
+assert.equal(newsletterAndPaidMembership.capabilities.subscriptions, true, 'Newsletter signup must not suppress a separately requested paid membership system.');
+assert.equal(newsletterAndPaidMembership.capabilities.payments, true);
+
+console.log('OVYX full-stack architecture tests passed: graph integrity, Stage 4 commerce/subscription/notification/dashboard/integration workflows, security, secret isolation and honest unverified states.');

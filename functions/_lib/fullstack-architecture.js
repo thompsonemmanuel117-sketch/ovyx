@@ -48,13 +48,11 @@ function inferCapabilities(prompt, contract) {
   const source = String(prompt || '');
   const signals = contract && contract.contactSignals || {};
   const explicitFullStack = hasPositiveIntent(source, /\b(?:full[- ]stack|backend[- ]enabled|server[- ]backed application)\b/i);
-  const admin = hasPositiveIntent(source, /\b(?:admin dashboard|administrator|back office|staff dashboard|manage users|manage orders|manage bookings)\b/i);
+  const admin = hasPositiveIntent(source, /\b(?:admin dashboards?|administrator|back office|staff dashboards?|manage users|manage orders|manage bookings)\b/i);
   const commerce = signals.shoppingCart === true || signals.addToCart === true ||
     hasPositiveIntent(source, /\b(?:e-commerce|ecommerce|online store|sell products|product catalogue|product catalog|shopping cart|add to cart)\b/i);
   const payment = signals.payments === true ||
-    hasPositiveIntent(source, /\b(?:payment|paystack|flutterwave|stripe|paypal|checkout|pay now|subscription billing|recurring billing)\b/i);
-  const auth = signals.authentication === true || admin ||
-    hasPositiveIntent(source, /\b(?:member portal|sign in|sign up|login|authentication|user account|customer account|staff accounts?)\b/i);
+    hasPositiveIntent(source, /\b(?:payment|paystack|flutterwave|stripe|paypal|checkout|pay now|paid subscriptions?|paid memberships?|subscription billing|recurring billing)\b/i);
   const authorization = admin ||
     hasPositiveIntent(source, /\b(?:user roles?|role-based access|admin access|permissions?|permission policies|tenant access|workspace roles?|staff permissions?)\b/i);
   const booking = signals.bookings === true ||
@@ -64,20 +62,28 @@ function inferCapabilities(prompt, contract) {
   const forms = signals.forms === true || hasPositiveIntent(source, /\b(?:application forms?|registration forms?|feedback forms?|survey forms?|intake forms?|custom forms?|multi[- ]step forms?|form builder|form submissions?)\b/i);
   const newsletter = signals.newsletter === true ||
     hasPositiveIntent(source, /\b(?:newsletter|mailing list|email updates|subscribe for updates)\b/i);
+  const subscriptions = hasPositiveIntent(source, /\b(?:paid subscriptions?|recurring billing|membership plans?|paid memberships?|subscription management|manage subscriptions?)\b/i) ||
+    (hasPositiveIntent(source, /\b(?:subscriptions?|memberships?)\b/i) && !newsletter);
+  const notifications = hasPositiveIntent(source, /\b(?:notifications?|alerts?|reminders?|order updates|booking confirmations?)\b/i);
+  const dashboards = admin || hasPositiveIntent(source, /\b(?:dashboard|analytics|reports?|reporting|business metrics)\b/i);
+  const integrations = hasPositiveIntent(source, /\b(?:integrations?|connect to|third[- ]party services?|external services?|sync with|webhook integrations?)\b/i);
+  const automation = hasPositiveIntent(source, /\b(?:automations?|automated workflows?|workflow automation|scheduled reports?|recurring jobs?)\b/i);
+  const auth = signals.authentication === true || admin || subscriptions || notifications || dashboards ||
+    hasPositiveIntent(source, /\b(?:member portal|sign in|sign up|login|authentication|user account|customer account|staff accounts?)\b/i);
   const email = signals.emailDelivery === true || newsletter ||
-    hasPositiveIntent(source, /\b(?:email delivery|send\b.{0,80}\bemails?\b|emails?\b.{0,80}\b(?:send|deliver|dispatch)|email notification|transactional email)\b/i);
+    hasPositiveIntent(source, /\b(?:email delivery|send\b.{0,80}\bemails?\b|emails?\b.{0,80}\b(?:send|deliver|dispatch)|email notification|transactional email|(?:order|booking|payment|shipping|delivery|invoice|receipt|confirmation) emails?)\b/i);
   const fileStorage = hasPositiveIntent(source, /\b(?:file uploads?|image uploads?|document uploads?|media library|file storage|user uploads?|user[- ]uploaded|uploaded by users|users?\s+to\s+upload)\b/i) ||
     hasPositiveIntent(source, /\b(?:upload|store)\b.{0,60}\b(?:files?|documents?|images?|media)\b/i) ||
     hasPositiveIntent(source, /\b(?:files?|documents?|images?|media)\b.{0,60}\b(?:upload|store)\b/i);
-  const persistentData = explicitFullStack || signals.backendData === true || commerce || booking || auth || contact || forms || email || payment || fileStorage ||
+  const persistentData = explicitFullStack || signals.backendData === true || commerce || booking || auth || contact || forms || email || payment || fileStorage || subscriptions || notifications || dashboards || integrations || automation ||
     hasPositiveIntent(source, /\b(?:database|persistent data|save records|customer records|reporting dashboard)\b/i);
   const search = hasPositiveIntent(source, /\b(?:search|filter|sort|catalogue|catalog|directory|listing)\b/i);
-  const backgroundWork = email || booking || payment ||
+  const backgroundWork = email || booking || payment || subscriptions || notifications || integrations || automation ||
     hasPositiveIntent(source, /\b(?:background job|scheduled task|queue|webhook|async processing|cron)\b/i);
 
   return {
     frontend: true,
-    backend: explicitFullStack || contact || forms || booking || payment || auth || persistentData || fileStorage || admin || backgroundWork,
+    backend: explicitFullStack || contact || forms || booking || payment || auth || persistentData || fileStorage || admin || subscriptions || notifications || dashboards || integrations || automation || backgroundWork,
     fullStackRequested: explicitFullStack,
     database: persistentData,
     authentication: auth,
@@ -88,6 +94,11 @@ function inferCapabilities(prompt, contract) {
     forms,
     email,
     newsletter,
+    subscriptions,
+    notifications,
+    dashboards,
+    integrations,
+    automation,
     booking,
     fileStorage,
     admin,
@@ -120,13 +131,27 @@ function buildDataModels(capabilities) {
     push('Booking', 'Availability-backed reservation with timezone-aware start/end, atomic holds and idempotent lifecycle.', ['id', 'resourceId', 'customerId', 'startsAt', 'endsAt', 'timezone', 'status', 'idempotencyKey', 'holdExpiresAt', 'createdAt', 'updatedAt'], 'personal-data');
   }
   if (capabilities.commerce) {
-    push('Product', 'Catalog item and purchasable offer; price and availability come from an authoritative source.', ['id', 'name', 'sku', 'priceAmount', 'currency', 'status']);
+    push('Product', 'Catalog item and purchasable offer; price and availability come from an authoritative source.', ['id', 'name', 'sku', 'priceAmount', 'currency', 'stockOnHand', 'stockReserved', 'trackInventory', 'status']);
+    push('InventoryMovement', 'Auditable stock reservation, release, receipt and adjustment ledger.', ['id', 'productId', 'quantityDelta', 'reason', 'referenceType', 'referenceId', 'actorId', 'createdAt']);
     push('Cart', 'User or session cart with server-recomputed prices and inventory validation.', ['id', 'ownerId', 'sessionKeyHash', 'currency', 'updatedAt']);
     push('CartItem', 'A selected product and quantity; client prices are never authoritative.', ['id', 'cartId', 'productId', 'quantity', 'addedAt']);
-    push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'taxAmount', 'totalAmount', 'status', 'createdAt'], 'financial');
-    push('OrderLine', 'Immutable purchase-time snapshot of product identity, name, quantity and unit amount.', ['id', 'orderId', 'productId', 'productNameSnapshot', 'quantity', 'unitAmount', 'lineAmount', 'currency'], 'financial');
+    push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'discountAmount', 'taxAmount', 'shippingAmount', 'totalAmount', 'promotionId', 'status', 'fulfillmentStatus', 'inventoryReservationExpiresAt', 'trackingReference', 'fulfilledAt', 'createdAt', 'updatedAt'], 'financial');
+    push('OrderLine', 'Immutable purchase-time snapshot of product identity, SKU, name, quantity, tax and unit amount.', ['id', 'orderId', 'productId', 'skuSnapshot', 'productNameSnapshot', 'quantity', 'unitAmount', 'discountAmount', 'taxAmount', 'lineAmount', 'currency'], 'financial');
+    push('Promotion', 'Server-owned discount rule with usage limits and active date window.', ['id', 'codeNormalized', 'discountType', 'discountValue', 'currency', 'startsAt', 'endsAt', 'usageLimit', 'usageCount', 'perCustomerLimit', 'status']);
+    push('Shipment', 'Order fulfillment and carrier tracking lifecycle.', ['id', 'orderId', 'carrier', 'trackingNumber', 'trackingUrl', 'status', 'shippedAt', 'deliveredAt', 'createdAt']);
   }
-  if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', 'billableReference', 'provider', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
+  if (capabilities.payments) {
+    push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', ...(capabilities.subscriptions ? ['subscriptionId'] : []), 'billableReference', 'provider', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
+    push('Refund', 'Provider-reconciled partial or full refund against a captured payment.', ['id', 'paymentAttemptId', 'orderId', 'amount', 'currency', 'reason', 'status', 'providerRefundReference', 'idempotencyKey', 'requestedAt', 'completedAt'], 'financial');
+  }
+  if (capabilities.subscriptions) {
+    push('SubscriptionPlan', 'Server-owned recurring offer with immutable price and billing interval.', ['id', 'name', 'priceAmount', 'currency', 'billingInterval', 'trialDays', 'status']);
+    push('CustomerSubscription', 'Provider-reconciled customer entitlement and recurring billing lifecycle.', ['id', 'ownerId', 'planId', 'provider', 'providerCustomerRef', 'providerSubscriptionRef', 'status', 'currentPeriodStart', 'currentPeriodEnd', 'cancelAtPeriodEnd', 'trialEndAt', 'idempotencyKey', 'createdAt', 'updatedAt'], 'financial');
+    push('SubscriptionInvoice', 'Immutable invoice record reconciled against a provider payment attempt.', ['id', 'subscriptionId', 'amount', 'currency', 'status', 'dueAt', 'paidAt', 'paymentAttemptId'], 'financial');
+  }
+  if (capabilities.notifications) push('Notification', 'Owner-scoped in-app notification with explicit read and delivery state.', ['id', 'ownerId', 'channel', 'templateKey', 'payload', 'status', 'readAt', 'sentAt', 'idempotencyKey', 'createdAt'], 'personal-data');
+  if (capabilities.integrations) push('IntegrationEvent', 'Deduplicated, redacted inbound/outbound integration event ledger.', ['id', 'tenantId', ...(capabilities.authentication ? ['ownerId'] : []), 'provider', 'externalEventId', 'eventType', 'status', 'idempotencyKey', 'receivedAt', 'processedAt', 'redactedError'], 'security-audit');
+  if (capabilities.automation) push('AutomationRun', 'Auditable scheduled or event-triggered business workflow execution.', ['id', 'tenantId', ...(capabilities.authentication ? ['ownerId'] : []), 'workflowKey', 'triggerType', 'triggerRef', 'status', 'idempotencyKey', 'attemptCount', 'startedAt', 'completedAt', 'redactedError'], 'business-data');
   if (capabilities.email) push('DeliveryRecord', 'Outbox/delivery state with retry and provider receipt; not a claim of delivery.', ['id', 'recipientRef', 'sourceType', 'sourceId', 'templateKey', 'idempotencyKey', 'status', 'attemptCount', 'nextAttemptAt', 'providerReceipt'], 'personal-data');
   if (capabilities.newsletter) push('NewsletterSubscription', 'Permission-aware subscription state with consent evidence and secure unsubscribe lifecycle.', ['id', 'listId', 'userId', 'email', 'emailNormalized', 'status', 'consentAt', 'confirmationTokenHash', 'createdAt'], 'personal-data');
   if (capabilities.fileStorage) push('StoredAsset', 'Owner-scoped metadata for quarantined objects with verified content, scan and publication lifecycle.', ['id', 'ownerId', 'storageKey', 'contentType', 'byteSize', 'checksum', 'uploadState', 'scanStatus', 'visibility', 'idempotencyKey', 'createdAt', 'updatedAt', 'deletedAt'], 'private-file');
@@ -159,9 +184,28 @@ function buildDataIntegrityContracts(capabilities) {
     addRelation('CartItem', 'Product', 'many-to-one', 'Each cart line references an active catalog product.', 'productId');
     addRelation('OrderLine', 'Order', 'many-to-one', 'Each immutable order line belongs to one order.', 'orderId');
     addRelation('OrderLine', 'Product', 'many-to-one', 'Each order line references its catalog source and preserves a purchase-time snapshot.', 'productId');
+    addRelation('InventoryMovement', 'Product', 'many-to-one', 'Every stock change is attributed to one catalog product.', 'productId');
+    addRelation('Order', 'Promotion', 'many-to-one', 'An order may apply one server-validated promotion.', 'promotionId', true);
+    addRelation('Shipment', 'Order', 'many-to-one', 'Every shipment fulfills one order.', 'orderId');
     if (capabilities.authentication) addRelation('Order', 'UserAccount', 'many-to-one', 'The order belongs to the verified principal.', 'ownerId', true);
   }
-  if (capabilities.payments && capabilities.commerce) addRelation('PaymentAttempt', 'Order', 'many-to-one', 'Payment attempts reconcile against an order.', 'orderId');
+  if (capabilities.payments) addRelation('Refund', 'PaymentAttempt', 'many-to-one', 'Every refund references the captured payment it compensates.', 'paymentAttemptId');
+  if (capabilities.payments && capabilities.commerce) {
+    addRelation('PaymentAttempt', 'Order', 'many-to-one', 'Payment attempts reconcile against an order.', 'orderId');
+    addRelation('Refund', 'Order', 'many-to-one', 'Every commerce refund is reconciled against its order.', 'orderId', true);
+  }
+  if (capabilities.subscriptions) {
+    addRelation('CustomerSubscription', 'SubscriptionPlan', 'many-to-one', 'Every subscription uses a server-owned recurring plan.', 'planId');
+    addRelation('SubscriptionInvoice', 'CustomerSubscription', 'many-to-one', 'Every recurring invoice belongs to one subscription.', 'subscriptionId');
+    if (capabilities.authentication) addRelation('CustomerSubscription', 'UserAccount', 'many-to-one', 'A subscription entitlement belongs to the verified account owner.', 'ownerId');
+    if (capabilities.payments) {
+      addRelation('PaymentAttempt', 'CustomerSubscription', 'many-to-one', 'Recurring payment attempts reconcile to their subscription.', 'subscriptionId', true);
+      addRelation('SubscriptionInvoice', 'PaymentAttempt', 'many-to-one', 'An invoice is paid only by its reconciled payment attempt.', 'paymentAttemptId', true);
+    }
+  }
+  if (capabilities.notifications && capabilities.authentication) addRelation('Notification', 'UserAccount', 'many-to-one', 'A private notification belongs to the verified account owner.', 'ownerId');
+  if (capabilities.integrations && capabilities.authentication) addRelation('IntegrationEvent', 'UserAccount', 'many-to-one', 'Tenant-scoped integration event belongs to its verified application owner.', 'ownerId', true);
+  if (capabilities.automation && capabilities.authentication) addRelation('AutomationRun', 'UserAccount', 'many-to-one', 'Automation execution is scoped to its verified application owner.', 'ownerId', true);
   if (capabilities.fileStorage && capabilities.authentication) addRelation('StoredAsset', 'UserAccount', 'many-to-one', 'Private assets belong to the verified owner.', 'ownerId');
   if (capabilities.admin && capabilities.authentication) addRelation('AuditEvent', 'UserAccount', 'many-to-one', 'Sensitive actions record the verified actor.', 'actorId');
   if (capabilities.email && capabilities.contact) addRelation('DeliveryRecord', 'ContactSubmission', 'many-to-one', 'Contact delivery events retain a link to the original submission.', 'sourceId', false, 'polymorphic-reference');
@@ -190,6 +234,33 @@ function buildDataIntegrityContracts(capabilities) {
     { id: 'asset-publication-gate', appliesTo: 'StoredAsset', rule: 'Only scanned, policy-approved assets may become available; quarantined, rejected and deleted objects must never be served by public routes.' },
     { id: 'asset-content-integrity', appliesTo: 'StoredAsset', rule: 'Verify actual file signature, byte count and checksum server-side; client-declared MIME type and size are advisory only.' },
     { id: 'asset-deletion-consistency', appliesTo: 'StoredAsset', rule: 'Delete or tombstone metadata and object storage through an idempotent cleanup workflow; never leave a public stale object reference.' },
+  );
+  if (capabilities.subscriptions) constraints.push(
+    { id: 'subscription-period-valid', appliesTo: 'CustomerSubscription', rule: 'Persist UTC billing period boundaries with currentPeriodStart before currentPeriodEnd; provider period values are authoritative.' },
+    { id: 'subscription-entitlement-authority', appliesTo: 'CustomerSubscription', rule: 'Grant or revoke paid entitlements only after verified provider reconciliation; browser plan selection or return URLs never activate access.' },
+    { id: 'subscription-idempotency', appliesTo: 'CustomerSubscription, SubscriptionInvoice, PaymentAttempt', rule: 'Deduplicate provider subscription events, invoices and renewals by provider-scoped event/reference IDs.' },
+    { id: 'subscription-cancellation-policy', appliesTo: 'CustomerSubscription', rule: 'Distinguish immediate cancellation from cancel-at-period-end and retain access only until the authoritative paid-through boundary.' },
+  );
+  if (capabilities.payments) constraints.push(
+    { id: 'refund-captured-amount-limit', appliesTo: 'Refund', rule: 'Refund only a successfully captured payment; cumulative partial and full refunds may never exceed the verified captured amount.' },
+    { id: 'refund-provider-reconciliation', appliesTo: 'Refund', rule: 'A refund remains pending until the authoritative provider confirms it; retries use provider-scoped idempotency keys.' },
+  );
+  if (capabilities.notifications) constraints.push(
+    { id: 'notification-owner-scope', appliesTo: 'Notification', rule: 'Derive recipient ownership from verified identity and prevent cross-account reads or read-state updates.' },
+    { id: 'notification-delivery-truth', appliesTo: 'Notification, DeliveryRecord', rule: 'Keep queued, accepted, delivered, failed and read states distinct; never display delivery success without provider evidence.' },
+  );
+  if (capabilities.integrations) constraints.push(
+    { id: 'integration-secret-isolation', appliesTo: 'IntegrationEvent', rule: 'Store credentials only in server-side secret bindings; event logs retain redacted metadata and never raw secrets or full sensitive payloads.' },
+    { id: 'integration-event-idempotency', appliesTo: 'IntegrationEvent', rule: 'Verify webhook authenticity and deduplicate external event IDs within provider and tenant scope before applying side effects.' },
+  );
+  if (capabilities.automation) constraints.push(
+    { id: 'automation-idempotency', appliesTo: 'AutomationRun', rule: 'Scheduled and event-triggered workflows require unique run keys, bounded retries, timeout limits and dead-letter visibility.' },
+  );
+  if (capabilities.commerce) constraints.push(
+    { id: 'inventory-never-negative', appliesTo: 'Product', rule: 'Reserve and release inventory atomically; available stock is stockOnHand minus stockReserved and may never become negative.' },
+    { id: 'inventory-reservation-expiry', appliesTo: 'Order', rule: 'Pending checkout stock reservations have a bounded expiry and are released idempotently after failed or expired payment.' },
+    { id: 'promotion-usage-integrity', appliesTo: 'Promotion', rule: 'Validate active windows, currency, minimum spend and per-customer/global usage limits on the server; increment usage atomically with order commit.' },
+    { id: 'shipment-order-integrity', appliesTo: 'Shipment', rule: 'Shipment status and tracking data are updated only by authorized staff or verified carrier events and remain linked to the owning order.' },
   );
   if (capabilities.newsletter) constraints.push(
     { id: 'newsletter-consent-evidence', appliesTo: 'NewsletterSubscription', rule: 'Store consent source/time and confirmation status; do not activate a subscription before required confirmation.' },
@@ -229,8 +300,23 @@ function buildDataIntegrityContracts(capabilities) {
     addIndex('CartItem', ['cartId', 'productId'], true, 'Avoid duplicate product lines in one cart.');
     addIndex('Order', ['ownerId', 'createdAt'], false, 'List an owner’s order history efficiently.');
     addIndex('OrderLine', ['orderId'], false, 'Load order details with bounded queries.');
+    addIndex('InventoryMovement', ['productId', 'createdAt'], false, 'Audit stock movement and reconcile inventory changes.');
+    addIndex('Promotion', ['codeNormalized', 'status'], true, 'Resolve active promotion codes without ambiguity.');
+    addIndex('Shipment', ['orderId', 'createdAt'], false, 'List shipment history for one order.');
   }
-  if (capabilities.payments) addIndex('PaymentAttempt', ['provider', 'providerReference'], true, 'Prevent duplicate provider payment references.');
+  if (capabilities.payments) {
+    addIndex('PaymentAttempt', ['provider', 'providerReference'], true, 'Prevent duplicate provider payment references.');
+    addIndex('Refund', ['paymentAttemptId', 'idempotencyKey'], true, 'Prevent duplicate refund requests against one captured payment.');
+    addIndex('Refund', ['providerRefundReference'], true, 'Deduplicate provider refund receipts.');
+  }
+  if (capabilities.subscriptions) {
+    addIndex('CustomerSubscription', ['ownerId', 'status', 'currentPeriodEnd'], false, 'Resolve a customer’s current entitlement and upcoming renewal.');
+    addIndex('CustomerSubscription', ['provider', 'providerSubscriptionRef'], true, 'Prevent duplicate provider subscription references.');
+    addIndex('SubscriptionInvoice', ['subscriptionId', 'dueAt'], false, 'List recurring invoices in billing order.');
+  }
+  if (capabilities.notifications) addIndex('Notification', ['ownerId', 'createdAt'], false, 'Paginate private notifications for one verified account.');
+  if (capabilities.integrations) addIndex('IntegrationEvent', ['provider', 'externalEventId'], true, 'Deduplicate inbound provider events.');
+  if (capabilities.automation) addIndex('AutomationRun', ['workflowKey', 'idempotencyKey'], true, 'Prevent duplicate scheduled or event-triggered workflow runs.');
   if (capabilities.email) addIndex('DeliveryRecord', ['status', 'nextAttemptAt'], false, 'Find due outbox deliveries without scanning all records.');
   if (capabilities.newsletter) addIndex('NewsletterSubscription', ['listId', 'emailNormalized'], true, 'Prevent duplicate subscriptions to one list.');
   if (capabilities.forms) {
@@ -285,7 +371,26 @@ function buildApiContracts(capabilities) {
   }
   if (capabilities.commerce) {
     add('GET', '/api/products', 'commerce', 'public-read', 'Read catalog items from the configured authoritative source.', ['model-product'], { cachePolicy: 'source-aware' });
+    add('GET', '/api/cart', 'commerce', 'session-or-authenticated', 'Read only the current session or verified owner cart with server-authoritative product and stock data.', ['model-cart', 'model-cartitem', 'model-product']);
+    add('POST', '/api/cart/items', 'commerce', 'session-or-authenticated', 'Add an active product to the current cart after server-side quantity, price and inventory checks.', ['model-cart', 'model-cartitem', 'model-product'], { sideEffect: 'idempotent-cart-mutation' });
+    add('PATCH', '/api/cart/items/:itemId', 'commerce', 'session-or-authenticated-owner', 'Update only an owned cart line and revalidate quantity and available stock.', ['model-cart', 'model-cartitem', 'model-product']);
+    add('DELETE', '/api/cart/items/:itemId', 'commerce', 'session-or-authenticated-owner', 'Remove only an owned cart line from the active cart.', ['model-cart', 'model-cartitem']);
     add('POST', '/api/cart/quote', 'commerce', 'session-or-authenticated', 'Recalculate line items, discounts, tax and inventory on the server.', ['model-cart', 'model-cartitem', 'model-product', 'model-order']);
+    add('GET', '/api/orders', 'commerce', 'authenticated-owner-or-scoped-guest-session', 'List only the current customer’s orders with bounded pagination and immutable purchase snapshots.', ['model-order', 'model-orderline']);
+    add('GET', '/api/orders/:orderId', 'commerce', 'authenticated-owner-or-scoped-guest-session', 'Read an order only after owner or signed guest-session authorization.', ['model-order', 'model-orderline']);
+    add('GET', '/api/orders/:orderId/shipments', 'commerce', 'authenticated-order-owner-or-scoped-guest-session', 'Read shipment and tracking history only for the authorized order owner.', ['model-order', 'model-shipment']);
+    add('POST', '/api/promotions/validate', 'commerce', 'session-or-authenticated', 'Validate a promotion code against server-calculated cart subtotal, currency, date window and usage policy without reserving usage.', ['model-promotion', 'model-cart', 'model-cartitem', 'model-product']);
+    if (capabilities.admin) {
+      add('GET', '/api/admin/orders', 'commerce', 'administrator-or-fulfillment-role', 'List orders for authorized staff with filters, pagination and audit-safe customer fields.', ['model-order', 'model-orderline']);
+      add('GET', '/api/admin/inventory', 'commerce', 'administrator-or-inventory-role', 'Read authoritative stock, reservations and low-stock alerts.', ['model-product']);
+      add('POST', '/api/admin/products', 'commerce', 'administrator-or-catalog-manager-role', 'Create a catalog product with server-validated integer minor-unit price, currency and stock policy.', ['model-product']);
+      add('PATCH', '/api/admin/products/:productId', 'commerce', 'administrator-or-catalog-manager-role', 'Update allowlisted catalog fields without rewriting immutable order snapshots.', ['model-product']);
+      add('POST', '/api/admin/inventory/adjustments', 'commerce', 'administrator-or-inventory-role', 'Apply an atomic stock adjustment with a required reason and append-only inventory movement record.', ['model-product', 'model-inventorymovement']);
+      add('POST', '/api/admin/promotions', 'commerce', 'administrator-or-catalog-manager-role', 'Create a validated promotion with active window, currency and atomic usage limits.', ['model-promotion']);
+      add('PATCH', '/api/admin/promotions/:promotionId', 'commerce', 'administrator-or-catalog-manager-role', 'Update allowlisted promotion policy without changing historical order totals.', ['model-promotion']);
+      add('POST', '/api/admin/orders/:orderId/shipments', 'commerce', 'administrator-or-fulfillment-role', 'Create a shipment for an authorized paid/fulfillable order and persist carrier tracking details.', ['model-order', 'model-shipment']);
+      add('PATCH', '/api/admin/orders/:orderId', 'commerce', 'administrator-or-fulfillment-role', 'Apply only allowed fulfillment transitions and record an audit event.', ['model-order']);
+    }
     if (!capabilities.payments) {
       add('POST', '/api/orders', 'commerce', 'session-or-verified-customer', 'Create an order intent without representing it as paid; fulfillment waits for the configured business process.', ['model-cart', 'model-cartitem', 'model-order', 'model-orderline'], { sideEffect: 'order-intent-only' });
     }
@@ -293,8 +398,42 @@ function buildApiContracts(capabilities) {
       add('POST', '/api/checkout', 'payments', 'session-or-authenticated', 'Create provider checkout from a server-calculated order; never accept client totals.', ['model-cart', 'model-cartitem', 'model-order', 'model-orderline', 'model-paymentattempt'], { sideEffect: 'provider-checkout-with-idempotency' });
     }
   }
+  if (capabilities.subscriptions) {
+    add('GET', '/api/subscription-plans', 'subscriptions', 'public-read-of-active-plans', 'Return only active server-owned plans with fixed currency and billing intervals.', ['model-subscriptionplan']);
+    add('GET', '/api/subscriptions', 'subscriptions', 'authenticated-owner-or-authorized-billing-staff', 'List only subscriptions visible to the verified owner or billing staff.', ['model-customersubscription', 'model-subscriptionplan']);
+    add('GET', '/api/subscriptions/:subscriptionId/invoices', 'subscriptions', 'authenticated-owner-or-billing-staff', 'List immutable invoices only for an owned or authorized subscription.', ['model-customersubscription', 'model-subscriptioninvoice']);
+    add('POST', '/api/subscriptions/:subscriptionId/portal', 'subscriptions', 'authenticated-owner-only', 'Create a short-lived provider billing-portal session for the verified subscription owner.', ['model-customersubscription'], { sideEffect: 'provider-billing-portal-session' });
+    if (capabilities.payments) add('POST', '/api/subscriptions/checkout', 'subscriptions', 'authenticated-owner-only', 'Create recurring provider checkout from a server-owned plan; never accept client price, currency or entitlement state.', ['model-customersubscription', 'model-subscriptionplan', 'model-subscriptioninvoice', 'model-paymentattempt'], { sideEffect: 'provider-subscription-checkout-with-idempotency' });
+    else add('POST', '/api/subscriptions', 'subscriptions', 'authenticated-owner-only', 'Create a free membership only when the selected server-owned plan has zero price.', ['model-customersubscription', 'model-subscriptionplan']);
+    add('POST', '/api/subscriptions/:subscriptionId/cancel', 'subscriptions', 'authenticated-owner-or-billing-staff', 'Request immediate or period-end cancellation through the authoritative provider and reconcile the effective end date.', ['model-customersubscription'], { sideEffect: 'provider-cancellation-with-idempotency' });
+    add('POST', '/api/subscriptions/:subscriptionId/resume', 'subscriptions', 'authenticated-owner-or-billing-staff', 'Resume only a provider-supported subscription before its paid-through period ends.', ['model-customersubscription'], { sideEffect: 'provider-resume-with-idempotency' });
+  }
+  if (capabilities.notifications) {
+    add('GET', '/api/notifications', 'notifications', 'authenticated-owner-only', 'List the current owner’s notifications with unread counts and bounded pagination.', ['model-notification']);
+    add('POST', '/api/notifications/:notificationId/read', 'notifications', 'authenticated-owner-only', 'Mark only an owned notification as read; repeated requests are idempotent.', ['model-notification']);
+    add('POST', '/api/notifications/read-all', 'notifications', 'authenticated-owner-only', 'Mark the current owner’s visible notifications as read without affecting other accounts.', ['model-notification']);
+  }
+  if (capabilities.dashboards) {
+    const enabledDashboardModels = { 'model-useraccount': capabilities.authentication, 'model-product': capabilities.commerce, 'model-order': capabilities.commerce, 'model-orderline': capabilities.commerce, 'model-booking': capabilities.booking, 'model-customersubscription': capabilities.subscriptions, 'model-paymentattempt': capabilities.payments, 'model-notification': capabilities.notifications };
+    const dashboardModels = Object.keys(enabledDashboardModels).filter(id => enabledDashboardModels[id] === true);
+    add('GET', '/api/dashboard/summary', 'dashboards', 'authenticated-owner-or-authorized-staff', 'Return tenant-scoped business KPIs derived from persisted records with an explicit reporting timezone and bounded date range.', dashboardModels);
+    add('GET', '/api/dashboard/activity', 'dashboards', 'authenticated-owner-or-authorized-staff', 'Return a paginated, redacted activity feed from authorized business events.', dashboardModels);
+    if (capabilities.admin) add('GET', '/api/admin/dashboard/metrics', 'dashboards', 'administrator-role-and-tenant-scope', 'Return aggregate business metrics without exposing cross-tenant personal or financial records.', dashboardModels);
+  }
+  if (capabilities.integrations) {
+    if (capabilities.admin) {
+      add('GET', '/api/admin/integrations/health', 'integrations', 'administrator-role-and-tenant-scope', 'Return configured, reachable and last-verified integration health without exposing credentials.', ['model-integrationevent']);
+      add('POST', '/api/admin/integrations/:provider/connect', 'integrations', 'administrator-role-and-tenant-scope', 'Start a provider-approved OAuth or credential setup handshake without returning secrets to the browser.', ['model-integrationevent']);
+      add('DELETE', '/api/admin/integrations/:provider', 'integrations', 'administrator-role-and-tenant-scope', 'Revoke or disconnect the selected integration and audit the action without exposing stored credentials.', ['model-integrationevent']);
+    }
+    add('POST', '/api/webhooks/:provider', 'integrations', 'provider-signature-timestamp-and-replay-protected', 'Verify provider-specific webhook authenticity and deduplicate event IDs before applying scoped business changes.', ['model-integrationevent'], { sideEffect: 'verified-idempotent-integration-event' });
+  }
+  if (capabilities.automation && capabilities.admin) add('GET', '/api/admin/automation/runs', 'automation', 'administrator-role-and-tenant-scope', 'Inspect scheduled and event-triggered workflow runs, retries and dead letters with redacted errors.', ['model-automationrun']);
   if (capabilities.payments) {
-    if (!capabilities.commerce) add('POST', '/api/payments/intents', 'payments', 'verified-customer-or-server-authorized-billable-reference', 'Create a payment intent for a server-authorized invoice or billable action; amount and currency are server-derived.', ['model-paymentattempt'], { sideEffect: 'provider-payment-intent-with-idempotency' });
+    add('GET', '/api/payments', 'payments', 'authenticated-owner-only', 'List only the verified owner’s payment attempts with redacted provider metadata.', ['model-paymentattempt']);
+    add('POST', '/api/payments/:paymentId/refunds', 'payments', 'authenticated-owner-or-authorized-refund-staff', 'Request a policy-eligible partial or full refund against a verified captured payment; never exceed the remaining captured amount.', ['model-paymentattempt', 'model-refund'], { sideEffect: 'provider-refund-with-idempotency' });
+    if (capabilities.admin) add('GET', '/api/admin/refunds', 'payments', 'administrator-or-finance-role', 'Review tenant-scoped refund requests and provider reconciliation states.', ['model-refund', 'model-paymentattempt']);
+    if (!capabilities.commerce && !capabilities.subscriptions) add('POST', '/api/payments/intents', 'payments', 'verified-customer-or-server-authorized-billable-reference', 'Create a payment intent for a server-authorized invoice or billable action; amount and currency are server-derived.', ['model-paymentattempt'], { sideEffect: 'provider-payment-intent-with-idempotency' });
     add('POST', '/api/webhooks/payments', 'payments', 'provider-signature-and-replay-protected', 'Verify webhook signature, timestamp and event identity before idempotent reconciliation.', ['model-paymentattempt', ...(capabilities.commerce ? ['model-order'] : [])], { sideEffect: 'idempotent-payment-reconciliation', csrf: 'provider signature required' });
   }
   if (capabilities.fileStorage) {
@@ -318,6 +457,8 @@ function buildIntegrationContracts(capabilities, context) {
     ['payments', capabilities.payments], ['database', capabilities.database],
     ['authentication', capabilities.authentication], ['email', capabilities.email],
     ['booking', capabilities.booking], ['storage', capabilities.fileStorage],
+    ['subscriptions', capabilities.subscriptions], ['notifications', capabilities.notifications],
+    ['integrations', capabilities.integrations], ['automation', capabilities.automation],
   ].filter(([, requested]) => requested);
   const roots = [context && context.connections, context && context.activeConnections,
     context && context.integrations, context && context.connectionStatus, context && context.connectedServices];
@@ -332,6 +473,8 @@ function buildIntegrationContracts(capabilities, context) {
     payments: /payment|paystack|flutterwave|stripe|paypal/i, database: /database|firestore|firebase|d1|postgres|mysql|supabase/i,
     authentication: /auth|identity|firebase|supabase|clerk/i, email: /email|mail|resend|sendgrid|postmark|smtp/i,
     booking: /booking|reservation|calendar|scheduling/i, storage: /storage|r2|firebase|s3|supabase/i,
+    subscriptions: /subscription|recurring|membership|billing/i, notifications: /notification|push|alert|messaging/i,
+    integrations: /integration|webhook|api|external|third.party/i, automation: /automation|workflow|scheduler|cron/i,
   };
   return requests.map(([capability]) => {
     const matchingConnections = connectionRecords.filter(item => {
@@ -369,6 +512,10 @@ function buildSecurityArchitecture(capabilities) {
   if (capabilities.authentication) controls.push(['session-security', 'Use provider-verified identities, secure session lifecycle, rotation, expiry, CSRF protection where cookie-authenticated and safe logout.']);
   if (capabilities.authorization) controls.push(['object-level-authorization', 'Check resource ownership and scope on every read/write; role labels alone never grant cross-tenant access.']);
   if (capabilities.payments) controls.push(['payment-integrity', 'Recompute amounts server-side; verify signatures, replay windows and provider references; reconcile idempotently before fulfillment.']);
+  if (capabilities.subscriptions) controls.push(['subscription-entitlement-integrity', 'Grant paid access only from verified provider lifecycle events; reconcile renewals, grace periods, cancellations, refunds and chargebacks against server-owned plan rules.']);
+  if (capabilities.notifications) controls.push(['notification-privacy', 'Authorize every notification read/update by recipient ownership; redact payloads and separate queued, delivered and read states.']);
+  if (capabilities.integrations) controls.push(['integration-boundary', 'Validate webhook signatures, scope credentials by tenant/environment, prevent SSRF and replay, and redact provider payloads and secrets.']);
+  if (capabilities.automation) controls.push(['automation-safety', 'Use scoped service identities, idempotent run keys, bounded execution time, retry budgets and human approval for high-impact actions.']);
   if (capabilities.booking) controls.push(['booking-integrity', 'Recheck authoritative availability at commit time and prevent overlapping reservations transactionally or through provider locking.']);
   if (capabilities.forms) controls.push(['form-submission-integrity', 'Use versioned server-owned schemas, abuse throttles, idempotency, applicable consent, personal-data redaction and retention/deletion controls.']);
   if (capabilities.fileStorage) controls.push(['upload-isolation', 'Validate MIME by content, enforce per-file/project limits, randomize storage keys and scan files before public distribution.']);
@@ -390,6 +537,12 @@ function buildTestPlan(capabilities) {
   if (capabilities.forms) tests.push({ id: 'form-schema-validation', type: 'contract-and-security', scope: 'forms', assertion: 'Unknown fields, stale schemas, missing required values, forged owner/status fields, duplicate requests and abuse thresholds are handled safely.' });
   if (capabilities.email) tests.push({ id: 'delivery-receipt', type: 'external-sandbox', scope: 'email', assertion: 'Controlled QA message is accepted and provider delivery receipt is reconciled.', requiresExplicitOwnerApproval: true });
   if (capabilities.booking) tests.push({ id: 'booking-conflicts', type: 'integration', scope: 'booking', assertion: 'Concurrent reservations cannot claim the same unavailable slot.' });
+  if (capabilities.commerce) tests.push({ id: 'commerce-journey', type: 'browser-and-integration', scope: 'catalog-cart-order-inventory', assertion: 'A customer can browse, mutate a persistent cart, receive a server-calculated quote, complete the configured checkout path and see an owner-scoped order; stock reservation and release remain correct under retries and concurrency.' });
+  if (capabilities.subscriptions) tests.push({ id: 'subscription-lifecycle', type: 'integration-and-security', scope: 'subscriptions', assertion: 'Plan checkout, activation, renewal, failed payment, grace period, cancellation, resume, refund and entitlement changes reconcile only from authoritative provider events.', requiresExplicitOwnerApproval: true });
+  if (capabilities.notifications) tests.push({ id: 'notification-journey', type: 'browser-and-integration', scope: 'notifications', assertion: 'Owner-scoped notifications are created from committed business events, can be read idempotently and distinguish queued, accepted, delivered and read states.' });
+  if (capabilities.dashboards) tests.push({ id: 'dashboard-data-integrity', type: 'browser-and-integration', scope: 'dashboards', assertion: 'Dashboard KPIs match tenant-scoped persisted source records, respect role permissions, timezone and date filters, and do not leak other tenants’ data.' });
+  if (capabilities.integrations) tests.push({ id: 'integration-contracts', type: 'sandbox-and-security', scope: 'integrations', assertion: 'Each requested adapter validates configuration, authenticates webhook events, handles timeout/rate-limit/retry/replay cases and records redacted health evidence.', requiresExplicitOwnerApproval: true });
+  if (capabilities.automation) tests.push({ id: 'automation-recovery', type: 'integration', scope: 'automation', assertion: 'Scheduled/event-triggered jobs are idempotent, bounded, observable and recover through retry and dead-letter handling.' });
   return tests.map(test => ({ ...test, status: 'planned-not-executed', evidence: null }));
 }
 
@@ -439,6 +592,89 @@ function buildWorkflowStateMachines(capabilities) {
       ['partially_refunded', 'refunded', 'verified remaining refund event', 'reconcile-refund'],
     ],
     'Provider event IDs, references and idempotency keys must be deduplicated; amount and currency must match the server-authorized billable record.'
+  );
+  if (capabilities.subscriptions) add(
+    'Customer subscription lifecycle', 'CustomerSubscription', 'incomplete',
+    ['incomplete', 'trialing', 'active', 'past_due', 'paused', 'cancel_at_period_end', 'canceled', 'expired', 'refunded', 'suspended'],
+    [
+      ['incomplete', 'trialing', 'verified provider trial creation', 'grant-trial-entitlement'],
+      ['incomplete', 'active', 'verified provider subscription and first payment', 'grant-paid-entitlement'],
+      ['trialing', 'active', 'verified first successful recurring payment', 'convert-trial-entitlement'],
+      ['active', 'past_due', 'verified renewal failure', 'apply-configured-grace-policy'],
+      ['past_due', 'active', 'verified recovered renewal payment', 'restore-paid-entitlement'],
+      ['active', 'cancel_at_period_end', 'verified provider cancellation schedule', 'retain-access-until-paid-through'],
+      ['cancel_at_period_end', 'canceled', 'authoritative paid-through expiry', 'revoke-paid-entitlement'],
+      ['active', 'canceled', 'verified immediate provider cancellation', 'revoke-paid-entitlement'],
+      ['active', 'refunded', 'verified provider refund or chargeback', 'reconcile-entitlement-revocation'],
+      ['past_due', 'expired', 'grace period elapsed and provider reconciled', 'revoke-paid-entitlement'],
+    ],
+    'Never activate paid access from a browser redirect; derive access from verified provider state and the server-owned billing period. Cancellation timing and grace periods must be explicit and provider-reconciled.'
+  );
+  if (capabilities.notifications) add(
+    'Notification lifecycle', 'Notification', 'queued',
+    ['queued', 'sending', 'accepted', 'delivered', 'read', 'failed', 'suppressed'],
+    [
+      ['queued', 'sending', 'idempotent worker claim after business transaction commit', 'claim-notification'],
+      ['sending', 'accepted', 'provider accepted the delivery request', 'record-provider-acceptance'],
+      ['accepted', 'delivered', 'provider delivery receipt or trusted channel acknowledgement', 'record-delivery-receipt'],
+      ['delivered', 'read', 'verified recipient read action', 'record-read-state'],
+      ['sending', 'failed', 'permanent provider failure or retry budget exhausted', 'record-delivery-failure'],
+      ['queued', 'suppressed', 'consent or recipient suppression policy', 'record-suppression'],
+    ],
+    'In-app read state is distinct from external delivery; never claim push/email delivery from queue acceptance alone.'
+  );
+  if (capabilities.integrations) add(
+    'Integration event lifecycle', 'IntegrationEvent', 'received',
+    ['received', 'verified', 'processing', 'processed', 'retrying', 'dead_letter', 'rejected'],
+    [
+      ['received', 'verified', 'provider-specific signature and timestamp validation', 'record-authentic-event'],
+      ['verified', 'processing', 'unique event claim and tenant scope validation', 'claim-event'],
+      ['processing', 'processed', 'business side effect committed', 'record-event-result'],
+      ['processing', 'retrying', 'transient failure within bounded retry budget', 'schedule-retry'],
+      ['retrying', 'processing', 'backoff elapsed and idempotent retry claim', 'retry-event'],
+      ['retrying', 'dead_letter', 'retry budget exhausted', 'surface-dead-letter'],
+      ['received', 'rejected', 'invalid signature, replay or unsupported event', 'record-safe-rejection'],
+    ],
+    'Unverified or replayed provider events must never trigger business mutations; retain redacted evidence for reconciliation.'
+  );
+  if (capabilities.automation) add(
+    'Automation run lifecycle', 'AutomationRun', 'queued',
+    ['queued', 'running', 'succeeded', 'retrying', 'failed', 'canceled', 'dead_letter'],
+    [
+      ['queued', 'running', 'scoped worker claims unique run key', 'claim-run'],
+      ['running', 'succeeded', 'all declared steps commit successfully', 'record-completion'],
+      ['running', 'retrying', 'retryable failure within policy', 'schedule-retry'],
+      ['retrying', 'running', 'backoff elapsed and idempotent claim', 'retry-run'],
+      ['retrying', 'dead_letter', 'retry budget exhausted', 'surface-dead-letter'],
+      ['queued', 'canceled', 'authorized owner cancels before execution', 'cancel-run'],
+    ],
+    'Automation runs must be tenant-scoped, time-bounded, idempotent and unable to perform high-impact actions without the declared approval policy.'
+  );
+  if (capabilities.commerce) add(
+    'Shipment lifecycle', 'Shipment', 'created',
+    ['created', 'label_created', 'shipped', 'in_transit', 'delivered', 'exception', 'returned', 'canceled'],
+    [
+      ['created', 'label_created', 'authorized fulfillment staff or carrier adapter', 'create-carrier-label'],
+      ['label_created', 'shipped', 'carrier acceptance or verified staff handoff', 'record-carrier-acceptance'],
+      ['shipped', 'in_transit', 'verified carrier tracking event', 'update-tracking-state'],
+      ['in_transit', 'delivered', 'verified carrier delivery event', 'complete-shipment'],
+      ['in_transit', 'exception', 'verified carrier exception event', 'notify-fulfillment-staff'],
+      ['exception', 'in_transit', 'verified carrier recovery event', 'resume-tracking'],
+      ['shipped', 'returned', 'verified carrier return event', 'start-return-workflow'],
+      ['created', 'canceled', 'authorized staff before carrier handoff', 'cancel-shipment'],
+    ],
+    'Never mark a shipment delivered from browser input; reconcile tracking changes from a trusted carrier event or authorized staff evidence.'
+  );
+  if (capabilities.payments) add(
+    'Refund lifecycle', 'Refund', 'requested',
+    ['requested', 'pending', 'succeeded', 'failed', 'canceled'],
+    [
+      ['requested', 'pending', 'server refund policy and captured-payment balance check', 'create-provider-refund'],
+      ['pending', 'succeeded', 'verified provider refund event or authoritative lookup', 'reconcile-refund'],
+      ['pending', 'failed', 'verified provider failure or terminal rejection', 'record-refund-failure'],
+      ['requested', 'canceled', 'authorized owner/finance cancellation before provider acceptance', 'cancel-refund-request'],
+    ],
+    'Cumulative refunds cannot exceed the verified captured amount; never mark refunded until the provider confirms the refund.'
   );
   if (capabilities.booking) add(
     'Booking lifecycle', 'Booking', 'requested',
@@ -608,7 +844,12 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   if (capabilities.forms) featureComponents.forms = addComponent('Dynamic form experience', 'Versioned schema-driven fields, server validation, consent evidence, abuse protection and explicit submission states.');
   if (capabilities.newsletter) featureComponents.newsletter = addComponent('Newsletter signup', 'Consent-aware double opt-in, confirmation, unsubscribe and delivery status.');
   if (capabilities.booking) featureComponents.booking = addComponent('Booking experience', 'Timezone-aware selection, authoritative availability and explicit pending/confirmed states.');
-  if (capabilities.commerce) featureComponents.commerce = addComponent('Commerce experience', 'Catalog, cart and checkout using server-calculated prices.');
+  if (capabilities.commerce) featureComponents.commerce = addComponent('Commerce experience', 'Catalog, persistent cart, server-calculated checkout, stock reservations, customer orders and staff fulfillment.');
+  if (capabilities.subscriptions) featureComponents.subscriptions = addComponent('Subscription management', 'Server-owned plans, recurring checkout, invoices, renewal state, cancellation/resume and entitlement-aware account access.');
+  if (capabilities.notifications) featureComponents.notifications = addComponent('Notification center', 'Owner-scoped in-app notifications, unread state, delivery receipts and retry/error feedback.');
+  if (capabilities.dashboards) featureComponents.dashboards = addComponent('Business dashboards', 'Live tenant-scoped KPIs, date/timezone filters, paginated activity and role-safe reporting.');
+  if (capabilities.integrations) featureComponents.integrations = addComponent('Integration settings and status', 'Server-side adapters, safe connection health, webhook state and honest configured/reachable/verified indicators.');
+  if (capabilities.automation) featureComponents.automation = addComponent('Business automation', 'Scheduled and event-triggered workflows with approval gates, bounded retries and execution history.');
   if (capabilities.authentication) featureComponents.authentication = addComponent('Account experience', 'Provider-backed sign-in/session state with protected-route handling.');
   if (capabilities.admin) featureComponents.admin = addComponent('Administration workspace', 'Role-scoped management with auditable sensitive actions.');
   if (capabilities.search) featureComponents.search = addComponent('Search and filtering', 'Accessible search/filter state with empty, loading and failure behavior.');
@@ -642,9 +883,10 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     const databaseIntegration = integrationIds.find(id => id === 'integration-database');
     if (databaseIntegration && route.modelIds.length) addEdge(edges, route.id, databaseIntegration, 'persists-through-server-adapter');
     if (capabilities.email && (
-      ['contact', 'forms', 'newsletter'].includes(route.capability) ||
+      ['contact', 'forms', 'newsletter', 'subscriptions', 'notifications'].includes(route.capability) ||
       route.sideEffect === 'idempotent-payment-reconciliation' ||
-      route.sideEffect === 'order-intent-only'
+      route.sideEffect === 'order-intent-only' ||
+      route.sideEffect === 'provider-subscription-checkout-with-idempotency'
     )) {
       const emailIntegration = integrationIds.find(id => id === 'integration-email');
       if (emailIntegration) addEdge(edges, route.id, emailIntegration, 'queues-delivery-through-server-adapter');
@@ -661,6 +903,11 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
       payments: /shop|product|catalog|cart|checkout|order|billing/i,
       authentication: /login|sign|account|dashboard|profile/i,
       administration: /admin|dashboard|manage/i,
+      subscriptions: /subscription|membership|billing|pricing|account/i,
+      notifications: /notification|inbox|activity|account/i,
+      dashboards: /dashboard|analytics|report|overview/i,
+      integrations: /integration|connection|webhook|settings/i,
+      automation: /automation|workflow|activity|admin/i,
       storage: /upload|asset|media|document/i,
       search: /search|directory|catalog|product|listing/i,
     };
@@ -685,7 +932,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   if (capabilities.backgroundWork) {
     const queueId = addNode(nodes, { id: 'background-outbox', type: 'background-workflow', name: 'Reliable background outbox', status: 'implementation-required', purpose: 'Process delivery and async work with bounded retries, dead-letter visibility and idempotency.' });
     addEdge(edges, projectId, queueId, 'runs-background-work');
-    for (const route of apiContracts.filter(item => ['contact', 'forms', 'newsletter', 'payments', 'booking'].includes(item.capability))) addEdge(edges, route.id, queueId, 'enqueues-after-commit');
+    for (const route of apiContracts.filter(item => ['contact', 'forms', 'newsletter', 'payments', 'booking', 'subscriptions', 'notifications', 'integrations', 'automation'].includes(item.capability))) addEdge(edges, route.id, queueId, 'enqueues-after-commit');
   }
   const workflowNodeIds = [];
   for (const machine of stateMachines) {
@@ -699,6 +946,12 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     const relevantRoutes = apiContracts.filter(route => {
       const path = route.path.toLowerCase();
       if (machine.entity === 'Order') return route.capability === 'commerce' || path.includes('checkout') || path.includes('/orders');
+      if (machine.entity === 'Shipment') return route.capability === 'commerce' && (path.includes('shipments') || path.includes('/orders'));
+      if (machine.entity === 'Refund') return route.capability === 'payments' || path.includes('refund');
+      if (machine.entity === 'CustomerSubscription') return route.capability === 'subscriptions' || path.includes('subscriptions');
+      if (machine.entity === 'Notification') return route.capability === 'notifications' || path.includes('notifications');
+      if (machine.entity === 'IntegrationEvent') return route.capability === 'integrations' || path.includes('webhooks');
+      if (machine.entity === 'AutomationRun') return route.capability === 'automation' || path.includes('automation');
       if (machine.entity === 'PaymentAttempt') return route.capability === 'payments';
       if (machine.entity === 'Booking') return route.capability === 'booking';
       if (machine.entity === 'ContactSubmission') return route.capability === 'contact';
@@ -883,25 +1136,25 @@ export function fullStackArchitectureModelContract(architecture) {
     version: architecture.version,
     capabilities: architecture.capabilities,
     pages: architecture.pages.map(page => [page.id, text(page.title), text(page.route)]).slice(0, 14),
-    components: architecture.components.map(item => [item.id, text(item.name), text(item.purpose)]).slice(0, 10),
+    components: architecture.components.map(item => [item.id, text(item.name), text(item.purpose)]).slice(0, 24),
     apiContracts: architecture.apiContracts.map(route => ({
       id: route.id, method: route.method, path: route.path, capability: route.capability,
       authPolicy: route.authPolicy, modelIds: route.modelIds.slice(0, 5), idempotency: route.idempotency,
       rateLimit: route.rateLimit, sideEffect: text(route.sideEffect),
-    })).slice(0, 18),
+    })).slice(0, 64),
     dataModels: architecture.dataModels.map(model => ({
-      id: model.id, name: model.name, fields: model.fields.slice(0, 10), securityClass: model.securityClass,
-    })).slice(0, 14),
+      id: model.id, name: model.name, fields: model.fields.slice(0, 24), securityClass: model.securityClass,
+    })).slice(0, 32),
     dataIntegrity: {
-      relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional, text(item.purpose)]).slice(0, 14),
-      constraints: architecture.dataIntegrity.constraints.map(item => [item.id, text(item.appliesTo), text(item.rule)]).slice(0, 14),
-      indexes: architecture.dataIntegrity.indexes.map(item => [item.entity, item.fields.slice(0, 5), item.unique]).slice(0, 14),
+      relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional, text(item.purpose)]).slice(0, 40),
+      constraints: architecture.dataIntegrity.constraints.map(item => [item.id, text(item.appliesTo), text(item.rule)]).slice(0, 40),
+      indexes: architecture.dataIntegrity.indexes.map(item => [item.entity, item.fields.slice(0, 5), item.unique]).slice(0, 40),
     },
     integrations: architecture.integrations.map(item => ({
       capability: item.capability, provider: text(item.provider),
       connectionMetadata: item.connectionMetadata, verification: item.verification,
       liveDeliveryOrTransaction: item.liveDeliveryOrTransaction,
-    })).slice(0, 6),
+    })).slice(0, 16),
     requirementTraceabilityGroups: (() => {
       const grouped = new Map();
       for (const item of architecture.requirementMappings) {
@@ -917,7 +1170,7 @@ export function fullStackArchitectureModelContract(architecture) {
     requirementsNeedingSemanticMapping: architecture.requirementMappings
       .filter(item => item.assessment === 'needs-semantic-mapping')
       .map(item => item.requirementId),
-    dependencyEdges: architecture.graph.edges.slice(0, 36).map(edge => [edge.from, edge.relation, edge.to]),
+    dependencyEdges: architecture.graph.edges.slice(0, 120).map(edge => [edge.from, edge.relation, edge.to]),
     graphIntegrity: architecture.graphIntegrity,
     crossLayerContracts: {
       apiBoundary: ['typed-api-contracts', 'server-validation', 'safe-errors-no-secrets'],
@@ -932,7 +1185,7 @@ export function fullStackArchitectureModelContract(architecture) {
     },
     security: {
       defaultPosture: architecture.security.defaultPosture,
-      controls: architecture.security.controls.map(item => [item.id, text(item.requirement)]).slice(0, 14),
+      controls: architecture.security.controls.map(item => [item.id, text(item.requirement)]).slice(0, 24),
       migrationPolicy: architecture.security.migrationPolicy,
     },
     backgroundWork: architecture.backgroundWork,
@@ -945,12 +1198,12 @@ export function fullStackArchitectureModelContract(architecture) {
       })),
       invariant: text(machine.invariant),
       executionState: machine.executionState,
-    })).slice(0, 8),
+    })).slice(0, 16),
     testPlan: architecture.testPlan.map(test => ({
       id: test.id, type: test.type, scope: text(test.scope),
       assertion: text(test.assertion), status: test.status,
       requiresExplicitOwnerApproval: test.requiresExplicitOwnerApproval === true,
-    })).slice(0, 12),
+    })).slice(0, 24),
     deployment: architecture.deployment,
     honestyRules: compact(architecture.honestyRules),
   };

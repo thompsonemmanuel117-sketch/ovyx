@@ -12,6 +12,30 @@ const clean = (value, max = 240) => String(value == null ? '' : value)
   .trim()
   .slice(0, max);
 
+function compactPlanList(value, limit = 8, maxChars = 120) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, Math.max(0, limit)).map(item => clean(
+    typeof item === 'string' ? item : item && (item.description || item.label || item.name || item.title || item.rule || item.requirement || item.purpose) || '',
+    maxChars,
+  )).filter(Boolean);
+}
+
+function compactPlanValue(value, maxChars = 160) {
+  if (value == null) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return clean(value, maxChars);
+  if (Array.isArray(value)) return compactPlanList(value, 4, maxChars);
+  if (typeof value === 'object') {
+    const result = {};
+    for (const [key, item] of Object.entries(value).slice(0, 8)) {
+      if (item == null || typeof item === 'function') continue;
+      if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') result[key] = clean(item, maxChars);
+      else if (Array.isArray(item)) result[key] = compactPlanList(item, 4, Math.min(maxChars, 96));
+    }
+    return result;
+  }
+  return '';
+}
+
 function connectedFor(context, kind) {
   const source = context && typeof context === 'object' ? context : {};
   const roots = [source.connections, source.activeConnections, source.integrations,
@@ -37,6 +61,10 @@ function connectedFor(context, kind) {
     database: /firebase|supabase|database|firestore|d1|postgres|mysql/i,
     booking: /booking|reservation|calendar|scheduling/i,
     storage: /storage|cloudflare\s*r2|firebase\s*storage|s3|supabase\s*storage/i,
+    subscriptions: /subscription|recurring|billing|membership|stripe|paystack|paddle/i,
+    notifications: /notification|push|email|sms|messaging|resend|sendgrid/i,
+    integrations: /.+/i,
+    automation: /automation|workflow|scheduler|cron|queue/i,
   };
   return flatten(roots).some(item => {
     if (!item || typeof item !== 'object') return false;
@@ -55,6 +83,10 @@ function integrationRequirements(contract, context, capabilities = {}) {
     ['database', capabilities.database],
     ['booking', capabilities.booking],
     ['storage', capabilities.fileStorage],
+    ['subscriptions', capabilities.subscriptions],
+    ['notifications', capabilities.notifications],
+    ['integrations', capabilities.integrations],
+    ['automation', capabilities.automation],
   ];
   return requested.filter(([, needed]) => needed).map(([kind]) => ({
     capability: kind,
@@ -121,6 +153,11 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
     ['newsletter', fullStackArchitecture.capabilities.newsletter],
     ['email-delivery', fullStackArchitecture.capabilities.email],
     ['payments', fullStackArchitecture.capabilities.payments],
+    ['subscriptions', fullStackArchitecture.capabilities.subscriptions],
+    ['notifications', fullStackArchitecture.capabilities.notifications],
+    ['dashboards', fullStackArchitecture.capabilities.dashboards],
+    ['integrations', fullStackArchitecture.capabilities.integrations],
+    ['automation', fullStackArchitecture.capabilities.automation],
   ].filter(([, needed]) => needed).map(([name]) => name);
 
   return {
@@ -219,36 +256,88 @@ export function buildWebsiteEngineReadiness(prompt, context = {}, options = {}) 
 
 const WEBSITE_ENGINE_PLAN_JSON_LIMIT = 18000;
 
-function compactPlanValue(value, depth = 0) {
-  if (value === null || typeof value === 'boolean' || typeof value === 'number') return value;
-  if (typeof value === 'string') return clean(value, depth >= 3 ? 120 : 200);
-  if (Array.isArray(value)) {
-    const limit = depth >= 2 ? 6 : 10;
-    return value.slice(0, limit).map(item => compactPlanValue(item, depth + 1));
-  }
-  if (value && typeof value === 'object') {
-    const limit = depth >= 2 ? 8 : 12;
-    const output = {};
-    for (const [key, child] of Object.entries(value).slice(0, limit)) {
-      output[String(key).slice(0, 64)] = compactPlanValue(child, depth + 1);
+function compactWebsiteFullStackContract(architecture) {
+  const source = fullStackArchitectureModelContract(architecture);
+  if (!source) return source;
+  const routes = source.apiContracts || [];
+  const selected = [];
+  const selectedKeys = new Set();
+  const addRoute = route => {
+    if (!route) return;
+    const key = route.method + ' ' + route.path;
+    if (!selectedKeys.has(key)) {
+      selectedKeys.add(key);
+      selected.push(route);
     }
-    return output;
+  };
+  const capabilitySeen = new Set();
+  for (const route of routes) {
+    if (!capabilitySeen.has(route.capability)) {
+      addRoute(route);
+      capabilitySeen.add(route.capability);
+    }
   }
-  return clean(value, 120);
+  const criticalPaths = new Set([
+    '/api/bookings', '/api/checkout', '/api/payments/intents',
+    '/api/auth/session', '/api/forms/:formId/submissions',
+    '/api/assets', '/api/cart/items', '/api/subscriptions/checkout',
+    '/api/notifications', '/api/dashboard/summary', '/api/webhooks/:provider',
+  ]);
+  for (const route of routes) if (criticalPaths.has(route.path)) addRoute(route);
+  return {
+    version: source.version,
+    capabilities: source.capabilities,
+    pages: (source.pages || []).slice(0, 10),
+    apiContracts: selected.slice(0, 20).map(route => ({
+      method: route.method, path: route.path, capability: route.capability,
+      authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 3),
+    })),
+    dataModels: (source.dataModels || []).slice(0, 28).map(model => ({
+      id: model.id, name: model.name, securityClass: model.securityClass,
+    })),
+    dataIntegrity: {
+      relationships: (source.dataIntegrity?.relationships || []).slice(0, 8),
+      constraints: (source.dataIntegrity?.constraints || []).slice(0, 10),
+      indexes: (source.dataIntegrity?.indexes || []).slice(0, 8),
+    },
+    integrations: (source.integrations || []).slice(0, 10).map(item =>
+      [item.capability, item.provider, item.connectionMetadata]),
+    requirementTraceabilityGroups: source.requirementTraceabilityGroups || [],
+    requirementsNeedingSemanticMapping: (source.requirementsNeedingSemanticMapping || []).slice(0, 20),
+    dependencyEdges: (source.dependencyEdges || []).slice(0, 24),
+    graphIntegrity: {
+      valid: source.graphIntegrity?.valid === true,
+      nodeCount: source.graphIntegrity?.nodeCount || 0,
+      edgeCount: source.graphIntegrity?.edgeCount || 0,
+      unreachableNodeIds: (source.graphIntegrity?.unreachableNodeIds || []).slice(0, 5),
+    },
+    crossLayerContracts: source.crossLayerContracts,
+    security: {
+      defaultPosture: source.security?.defaultPosture,
+      controls: (source.security?.controls || []).slice(0, 10),
+      migrationPolicy: source.security?.migrationPolicy,
+    },
+    backgroundWork: {
+      required: source.backgroundWork?.required === true,
+      pattern: source.backgroundWork?.pattern,
+      controls: (source.backgroundWork?.controls || []).slice(0, 5),
+    },
+    stateMachines: (source.stateMachines || []).slice(0, 14).map(machine => ({
+      entity: machine.entity,
+      initialState: machine.initialState,
+      states: (machine.states || []).slice(0, 6),
+      transitions: (machine.transitions || []).slice(0, 3),
+      invariant: machine.invariant,
+    })),
+    testPlan: (source.testPlan || []).slice(0, 12).map(test => ({
+      id: test.id, type: test.type, status: test.status,
+      requiresExplicitOwnerApproval: test.requiresExplicitOwnerApproval === true,
+    })),
+    deployment: source.deployment,
+    honestyRules: (source.honestyRules || []).slice(0, 8),
+  };
 }
 
-function compactPlanList(values, maxItems, maxChars) {
-  return (Array.isArray(values) ? values : []).slice(0, maxItems).map(item => {
-    if (typeof item === 'string') return clean(item, maxChars);
-    return compactPlanValue(item);
-  });
-}
-
-/**
- * Keep the model-facing plan valid JSON even for the largest accepted brief.
- * The complete user brief is already sent as the task prompt; this bounded
- * index keeps every requirement ID while making long clause excerpts shorter.
- */
 function serializeWebsiteEngineModelPlan(plan) {
   const requirements = Array.isArray(plan.requirementManifest?.requirements)
     ? plan.requirementManifest.requirements
@@ -359,7 +448,7 @@ function serializeWebsiteEngineModelPlan(plan) {
         missingReferences: compactPlanList((plan.fileArchitecture?.graph?.missingReferences || []).map(item => item.from + ' -> ' + item.specifier), 12, 120),
       },
       qualityGates: compactPlanList(plan.qualityGates, 14, 140),
-      fullStackArchitecture: fullStackArchitectureModelContract(plan.fullStackArchitecture),
+      fullStackArchitecture: compactWebsiteFullStackContract(plan.fullStackArchitecture),
       implementationRules: compactPlanList(plan.implementationRules, 10, 160),
       detailSummariesAreBounded: true,
     };
@@ -371,6 +460,19 @@ function serializeWebsiteEngineModelPlan(plan) {
   }
 
   const minimal = makeModelPlan(0);
+  minimal.requirementManifest.constraints = minimal.requirementManifest.constraints.slice(0, 10);
+  minimal.requirementIntelligence.unmappedRequirementIds = minimal.requirementIntelligence.unmappedRequirementIds.slice(0, 12);
+  minimal.integrations = minimal.integrations.slice(0, 5);
+  minimal.fileArchitecture = {
+    status: minimal.fileArchitecture.status,
+    fileCount: minimal.fileArchitecture.fileCount,
+    dependencyCount: minimal.fileArchitecture.dependencyCount,
+    unresolvedLocalReferenceCount: minimal.fileArchitecture.unresolvedLocalReferenceCount,
+    truncated: minimal.fileArchitecture.truncated,
+    nodes: minimal.fileArchitecture.nodes.slice(0, 10),
+    dependencies: minimal.fileArchitecture.dependencies.slice(0, 12),
+    missingReferences: minimal.fileArchitecture.missingReferences.slice(0, 6),
+  };
   minimal.designArchitecture = {
     mission: clean(plan.designArchitecture?.mission, 120),
     direction: clean(plan.designArchitecture?.direction, 120),
@@ -398,56 +500,68 @@ function serializeWebsiteEngineModelPlan(plan) {
       });
       groupedRequirements.get(key).requirementIds.push(item.requirementId);
     }
+    const compactRoutes = fullStack.apiContracts || [];
+    const prioritizedRoutes = [];
+    const routeKeys = new Set();
+    const addCompactRoute = route => {
+      if (!route) return;
+      const key = route.method + ' ' + route.path;
+      if (!routeKeys.has(key)) { routeKeys.add(key); prioritizedRoutes.push(route); }
+    };
+    const criticalRoutePaths = ['/api/payments/intents', '/api/bookings', '/api/assets', '/api/forms/:formId/submissions', '/api/cart', '/api/subscriptions/checkout'];
+    for (const route of compactRoutes) if (criticalRoutePaths.includes(route.path)) addCompactRoute(route);
+    for (const route of compactRoutes) if (prioritizedRoutes.length < 10) addCompactRoute(route);
+    const compactControls = fullStack.security?.controls || [];
+    const prioritizedControls = [
+      ...compactControls.filter(item => ['payment-integrity', 'upload-isolation', 'tenant-isolation'].includes(item.id)),
+      ...compactControls.filter(item => !['payment-integrity', 'upload-isolation', 'tenant-isolation'].includes(item.id)),
+    ].slice(0, 8);
+    const compactConstraints = fullStack.dataIntegrity?.constraints || [];
+    const prioritizedConstraints = [
+      ...compactConstraints.filter(item => ['money-minor-units', 'inventory-reservation-integrity', 'booking-conflict-integrity'].includes(item.id)),
+      ...compactConstraints.filter(item => !['money-minor-units', 'inventory-reservation-integrity', 'booking-conflict-integrity'].includes(item.id)),
+    ].slice(0, 6);
+    const compactTests = fullStack.testPlan || [];
+    const prioritizedTests = [
+      ...compactTests.filter(item => ['upload-isolation', 'payment-integrity', 'booking-conflicts', 'tenant-isolation'].includes(item.id)),
+      ...compactTests.filter(item => !['upload-isolation', 'payment-integrity', 'booking-conflicts', 'tenant-isolation'].includes(item.id)),
+    ].slice(0, 8);
     minimal.fullStackArchitecture = {
       version: fullStack.version,
       capabilities: fullStack.capabilities,
-      pages: (fullStack.pages || []).slice(0, 14).map(page => [page.id, clean(page.title, 64), clean(page.route, 96)]),
-      apiContracts: (fullStack.apiContracts || []).slice(0, 20).map(route => ({
+      apiContracts: prioritizedRoutes.slice(0, 8).map(route => ({
         id: route.id, method: route.method, path: route.path, capability: route.capability,
-        authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 5),
-        sideEffect: route.sideEffect || '',
+        authPolicy: route.authPolicy,
       })),
-      dataModels: (fullStack.dataModels || []).slice(0, 16).map(model => [
-        model.id, model.name, (model.fields || []).slice(0, 10), model.securityClass,
-      ]),
+      dataModels: (fullStack.dataModels || []).slice(0, 8).map(model => [model.id, model.name]),
       dataIntegrity: {
-        relationships: (fullStack.dataIntegrity?.relationships || []).slice(0, 16).map(item =>
-          [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional]),
-        constraints: (fullStack.dataIntegrity?.constraints || []).slice(0, 16).map(item =>
-          [item.id, clean(item.appliesTo, 64), clean(item.rule, 96)]),
-        indexes: (fullStack.dataIntegrity?.indexes || []).slice(0, 16).map(item =>
-          [item.entity, (item.fields || []).slice(0, 5), item.unique === true]),
+        constraints: prioritizedConstraints.map(item => [item.id, clean(item.appliesTo, 40), clean(item.rule, 64)]),
       },
-      integrations: (fullStack.integrations || []).slice(0, 8).map(item =>
-        [item.capability, item.provider, item.connectionMetadata, item.verification]),
-      requirementTraceabilityGroups: [...groupedRequirements.values()],
+      requirementTraceabilityGroups: [...groupedRequirements.values()].map(group => ({
+        assessment: group.assessment,
+        targetNodeIds: group.targetNodeIds.slice(0, 2),
+        requirementIds: group.requirementIds,
+      })),
       graphIntegrity: {
         valid: fullStack.graphIntegrity?.valid === true,
         nodeCount: fullStack.graphIntegrity?.nodeCount || 0,
         edgeCount: fullStack.graphIntegrity?.edgeCount || 0,
-        unreachableNodeIds: (fullStack.graphIntegrity?.unreachableNodeIds || []).slice(0, 12),
+        unreachableNodeIds: (fullStack.graphIntegrity?.unreachableNodeIds || []).slice(0, 3),
       },
       security: {
         defaultPosture: fullStack.security?.defaultPosture,
-        controls: (fullStack.security?.controls || []).slice(0, 16).map(item => [item.id, clean(item.requirement, 100)]),
-        migrationPolicy: fullStack.security?.migrationPolicy,
+        controls: prioritizedControls.map(item => [item.id, clean(item.requirement, 64)]),
       },
-      backgroundWork: {
-        required: fullStack.backgroundWork?.required === true,
-        pattern: fullStack.backgroundWork?.pattern,
-        controls: (fullStack.backgroundWork?.controls || []).slice(0, 8),
-      },
-      stateMachines: (fullStack.stateMachines || []).slice(0, 8).map(machine => ({
-        entity: machine.entity,
-        initialState: machine.initialState,
-        states: (machine.states || []).slice(0, 10),
-        transitions: (machine.transitions || []).slice(0, 8).map(item =>
-          [item.from, item.to, clean(item.authority, 88), clean(item.sideEffect, 72)]),
-        invariant: clean(machine.invariant, 100),
-      })),
-      testPlan: (fullStack.testPlan || []).slice(0, 12).map(test =>
-        [test.id, test.type, test.status, test.requiresExplicitOwnerApproval === true]),
-      honestyRules: compactPlanList(fullStack.honestyRules, 8, 100),
+      stateMachines: (fullStack.stateMachines || [])
+        .filter(machine => ['PaymentAttempt', 'Booking', 'Order', 'CustomerSubscription'].includes(machine.entity))
+        .slice(0, 4)
+        .map(machine => ({
+          entity: machine.entity,
+          initialState: machine.initialState,
+          states: (machine.states || []).slice(0, 6),
+          transitions: (machine.transitions || []).slice(0, 2).map(item => [item.from, item.to]),
+        })),
+      testPlan: prioritizedTests.map(test => [test.id, test.type, test.status]),
     };
   }
   const serialized = JSON.stringify(minimal);
@@ -467,6 +581,12 @@ export function buildWebsiteEngineInstructions(plan) {
     'For each declared API contract, generate the matching server route/handler for the selected framework and HTTP method, validate inputs on the server, enforce the stated authorization policy, return the declared safe success/error contract, and connect every consumer in the frontend to that exact route.',
     'Generate the declared domain schema, relationships, constraints and indexes from one consistent source of truth. Ensure route model references resolve to the actual schema. Include additive migrations and a dry-run/rollback path; do not execute destructive or production migrations without explicit owner approval.',
     'Implement the declared workflow state machines with server-authoritative transitions. Never trust browser-supplied roles, owners, prices, totals, inventory, payment success, availability or provider events.',
+    'For commerce, implement persistent cart read/add/update/remove, server-recomputed quote, atomic stock reservation/release, checkout, immutable order snapshots, customer order history and role-scoped staff fulfillment. Every UI action must call its matching API and reflect persisted results.',
+    'For subscriptions, implement server-owned plan catalog, recurring provider checkout, invoice history, renewal/failure/grace-period handling, cancellation/resume and entitlement gates. Activate or revoke paid access only after authoritative provider reconciliation; never trust a browser redirect.',
+    'For dashboards, derive every KPI from tenant-scoped persisted records with bounded date ranges, explicit timezone, pagination and role-safe aggregation. Do not invent sample revenue, order counts or customer metrics in production views.',
+    'For notifications, create events only after the business transaction commits, use an idempotent outbox, separate queued/accepted/delivered/read states, enforce recipient ownership and provide retry/failure feedback.',
+    'For integrations, use typed server-only adapters with per-environment credentials, health probes, bounded timeouts, signature-verified webhooks, replay protection, redacted logs and visible disconnected/degraded states. Never fake a successful connection or delivery.',
+    'For automation, generate tenant-scoped scheduled/event workflows with unique run keys, bounded execution, retry budgets, dead-letter visibility and explicit approval for irreversible or financial actions.',
     'Use server-side adapters for integrations, bounded timeouts, retry only safe/idempotent operations, idempotency keys, replay protection and auditable reconciliation. A configured connection is not a live delivery or transaction.',
     'Keep provider credentials in server bindings or encrypted server-side storage. Add only variable names and safe setup guidance to environment templates; never generate real secrets or expose them to browser code, URLs, logs or exported client bundles.',
     'Generate tests for route contracts, schemas, authorization-negative cases, business state transitions and end-to-end user journeys. Do not mark a route, database write, integration or deployment complete because its source file or mock test exists.',
@@ -874,6 +994,18 @@ function buildBackendSourcePrompt(architecture, originalPrompt, existingPaths, f
     'For bookings, require a valid IANA timezone and parse explicit local time into UTC instants. Recheck the slot inside the reservation transaction or provider lock, prevent overlapping active reservations under concurrency, and make confirmation/cancellation transitions idempotent.',
     'For authentication, use the selected identity provider rather than custom password storage. Verify issuer/audience/expiry, rotate and revoke sessions, use secure HttpOnly SameSite cookies and CSRF protection for cookie-authenticated mutations, and enforce resource-level authorization on every protected operation.',
     'For payments and external services, calculate billable amounts on the server, verify provider signatures and event replay windows, reconcile provider receipts before fulfillment, use a transactional outbox for notifications, and bound provider timeouts/retries without duplicating side effects.',
+    'For commerce, generate persistent cart CRUD, stock movement/reservation records, order history and staff fulfillment routes; enforce atomic inventory changes and server-calculated totals. Never trust client price, discount, tax, quantity availability or paid status.',
+    'For recurring subscriptions, generate plan catalog, provider subscription checkout, invoice ledger, renewal reconciliation, failed-payment/grace-period policy, cancellation/resume and server-enforced entitlements. A success redirect is not proof of payment or an active subscription.',
+    'For dashboards, compute tenant-scoped metrics from real persisted records with bounded date filters, timezone correctness, role checks and paginated activity. Do not hard-code production KPIs.',
+    'For notifications, persist an outbox event after the source transaction commits, deduplicate retries, enforce recipient ownership and distinguish queued, provider-accepted, delivered and read states.',
+    'For integrations and webhooks, generate per-provider typed adapters, isolated environment credentials, health diagnostics, signature/timestamp/replay checks, safe timeouts, bounded retries, redacted event records and explicit disconnected/degraded states.',
+    'For automation, implement scheduled/event-triggered workers with tenant scope, idempotent run IDs, bounded time/resources, retry and dead-letter states, and explicit approval before financial or irreversible actions.',
+    'For commerce, generate persistent cart CRUD, stock movement/reservation records, order history and staff fulfillment routes; enforce atomic inventory changes and server-calculated totals. Never trust client price, discount, tax, quantity availability or paid status.',
+    'For recurring subscriptions, generate plan catalog, provider subscription checkout, invoice ledger, renewal reconciliation, failed-payment/grace-period policy, cancellation/resume and server-enforced entitlements. A success redirect is not proof of payment or an active subscription.',
+    'For dashboards, compute tenant-scoped metrics from real persisted records with bounded date filters, timezone correctness, role checks and paginated activity. Do not hard-code production KPIs.',
+    'For notifications, persist an outbox event after the source transaction commits, deduplicate retries, enforce recipient ownership and distinguish queued, provider-accepted, delivered and read states.',
+    'For integrations and webhooks, generate per-provider typed adapters, isolated environment credentials, health diagnostics, signature/timestamp/replay checks, safe timeouts, bounded retries, redacted event records and explicit disconnected/degraded states.',
+    'For automation, implement scheduled/event-triggered workers with tenant scope, idempotent run IDs, bounded time/resources, retry and dead-letter states, and explicit approval before financial or irreversible actions.',
     'Never include secrets, .env files, credentials, private keys, real customer data or invented production prices/availability. Do not execute migrations or contact real providers.',
     'Only output backend, schema, migration, server-service and test files. Do not overwrite frontend pages, styles, browser scripts, package manifests or unrelated files.',
     'Existing project paths: ' + existingPaths.join(', '),
