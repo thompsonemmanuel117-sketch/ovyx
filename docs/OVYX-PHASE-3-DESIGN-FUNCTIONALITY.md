@@ -43,15 +43,20 @@
 - Added `scripts/ovyx-experience-quality.test.mjs` to the complete `npm test` chain.
 - Expanded design-system and visual-asset responsive targets from five to thirteen widths: 320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440 and 1920 px.
 
+## Additional browser coverage
+
+- Added `scripts/ovyx-webstudio-cross-browser.smoke.mjs`, a generated-site fixture suite that checks responsive overflow at all thirteen viewport widths plus a real disclosure interaction and keyboard probe in Chromium, Firefox and WebKit.
+- Extended the dedicated browser workflow to install all three engines and run the cross-browser smoke suite. The workflow also runs `npm test`, `npm run validate` and `npm run build` before the focused Web Studio browser checks.
+
 ## Remaining implementation tranches
 
 1. **Component intelligence:** inspect framework-specific component definitions/imports/usages, build route-to-component edges, expose shared-change impact and add regression fixtures for safe variants.
 2. **Functional journeys:** derive safe, requirement-specific browser journeys; exercise navigation, search/filter, tabs, dialogs, forms and state changes with before/after evidence. Keep payment, booking, account and external submission probes gated.
 3. **SEO integrity:** validate unique titles/descriptions per public route, canonical-origin correctness, Open Graph/Twitter metadata, robots and sitemap consistency, structured-data validity/truthfulness and real localized route alternates.
 4. **Accessibility:** expand WCAG-oriented source/browser checks for heading order, landmarks, names, labels, keyboard paths, focus visibility/obscuration, contrast and reflow; record manual screen-reader checks separately.
-5. **Responsive and image quality:** evaluate all routes at 320/390/768/1024/1440, including overflow, media aspect/crops, srcset/sizes, intrinsic dimensions, loading priority and layout shift.
+5. **Responsive and image quality:** evaluate all routes at the thirteen declared widths from 320 through 1920 px, including overflow, media aspect/crops, srcset/sizes, intrinsic dimensions, loading priority and layout shift.
 6. **Visual regression:** create stable per-route/per-viewport screenshots, dynamic-region masks, deterministic comparison thresholds and reviewable diffs.
-7. **Cross-browser:** add Firefox and WebKit smoke/interaction checks with an explicit supported-browser matrix.
+7. **Cross-browser:** run generated-site responsive and interaction smoke checks in Chromium, Firefox and WebKit through the dedicated Playwright workflow.
 8. **Generated-artifact acceptance:** run real Cloudflare Workers AI generation through the guarded production workflow when Firestore budget connectivity and owner-approved settings permit; inspect generated files/screenshots and record human visual/editorial review.
 
 ## Exit criteria
