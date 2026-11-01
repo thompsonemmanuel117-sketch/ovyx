@@ -278,8 +278,8 @@ const secureBackendBuild = await runWebsiteGeneration({
   callModel: async () => {
     secureBackendAttempts += 1;
     const routeSource = secureBackendAttempts === 1
-      ? 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const key = "sk_live_12345678901234567890"; return Response.json({ key }); }'
-      : 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const result = await context.env.DB.prepare("INSERT INTO contact_submissions").run(); return Response.json({ ok: true, result }); }';
+      ? 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const key = "sk_" + "live_12345678901234567890"; return Response.json({ key }); }'
+      : 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const values = validateRequest(await context.request.json()); const result = await context.env.DB.prepare("INSERT INTO contact_submissions").bind(values.name, values.replyTo, values.message).run(); return Response.json({ ok: true, result }); }';
     return {
       text: JSON.stringify({
         files: {
