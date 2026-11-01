@@ -47,6 +47,9 @@ on:
       - 'manifest.json'
       - '_routes.json'
       - 'functions/_middleware.js'
+      - 'functions/api/payments/opay-webhook.js'
+      - 'functions/api/payments/paystack-webhook.js'
+      - 'scripts/ovyx-payment-webhook-safety.test.mjs'
       - 'scripts/ovyx-webstudio-quality.test.mjs'
       - 'scripts/ovyx-webstudio-quality.browser.test.mjs'
       - '.github/workflows/ovyx-webstudio-quality-browser.yml'
@@ -83,6 +86,9 @@ on:
       - 'manifest.json'
       - '_routes.json'
       - 'functions/_middleware.js'
+      - 'functions/api/payments/opay-webhook.js'
+      - 'functions/api/payments/paystack-webhook.js'
+      - 'scripts/ovyx-payment-webhook-safety.test.mjs'
       - 'functions/api/ai/assistant.js'
       - 'scripts/ovyx-webstudio-quality.test.mjs'
       - 'scripts/ovyx-webstudio-quality.browser.test.mjs'
@@ -110,6 +116,8 @@ jobs:
 
       - name: Run full repository tests
         run: npm test
+      - name: Test payment webhook idempotency and signature safety
+        run: node scripts/ovyx-payment-webhook-safety.test.mjs
       - name: Run static validation
         run: npm run validate
       - name: Run production build validation
