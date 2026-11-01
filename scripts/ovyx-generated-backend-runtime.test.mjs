@@ -207,7 +207,7 @@ try {
   const pngBytes = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]);
   const upload = await fetch(baseUrl + '/api/assets', {
     method: 'POST',
-    headers: { authorization: 'Bearer test-owner-a', 'content-type': 'image/png' },
+    headers: { authorization: 'Bearer ' + ownerAToken, 'content-type': 'image/png' },
     body: pngBytes,
     signal: AbortSignal.timeout(5000),
   });
@@ -220,7 +220,7 @@ try {
   assert.equal(quarantinedAsset.status, 403, 'Quarantined uploads must not be publicly served before approval.');
   const invalidUpload = await fetch(baseUrl + '/api/assets', {
     method: 'POST',
-    headers: { authorization: 'Bearer test-owner-a', 'content-type': 'image/png' },
+    headers: { authorization: 'Bearer ' + ownerAToken, 'content-type': 'image/png' },
     body: Uint8Array.from([0, 1, 2, 3, 4]),
     signal: AbortSignal.timeout(5000),
   });
