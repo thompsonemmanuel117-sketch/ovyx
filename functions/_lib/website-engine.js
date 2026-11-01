@@ -37,6 +37,10 @@ function connectedFor(context, kind) {
     database: /firebase|supabase|database|firestore|d1|postgres|mysql/i,
     booking: /booking|reservation|calendar|scheduling/i,
     storage: /storage|cloudflare\s*r2|firebase\s*storage|s3|supabase\s*storage/i,
+    subscriptions: /subscription|recurring|billing|membership|stripe|paystack|paddle/i,
+    notifications: /notification|push|email|sms|messaging|resend|sendgrid/i,
+    integrations: /.+/i,
+    automation: /automation|workflow|scheduler|cron|queue/i,
   };
   return flatten(roots).some(item => {
     if (!item || typeof item !== 'object') return false;
@@ -55,6 +59,10 @@ function integrationRequirements(contract, context, capabilities = {}) {
     ['database', capabilities.database],
     ['booking', capabilities.booking],
     ['storage', capabilities.fileStorage],
+    ['subscriptions', capabilities.subscriptions],
+    ['notifications', capabilities.notifications],
+    ['integrations', capabilities.integrations],
+    ['automation', capabilities.automation],
   ];
   return requested.filter(([, needed]) => needed).map(([kind]) => ({
     capability: kind,
@@ -885,6 +893,12 @@ function buildBackendSourcePrompt(architecture, originalPrompt, existingPaths, f
     'For bookings, require a valid IANA timezone and parse explicit local time into UTC instants. Recheck the slot inside the reservation transaction or provider lock, prevent overlapping active reservations under concurrency, and make confirmation/cancellation transitions idempotent.',
     'For authentication, use the selected identity provider rather than custom password storage. Verify issuer/audience/expiry, rotate and revoke sessions, use secure HttpOnly SameSite cookies and CSRF protection for cookie-authenticated mutations, and enforce resource-level authorization on every protected operation.',
     'For payments and external services, calculate billable amounts on the server, verify provider signatures and event replay windows, reconcile provider receipts before fulfillment, use a transactional outbox for notifications, and bound provider timeouts/retries without duplicating side effects.',
+    'For commerce, generate persistent cart CRUD, stock movement/reservation records, order history and staff fulfillment routes; enforce atomic inventory changes and server-calculated totals. Never trust client price, discount, tax, quantity availability or paid status.',
+    'For recurring subscriptions, generate plan catalog, provider subscription checkout, invoice ledger, renewal reconciliation, failed-payment/grace-period policy, cancellation/resume and server-enforced entitlements. A success redirect is not proof of payment or an active subscription.',
+    'For dashboards, compute tenant-scoped metrics from real persisted records with bounded date filters, timezone correctness, role checks and paginated activity. Do not hard-code production KPIs.',
+    'For notifications, persist an outbox event after the source transaction commits, deduplicate retries, enforce recipient ownership and distinguish queued, provider-accepted, delivered and read states.',
+    'For integrations and webhooks, generate per-provider typed adapters, isolated environment credentials, health diagnostics, signature/timestamp/replay checks, safe timeouts, bounded retries, redacted event records and explicit disconnected/degraded states.',
+    'For automation, implement scheduled/event-triggered workers with tenant scope, idempotent run IDs, bounded time/resources, retry and dead-letter states, and explicit approval before financial or irreversible actions.',
     'For commerce, generate persistent cart CRUD, stock movement/reservation records, order history and staff fulfillment routes; enforce atomic inventory changes and server-calculated totals. Never trust client price, discount, tax, quantity availability or paid status.',
     'For recurring subscriptions, generate plan catalog, provider subscription checkout, invoice ledger, renewal reconciliation, failed-payment/grace-period policy, cancellation/resume and server-enforced entitlements. A success redirect is not proof of payment or an active subscription.',
     'For dashboards, compute tenant-scoped metrics from real persisted records with bounded date filters, timezone correctness, role checks and paginated activity. Do not hard-code production KPIs.',
