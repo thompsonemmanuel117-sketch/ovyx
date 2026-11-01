@@ -455,7 +455,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   const finalReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
   assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 1, 'Only one bounded repair pass should be sent.');
   assert.ok((await page.evaluate(() => window.__qualityRepairCalls[0].prompt)).includes('OVYX QUALITY INSPECTOR REPAIR'), 'The repair must use a targeted evidence-based prompt.');
-  assert.ok(finalReport.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'pass'), 'The repaired project must be tested again and pass the same overflow check.');
+  assert.ok(finalReport.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'pass'), 'The repaired project must be tested again and pass the same overflow check. Findings: ' + JSON.stringify(finalReport.checks.filter(item => item.status === 'fail' || item.status === 'warn')));
   assert.ok(finalReport.checks.some(item => item.group === 'Automatic repair' && item.status === 'pass'), 'The inspector must record a successful re-verification only after the observed score improves.');
   assert.ok((await page.evaluate(() => window.__qualityToasts.some(item => item.kind === 'success'))), 'The UI may announce success only after the verified re-check.');
   assert.ok(pageErrors.length === 0, 'The inspector must not create host-page errors: ' + pageErrors.join('; '));
