@@ -50,6 +50,29 @@ assert.equal(emailOnlyArchitecture.capabilities.email, true, 'Order confirmation
 const uploadBrief = 'Allow users to upload and securely store product documents.';
 const uploadArchitecture = buildFullStackArchitecture(uploadBrief, buildPromptContract(uploadBrief), {}, []);
 assert.equal(uploadArchitecture.capabilities.fileStorage, true, 'User-uploaded documents must be recognized as a storage requirement.');
+const storedAssetModel = uploadArchitecture.dataModels.find(model => model.name === 'StoredAsset');
+assert.ok(storedAssetModel.fields.includes('scanStatus'));
+assert.ok(storedAssetModel.fields.includes('idempotencyKey'));
+assert.ok(uploadArchitecture.dataIntegrity.constraints.some(item => item.id === 'asset-publication-gate'));
+assert.ok(uploadArchitecture.dataIntegrity.constraints.some(item => item.id === 'asset-content-integrity'));
+assert.ok(uploadArchitecture.dataIntegrity.indexes.some(item => item.entity === 'StoredAsset' && item.fields.includes('ownerId')));
+assert.ok(uploadArchitecture.stateMachines.some(machine =>
+  machine.entity === 'StoredAsset' && machine.states.includes('quarantined') && machine.states.includes('rejected')
+));
+
+const bookingBrief = 'Build a full-stack appointment booking platform with staff calendars, customer accounts and confirmed reservations.';
+const bookingArchitecture = buildFullStackArchitecture(bookingBrief, buildPromptContract(bookingBrief), {}, []);
+const bookingModel = bookingArchitecture.dataModels.find(model => model.name === 'Booking');
+assert.ok(bookingModel.fields.includes('idempotencyKey'));
+assert.ok(bookingModel.fields.includes('holdExpiresAt'));
+assert.ok(bookingArchitecture.dataIntegrity.constraints.some(item => item.id === 'booking-idempotency'));
+assert.ok(bookingArchitecture.dataIntegrity.constraints.some(item => item.id === 'booking-hold-expiry'));
+assert.ok(bookingArchitecture.dataIntegrity.indexes.some(item => item.entity === 'Booking' && item.unique && item.fields.includes('idempotencyKey')));
+assert.ok(bookingArchitecture.dataIntegrity.indexes.some(item => item.entity === 'Booking' && item.fields.includes('holdExpiresAt')));
+const bookingMachine = bookingArchitecture.stateMachines.find(machine => machine.entity === 'Booking');
+assert.ok(bookingMachine.states.includes('expired'));
+assert.ok(bookingMachine.transitions.some(item => item.from === 'pending_confirmation' && item.to === 'expired'));
+
 
 assert.ok(architecture.apiContracts.some(route => route.path === '/api/checkout' && route.authPolicy === 'session-or-authenticated'));
 assert.ok(architecture.apiContracts.some(route => route.path === '/api/webhooks/payments' && route.authPolicy === 'provider-signature-and-replay-protected'));
