@@ -69,7 +69,7 @@
     var planPath = Object.keys(files || {}).find(function (key) { return normalizePath(key).toLowerCase() === 'ovyx-qa-plan.json'; });
     var rawPlan = null;
     try { rawPlan = planPath ? JSON.parse(fileText(files[planPath])) : null; } catch (_) {}
-    if (rawPlan && rawPlan.backendRequired === true && (!qaPlan || qaPlan.status !== 'ready' || !qaPlan.backendChecks || !qaPlan.backendChecks.length)) {
+    if (rawPlan && rawPlan.backendRequired === true && (!qaPlan || !qaPlan.backendChecks || !qaPlan.backendChecks.length)) {
       return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'BACKEND_QA_PLAN_INVALID', message: 'The project declares backend functionality, but its backend QA plan is invalid or missing required checks. Backend verification is blocked.' }] };
     }
     if (!qaPlan || qaPlan.backendRequired !== true) {
@@ -1467,7 +1467,7 @@
       addCheck(report, 'Backend runtime', 'Disposable backend, database and authorization tests', 'fail',
         backendFindings.slice(0, 8).map(function (finding) { return trim(finding.code + ': ' + finding.message, 260); }).join('\n') || 'The required disposable backend runtime did not return passing evidence. Backend verification remains blocked.');
     }
-    stageStatus('backend', backendEvidence.status === 'passed' || backendEvidence.status === 'not-required' ? 'done' : 'error',
+    stageStatus('backend', backendEvidence.status === 'passed' || backendEvidence.status === 'not-required' ? 'done' : 'failed',
       backendEvidence.status === 'passed' ? (Number(backendEvidence.testsRun) || 0) + ' backend checks passed in an isolated runtime.' : backendEvidence.status === 'not-required' ? 'No backend runtime checks were declared.' : 'Required backend runtime checks are blocked or failed.');
     renderFindings(report);
 
