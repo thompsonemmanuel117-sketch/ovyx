@@ -266,8 +266,8 @@ function safeBackendRepairPath(value) {
   const filePath = String(value || '').trim().replace(/\\/g, '/');
   if (!filePath.startsWith('functions/') || filePath.length > 240 ||
       filePath.split('/').some(part => !part || part === '.' || part === '..') ||
-      /(?:^|\\/)(?:secrets?|credentials?|private[-_]?keys?)(?:\\/|\\.|$)/i.test(filePath) ||
-      !/\\.(?:m?js|ts)$/i.test(filePath)) return '';
+      /(?:^|\/)(?:secrets?|credentials?|private[-_]?keys?)(?:\/|\.|$)/i.test(filePath) ||
+      !/\.(?:m?js|ts)$/i.test(filePath)) return '';
   return filePath;
 }
 function safePath(value) {
