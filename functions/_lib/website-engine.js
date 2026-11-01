@@ -5,6 +5,7 @@ import { validateOrRepairSinglePageBuild } from './studio-singlepage.js';
 import { buildFullStackArchitecture, fullStackArchitectureClientSummary, fullStackArchitectureModelContract } from './fullstack-architecture.js';
 import { buildWebsiteFileGraph, analyzeWebsiteFileImpact } from './website-file-graph.js';
 import { buildRequirementIntelligence } from './requirement-intelligence.js';
+import { createAutonomousQaReport, evaluateGeneratedWebsiteFiles, runAutonomousRepairCycle } from './autonomous-qa.js';
 
 const clean = (value, max = 240) => String(value == null ? '' : value)
   .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -1157,5 +1158,72 @@ export async function runWebsiteGeneration(options = {}) {
       }
     }
   }
-  return { result, multiPageBuild, quotaInputText, quotaOutputText, fullStackSourceEvidence };
+  let autonomousQa = null;
+  if (shouldBuild && !scopedEdit && result.files && typeof result.files === 'object' && !Array.isArray(result.files)) {
+    const initialStaticEvidence = evaluateGeneratedWebsiteFiles(result.files);
+    const repairCycle = await runAutonomousRepairCycle({
+      files: result.files,
+      originalBrief: originalPrompt || multiPageOptions.prompt || modelOptions.taskPrompt || '',
+      requiredChannels: ['static'],
+      initialEvidence: [initialStaticEvidence],
+      repair: async ({ prompt }) => {
+        quotaInputText += (quotaInputText ? '\n\n' : '') + prompt;
+        const repairResponse = await callModel(env, {
+          ...modelOptions,
+          taskPrompt: prompt,
+          system: [
+            String(modelOptions.system || ''),
+            'You are performing one bounded OVYX generated-site QA repair. Return strict JSON with a files object containing complete replacements for only the exact allowlisted files. Do not claim verification or change unrelated files.',
+          ].filter(Boolean).join('\n\n'),
+          responseFormat: 'json',
+          maxTokens: Math.min(Number(modelOptions.maxTokens || 12000), 12000),
+        });
+        result = {
+          ...result,
+          rawUsage: mergeGenerationUsage(result.rawUsage, repairResponse && (repairResponse.usage || repairResponse.rawUsage)) || result.rawUsage || null,
+        };
+        quotaOutputText += (quotaOutputText ? '\n\n' : '') + String(repairResponse?.text || '');
+        return repairResponse?.text || '';
+      },
+      verify: async ({ files }) => [evaluateGeneratedWebsiteFiles(files)],
+      limits: { maxFiles: 4, maxFileChars: 24000, maxContextChars: 48000 },
+    });
+    if (repairCycle.repair.status === 'repaired-and-passed' ||
+        repairCycle.repair.status === 'repaired-needs-attention') {
+      result = { ...result, files: repairCycle.files };
+    }
+    const backendRequired = fullStackArchitecture?.capabilities?.backend === true;
+    const requiredChannels = backendRequired
+      ? ['static', 'browser', 'backend', 'journeys']
+      : ['static', 'browser', 'journeys'];
+    const evidence = [
+      repairCycle.report.channels.find(channel => channel.channel === 'static'),
+      {
+        channel: 'browser',
+        status: 'blocked',
+        testsRun: 0,
+        blockedReason: 'Chromium execution is performed by the isolated generated-site browser QA runner, not inside the Cloudflare generation request.',
+      },
+      ...(backendRequired ? [{
+        channel: 'backend',
+        status: 'blocked',
+        testsRun: 0,
+        blockedReason: 'Generated backend source has been audited, but a disposable framework runtime and synthetic provider/auth fixtures are required to execute its real database workflows.',
+      }] : []),
+      {
+        channel: 'journeys',
+        status: 'blocked',
+        testsRun: 0,
+        blockedReason: 'Requirement-derived journeys are emitted in ovyx-qa-plan.json and must be executed by the isolated browser QA runner.',
+      },
+    ];
+    autonomousQa = {
+      ...createAutonomousQaReport({ requiredChannels, evidence }),
+      repair: repairCycle.repair,
+      repairBeforeReport: repairCycle.beforeReport || null,
+      sourceEvidence: fullStackSourceEvidence || null,
+    };
+    result = { ...result, autonomousQa };
+  }
+  return { result, multiPageBuild, quotaInputText, quotaOutputText, fullStackSourceEvidence, autonomousQa };
 }
