@@ -36,7 +36,11 @@
   function safeSelector(value) {
     var selector = String(value || '').trim();
     if (!selector || selector.length > 700) return '';
-    return /^(?:[a-z][a-z0-9-]*:nth-of-type\([1-9]\d*\))(?:\s*>\s*[a-z][a-z0-9-]*:nth-of-type\([1-9]\d*\))*$/i.test(selector) ? selector : '';
+    return /^(?:[a-z][a-z0-9-]*:nth-of-type\([1-9]\d*\))(?:\s*>\s*[a-z][a-z0-9-]*:nth-of-type\([1-9]\d*\))*$/i.test(selector) || /^\[data-ov-node=\"[a-z0-9_-]{1,120}\"\]$/i.test(selector) ? selector : '';
+  }
+  function stableSelector(info) {
+    var id = String(info && info.id || '');
+    return /^[a-z0-9_-]{1,120}$/i.test(id) ? '[data-ov-node=\"' + id + '\"]' : safeSelector(info && info.selector);
   }
   function resolveElement(doc, info) {
     if (!doc || !info) return null;
@@ -105,7 +109,7 @@
         var state = {};
         try { state = JSON.parse(style.getAttribute('data-ovyx-responsive-state') || '{}') || {}; } catch (_) { state = {}; }
         state[device] = state[device] || {};
-        var selector = safeSelector(context.info.selector);
+        var selector = stableSelector(context.info);
         if (!selector) throw new Error('Responsive styling requires a stable preview element selector.');
         state[device][selector] = state[device][selector] || {};
         state[device][selector][property] = value;
