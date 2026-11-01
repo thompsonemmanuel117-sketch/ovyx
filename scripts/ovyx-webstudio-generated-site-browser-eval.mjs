@@ -588,6 +588,7 @@ async function main() {
         qaLocalPosts:formResults.length,qaFormMissing,
         journeyPlanMissing,declaredJourneys:journeyResults.length,passedJourneys:journeyResults.filter(item=>item.status==='passed').length,failedJourneys,journeyResults,
         declaredApiChecks:apiCheckResults.length,passedApiChecks:apiCheckResults.filter(item=>item.status==='passed').length,failedApiChecks,apiCheckResults,
+        apiProbeMode:'static-artifact-host-read-only',
         publicEnquiryEndpointConfigured:Boolean(PUBLIC_ENQUIRY),publicEnquiryFormObserved,publicEnquiryDeliveryConfirmed,
         publicEnquiryStatus:publicEnquiryChecks.some(item=>item.status==='endpoint-reported-delivery-confirmed')?'endpoint-reported-delivery-confirmed':publicEnquiryFormObserved?'public-form-submitted-without-confirmed-delivery':PUBLIC_ENQUIRY?'configured-public-form-not-observed':'not-configured-or-not-opted-in',
         publicEnquiryChecks,realEnquiryDeliveryConfirmed:publicEnquiryDeliveryConfirmed,
@@ -598,6 +599,7 @@ async function main() {
         pages:checks,
         caveats:[
           'The local QA endpoint is a simulated receiver and does not deliver customer messages.',
+          'GET/HEAD API probes run against the static artifact host; they do not execute generated Cloudflare Functions, framework server routes, authentication providers or database bindings.',
           'Outbound third-party/contact links are inventoried but not clicked or treated as proof of service availability.',
           'Automated source/DOM/browser checks cannot certify subjective premium visual quality or fully proofread grammar/factual accuracy.',
         ]
