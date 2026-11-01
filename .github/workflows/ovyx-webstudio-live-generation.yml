@@ -12,16 +12,11 @@ on:
           - full-acceptance
         default: preflight-only
       provider:
-        description: AI provider to use for real website generation
+        description: Cloudflare Workers AI is the only supported OVYX website-generation inference provider
         required: true
         type: choice
         options:
           - cloudflare-workers-ai
-          - automatic
-          - gemini
-          - claude
-          - deepseek
-          - openai
         default: cloudflare-workers-ai
   push:
     branches: [main]

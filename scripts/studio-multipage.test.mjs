@@ -1059,3 +1059,32 @@ assert.equal(recoveryCalls, 4, 'a malformed output must trigger at most one boun
 assert.match(retryPlanSystem, /STAGE 4 SMOKE RECOVERY/,
   'the bounded retry should name the prior truncation failure and request compact, fully closed HTML');
 
+
+const duplicateRouteAudit = auditWebsiteIntegrity({
+  'index.html': '<!doctype html><html><body><h1>Home</h1></body></html>',
+  'src/app/page.tsx': 'export default function Page(){ return <main>Landing</main> }',
+}, {
+  pages: [
+    { title: 'Home', path: 'index.html', url: '/' },
+    { title: 'Landing', path: 'src/app/page.tsx', url: '/' },
+  ],
+});
+assert.equal(duplicateRouteAudit.routeCollisionCount, 1);
+assert.equal(duplicateRouteAudit.findings.some(item => item.code === 'DUPLICATE_PAGE_ROUTE'), true);
+assert.match(duplicateRouteAudit.summary, /duplicate page route/i);
+
+const caseSensitiveRoutes = auditWebsiteIntegrity({}, {
+  pages: [
+    { title: 'Uppercase About', path: 'About.html', url: '/About' },
+    { title: 'Lowercase About', path: 'about.html', url: '/about' },
+  ],
+});
+assert.equal(caseSensitiveRoutes.routeCollisionCount, 0, 'Distinct case-sensitive routes must not be reported as duplicate URLs.');
+
+const dynamicRouteAudit = auditWebsiteIntegrity({}, {
+  pages: [
+    { title: 'User by ID', path: 'src/app/users/[id]/page.tsx', url: '/users/[id]' },
+    { title: 'User by slug', path: 'src/app/users/[slug]/page.tsx', url: '/users/[slug]' },
+  ],
+});
+assert.equal(dynamicRouteAudit.routeCollisionCount, 1, 'Dynamic route parameter names must not conceal a route collision.');

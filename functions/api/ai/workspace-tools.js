@@ -15,6 +15,7 @@ import {
   setFirestoreDocumentAtPath,
 } from '../../_lib/firebase-admin.js';
 import { readJson, jsonResponse, requestId } from '../../_lib/http.js';
+import { buildWebsiteFileGraph, analyzeWebsiteFileImpact } from '../../_lib/website-file-graph.js';
 
 const MAX_BODY_BYTES = 190_000;
 const MAX_PATCH_BYTES = 80_000;
@@ -185,8 +186,12 @@ function collectProjectFiles(project, maxFiles = MAX_SEARCHABLE_PROJECT_FILES) {
     for (const [rawPath, value] of entries) {
       const path = clean(rawPath, 240).replace(/^\/+/, '');
       if (!path || seen.has(path) || sensitivePath(path)) continue;
+      if (!SAFE_TEXT_EXTENSION.test(path)) continue;
       const content = contentOf(value);
-      if (content.length > MAX_PROJECT_FILE_BYTES || !SAFE_TEXT_EXTENSION.test(path)) continue;
+      if (content.length > MAX_PROJECT_FILE_BYTES) {
+        inventoryTruncated = true;
+        continue;
+      }
       if (result.length >= maxFiles) {
         inventoryTruncated = true;
         break;
@@ -201,6 +206,38 @@ function collectProjectFiles(project, maxFiles = MAX_SEARCHABLE_PROJECT_FILES) {
 
 function allProjectFiles(project) {
   return collectProjectFiles(project).files;
+}
+
+/**
+ * Read-only impact report for an approved single-file change.
+ * Only path/dependency metadata is returned; source text is never exposed.
+ */
+export function buildWorkspaceFileImpact(project, changedPath) {
+  const inventory = collectProjectFiles(project, 500);
+  const fileBag = Object.fromEntries(inventory.files.map(file => [file.path, file.content]));
+  const graph = buildWebsiteFileGraph(fileBag);
+  const impact = analyzeWebsiteFileImpact(graph, [changedPath]);
+  const impactedPaths = impact.impactedPaths.slice(0, 40);
+  const truncated = inventory.inventoryTruncated || graph.limits.truncated || impact.impactedPaths.length > impactedPaths.length;
+  const changedFileUnmapped = impact.unknownChangedPaths.length > 0;
+  const coverageIncomplete = truncated || changedFileUnmapped;
+  return {
+    status: coverageIncomplete ? 'bounded-partial' : graph.status,
+    evidence: 'static-source-dependency-analysis',
+    filesAnalyzed: graph.nodes.length,
+    dependencyCount: graph.edges.length,
+    unresolvedLocalReferenceCount: graph.missingReferences.length,
+    changedPaths: impact.changedPaths,
+    impactedPaths,
+    totalAffected: impact.totalAffected,
+    maxDependencyDepth: impact.maxDependencyDepth,
+    unknownChangedPaths: impact.unknownChangedPaths,
+    changedFileUnmapped,
+    truncated,
+    coverageIncomplete,
+    reviewRequired: impactedPaths.length > 0 || coverageIncomplete,
+    limitations: 'Static source references only. Runtime-generated imports, framework aliases, reflection and conditional loading may not be fully represented.',
+  };
 }
 
 /**
@@ -613,6 +650,7 @@ async function handleTool(env, identity, body) {
     const slot = locateFile(found.project, filePath);
     if (!slot) fail('The saved recovery version refers to a file that no longer exists. No change was made.', 404, 'SOURCE_FILE_NOT_FOUND');
     const restoreContent = String(backup.originalContent ?? '');
+    const dependencyImpact = buildWorkspaceFileImpact(found.project, filePath);
     if (!restoreContent.trim()) fail('The saved recovery version is empty or incomplete. No change was made.', 422, 'REVISION_CONTENT_UNAVAILABLE');
     if (restoreContent.length > MAX_BACKUP_SOURCE_BYTES || slot.current.length > MAX_BACKUP_SOURCE_BYTES) {
       fail('This recovery version is too large for a safe automatic restore.', 413, 'SOURCE_TOO_LARGE_FOR_BACKUP');
@@ -633,6 +671,7 @@ async function handleTool(env, identity, body) {
       originalLength: slot.current.length,
       proposedLength: restoreContent.length,
       ...diff,
+      dependencyImpact,
       approvalRequired: true,
       note: 'Recovery preview only. No project file was changed.',
     };
@@ -655,6 +694,7 @@ async function handleTool(env, identity, body) {
     const slot = locateFile(found.project, filePath);
     if (!slot) fail('The saved recovery version refers to a file that no longer exists. No change was made.', 404, 'SOURCE_FILE_NOT_FOUND');
     const restoreContent = String(backup.originalContent ?? '');
+    const dependencyImpact = buildWorkspaceFileImpact(found.project, filePath);
     if (!restoreContent.trim()) fail('The saved recovery version is empty or incomplete. No change was made.', 422, 'REVISION_CONTENT_UNAVAILABLE');
     if (restoreContent.length > MAX_BACKUP_SOURCE_BYTES || slot.current.length > MAX_BACKUP_SOURCE_BYTES) {
       fail('This recovery version is too large for a safe automatic restore.', 413, 'SOURCE_TOO_LARGE_FOR_BACKUP');
@@ -701,6 +741,7 @@ async function handleTool(env, identity, body) {
       restoredContent: restoreContent,
       restoredRevisionId: revisionId,
       safetyRevisionId: restoreBackupId,
+      dependencyImpact,
       previousRevision: found.document.updateTime || null,
       revision: verified.document.updateTime || null,
       message: 'The selected recovery version was restored and read back successfully. The replaced file was saved as a new recovery version. This verifies storage, not live browser behavior.',
@@ -723,6 +764,7 @@ async function handleTool(env, identity, body) {
   if (!nextContent.trim()) fail('The proposed file content cannot be empty.', 400, 'EMPTY_PATCH');
 
   const diff = lineDiff(slot.current, nextContent);
+  const dependencyImpact = buildWorkspaceFileImpact(found.project, filePath);
   if (operation === 'prepare_patch') {
     return {
       operation,
@@ -735,6 +777,7 @@ async function handleTool(env, identity, body) {
       originalLength: slot.current.length,
       proposedLength: nextContent.length,
       ...diff,
+      dependencyImpact,
       approvalRequired: true,
       note: 'This is a preview only. No project file was changed.',
     };
@@ -799,6 +842,7 @@ async function handleTool(env, identity, body) {
     revisionId,
     previousRevision: found.document.updateTime || null,
     revision: verified.document.updateTime || null,
+    dependencyImpact,
     diagnostics: diagnoseProject(verified.project, verified.id),
     project: projectSummary(verified.id, verified.project, verified.document.updateTime, false),
     message: 'Your app files have been saved. Review the preview to confirm how the changes behave.',

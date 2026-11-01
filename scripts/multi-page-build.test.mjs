@@ -162,3 +162,30 @@ const invalidPath = normalizeSiteMap({ pages: [{ title: 'bad', path: '../secret.
 assert(!invalidPath.siteMap.pages.some(page => page.path === '../secret.html'));
 
 console.log('Multi-page Web Studio build tests passed.');
+
+const duplicateRootRoutes = normalizeSiteMap({
+  pages: [
+    { title: 'Home', path: 'index.html' },
+    { title: 'Landing', path: 'src/app/page.tsx' },
+  ],
+});
+assert.equal(duplicateRootRoutes.siteMap.routeValidation.status, 'conflicts-detected');
+assert.equal(duplicateRootRoutes.siteMap.routeValidation.blocking, true);
+assert.equal(duplicateRootRoutes.siteMap.routeValidation.routeCollisions[0].signature, '/');
+assert.equal(duplicateRootRoutes.routeValidation.routeCollisionCount, 1);
+
+const dynamicRouteCollision = normalizeSiteMap({
+  pages: [
+    { title: 'User by ID', path: 'src/app/users/[id]/page.tsx' },
+    { title: 'User by Slug', path: 'src/app/users/[slug]/page.tsx' },
+  ],
+});
+assert.equal(dynamicRouteCollision.siteMap.routeValidation.routeCollisions[0].signature, '/users/:param');
+const conflictBatch = createSiteBuildBatches(duplicateRootRoutes.siteMap, 4)[0];
+const conflictContext = buildSiteBatchContext({
+  baseContext: 'Preserve both requested pages.',
+  siteMap: duplicateRootRoutes.siteMap,
+  batch: conflictBatch,
+});
+assert.match(conflictContext, /conflicts-detected/);
+assert.match(conflictContext, /Never silently overwrite/);

@@ -304,3 +304,24 @@ assert.equal(scopedRepairCalls, 0);
 
 await assert.rejects(() => runWebsiteGeneration({ shouldBuild: true }), /requires a model caller/);
 console.log('OVYX unified website engine tests passed.');
+
+
+const filePlan = buildWebsiteEnginePlan('Update the existing site header and preserve every other route.', {
+  files: {
+    'index.html': '<script type="module" src="./src/main.js"></script>',
+    'src/main.js': "import './header.js';",
+    'src/header.js': 'export const header = true;',
+  },
+  changedPaths: ['src/header.js'],
+});
+assert.equal(filePlan.fileArchitecture.status, 'analyzed');
+assert.equal(filePlan.fileArchitecture.fileCount, 3);
+assert.deepEqual(filePlan.fileArchitecture.impactAnalysis.impactedPaths, ['src/main.js', 'index.html']);
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('fileArchitecture'));
+assert.equal(websiteEngineClientSummary(filePlan).fileArchitecture.dependencyCount, 2);
+
+const conflictedPlan = buildWebsiteEnginePlan('Include a customer login and account dashboard.\nDo not include a customer login and account dashboard.');
+assert.equal(conflictedPlan.requirementIntelligence.counts.total, conflictedPlan.requirementManifest.total);
+assert.equal(conflictedPlan.requirementIntelligence.conflicts.length, 1);
+assert.ok(buildWebsiteEngineInstructions(conflictedPlan).includes('Conflicting instructions remain unresolved'));
+assert.equal(websiteEngineClientSummary(conflictedPlan).requirementIntelligence.counts.conflicts, 1);

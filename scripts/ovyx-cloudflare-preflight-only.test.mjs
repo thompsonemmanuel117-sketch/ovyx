@@ -13,8 +13,8 @@ assert.match(workflow, /default: preflight-only/);
 const providerSelector = workflow.slice(workflow.indexOf('      provider:'), workflow.indexOf('\n  push:', workflow.indexOf('      provider:')));
 assert.ok(providerSelector.includes('- cloudflare-workers-ai') && providerSelector.includes('default: cloudflare-workers-ai'),
   'the manual full-acceptance selector must offer the existing Cloudflare Workers AI runtime as its safe default, not a stale third-party provider');
-assert.ok(providerSelector.includes('- automatic'),
-  'operators must be able to test OVYX automatic routing when they explicitly choose it');
+assert.doesNotMatch(providerSelector, /- automatic|gemini|claude|deepseek|openai|groq|openrouter/i,
+  'the manual live-generation selector must expose Cloudflare Workers AI only; runtime routing is pinned server-side and must not offer a local or third-party inference choice');
 
 assert.ok(workflow.includes("if: github.ref == 'refs/heads/main' && ((github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') && !contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only'))"), 'provider-only enforcement must exclude both one-time live generation markers');
 const siteEvidenceCondition = /if: always\(\) && github\.ref == 'refs\/heads\/main' && \(\(github\.event_name == 'workflow_dispatch' && \(inputs\.operation == 'full-acceptance' \|\| inputs\.operation == 'stage4-site-smoke'\)\) \|\| \(github\.event_name == 'push' && \(contains\(github\.event\.head_commit\.message, '\[OVYX_FULL_ACCEPTANCE_ONCE\]'\) \|\| contains\(github\.event\.head_commit\.message, '\[OVYX_STAGE4_SITE_SMOKE_ONCE\]'\)\)\)\)/g;

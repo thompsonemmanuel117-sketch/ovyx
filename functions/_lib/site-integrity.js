@@ -43,7 +43,7 @@ function normalizeRoute(value) {
   route = route.replace(/\/{2,}/g, '/');
   if (/\/index\.html?$/i.test(route)) route = route.replace(/index\.html?$/i, '');
   if (!route.endsWith('/') && !/\.[a-z0-9]{1,12}$/i.test(route)) route += '/';
-  return route.toLowerCase();
+  return route;
 }
 
 function resolveLocalFile(fromFile, reference) {
@@ -65,6 +65,28 @@ function fileIndex(files) {
     if (path && typeof content === 'string') byLower.set(path.toLowerCase(), { path, content });
   }
   return byLower;
+}
+
+function routeCollisionSignature(value) {
+  return normalizeRoute(value)
+    .replace(/\[\[?\.\.\.[^\]]+\]\]?|\[[^\]]+\]|:[A-Za-z0-9_]+|\*/g, ':param');
+}
+
+function routeCollisionGroups(siteMap) {
+  const groups = new Map();
+  for (const page of Array.isArray(siteMap && siteMap.pages) ? siteMap.pages : []) {
+    const path = cleanPath(page && page.path);
+    if (!path) continue;
+    const route = routeCollisionSignature(page.url || '/');
+    const group = groups.get(route) || [];
+    if (!group.some(item => item.path === path)) {
+      group.push({ path, url: page.url || '/', title: String(page.title || page.name || path).slice(0, 120) });
+    }
+    groups.set(route, group);
+  }
+  return [...groups.entries()]
+    .filter(([, pages]) => pages.length > 1)
+    .map(([route, pages]) => ({ route, pages }));
 }
 
 function routeIndex(siteMap, fileByPath) {
@@ -143,6 +165,11 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
   const cssEntries = Object.entries(files).filter(([path]) => /\.css$/i.test(path));
   const issues = [];
   const seen = new Set();
+  const routeCollisions = routeCollisionGroups(siteMap);
+  for (const collision of routeCollisions) {
+    addIssue(issues, seen, 'DUPLICATE_PAGE_ROUTE', collision.pages[0].path, collision.route,
+      'Multiple distinct page files resolve to the same normalized route; the route must be made unambiguous before release.');
+  }
   let checkedReferences = 0;
 
   function checkAsset(fromPath, reference, code, kind) {
@@ -307,12 +334,14 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
   return {
     checkedHtmlFiles: htmlEntries.length,
     checkedReferences,
+    routeCollisionCount: routeCollisions.length,
+    routeCollisions,
     findings: limited,
     totalFindings: issues.length,
     counts,
     summary: issues.length
-      ? issues.length + ' source-level website integrity or accessibility issue(s) need review.'
-      : 'No unresolved internal routes, broken same-page or cross-page fragments, placeholder links, missing local asset and responsive-image references, duplicate IDs, images without alt attributes, or obvious source-level form/ARIA label references were found.',
+      ? issues.length + ' source-level website integrity or accessibility issue(s) need review.' + (routeCollisions.length ? ' ' + routeCollisions.length + ' duplicate page route collision(s) were detected.' : '')
+      : 'No duplicate page routes, unresolved internal routes, broken same-page or cross-page fragments, placeholder links, missing local asset and responsive-image references, duplicate IDs, images without alt attributes, or obvious source-level form/ARIA label references were found.',
     externalResourcesVerified: false,
     runtimeBehaviorVerified: false,
   };

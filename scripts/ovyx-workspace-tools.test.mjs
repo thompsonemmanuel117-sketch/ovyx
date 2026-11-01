@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
+  buildWorkspaceFileImpact,
   diagnoseProject,
   searchProjectSource,
   validateOvyxSourcePath,
@@ -77,6 +78,7 @@ assert.match(route, /PATCH_VERIFY_FAILED/, 'Writes must be checked by reading th
 assert.doesNotMatch(route, /functions\/api\/ai\/assistant\.js/, 'The workspace tool route must stay separate from Web Studio build logic.');
 
 assert.match(route, /MAX_BACKUP_SOURCE_BYTES/, 'Oversized source files must not be written without a safe backup.');
+assert.match(route, /dependencyImpact/, 'Patch and restore previews must report source dependency impact before approval.');
 assert.match(route, /MAX_PROJECT_DOCUMENT_BYTES/, 'Project writes must be bounded before reaching Firestore.');
 assert.match(client, /fetch\('\/api\/ai\/workspace-tools'/, 'The native assistant must call its dedicated tools endpoint.');
 assert.match(client, /window\.confirm\(message\)/, 'Source changes must require explicit human confirmation.');
@@ -102,5 +104,37 @@ assert.match(client, /Working/, 'The context indicator must show running tasks.'
 assert.match(client, /Approval needed/, 'The context indicator must show approval-required actions.');
 assert.match(client, /Workspace details ready/, 'The context indicator must distinguish fallback context from a full scan.');
 assert.match(nativeAi, /Never state that an action succeeded unless the relevant UI\/tool returned success/i, 'The assistant must not claim unverified actions succeeded.');
+
+const dependencyImpact = buildWorkspaceFileImpact({
+  ovyxGraph: { files: {
+    'index.html': { type: 'text/html', content: '<script type="module" src="./src/main.js"></script>' },
+    'src/main.js': { type: 'text/javascript', content: "import './header.js';" },
+    'src/header.js': { type: 'text/javascript', content: 'export const header = true;' },
+  } },
+}, 'src/header.js');
+assert.equal(dependencyImpact.status, 'analyzed');
+assert.equal(dependencyImpact.filesAnalyzed, 3);
+assert.deepEqual(dependencyImpact.impactedPaths, ['src/main.js', 'index.html']);
+assert.equal(dependencyImpact.totalAffected, 3);
+assert.equal(dependencyImpact.evidence, 'static-source-dependency-analysis');
+assert.ok(!JSON.stringify(dependencyImpact).includes('export const header'));
+assert.equal(buildWorkspaceFileImpact({}, 'missing.js').status, 'bounded-partial');
+assert.equal(buildWorkspaceFileImpact({}, 'missing.js').changedFileUnmapped, true);
+const manyWorkspaceFiles = Object.fromEntries(Array.from({ length: 505 }, (_, index) => [
+  'src/file-' + String(index).padStart(3, '0') + '.js',
+  { type: 'text/javascript', content: 'export const value' + index + ' = ' + index + ';' },
+]));
+const boundedImpact = buildWorkspaceFileImpact({ ovyxGraph: { files: manyWorkspaceFiles } }, 'src/file-000.js');
+assert.equal(boundedImpact.status, 'bounded-partial');
+assert.equal(boundedImpact.truncated, true);
+assert.equal(boundedImpact.filesAnalyzed, 500);
+const oversizedWorkspaceImpact = buildWorkspaceFileImpact({
+  ovyxGraph: { files: {
+    'src/large.js': { type: 'text/javascript', content: 'x'.repeat(900_001) },
+  } },
+}, 'src/large.js');
+assert.equal(oversizedWorkspaceImpact.status, 'bounded-partial');
+assert.equal(oversizedWorkspaceImpact.truncated, true);
+assert.equal(oversizedWorkspaceImpact.filesAnalyzed, 0);
 
 console.log('OVYX workspace tool tests passed.');

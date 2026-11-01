@@ -3,6 +3,8 @@ import { buildPromptContract, getWebStudioBuildClarification } from './prompt-co
 import { buildStudioMultiPage } from './studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from './studio-singlepage.js';
 import { buildFullStackArchitecture, fullStackArchitectureClientSummary, fullStackArchitectureModelContract } from './fullstack-architecture.js';
+import { buildWebsiteFileGraph, analyzeWebsiteFileImpact } from './website-file-graph.js';
+import { buildRequirementIntelligence } from './requirement-intelligence.js';
 
 const clean = (value, max = 240) => String(value == null ? '' : value)
   .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -83,6 +85,19 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
   const experience = buildExperienceBrief(brief, safeContext);
   const pages = pagePlan(promptContract);
   const fullStackArchitecture = buildFullStackArchitecture(sourceBrief, promptContract, safeContext, pages);
+  const requirementIntelligence = buildRequirementIntelligence(sourceBrief, promptContract, fullStackArchitecture);
+  const projectFiles = safeContext.files || safeContext.projectFiles || {};
+  const fileGraph = buildWebsiteFileGraph(projectFiles);
+  const fileArchitecture = {
+    status: fileGraph.status,
+    fileCount: fileGraph.nodes.length,
+    dependencyCount: fileGraph.edges.length,
+    unresolvedLocalReferenceCount: fileGraph.missingReferences.length,
+    truncated: fileGraph.limits.truncated,
+    limits: fileGraph.limits,
+    graph: fileGraph,
+    impactAnalysis: analyzeWebsiteFileImpact(fileGraph, safeContext.changedPaths || []),
+  };
   const explicitMultiPage = pages.length > 1 ||
     /\b(?:multi[- ]?page|multiple pages|several pages|\d+ pages)\b/i.test(brief);
   const signals = promptContract.contactSignals || {};
@@ -144,6 +159,8 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
     },
     integrations: integrationRequirements(promptContract, safeContext),
     fullStackArchitecture,
+    requirementIntelligence,
+    fileArchitecture,
     qualityGates: experience.qualityGates || [],
     implementationRules: [
       'Plan the complete experience before writing files; do not stop at a visually attractive first screen.',
@@ -153,6 +170,8 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
       'Never fabricate credentials, data, testimonials, prices, availability, delivery receipts or connected integrations.',
       'Distinguish UI/demo behavior, configured connections and live-verified behavior.',
       'Preserve unrelated existing files and project behavior during targeted edits.',
+      'Reconcile the complete requirement ledger: preserve exclusions, surface unmapped requirements, and never silently resolve contradictory instructions.',
+      'When existing source files are supplied, use the file dependency graph and transitive impact analysis to update dependent consumers safely; do not claim complete dependency coverage when the graph is bounded or partial.',
       'Use the existing Cloudflare AI routing and quota controls; do not create a second provider path.',
     ],
   };
@@ -284,6 +303,23 @@ function serializeWebsiteEngineModelPlan(plan) {
         connection: clean(item?.connection, 48),
         verification: clean(item?.verification, 120),
       })),
+      requirementIntelligence: {
+        status: clean(plan.requirementIntelligence?.status, 48),
+        counts: compactPlanValue(plan.requirementIntelligence?.counts),
+        conflicts: compactPlanList((plan.requirementIntelligence?.conflicts || []).map(item => item.requirementIds.join(' / ') + ': ' + item.sharedIntent), 8, 180),
+        unmappedRequirementIds: compactPlanList(plan.requirementIntelligence?.unmappedRequirementIds, 30, 12),
+      },
+      fileArchitecture: {
+        status: clean(plan.fileArchitecture?.status, 40),
+        fileCount: Number(plan.fileArchitecture?.fileCount) || 0,
+        dependencyCount: Number(plan.fileArchitecture?.dependencyCount) || 0,
+        unresolvedLocalReferenceCount: Number(plan.fileArchitecture?.unresolvedLocalReferenceCount) || 0,
+        truncated: plan.fileArchitecture?.truncated === true,
+        impactAnalysis: compactPlanValue(plan.fileArchitecture?.impactAnalysis),
+        nodes: compactPlanList((plan.fileArchitecture?.graph?.nodes || []).map(node => node.path + ' [' + node.kind + ']'), 24, 100),
+        dependencies: compactPlanList((plan.fileArchitecture?.graph?.edges || []).map(edge => edge.from + ' -> ' + edge.to + ' (' + edge.kind + ')'), 40, 140),
+        missingReferences: compactPlanList((plan.fileArchitecture?.graph?.missingReferences || []).map(item => item.from + ' -> ' + item.specifier), 12, 120),
+      },
       qualityGates: compactPlanList(plan.qualityGates, 14, 140),
       fullStackArchitecture: fullStackArchitectureModelContract(plan.fullStackArchitecture),
       implementationRules: compactPlanList(plan.implementationRules, 10, 160),
@@ -386,6 +422,7 @@ function serializeWebsiteEngineModelPlan(plan) {
 export function buildWebsiteEngineInstructions(plan) {
   if (!plan || plan.engine !== 'ovyx-unified-website-engine') return '';
   const serializedPlan = serializeWebsiteEngineModelPlan(plan);
+  const requirementRules = Array.isArray(plan.requirementIntelligence?.rules) ? plan.requirementIntelligence.rules : [];
   const fullStackRules = plan.fullStackArchitecture ? [
     'OVYX FULL-STACK ARCHITECTURE CONTRACT — ONE COHERENT APPLICATION',
     'Implement the declared architecture as connected source code, not as a proposal, mockup or disconnected collection of files. When backend capability is requested, do not silently return a frontend-only site.',
@@ -402,6 +439,7 @@ export function buildWebsiteEngineInstructions(plan) {
     'The complete original user brief is supplied separately as the task prompt and remains authoritative. The JSON below is a bounded architecture plan and requirement index; its clause excerpts never replace the original brief.',
     serializedPlan,
     ...fullStackRules,
+    ...requirementRules.map(rule => 'REQUIREMENT RECONCILIATION: ' + rule),
     'Before returning files, internally reconcile every requirement and exclusion against the complete original brief and the actual output. If a real service is not connected and verified, provide an honest pending/UI-only boundary instead of a fake success path.',
   ].join('\n\n');
 }
@@ -422,6 +460,18 @@ export function websiteEngineClientSummary(plan) {
       connection: item.connection,
     })),
     qualityGateCount: plan.qualityGates.length,
+    requirementIntelligence: {
+      status: plan.requirementIntelligence?.status || 'not-built',
+      counts: plan.requirementIntelligence?.counts || null,
+    },
+    fileArchitecture: {
+      status: plan.fileArchitecture?.status || 'not-analyzed',
+      fileCount: plan.fileArchitecture?.fileCount || 0,
+      dependencyCount: plan.fileArchitecture?.dependencyCount || 0,
+      unresolvedLocalReferenceCount: plan.fileArchitecture?.unresolvedLocalReferenceCount || 0,
+      truncated: plan.fileArchitecture?.truncated === true,
+      impactAnalysis: plan.fileArchitecture?.impactAnalysis || null,
+    },
     fullStackArchitecture: fullStackArchitectureClientSummary(plan.fullStackArchitecture),
   };
 }

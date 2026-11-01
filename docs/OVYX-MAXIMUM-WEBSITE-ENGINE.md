@@ -1,11 +1,11 @@
 # OVYX — Maximum Website Engine Upgrade
 
-**Updated:** 2026-10-31  
+**Updated:** 2026-11-01  
 **Repository:** `thompsonemmanuel117-sketch/ovyx`  
 **Phase 1 foundation merge:** [PR #359](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/359), merged into `main` as `ed990654cea6b5b75291aec94c9de5050839237e`.  
 **Phase 1 closeout repair:** [PR #361](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/361), correcting two post-merge regressions before Phase 1 acceptance.  
-**Phase 2 remains separate:** [PR #360](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/360) is not part of Phase 1 closeout and must not be treated as merged or accepted.  
-**Status at this revision:** Phase 1 is integrated into `main`, but its post-merge verification failed and is being repaired. This register does not claim all 43–75 capabilities are production-ready.
+**Phase 2 full-stack foundation:** [PR #360](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/360) was merged into `main` on 2026-11-01 as `bc61f239aadf31fbdcb9280aa64105f76f03dd90`.  
+**Status at this revision:** Phase 1 and Phase 2 code foundations are integrated into `main`; source-level CI does not certify live production generation, external delivery or all 43–75 capabilities. The current Phase 2 core-engine reconstruction is a separate upgrade workstream.
 
 ## Mission and protected boundaries
 
@@ -42,7 +42,7 @@ The following are invariants for every phase:
 
 ## Phase 2 — full-stack architecture and source generation
 
-Phase 2 is tracked separately in [PR #360](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/360) on `feat/ovyx-fullstack-website-engine-phase-2`; it is not merged or accepted yet. Its current implementation includes a deterministic cross-layer architecture compiler and a second backend-source generation stage shared by the authenticated Assistant and Gateway.
+Phase 2 full-stack architecture/source-generation foundation is merged in [PR #360](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/360) as `bc61f239aadf31fbdcb9280aa64105f76f03dd90`. This provides source-generation contracts and regression coverage, but does not establish live database provisioning, migrations, external service delivery or deployed application acceptance. Its current implementation includes a deterministic cross-layer architecture compiler and a second backend-source generation stage shared by the authenticated Assistant and Gateway.
 
 The backend stage uses the trusted server-derived architecture contract to request complete route handlers, provider-appropriate database schemas/migrations, relationship declarations and safe tests. It checks generated route files and HTTP methods, protected-route or public-abuse-control evidence, schema/model evidence and declared relationship fields. It rejects unsafe paths and credential-shaped generated source, allows one targeted repair pass, and includes backend model usage in quota accounting. The selected database/auth/payment/email provider identity is preserved without treating connection metadata as proof of live access.
 
@@ -55,7 +55,7 @@ Statuses below mean: **Existing** = implementation found; **Partial** = useful f
 
 | No. | Capability | Current evidence/status | Remaining acceptance work |
 |---:|---|---|---|
-| 43 | Unified Website Generation Engine | **Merged to main; Phase 1 closeout verification outstanding.** Shared lifecycle now joins Assistant and Gateway planning/build paths, staged multi-page generation and single-page repair fallback. Both routes use bounded serialized instructions and a compact secondary plan summary; no raw plan is sliced inside JSON. | Run the dedicated engine suite, all route regressions and PR CI; confirm the exact deployed request path after merge. |
+| 43 | Unified Website Generation Engine | **Merged to main; live/runtime acceptance remains outstanding.** Shared lifecycle now joins Assistant and Gateway planning/build paths, staged multi-page generation and single-page repair fallback. Both routes use bounded serialized instructions and a compact secondary plan summary; no raw plan is sliced inside JSON. | Run the dedicated engine suite, all route regressions and PR CI; confirm the exact deployed request path after merge. |
 | 44 | Advanced AI Website Architect | **Partial; shared core merged, Phase 1 closeout verification outstanding.** Plan carries mission, audience, market, requirements, pages, integrations, design direction and quality gates. | Test unfamiliar briefs, ambiguous workflows, long prompts, exclusions and multi-turn changes against real generated artifacts. |
 | 45 | Intelligent Page Designer | **Partial.** Multi-page sitemap and per-page batching foundations exist. | Verify each page has its own clear purpose, content, layout and required functionality while preserving global consistency and shared navigation. |
 | 46 | Premium Design Intelligence 2.0 | **Partial.** Adaptive experience, market/brand context and anti-template guidance exist. | Review real screenshots for typography, hierarchy, spacing, composition, image fit, originality and brand consistency; no static source score can replace this. |
@@ -67,7 +67,7 @@ Statuses below mean: **Existing** = implementation found; **Partial** = useful f
 | 52 | Payment and Commerce Integration | **Partial.** Paystack/OPay create, verify, status, webhook, idempotency and lifecycle code exists. | Safe end-to-end sandbox verification for amount/currency/reference, fulfillment, replay, idempotency, refund and failure paths. No real charge without explicit authorization. |
 | 53 | Forms and Communication | **Partial.** Form-intent checks, form validation and mailer modules exist. | Prove actual owner-approved email/enquiry delivery with a controlled QA recipient and provider receipt; local form behavior or HTTP 2xx is insufficient. |
 | 54 | Booking and Scheduling | **Partial.** Prompt recognition, page/control requirements and UI evidence checks exist. | Connect real availability, timezone-aware calendars, booking creation, conflict prevention, confirmation and cancellation; live booking provider is not yet proven. |
-| 55 | Advanced Asset Pipeline | **Merged to main / partial; Phase 1 closeout verification outstanding.** Firebase assets, image generation, local WebP optimization and binary ZIP inclusion are present in source. | Pass storage authorization, large/binary upload-retrieval, MIME/size, optimization, export and reload tests on authorized accounts and deployed rules. |
+| 55 | Advanced Asset Pipeline | **Merged to main / partial; live/runtime acceptance remains outstanding.** Firebase assets, image generation, local WebP optimization and binary ZIP inclusion are present in source. | Pass storage authorization, large/binary upload-retrieval, MIME/size, optimization, export and reload tests on authorized accounts and deployed rules. |
 | 56 | AI Image Placement | **Partial.** Visual-asset planning and image generation foundations exist. | Verify generated assets are associated with the right project, semantically matched to page/section slots, responsive, licensed/attributed where needed and preserved on edit. Fully automatic placement is not yet proven. |
 | 57 | Framework-Aware Export | **Merged to main / partial; Phase 1 closeout verification outstanding.** Exporter detects Next.js, SvelteKit, Nuxt, Astro, Remix, Vite, Angular, React, Vue and static HTML and reports runtime/build guidance. | Add/verify framework scaffolds only where required, install/build in isolated CI, verify generated entry routes and dependencies, and report unsupported frameworks honestly. The current profile does not scaffold, install or run builds. |
 | 58 | Advanced SEO | **Partial.** Metadata, semantic structure, route/resource and structured-data source signals exist. | Check canonical URLs, robots.txt, sitemap, schema validity, localization/hreflang and social previews across multi-page frameworks; verify deployed output. |
@@ -101,21 +101,21 @@ Statuses below mean: **Existing** = implementation found; **Partial** = useful f
 | 6 — Export and deployment | Complete framework-specific packaging, dependency/build validation, preview and publishing verification. | ZIP extraction, dependency install, successful build, preview and authorized production deployment checks. |
 | 7 — Final acceptance | Re-run affected and full regression checks, genuine live generation, route/browser/integration tests and human review. | Signed evidence report with passed/failed/skipped/blocked items, source SHA, artifact links and remaining owner configuration. |
 
-## Current Phase 1 implementation and release gate
+## Merged Phase 1 and Phase 2 foundations
 
-PR #359 merged the shared Website Engine, enhanced design architecture context, bounded plan serialization, Assistant/Gateway context deduplication, long-brief regression tests, framework-aware exporter, binary asset collection and local image optimization into `main` as `ed990654cea6b5b75291aec94c9de5050839237e`.
+PR #359 merged the shared Website Engine, Assistant/Gateway lifecycle, bounded planning context, framework-aware export and asset pipeline into `main` as `ed990654cea6b5b75291aec94c9de5050839237e`.
 
-The first post-merge verification on 2026-10-31 completed eight GitHub Actions workflows on PR #359's merged source head `811d6727e218c0eca6812c1fff6dfcec8af9f905`; **all eight failed**. Job logs isolated two code regressions:
-1. `functions/_lib/ovyx-project-knowledge.js` was missing the opening object brace before the App Studio knowledge entry. Cloudflare Wrangler could not bundle Functions, so multiple browser workflows never started.
-2. `functions/_lib/website-engine.js` passed its whitespace-flattened local `brief` into `buildPromptContract`. Newline-delimited brief clauses were collapsed, making the 180-requirement regression return 1 instead of 180. The live-generation job stopped at `npm test` and produced no generated-site artifacts; it did not establish a new live generation result.\n3. Once line-delimited requirements were restored, the 180-item test exercised the serializer's minimum-budget fallback and found that it omitted the core `mustHave` and `conversionPrinciples` design summaries. The compact fallback now retains both as bounded lists while preserving the JSON budget and every requirement ID.
+The post-merge defects discovered on the first verification were repaired by PR #361, merged on 2026-10-31 as `d30f22ea50b277eb539c56c1cf43f56c77948051`. The repair restored the project-knowledge object boundary, preserved line breaks for requirement extraction and retained the core design summaries in the compact 180-requirement fallback.
 
-Phase 1 closeout repair PR #361 fixes both defects, adds a line-preservation regression and makes static verification require the original line-preserving source brief. The PR is based directly on the Phase 1 merge commit. Phase 2 PR #360 is kept separate. **Do not call Phase 1 verified until PR #361's exact-head Actions and Pages build checks finish successfully.**
+The full-stack architecture/source-generation foundation from PR #360 was merged on 2026-11-01 as `bc61f239aadf31fbdcb9280aa64105f76f03dd90`. It adds the deterministic cross-layer architecture compiler, route/schema/relationship/workflow/security contracts, bounded backend source generation and source-evidence auditing. It does not provision remote databases, configure live bindings, run production migrations or prove external delivery.
+
+The current core-engine reconstruction is the next upgrade tranche. Its work register is in `docs/OVYX-CORE-ENGINE-RECONSTRUCTION.md`. Do not infer live website-generation acceptance from the merge of these code foundations.
 
 ### Production acceptance blocker
 
 The latest recorded trusted production-generation attempt before the 2026-10-31 post-merge regression run is 2026-10-26 run [40405991196](https://github.com/thompsonemmanuel117-sketch/ovyx): Cloudflare Workers AI preflight succeeded, but the first website build failed with HTTP 502 when Firestore could not read `system/ovyx-workers-ai-budget` due to `ECONNRESET` / `FIRESTORE_READ_TRANSPORT_FAILED`. The 2026-10-31 run did not reach full live generation because the project regression suite stopped first. No successful real generated website or five-viewport artifact set is currently evidenced. Authoritative property-feed and owner-approved public enquiry settings, plus human visual/editorial review, also remain separate acceptance requirements.
 
-After the Phase 1 code/build regressions pass, run the documented live workflow in its safe preflight mode first. A real site smoke/full acceptance run must use the guarded Cloudflare Workers AI budget, a healthy Firestore ledger and the required owner-approved test configuration. Do not bypass budget enforcement or send real enquiry/payment side effects as part of routine CI.
+After the merged source-level repairs, run the documented live workflow in its safe preflight mode first. A real site smoke/full acceptance run must use the guarded Cloudflare Workers AI budget, a healthy Firestore ledger and the required owner-approved test configuration. Do not bypass budget enforcement or send real enquiry/payment side effects as part of routine CI.
 
 ## Evidence and status vocabulary
 
