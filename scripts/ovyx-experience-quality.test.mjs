@@ -4,4 +4,10 @@ const good=auditExperienceQuality({'index.html':'<html lang="en"><head><title>Ho
 assert.equal(good.status,'source-checks-clear');assert.equal(good.evidence.wcagConformance,'not-verified');
 const bad=auditExperienceQuality({'index.html':'<html><body><img><button></button><a href="#">Go</a></body></html>','styles.css':'body{}'});
 const codes=new Set(bad.findings.map(x=>x.code));for(const code of ['PAGE_TITLE_MISSING','META_DESCRIPTION_MISSING','VIEWPORT_META_MISSING','DOCUMENT_LANGUAGE_MISSING','PRIMARY_HEADING_MISSING','MAIN_LANDMARK_MISSING','IMAGE_ALT_ATTRIBUTE_MISSING','BUTTON_NAME_MISSING','ANCHOR_DESTINATION_MISSING','RESPONSIVE_MEDIA_RULES_NOT_DETECTED','REDUCED_MOTION_RULE_NOT_DETECTED','VISIBLE_FOCUS_RULE_NOT_DETECTED'])assert.ok(codes.has(code),code);
-assert.equal(bad.status,'review-required');console.log('OVYX experience quality audit tests passed.');
+assert.equal(bad.status,'review-required');
+const duplicate=auditExperienceQuality({'one.html':'<html lang="en"><head><title>Same</title><meta name="description" content="Same"></head><body><main><h1>One</h1></main></body></html>','two.html':'<html lang="en"><head><title>Same</title><meta name="description" content="Same"></head><body><main><h1>Two</h1></main></body></html>'});
+assert.ok(duplicate.findings.some(x=>x.code==='DUPLICATE_PAGE_TITLE'));
+assert.ok(duplicate.findings.some(x=>x.code==='DUPLICATE_META_DESCRIPTION'));
+assert.ok(duplicate.findings.some(x=>x.code==='OPEN_GRAPH_TITLE_MISSING'));
+assert.ok(duplicate.findings.some(x=>x.code==='ROBOTS_POLICY_NOT_INCLUDED'));
+assert.ok(duplicate.findings.some(x=>x.code==='SITEMAP_NOT_INCLUDED')); console.log('OVYX experience quality audit tests passed.');
