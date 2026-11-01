@@ -1163,8 +1163,8 @@ export async function runWebsiteGeneration(options = {}) {
       ? result.files : {};
     const frontendHtml = typeof result.html === 'string' ? result.html
       : typeof result.content === 'string' ? result.content
-        : typeof result.text === 'string' && /<(?:!doctype\\s+html|html\\b)/i.test(result.text) ? result.text : '';
-    if (!Object.keys(existingFiles).length || !Object.keys(existingFiles).some(file => /\\.html?$/i.test(file))) {
+        : typeof result.text === 'string' && /<(?:!doctype\s+html|html\b)/i.test(result.text) ? result.text : '';
+    if (!Object.keys(existingFiles).length || !Object.keys(existingFiles).some(file => /\.html?$/i.test(file))) {
       result = { ...result, files: { ...existingFiles, ...(frontendHtml ? { 'index.html': frontendHtml } : {}) } };
     }
   }
