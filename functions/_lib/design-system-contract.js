@@ -23,6 +23,16 @@ export function buildDesignSystemContract(prompt = '', context = {}) {
   const requestsBooking = /\b(?:book(?:ing)?|appointment|reservation|schedule|availability|calendar)\b/i.test(brief);
   const requestsIdentity = /\b(?:sign ?in|log ?in|account|member|authentication|permission|role|invite)\b/i.test(brief);
   const explicitMotion = /\b(?:animation|animated|motion|parallax|scroll[- ]?reveal|microinteraction|cinematic|3d)\b/i.test(brief);
+  const interactionVerificationPlan = [
+    { id: 'primary-navigation', when: 'Always, when navigation is present', action: 'Activate each safe internal navigation item and verify the intended route/fragment and active state.', expected: 'The destination exists, the correct content is visible and keyboard focus remains predictable.', safety: 'Local navigation only; never trigger external side effects.' },
+    { id: 'primary-action', when: 'Always, for each explicitly requested primary action', action: 'Exercise the action using isolated fixture data and inspect its observable state transition.', expected: 'The action produces the requested result or a truthful blocked/unconfigured state.', safety: 'Do not send real payments, messages, bookings, emails or destructive mutations.' },
+    ...(requestsForms ? [{ id: 'form-validation', when: 'When forms or submissions are requested', action: 'Test empty, malformed and valid fixture inputs; verify inline errors, preserved values and pending/result states.', expected: 'Validation is associated with fields and no real submission occurs during the smoke test.', safety: 'Stub or intercept network submission; never deliver a real enquiry or newsletter signup.' }] : []),
+    ...(requestsCommerce ? [{ id: 'commerce-cart', when: 'When product/cart/checkout behavior is requested', action: 'Change quantity, add/remove fixture items and verify subtotal/total recalculation.', expected: 'Cart state and totals remain consistent; checkout clearly distinguishes demo from configured payment.', safety: 'Never initiate a real payment or order.' }] : []),
+    ...(requestsBooking ? [{ id: 'booking-selection', when: 'When booking or scheduling is requested', action: 'Select a fixture date/time and inspect review, pending and unavailable states.', expected: 'A request is never labelled confirmed without a real provider confirmation.', safety: 'Never reserve a real slot or notify a real person.' }] : []),
+    ...(requestsIdentity ? [{ id: 'identity-permissions', when: 'When sign-in, accounts or permissions are requested', action: 'Exercise signed-out, authenticated-fixture, expired and denied states using test identities.', expected: 'Protected actions remain server-authorized and state labels are truthful.', safety: 'Never create, delete or mutate a real user account.' }] : []),
+    (/\b(?:search|filter|sort|catalog|listing|results)\b/i.test(brief) ? { id: 'search-filter-sort', when: 'When search, filtering or sorting is requested', action: 'Run deterministic fixture queries, combine filters and change sort order.', expected: 'Results, empty states and reset behavior reflect the selected criteria.', safety: 'Use fixture records; do not imply live inventory or external search is connected.' } : null),
+    (/\b(?:tab|tabs|accordion|disclosure|dropdown|dialog|modal|menu)\b/i.test(brief) ? { id: 'disclosure-and-overlays', when: 'When tabs, menus, dialogs or disclosures are requested', action: 'Open, switch, close and keyboard-navigate each safe disclosure/overlay.', expected: 'ARIA state, visibility and focus entry/return stay synchronized.', safety: 'Use local controls only; do not trigger external actions from menu items.' } : null),
+  ].filter(Boolean);
 
   return {
     version: 1,
@@ -66,6 +76,7 @@ export function buildDesignSystemContract(prompt = '', context = {}) {
     },
     interactionSystem: {
       requiredStates: ['idle', 'hover', 'focus-visible', 'active', 'disabled', 'loading', 'success', 'error', 'empty', 'validation'],
+      verificationPlan: interactionVerificationPlan,
       rules: [
         'Every visible interactive control must have one intentional action, correct semantic element and observable result.',
         'Use buttons for actions and links for navigation; never use placeholder href values or clickable decoration.',
