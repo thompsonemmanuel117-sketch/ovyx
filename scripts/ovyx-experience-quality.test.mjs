@@ -1,0 +1,7 @@
+import assert from 'node:assert/strict';
+import {auditExperienceQuality} from '../functions/_lib/experience-quality.js';
+const good=auditExperienceQuality({'index.html':'<html lang="en"><head><title>Home</title><meta name="description" content="Home"><meta name="viewport" content="width=device-width"></head><body><main><h1>Welcome</h1><img alt="Architecture" width="1200"><button>Explore</button></main></body></html>','styles.css':'@media(max-width:600px){}:focus-visible{}@media(prefers-reduced-motion:reduce){}'});
+assert.equal(good.status,'source-checks-clear');assert.equal(good.evidence.wcagConformance,'not-verified');
+const bad=auditExperienceQuality({'index.html':'<html><body><img><button></button><a href="#">Go</a></body></html>','styles.css':'body{}'});
+const codes=new Set(bad.findings.map(x=>x.code));for(const code of ['PAGE_TITLE_MISSING','META_DESCRIPTION_MISSING','VIEWPORT_META_MISSING','DOCUMENT_LANGUAGE_MISSING','PRIMARY_HEADING_MISSING','MAIN_LANDMARK_MISSING','IMAGE_ALT_ATTRIBUTE_MISSING','BUTTON_NAME_MISSING','ANCHOR_DESTINATION_MISSING','RESPONSIVE_MEDIA_RULES_NOT_DETECTED','REDUCED_MOTION_RULE_NOT_DETECTED','VISIBLE_FOCUS_RULE_NOT_DETECTED'])assert.ok(codes.has(code),code);
+assert.equal(bad.status,'review-required');console.log('OVYX experience quality audit tests passed.');
