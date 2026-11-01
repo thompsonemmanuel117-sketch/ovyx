@@ -176,6 +176,33 @@ assert.ok(backendBuild.result.files['db/schema.sql']);
 assert.equal(backendBuild.fullStackSourceEvidence.runtimeBehaviorVerified, false);
 assert.equal(backendBuild.fullStackSourceEvidence.databasePersistenceVerified, false);
 
+
+let secureBackendAttempts = 0;
+const secureBackendBuild = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  fullStackArchitecture: backendArchitecture,
+  originalPrompt: 'Build a full-stack contact website.',
+  callModel: async () => {
+    secureBackendAttempts += 1;
+    const routeSource = secureBackendAttempts === 1
+      ? 'export async function onRequestPost(context) { const key = "sk_live_12345678901234567890"; return Response.json({ key }); }'
+      : 'export async function onRequestPost(context) { const result = await context.env.DB.prepare("INSERT INTO contact_submissions").run(); return Response.json({ ok: true, result }); }';
+    return {
+      text: JSON.stringify({
+        files: {
+          'functions/api/contact-submissions.js': routeSource,
+          'db/schema.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
+        },
+      }),
+    };
+  },
+  buildMultiPage: async () => ({ text: 'frontend built', files: { 'index.html': '<!doctype html>' } }),
+});
+assert.equal(secureBackendAttempts, 2, 'Credential-shaped generated source must be rejected and repaired once.');
+assert.equal(secureBackendBuild.fullStackSourceEvidence.status, 'source-evidence-present-runtime-unverified');
+assert.doesNotMatch(secureBackendBuild.result.files['functions/api/contact-submissions.js'], /sk_live_/);
+
 const fallback = await runWebsiteGeneration({
   env: {},
   callModel: async (_env, options) => { modelCalls += 1; assert.equal(options.system, 'system'); return { text: 'raw' }; },
