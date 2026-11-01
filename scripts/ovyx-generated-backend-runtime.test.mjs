@@ -29,7 +29,7 @@ const bookingRouteSource = [
   "const json = (body, status = 200) => Response.json(body, { status });",
   "function authenticate(request) { const token = request.headers.get('authorization') || ''; if (token === 'Bearer test-owner-a') return { id: 'owner-a' }; if (token === 'Bearer test-owner-b') return { id: 'owner-b' }; return null; }",
   "export async function onRequestPost({ request, env }) { const user = authenticate(request); if (!user) return json({ error: { code: 'UNAUTHENTICATED' } }, 401); let input; try { input = await request.json(); } catch { return json({ error: { code: 'INVALID_JSON' } }, 400); } const start = Date.parse(input?.startAt); const end = Date.parse(input?.endAt); if (typeof input?.resourceId !== 'string' || !input.resourceId || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return json({ error: { code: 'VALIDATION_FAILED' } }, 400); const id = crypto.randomUUID(); const startIso = new Date(start).toISOString(); const endIso = new Date(end).toISOString(); const result = await env.DB.prepare(\"INSERT INTO bookings (id, owner_id, resource_id, start_at, end_at, status, created_at) SELECT ?, ?, ?, ?, ?, 'confirmed', ? WHERE NOT EXISTS (SELECT 1 FROM bookings WHERE resource_id = ? AND status IN ('held', 'confirmed') AND start_at < ? AND end_at > ?)\").bind(id, user.id, input.resourceId, startIso, endIso, new Date().toISOString(), input.resourceId, endIso, startIso).run(); if (!result.meta || result.meta.changes !== 1) return json({ error: { code: 'SLOT_UNAVAILABLE' } }, 409); return json({ data: { id, owner_id: user.id, resource_id: input.resourceId, start_at: startIso, end_at: endIso } }, 201); }",
-].join('\\n');
+].join('\n');
 
 const migrationSql = [
   'CREATE TABLE records (',
@@ -182,7 +182,7 @@ try {
     resourceId: 'studio-room-1', startAt: '2026-11-05T11:00:00.000Z', endAt: '2026-11-05T10:00:00.000Z',
   });
   assert.equal(invalidBooking.status, 400, 'Bookings with invalid time windows must be rejected.');
-  process.stdout.write('OVYX generated-backend runtime integration test passed: auth, validation, D1 CRUD, tenant isolation and booking conflicts.\\n');
+  process.stdout.write('OVYX generated-backend runtime integration test passed: auth, validation, D1 CRUD, tenant isolation and booking conflicts.\n');
 } finally {
   if (server && server.exitCode === null) {
     server.kill('SIGTERM');
