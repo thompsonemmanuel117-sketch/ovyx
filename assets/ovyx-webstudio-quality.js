@@ -142,6 +142,7 @@
       var parsed = JSON.parse(fileText(files[planPath]));
       if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.journeys) || typeof parsed.backendRequired !== 'boolean' || !Array.isArray(parsed.apiChecks) || !Array.isArray(parsed.backendChecks) ||
           parsed.journeys.length > 12 || parsed.apiChecks.length > 20 || parsed.backendChecks.length > 24 ||
+          (parsed.backendRequired && parsed.backendChecks.length === 0) || (!parsed.backendRequired && parsed.backendChecks.length > 0) ||
           parsed.journeys.some(function (journey) { return Array.isArray(journey && journey.steps) && journey.steps.length > 30; })) {
         return { status: 'invalid', backendRequired: false, journeys: [], apiChecks: [], backendChecks: [] };
       }
@@ -154,7 +155,7 @@
         }
       });
       if (Object.keys(routeCounts).some(function (route) { return routeCounts[route] > 4; })) {
-        return { status: 'invalid', journeys: [], apiChecks: [] };
+        return { status: 'invalid', backendRequired: false, journeys: [], apiChecks: [], backendChecks: [] };
       }
       var journeys = parsed.journeys.map(function (journey, index) {
         var startRoute = text(journey && journey.startRoute).trim().split(/[?#]/)[0];
