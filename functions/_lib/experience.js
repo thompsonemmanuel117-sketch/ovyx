@@ -118,6 +118,40 @@ function inferBrandPersonality(prompt, context, profile) {
       };
 }
 
+function inferAudience(prompt, context, profile) {
+  const supplied = firstNonEmpty(
+    context?.audience,
+    context?.targetAudience,
+    profileValue(profile, 'targetAudience', 'audience')
+  );
+  if (supplied) {
+    return { value: supplied.slice(0, 180), basis: 'supplied audience context', confidence: 'high', explicit: true };
+  }
+
+  const q = clean(prompt);
+  const patterns = [
+    /\\b(?:designed for|built for|made for|created for|intended for|aimed at|targeting|serving|for)\\s+([^.;,\\n]{3,140})/i,
+    /\\b(?:target audience|audience|users?|customers?|visitors?)\\s+(?:is|are|include|includes|will be|:)\\s*([^.;,\\n]{3,140})/i,
+  ];
+  for (const pattern of patterns) {
+    const match = pattern.exec(q);
+    if (!match) continue;
+    const value = clean(match[1])
+      .replace(/\\b(?:to|so that|who|which|that|so they can)\\b[\\s\\S]*$/i, '')
+      .replace(/[.!?;,:]+$/, '')
+      .trim()
+      .slice(0, 180);
+    if (!value || /^(?:my business|a business|businesses|everyone|anyone|users|people|customers|visitors)$/i.test(value)) continue;
+    return { value, basis: 'explicit audience phrase in the original brief', confidence: 'medium', explicit: true };
+  }
+  return {
+    value: 'infer the intended user from the brief; do not invent demographic or market facts',
+    basis: 'not specified',
+    confidence: 'low',
+    explicit: false,
+  };
+}
+
 function inferPricePositioning(prompt, context, profile) {
   const supplied = firstNonEmpty(
     context?.pricePoint,
@@ -275,11 +309,8 @@ export function buildExperienceBrief(prompt, context = {}) {
   const archetypeId = 'adaptive';
   const source = genericBlueprint();
   const brand = context?.brandProfile || null;
-  const audience = firstNonEmpty(
-    context?.audience,
-    context?.targetAudience,
-    profileValue(brand, 'targetAudience', 'audience')
-  ) || 'infer the intended user from the brief; do not invent demographic or market facts';
+  const audienceEvidence = inferAudience(prompt, context, brand);
+  const audience = audienceEvidence.value;
   const brandPersonality = inferBrandPersonality(prompt, context, brand);
   const pricePositioning = inferPricePositioning(prompt, context, brand);
   const primaryOutcome = inferPrimaryOutcome(prompt, archetypeId, context, brand);
@@ -421,6 +452,7 @@ export function buildExperienceBrief(prompt, context = {}) {
         basis: 'original user brief; no industry classification applied',
       },
       targetAudience: audience,
+      audienceEvidence,
       brandPersonality,
       pricePositioning,
       primaryOutcome,
@@ -431,6 +463,11 @@ export function buildExperienceBrief(prompt, context = {}) {
         ? 'Respect the supplied brand profile, existing brand assets and stated constraints; refine them rather than overwriting them.'
         : 'Derive the visual system from the actual project purpose, audience, intended emotion and explicit positioning. Do not use industry-based presets.',
       pricingTruthRule: 'Use explicit prices and supplied price positioning exactly. If pricing is unspecified, do not invent prices, discounts, package tiers or scarcity.',
+      assumptions: [
+        ...(audienceEvidence.confidence === 'low' ? ['The intended audience is not explicitly identified; keep language and visuals neutral until stronger evidence is supplied.'] : []),
+        ...(pricePositioning.basis === 'do not invent product prices or a market tier; use only conservative visual cues supported by the audience and offer' ? ['Pricing and market tier are unspecified; do not fabricate prices or positioning.'] : []),
+        ...(brandPersonality.basis === 'not specified' ? ['Brand personality is unspecified; treat the proposed art direction as a reversible design hypothesis.'] : []),
+      ],
     },
     blueprintRole: 'universal-adaptive; no industry classification, allowlist or required template',
     customizationMode: 'universal-adaptive',
