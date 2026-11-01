@@ -97,8 +97,11 @@ OvyxBackendSandbox.outboundByHost = {
   'npm.registry': async request => {
     if (!['GET', 'HEAD'].includes(request.method)) return new Response('Blocked', { status: 405 });
     const source = new URL(request.url);
-    if (source.hostname !== 'npm.registry' || source.username || source.password) return new Response('Blocked', { status: 403 });
-    const target = new URL(source.pathname + source.search, 'https://registry.npmjs.org');
+    if (source.hostname !== 'npm.registry' || source.username || source.password || source.pathname.startsWith('//') || source.pathname.includes('\\\\')) return new Response('Blocked', { status: 403 });
+    const target = new URL('https://registry.npmjs.org');
+    target.pathname = source.pathname;
+    target.search = source.search;
+    if (target.hostname !== 'registry.npmjs.org') return new Response('Blocked', { status: 403 });
     const headers = new Headers();
     const accept = request.headers.get('accept');
     if (accept) headers.set('accept', accept);
