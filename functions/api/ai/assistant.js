@@ -461,6 +461,9 @@ When discussing project changes, distinguish recommendations from changes actual
       }
     }
 
+    if (result.fullStackGeneration) structuredFields.fullStackGeneration = result.fullStackGeneration;
+    if (result.fullStackSourceEvidence) structuredFields.fullStackSourceEvidence = result.fullStackSourceEvidence;
+
     if (multiPageBuild) {
       structuredFields.files = result.files || {};
       if (result.project) structuredFields.project = result.project;
