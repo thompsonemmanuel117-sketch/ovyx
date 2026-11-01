@@ -1204,7 +1204,14 @@ export async function runWebsiteGeneration(options = {}) {
         repairCycle.repair.status === 'repaired-needs-attention') {
       result = { ...result, files: repairCycle.files };
     }
-    const backendRequired = fullStackArchitecture?.capabilities?.backend === true;
+    let backendRequired = fullStackArchitecture?.capabilities?.backend === true;
+    let declaredBackendChecks = 0;
+    try {
+      const qaPlanSource = result.files['ovyx-qa-plan.json'];
+      const qaPlan = typeof qaPlanSource === 'string' ? JSON.parse(qaPlanSource) : null;
+      backendRequired = backendRequired || qaPlan?.backendRequired === true;
+      declaredBackendChecks = Array.isArray(qaPlan?.backendChecks) ? qaPlan.backendChecks.length : 0;
+    } catch { /* The static QA channel already reports malformed manifests. */ }
     const requiredChannels = backendRequired
       ? ['static', 'browser', 'backend', 'journeys']
       : ['static', 'browser', 'journeys'];
@@ -1234,6 +1241,7 @@ export async function runWebsiteGeneration(options = {}) {
       repair: repairCycle.repair,
       repairBeforeReport: repairCycle.beforeReport || null,
       sourceEvidence: fullStackSourceEvidence || null,
+      backendPlan: { required: backendRequired, declaredChecks: declaredBackendChecks, runtimeStatus: backendRequired ? 'blocked-no-generated-backend-runtime-adapter' : 'not-required' },
     };
     result = { ...result, autonomousQa };
   }
