@@ -26,7 +26,7 @@ assert.ok(plan.requirementManifest.total >= 4);
 assert.ok(plan.requirementManifest.constraints.some(item => /do not invent/i.test(item)));
 assert.ok(plan.interactionArchitecture.capabilities.includes('booking'));
 assert.ok(plan.interactionArchitecture.capabilities.includes('forms'));
-assert.ok(plan.interactionArchitecture.capabilities.includes('file-storage') === false,
+assert.equal(plan.interactionArchitecture.capabilities.includes('file-storage'), false,
   'Existing hotel brief does not request user-managed file storage.');
 assert.ok(plan.integrations.some(item => item.capability === 'email' && item.connection === 'connected-in-context'));
 assert.ok(plan.integrations.some(item => item.capability === 'booking' && item.connection === 'not-confirmed'));
