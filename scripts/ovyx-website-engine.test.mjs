@@ -157,7 +157,7 @@ const backendBuild = await runWebsiteGeneration({
     return {
       text: JSON.stringify({
         files: {
-          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { const result = await context.env.DB.prepare(\"INSERT INTO contact_submissions\").run(); return Response.json({ ok: true, result }); }',
+          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const result = await context.env.DB.prepare(\"INSERT INTO contact_submissions\").run(); return Response.json({ ok: true, result }); }',
           'db/schema.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
         },
       }),
@@ -189,7 +189,7 @@ const secureBackendBuild = await runWebsiteGeneration({
   callModel: async () => {
     secureBackendAttempts += 1;
     const routeSource = secureBackendAttempts === 1
-      ? 'export async function onRequestPost(context) { const key = "sk_live_12345678901234567890"; return Response.json({ key }); }'
+      ? 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const key = "sk_live_12345678901234567890"; return Response.json({ key }); }'
       : 'export async function onRequestPost(context) { const result = await context.env.DB.prepare("INSERT INTO contact_submissions").run(); return Response.json({ ok: true, result }); }';
     return {
       text: JSON.stringify({
