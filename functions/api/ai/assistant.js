@@ -324,6 +324,8 @@ When discussing project changes, distinguish recommendations from changes actual
         callModel: routeCallModel,
         shouldBuild: isWebStudio && mode === 'build',
         scopedEdit: scopedWebStudioEdit,
+        fullStackArchitecture: websiteEnginePlan && websiteEnginePlan.fullStackArchitecture || null,
+        originalPrompt: promptText,
         initialQuotaInputText: quotaInputText,
         multiPageOptions: {
           provider: String(payload.provider || 'automatic').toLowerCase(),
