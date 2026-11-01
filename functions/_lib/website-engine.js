@@ -248,16 +248,27 @@ function compactWebsiteFullStackContract(architecture) {
     if (selected.length >= 32) break;
     if (!selected.includes(route)) selected.push(route);
   }
-  contract.apiContracts = selected.slice(0, 32);
-  contract.dataModels = (contract.dataModels || []).slice(0, 24);
-  contract.dataIntegrity.relationships = (contract.dataIntegrity.relationships || []).slice(0, 24);
-  contract.dataIntegrity.constraints = (contract.dataIntegrity.constraints || []).slice(0, 24);
-  contract.dataIntegrity.indexes = (contract.dataIntegrity.indexes || []).slice(0, 24);
-  contract.integrations = (contract.integrations || []).slice(0, 12);
-  contract.dependencyEdges = (contract.dependencyEdges || []).slice(0, 72);
-  contract.security.controls = (contract.security.controls || []).slice(0, 20);
-  contract.stateMachines = (contract.stateMachines || []).slice(0, 14);
-  contract.testPlan = (contract.testPlan || []).slice(0, 18);
+  contract.apiContracts = selected.slice(0, 18).map(route => ({
+    method: route.method, path: route.path, capability: route.capability,
+    authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 4),
+  }));
+  contract.dataModels = (contract.dataModels || []).slice(0, 20).map(model => ({
+    id: model.id, name: model.name, fields: (model.fields || []).slice(0, 6),
+    securityClass: model.securityClass,
+  }));
+  contract.dataIntegrity.relationships = (contract.dataIntegrity.relationships || []).slice(0, 18);
+  contract.dataIntegrity.constraints = (contract.dataIntegrity.constraints || []).slice(0, 18);
+  contract.dataIntegrity.indexes = (contract.dataIntegrity.indexes || []).slice(0, 16);
+  contract.integrations = (contract.integrations || []).slice(0, 10);
+  contract.dependencyEdges = (contract.dependencyEdges || []).slice(0, 48);
+  contract.security.controls = (contract.security.controls || []).slice(0, 16);
+  contract.stateMachines = (contract.stateMachines || []).slice(0, 10).map(machine => ({
+    entity: machine.entity, initialState: machine.initialState,
+    states: (machine.states || []).slice(0, 8),
+    transitions: (machine.transitions || []).slice(0, 5),
+    invariant: machine.invariant,
+  }));
+  contract.testPlan = (contract.testPlan || []).slice(0, 14);
   return contract;
 }
 
