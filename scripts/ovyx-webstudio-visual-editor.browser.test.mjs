@@ -13,7 +13,7 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.setContent('<!doctype html><html><head></head><body><section id="view-webstudio"><div id="ws-select-inspector"><b id="ws-selected-title"></b><small id="ws-selected-meta"></small><div class="ovyx-ws-select-actions"></div><div id="ws-selected-controls"></div></div><iframe id="ws-canvas-iframe"></iframe><iframe id="ws-mobile-preview-frame"></iframe></section></body></html>');
   await page.evaluate(() => {
-    const source = '<!doctype html><html><head><meta charset="utf-8"><title>Fixture</title></head><body><main><section data-ov-node="hero-1"><h1>Hero Title</h1></section><section data-ov-node="feature-1"><p>Feature copy</p></section></main></body></html>';
+    const source = '<!doctype html><html><head><meta charset="utf-8"><title>Fixture</title></head><body><main><section data-ov-node="hero-1"><h1>Hero Title</h1><img data-ov-node="hero-image" src="/old.png" alt="Old"/></section><section data-ov-node="feature-1"><p>Feature copy</p></section></main></body></html>';
     const project = { id: 'visual-fixture', name: 'Visual fixture', pages: [], ovyxGraph: null };
     window.KernelState = { activeView: 'webstudio', activeProject: project };
     window.WebStudio = {
@@ -35,6 +35,12 @@ try {
       handlePreviewMenu(action) { if (action === 'visual') this.renderPreview(); }
     };
     window.showToast = function () {};
+    window.OVYXDeepRepair = { requireAuth: function () { return true; } };
+    window.OVYXAssetStore = {
+      list: async function () { return [{ name: 'photo.png', contentType: 'image/png' }]; },
+      url: async function () { return 'https://assets.example/photo.png'; },
+      upload: async function (file) { return { name: file.name, contentType: file.type }; }
+    };
   });
   await page.addScriptTag({ path: runtimePath });
   await page.evaluate(() => window.WebStudio.renderPreview());
@@ -51,6 +57,15 @@ try {
   const textSaved = await page.evaluate(() => window.OVYXVisualEditor.applyText('OVYX visual copy'));
   assert.equal(textSaved, true);
   assert.match(await page.evaluate(() => window.WebStudio.graph.files['index.html'].content), /OVYX visual copy/);
+
+  await page.evaluate(() => window.WebStudio.selectPreviewElement({
+    id: 'hero-image', selector: '[data-ov-node="hero-image"]', title: 'Hero image', file: 'index.html'
+  }));
+  await page.waitForSelector('[data-ovyx-visual-advanced]');
+  await page.getByRole('button', { name: 'Replace image' }).click();
+  await page.getByRole('button', { name: 'photo.png' }).click();
+  assert.match(await page.evaluate(() => window.WebStudio.graph.files['index.html'].content),
+    /src="https:\/\/assets\.example\/photo\.png"/, 'The existing project asset store must apply images to selected image elements.');
 
   await page.evaluate(() => window.WebStudio.selectPreviewElement({
     id: 'hero-1', selector: 'html:nth-of-type(1) > body:nth-of-type(1) > main:nth-of-type(1) > section:nth-of-type(1)',
