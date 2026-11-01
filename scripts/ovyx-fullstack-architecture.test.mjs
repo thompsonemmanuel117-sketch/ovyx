@@ -58,6 +58,7 @@ assert.ok(architecture.apiContracts.some(route => route.path === '/api/admin/aud
 assert.ok(architecture.dataModels.some(model => model.name === 'PaymentAttempt' && model.securityClass === 'financial'));
 assert.ok(architecture.dataModels.some(model => model.name === 'RoleAssignment'));
 assert.ok(architecture.integrations.some(item => item.capability === 'payments' && item.connectionMetadata === 'connected-in-context-not-live-verified'));
+assert.equal(architecture.integrations.find(item => item.capability === 'database').provider, 'Firebase', 'The architecture must preserve the selected database provider identity without exposing credentials.');
 assert.ok(architecture.integrations.every(item => item.verification === 'not-run' && item.liveDeliveryOrTransaction === 'not-verified'));
 assert.ok(architecture.security.controls.some(item => item.id === 'payment-integrity'));
 assert.ok(architecture.security.controls.some(item => item.id === 'object-level-authorization'));
