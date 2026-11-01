@@ -62,7 +62,7 @@ jobs:
       - name: Bundle and validate the Cloudflare Sandbox Worker
         working-directory: backend-runtime
         run: |
-          npm install --ignore-scripts --no-audit --no-fund
+          npm install --no-audit --no-fund
           npx wrangler deploy --dry-run --config wrangler.jsonc
       - name: Execute generated backend fixture in a no-egress container
         env:
