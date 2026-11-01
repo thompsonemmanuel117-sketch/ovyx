@@ -6,7 +6,7 @@ const MAX_FILES = 140;
 const MAX_FILE_BYTES = 280_000;
 const ROOT_FILES = new Set([
   'wrangler.jsonc', 'wrangler.json', 'package.json', 'package-lock.json',
-  'npm-shrinkwrap.json', 'ovyx-qa-plan.json', '_routes.json', '_headers',
+  'npm-shrinkwrap.json', 'ovyx-qa-plan.json', '_routes.json', '_headers', 'tsconfig.json', 'vite.config.js', 'vite.config.ts',
 ]);
 const SECRET_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
