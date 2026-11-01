@@ -506,7 +506,7 @@ export async function performBackendRuntimeRepair(payload, env, options = {}) {
   const provider = chooseProvider(env, payload.provider || 'automatic');
   if (!provider) return { ok: false, reason: 'ai-provider-not-configured' };
   const model = String(payload.model || '').trim();
-  if (model.length > 120 || (model && !/^[A-Za-z0-9._:/-]+$/.test(model))) {
+  if (model.length > 120 || (model && !/^[A-Za-z0-9@._:/-]+$/.test(model))) {
     return { ok: false, reason: 'model-id-invalid' };
   }
   if (!payload.files || typeof payload.files !== 'object' || Array.isArray(payload.files)) {
