@@ -228,6 +228,7 @@ function runCommand(command, args, options = {}) {
 async function waitForServer(origin, child, timeoutMs = 25000) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
+    if (child.spawnError) throw new Error('wrangler-spawn-failed:' + clean(child.spawnError.message, 180));
     if (child.exitCode != null) throw new Error('wrangler-exited-before-ready');
     try {
       await fetch(origin + '/', { signal: AbortSignal.timeout(1000) });
@@ -390,6 +391,7 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
     for (const binding of configCheck.r2Bindings) args.push('--r2', binding);
     args.push('--binding', 'OVYX_QA_MODE=1', '--binding', 'OVYX_QA_TEST_SECRET=' + env.OVYX_QA_TEST_SECRET);
     child = spawn(wrangler, args, { cwd: workspace, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    child.once('error', error => { child.spawnError = error; });
     child.stdout.on('data', () => {});
     child.stderr.on('data', () => {});
     const origin = 'http://127.0.0.1:' + port;
