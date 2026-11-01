@@ -612,6 +612,14 @@ function auditBackendFiles(files, architecture) {
     id: relation.id, field: relation.foreignKeyField,
     present: !!schema && schema.includes(String(relation.foreignKeyField || '').toLowerCase()),
   }));
+  const allGeneratedSource = entries.map(entry => entry[1]).join('\n').toLowerCase();
+  const workflows = (architecture.stateMachines || []).map(machine => {
+    const entity = String(machine.entity || '').toLowerCase();
+    const states = Array.isArray(machine.states) ? machine.states.map(state => String(state).toLowerCase()) : [];
+    const statesPresent = states.length > 0 && states.every(state => allGeneratedSource.includes(state));
+    const transitionPresent = allGeneratedSource.includes('transition') && !!entity && allGeneratedSource.includes(entity);
+    return { id: machine.id, entity: machine.entity, statesExpected: states.length, statesPresent, transitionPresent };
+  });
   const missing = [];
   routes.forEach(route => {
     if (!route.file) missing.push('Missing route file: ' + route.method + ' ' + route.path);
@@ -620,6 +628,9 @@ function auditBackendFiles(files, architecture) {
   });
   models.filter(model => !model.present).forEach(model => missing.push('Missing database schema model: ' + model.name));
   relations.filter(relation => !relation.present).forEach(relation => missing.push('Missing database relationship field: ' + relation.field));
+  workflows.filter(workflow => !workflow.statesPresent || !workflow.transitionPresent).forEach(workflow =>
+    missing.push('Missing business workflow implementation evidence: ' + workflow.entity)
+  );
   return {
     status: missing.length ? 'incomplete-source-generation' : 'source-evidence-present-runtime-unverified',
     routeCount: routes.length, routeSourceCount: routes.filter(route => route.file).length,
@@ -627,6 +638,8 @@ function auditBackendFiles(files, architecture) {
     authorizationEvidenceCount: routes.filter(route => route.authOk).length,
     modelCount: models.length, modelSchemaEvidenceCount: models.filter(model => model.present).length,
     relationshipCount: relations.length, relationshipEvidenceCount: relations.filter(relation => relation.present).length,
+    workflowCount: workflows.length, workflowEvidenceCount: workflows.filter(workflow => workflow.statesPresent && workflow.transitionPresent).length,
+    workflowEvidence: workflows,
     runtimeBehaviorVerified: false, databasePersistenceVerified: false, integrationDeliveryVerified: false,
     missing: missing.slice(0, 40), routeEvidence: routes,
   };
