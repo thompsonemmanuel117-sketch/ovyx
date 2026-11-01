@@ -393,7 +393,7 @@
     var originalSelect = typeof w.selectPreviewElement === 'function' ? w.selectPreviewElement : null;
     if (originalSelect) w.selectPreviewElement = function (info) { var result = originalSelect.apply(this, arguments); window.requestAnimationFrame(function () { renderInspector(); renderInspectorWithUpload(); }); return result; };
     var originalBuild = typeof w.buildPreviewDocument === 'function' ? w.buildPreviewDocument : null;
-    if (originalBuild) w.buildPreviewDocument = function () { var html = originalBuild.apply(this, arguments); if (typeof html !== 'string' || html.indexOf('data-ovyx-visual-drag-hook') >= 0) return html; var hook = dragHook(), close = html.toLowerCase().lastIndexOf('</body>'); return close >= 0 ? html.slice(0, close) + hook + html.slice(close) : html + hook; };
+    if (originalBuild) w.buildPreviewDocument = function () { var html = originalBuild.apply(this, arguments); if (!this.__ovyxVisualDragEnabled || typeof html !== 'string' || html.indexOf('data-ovyx-visual-drag-hook') >= 0) return html; var hook = dragHook(), close = html.toLowerCase().lastIndexOf('</body>'); return close >= 0 ? html.slice(0, close) + hook + html.slice(close) : html + hook; };
     var originalRender = typeof w.renderPreview === 'function' ? w.renderPreview : null;
     if (originalRender) w.renderPreview = function () { var result = originalRender.apply(this, arguments); var enabled = !!this.__ovyxVisualDragEnabled; window.setTimeout(function () { setDragMode(enabled); }, 80); return result; };
     var originalMenu = typeof w.handlePreviewMenu === 'function' ? w.handlePreviewMenu : null;
