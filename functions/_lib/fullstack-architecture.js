@@ -136,7 +136,15 @@ function buildDataModels(capabilities) {
     push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'taxAmount', 'totalAmount', 'status', 'createdAt'], 'financial');
     push('OrderLine', 'Immutable purchase-time snapshot of product identity, name, quantity and unit amount.', ['id', 'orderId', 'productId', 'productNameSnapshot', 'quantity', 'unitAmount', 'lineAmount', 'currency'], 'financial');
   }
-  if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', 'billableReference', 'provider', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
+  if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', ...(capabilities.subscriptions ? ['subscriptionId'] : []), 'billableReference', 'provider', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
+  if (capabilities.subscriptions) {
+    push('SubscriptionPlan', 'Server-owned recurring offer with immutable price and billing interval.', ['id', 'name', 'priceAmount', 'currency', 'billingInterval', 'trialDays', 'status']);
+    push('CustomerSubscription', 'Provider-reconciled customer entitlement and recurring billing lifecycle.', ['id', 'ownerId', 'planId', 'provider', 'providerCustomerRef', 'providerSubscriptionRef', 'status', 'currentPeriodStart', 'currentPeriodEnd', 'cancelAtPeriodEnd', 'trialEndAt', 'idempotencyKey', 'createdAt', 'updatedAt'], 'financial');
+    push('SubscriptionInvoice', 'Immutable invoice record reconciled against a provider payment attempt.', ['id', 'subscriptionId', 'amount', 'currency', 'status', 'dueAt', 'paidAt', 'paymentAttemptId'], 'financial');
+  }
+  if (capabilities.notifications) push('Notification', 'Owner-scoped in-app notification with explicit read and delivery state.', ['id', 'ownerId', 'channel', 'templateKey', 'payload', 'status', 'readAt', 'sentAt', 'idempotencyKey', 'createdAt'], 'personal-data');
+  if (capabilities.integrations) push('IntegrationEvent', 'Deduplicated, redacted inbound/outbound integration event ledger.', ['id', 'provider', 'externalEventId', 'eventType', 'status', 'idempotencyKey', 'receivedAt', 'processedAt', 'redactedError'], 'security-audit');
+  if (capabilities.automation) push('AutomationRun', 'Auditable scheduled or event-triggered business workflow execution.', ['id', 'workflowKey', 'triggerType', 'triggerRef', 'status', 'idempotencyKey', 'attemptCount', 'startedAt', 'completedAt', 'redactedError'], 'business-data');
   if (capabilities.email) push('DeliveryRecord', 'Outbox/delivery state with retry and provider receipt; not a claim of delivery.', ['id', 'recipientRef', 'sourceType', 'sourceId', 'templateKey', 'idempotencyKey', 'status', 'attemptCount', 'nextAttemptAt', 'providerReceipt'], 'personal-data');
   if (capabilities.newsletter) push('NewsletterSubscription', 'Permission-aware subscription state with consent evidence and secure unsubscribe lifecycle.', ['id', 'listId', 'userId', 'email', 'emailNormalized', 'status', 'consentAt', 'confirmationTokenHash', 'createdAt'], 'personal-data');
   if (capabilities.fileStorage) push('StoredAsset', 'Owner-scoped metadata for quarantined objects with verified content, scan and publication lifecycle.', ['id', 'ownerId', 'storageKey', 'contentType', 'byteSize', 'checksum', 'uploadState', 'scanStatus', 'visibility', 'idempotencyKey', 'createdAt', 'updatedAt', 'deletedAt'], 'private-file');
@@ -172,6 +180,13 @@ function buildDataIntegrityContracts(capabilities) {
     if (capabilities.authentication) addRelation('Order', 'UserAccount', 'many-to-one', 'The order belongs to the verified principal.', 'ownerId', true);
   }
   if (capabilities.payments && capabilities.commerce) addRelation('PaymentAttempt', 'Order', 'many-to-one', 'Payment attempts reconcile against an order.', 'orderId');
+  if (capabilities.subscriptions) {
+    addRelation('CustomerSubscription', 'SubscriptionPlan', 'many-to-one', 'Every subscription uses a server-owned recurring plan.', 'planId');
+    addRelation('SubscriptionInvoice', 'CustomerSubscription', 'many-to-one', 'Every recurring invoice belongs to one subscription.', 'subscriptionId');
+    if (capabilities.authentication) addRelation('CustomerSubscription', 'UserAccount', 'many-to-one', 'A subscription entitlement belongs to the verified account owner.', 'ownerId');
+    if (capabilities.payments) addRelation('PaymentAttempt', 'CustomerSubscription', 'many-to-one', 'Recurring payment attempts reconcile to their subscription.', 'subscriptionId', true);
+  }
+  if (capabilities.notifications && capabilities.authentication) addRelation('Notification', 'UserAccount', 'many-to-one', 'A private notification belongs to the verified account owner.', 'ownerId');
   if (capabilities.fileStorage && capabilities.authentication) addRelation('StoredAsset', 'UserAccount', 'many-to-one', 'Private assets belong to the verified owner.', 'ownerId');
   if (capabilities.admin && capabilities.authentication) addRelation('AuditEvent', 'UserAccount', 'many-to-one', 'Sensitive actions record the verified actor.', 'actorId');
   if (capabilities.email && capabilities.contact) addRelation('DeliveryRecord', 'ContactSubmission', 'many-to-one', 'Contact delivery events retain a link to the original submission.', 'sourceId', false, 'polymorphic-reference');
@@ -200,6 +215,27 @@ function buildDataIntegrityContracts(capabilities) {
     { id: 'asset-publication-gate', appliesTo: 'StoredAsset', rule: 'Only scanned, policy-approved assets may become available; quarantined, rejected and deleted objects must never be served by public routes.' },
     { id: 'asset-content-integrity', appliesTo: 'StoredAsset', rule: 'Verify actual file signature, byte count and checksum server-side; client-declared MIME type and size are advisory only.' },
     { id: 'asset-deletion-consistency', appliesTo: 'StoredAsset', rule: 'Delete or tombstone metadata and object storage through an idempotent cleanup workflow; never leave a public stale object reference.' },
+  );
+  if (capabilities.subscriptions) constraints.push(
+    { id: 'subscription-period-valid', appliesTo: 'CustomerSubscription', rule: 'Persist UTC billing period boundaries with currentPeriodStart before currentPeriodEnd; provider period values are authoritative.' },
+    { id: 'subscription-entitlement-authority', appliesTo: 'CustomerSubscription', rule: 'Grant or revoke paid entitlements only after verified provider reconciliation; browser plan selection or return URLs never activate access.' },
+    { id: 'subscription-idempotency', appliesTo: 'CustomerSubscription, SubscriptionInvoice, PaymentAttempt', rule: 'Deduplicate provider subscription events, invoices and renewals by provider-scoped event/reference IDs.' },
+    { id: 'subscription-cancellation-policy', appliesTo: 'CustomerSubscription', rule: 'Distinguish immediate cancellation from cancel-at-period-end and retain access only until the authoritative paid-through boundary.' },
+  );
+  if (capabilities.notifications) constraints.push(
+    { id: 'notification-owner-scope', appliesTo: 'Notification', rule: 'Derive recipient ownership from verified identity and prevent cross-account reads or read-state updates.' },
+    { id: 'notification-delivery-truth', appliesTo: 'Notification, DeliveryRecord', rule: 'Keep queued, accepted, delivered, failed and read states distinct; never display delivery success without provider evidence.' },
+  );
+  if (capabilities.integrations) constraints.push(
+    { id: 'integration-secret-isolation', appliesTo: 'IntegrationEvent', rule: 'Store credentials only in server-side secret bindings; event logs retain redacted metadata and never raw secrets or full sensitive payloads.' },
+    { id: 'integration-event-idempotency', appliesTo: 'IntegrationEvent', rule: 'Verify webhook authenticity and deduplicate external event IDs within provider and tenant scope before applying side effects.' },
+  );
+  if (capabilities.automation) constraints.push(
+    { id: 'automation-idempotency', appliesTo: 'AutomationRun', rule: 'Scheduled and event-triggered workflows require unique run keys, bounded retries, timeout limits and dead-letter visibility.' },
+  );
+  if (capabilities.commerce) constraints.push(
+    { id: 'inventory-never-negative', appliesTo: 'Product', rule: 'Reserve and release inventory atomically; available stock is stockOnHand minus stockReserved and may never become negative.' },
+    { id: 'inventory-reservation-expiry', appliesTo: 'Order', rule: 'Pending checkout stock reservations have a bounded expiry and are released idempotently after failed or expired payment.' },
   );
   if (capabilities.newsletter) constraints.push(
     { id: 'newsletter-consent-evidence', appliesTo: 'NewsletterSubscription', rule: 'Store consent source/time and confirmation status; do not activate a subscription before required confirmation.' },
@@ -241,6 +277,14 @@ function buildDataIntegrityContracts(capabilities) {
     addIndex('OrderLine', ['orderId'], false, 'Load order details with bounded queries.');
   }
   if (capabilities.payments) addIndex('PaymentAttempt', ['provider', 'providerReference'], true, 'Prevent duplicate provider payment references.');
+  if (capabilities.subscriptions) {
+    addIndex('CustomerSubscription', ['ownerId', 'status', 'currentPeriodEnd'], false, 'Resolve a customer’s current entitlement and upcoming renewal.');
+    addIndex('CustomerSubscription', ['provider', 'providerSubscriptionRef'], true, 'Prevent duplicate provider subscription references.');
+    addIndex('SubscriptionInvoice', ['subscriptionId', 'dueAt'], false, 'List recurring invoices in billing order.');
+  }
+  if (capabilities.notifications) addIndex('Notification', ['ownerId', 'createdAt'], false, 'Paginate private notifications for one verified account.');
+  if (capabilities.integrations) addIndex('IntegrationEvent', ['provider', 'externalEventId'], true, 'Deduplicate inbound provider events.');
+  if (capabilities.automation) addIndex('AutomationRun', ['workflowKey', 'idempotencyKey'], true, 'Prevent duplicate scheduled or event-triggered workflow runs.');
   if (capabilities.email) addIndex('DeliveryRecord', ['status', 'nextAttemptAt'], false, 'Find due outbox deliveries without scanning all records.');
   if (capabilities.newsletter) addIndex('NewsletterSubscription', ['listId', 'emailNormalized'], true, 'Prevent duplicate subscriptions to one list.');
   if (capabilities.forms) {
