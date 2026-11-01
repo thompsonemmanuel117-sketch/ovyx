@@ -503,24 +503,24 @@ function serializeWebsiteEngineModelPlan(plan) {
     minimal.fullStackArchitecture = {
       version: fullStack.version,
       capabilities: fullStack.capabilities,
-      pages: (fullStack.pages || []).slice(0, 10).map(page => [page.id, clean(page.title, 48), clean(page.route, 64)]),
-      apiContracts: (fullStack.apiContracts || []).slice(0, 12).map(route => ({
+      pages: (fullStack.pages || []).slice(0, 8).map(page => [page.id, clean(page.title, 48), clean(page.route, 64)]),
+      apiContracts: (fullStack.apiContracts || []).slice(0, 10).map(route => ({
         id: route.id, method: route.method, path: route.path, capability: route.capability,
         authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 3),
         sideEffect: clean(route.sideEffect, 48),
       })),
-      dataModels: (fullStack.dataModels || []).slice(0, 12).map(model => [
+      dataModels: (fullStack.dataModels || []).slice(0, 10).map(model => [
         model.id, model.name, (model.fields || []).slice(0, 6), model.securityClass,
       ]),
       dataIntegrity: {
-        relationships: (fullStack.dataIntegrity?.relationships || []).slice(0, 16).map(item =>
+        relationships: (fullStack.dataIntegrity?.relationships || []).slice(0, 6).map(item =>
           [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional]),
-        constraints: (fullStack.dataIntegrity?.constraints || []).slice(0, 16).map(item =>
+        constraints: (fullStack.dataIntegrity?.constraints || []).slice(0, 6).map(item =>
           [item.id, clean(item.appliesTo, 64), clean(item.rule, 96)]),
-        indexes: (fullStack.dataIntegrity?.indexes || []).slice(0, 16).map(item =>
+        indexes: (fullStack.dataIntegrity?.indexes || []).slice(0, 4).map(item =>
           [item.entity, (item.fields || []).slice(0, 5), item.unique === true]),
       },
-      integrations: (fullStack.integrations || []).slice(0, 8).map(item =>
+      integrations: (fullStack.integrations || []).slice(0, 4).map(item =>
         [item.capability, item.provider, item.connectionMetadata, item.verification]),
       requirementTraceabilityGroups: [...groupedRequirements.values()],
       graphIntegrity: {
@@ -531,15 +531,15 @@ function serializeWebsiteEngineModelPlan(plan) {
       },
       security: {
         defaultPosture: fullStack.security?.defaultPosture,
-        controls: (fullStack.security?.controls || []).slice(0, 16).map(item => [item.id, clean(item.requirement, 100)]),
+        controls: (fullStack.security?.controls || []).slice(0, 8).map(item => [item.id, clean(item.requirement, 100)]),
         migrationPolicy: fullStack.security?.migrationPolicy,
       },
       backgroundWork: {
         required: fullStack.backgroundWork?.required === true,
         pattern: fullStack.backgroundWork?.pattern,
-        controls: (fullStack.backgroundWork?.controls || []).slice(0, 8),
+        controls: (fullStack.backgroundWork?.controls || []).slice(0, 4),
       },
-      stateMachines: (fullStack.stateMachines || []).slice(0, 8).map(machine => ({
+      stateMachines: (fullStack.stateMachines || []).slice(0, 6).map(machine => ({
         entity: machine.entity,
         initialState: machine.initialState,
         states: (machine.states || []).slice(0, 10),
@@ -547,9 +547,9 @@ function serializeWebsiteEngineModelPlan(plan) {
           [item.from, item.to, clean(item.authority, 88), clean(item.sideEffect, 72)]),
         invariant: clean(machine.invariant, 100),
       })),
-      testPlan: (fullStack.testPlan || []).slice(0, 12).map(test =>
+      testPlan: (fullStack.testPlan || []).slice(0, 8).map(test =>
         [test.id, test.type, test.status, test.requiresExplicitOwnerApproval === true]),
-      honestyRules: compactPlanList(fullStack.honestyRules, 8, 100),
+      honestyRules: compactPlanList(fullStack.honestyRules, 5, 80),
     };
   }
   const serialized = JSON.stringify(minimal);
