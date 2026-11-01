@@ -1,11 +1,11 @@
 # OVYX — Maximum Website Engine Upgrade
 
-**Updated:** 2026-10-31  
+**Updated:** 2026-11-01  
 **Repository:** `thompsonemmanuel117-sketch/ovyx`  
 **Phase 1 foundation merge:** [PR #359](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/359), merged into `main` as `ed990654cea6b5b75291aec94c9de5050839237e`.  
 **Phase 1 closeout repair:** [PR #361](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/361), correcting two post-merge regressions before Phase 1 acceptance.  
-**Phase 2 remains separate:** [PR #360](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/360) is not part of Phase 1 closeout and must not be treated as merged or accepted.  
-**Status at this revision:** Phase 1 is integrated into `main`, but its post-merge verification failed and is being repaired. This register does not claim all 43–75 capabilities are production-ready.
+**Phase 2 full-stack foundation:** [PR #360](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/360) was merged into `main` on 2026-11-01 as `bc61f239aadf31fbdcb9280aa64105f76f03dd90`.  
+**Status at this revision:** Phase 1 and Phase 2 code foundations are integrated into `main`; source-level CI does not certify live production generation, external delivery or all 43–75 capabilities. The current Phase 2 core-engine reconstruction is a separate upgrade workstream.
 
 ## Mission and protected boundaries
 
@@ -42,7 +42,7 @@ The following are invariants for every phase:
 
 ## Phase 2 — full-stack architecture and source generation
 
-Phase 2 is tracked separately in [PR #360](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/360) on `feat/ovyx-fullstack-website-engine-phase-2`; it is not merged or accepted yet. Its current implementation includes a deterministic cross-layer architecture compiler and a second backend-source generation stage shared by the authenticated Assistant and Gateway.
+Phase 2 full-stack architecture/source-generation foundation is merged in [PR #360](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/360) as `bc61f239aadf31fbdcb9280aa64105f76f03dd90`. This provides source-generation contracts and regression coverage, but does not establish live database provisioning, migrations, external service delivery or deployed application acceptance. Its current implementation includes a deterministic cross-layer architecture compiler and a second backend-source generation stage shared by the authenticated Assistant and Gateway.
 
 The backend stage uses the trusted server-derived architecture contract to request complete route handlers, provider-appropriate database schemas/migrations, relationship declarations and safe tests. It checks generated route files and HTTP methods, protected-route or public-abuse-control evidence, schema/model evidence and declared relationship fields. It rejects unsafe paths and credential-shaped generated source, allows one targeted repair pass, and includes backend model usage in quota accounting. The selected database/auth/payment/email provider identity is preserved without treating connection metadata as proof of live access.
 
