@@ -650,6 +650,32 @@ function buildWorkflowStateMachines(capabilities) {
     ],
     'Automation runs must be tenant-scoped, time-bounded, idempotent and unable to perform high-impact actions without the declared approval policy.'
   );
+  if (capabilities.commerce) add(
+    'Shipment lifecycle', 'Shipment', 'created',
+    ['created', 'label_created', 'shipped', 'in_transit', 'delivered', 'exception', 'returned', 'canceled'],
+    [
+      ['created', 'label_created', 'authorized fulfillment staff or carrier adapter', 'create-carrier-label'],
+      ['label_created', 'shipped', 'carrier acceptance or verified staff handoff', 'record-carrier-acceptance'],
+      ['shipped', 'in_transit', 'verified carrier tracking event', 'update-tracking-state'],
+      ['in_transit', 'delivered', 'verified carrier delivery event', 'complete-shipment'],
+      ['in_transit', 'exception', 'verified carrier exception event', 'notify-fulfillment-staff'],
+      ['exception', 'in_transit', 'verified carrier recovery event', 'resume-tracking'],
+      ['shipped', 'returned', 'verified carrier return event', 'start-return-workflow'],
+      ['created', 'canceled', 'authorized staff before carrier handoff', 'cancel-shipment'],
+    ],
+    'Never mark a shipment delivered from browser input; reconcile tracking changes from a trusted carrier event or authorized staff evidence.'
+  );
+  if (capabilities.payments) add(
+    'Refund lifecycle', 'Refund', 'requested',
+    ['requested', 'pending', 'succeeded', 'failed', 'canceled'],
+    [
+      ['requested', 'pending', 'server refund policy and captured-payment balance check', 'create-provider-refund'],
+      ['pending', 'succeeded', 'verified provider refund event or authoritative lookup', 'reconcile-refund'],
+      ['pending', 'failed', 'verified provider failure or terminal rejection', 'record-refund-failure'],
+      ['requested', 'canceled', 'authorized owner/finance cancellation before provider acceptance', 'cancel-refund-request'],
+    ],
+    'Cumulative refunds cannot exceed the verified captured amount; never mark refunded until the provider confirms the refund.'
+  );
   if (capabilities.booking) add(
     'Booking lifecycle', 'Booking', 'requested',
     ['requested', 'pending_confirmation', 'confirmed', 'rejected', 'completed', 'cancelled', 'no_show', 'expired'],
@@ -920,6 +946,8 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     const relevantRoutes = apiContracts.filter(route => {
       const path = route.path.toLowerCase();
       if (machine.entity === 'Order') return route.capability === 'commerce' || path.includes('checkout') || path.includes('/orders');
+      if (machine.entity === 'Shipment') return route.capability === 'commerce' && (path.includes('shipments') || path.includes('/orders'));
+      if (machine.entity === 'Refund') return route.capability === 'payments' || path.includes('refund');
       if (machine.entity === 'CustomerSubscription') return route.capability === 'subscriptions' || path.includes('subscriptions');
       if (machine.entity === 'Notification') return route.capability === 'notifications' || path.includes('notifications');
       if (machine.entity === 'IntegrationEvent') return route.capability === 'integrations' || path.includes('webhooks');
