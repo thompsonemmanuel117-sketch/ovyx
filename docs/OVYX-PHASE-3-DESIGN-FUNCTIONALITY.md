@@ -39,7 +39,7 @@
 ## Additional implemented tranche
 
 - Added `functions/_lib/experience-quality.js`, an evidence-aware source audit for page metadata, document language, primary heading/landmark and heading order, image alternatives/dimensions, accessible button/link names, anchor destinations, form-control naming, responsive media rules, reduced-motion support and visible focus rules.
-- Integrated the source audit into `auditWebsiteIntegrity()` as the additive `experienceQuality` report. It also detects duplicate page titles/descriptions and reports missing Open Graph title/description and root robots/sitemap artifacts as actionable findings. It explicitly marks rendered visuals, browser interactions, responsive rendering, WCAG conformance, external assets, live integrations and search rankings as `not-verified` until independent evidence exists.
+- Integrated the source audit into `auditWebsiteIntegrity()` as the additive `experienceQuality` report. It also detects duplicate page titles/descriptions, canonical-link cardinality/hrefs and JSON-LD syntax, and reports missing Open Graph title/description and root robots/sitemap artifacts as actionable findings. It explicitly marks rendered visuals, browser interactions, responsive rendering, WCAG conformance, external assets, live integrations and search rankings as `not-verified` until independent evidence exists.
 - Added `scripts/ovyx-experience-quality.test.mjs` to the complete `npm test` chain.
 - Expanded design-system and visual-asset responsive targets from five to thirteen widths: 320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440 and 1920 px.
 
