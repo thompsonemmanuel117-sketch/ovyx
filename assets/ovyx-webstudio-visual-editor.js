@@ -82,9 +82,9 @@
     record.previousContent = context.source;
     record.dirty = true;
     w.syncGraphToProject && w.syncGraphToProject();
-    pushUndoState(w, before);
     if (typeof w.commitHistory === 'function') w.commitHistory(label, before, snapshot(w));
     else if (typeof w.recordHistory === 'function') w.recordHistory();
+    pushUndoState(w, before);
     if (typeof w.renderPreview === 'function') w.renderPreview();
     if (typeof w.syncWebContainerFiles === 'function') Promise.resolve(w.syncWebContainerFiles()).catch(function () {});
     window.dispatchEvent(new CustomEvent('ovyx:visual-edit-saved', { detail: { file: context.file, label: label } }));
