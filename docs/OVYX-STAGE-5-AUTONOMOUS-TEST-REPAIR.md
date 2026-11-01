@@ -59,6 +59,21 @@ The real in-editor Web Studio quality runtime now reads `ovyx-qa-plan.json`, map
 - Limit repair attempts (initially one repair pass per failed build), bound tokens/files/source context, preserve the original artifact and record every accepted/rejected change.
 - If the app requires credentials or external resources that are not configured, report the exact test as blocked/unverified rather than fabricating success.
 
+## Remaining backend-runtime adapter contract
+
+The first supported adapter should target OVYX's Cloudflare Pages Functions + D1 output, then add other generated deployment targets through separate adapters.
+
+1. Copy only the generated project artifact into a temporary workspace. Exclude `.git`, `.env*`, `node_modules`, build caches and any owner credentials.
+2. Start Wrangler Pages in local-only mode with a new disposable D1 database and local R2/KV bindings only when the generated project declares supported bindings.
+3. Apply the generated migrations to the empty database. Migration failure is a blocker; never fall back to an existing database.
+4. Read a bounded `backendChecks` section from `ovyx-qa-plan.json`. Use synthetic payloads and only the local runtime origin. Support response assertions, captured IDs, follow-up reads, ownership checks and read-only SQL assertions. Mutating API calls are allowed only against the disposable local database.
+5. Authentication tests require an explicit test adapter with per-run synthetic identities and a random test-only secret. Do not bypass production auth, reuse Firebase credentials, or assume that a mocked token proves a real OAuth/Firebase provider integration.
+6. Block or report as blocked any workflow requiring unavailable bindings, provider credentials, external delivery, production services or an unsupported framework adapter. Run the local worker with a sanitized environment and no production secrets; add outbound-network denial before accepting arbitrary generated code for runtime execution.
+7. After tests, destroy the temporary database and workspace. Keep only sanitized test results, route/status evidence and redacted failure messages.
+8. Feed eligible failures into the bounded repair coordinator, then rebuild the disposable runtime and rerun the same backend/browser journey suite. Reject any candidate that introduces a new failure or reduces coverage.
+
+Only after this adapter is integrated into the Web Studio build/project-revision lifecycle can the backend channel move from blocked to passed. Next.js, Vite/Node servers and other targets must remain explicitly unsupported/blocked until their own isolated runtime adapters exist.
+
 ## Additional quality upgrades to include before declaring Stage 5 complete
 
 - **Visual regression:** retain before/after screenshots and compare layout regions at mobile, tablet and desktop sizes. Ignore only explicitly approved dynamic regions; never hide a genuine layout regression.
