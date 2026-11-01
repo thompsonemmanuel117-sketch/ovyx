@@ -278,6 +278,7 @@ try {
   };
   const ownerAToken = signToken('customer-a');
   const ownerBToken = signToken('customer-b');
+  const ownerCToken = signToken('customer-c');
   const request = (path, token, method = 'GET', payload, headers = {}) => fetch(baseUrl + path, {
     method,
     headers: {
@@ -309,11 +310,9 @@ try {
   assert.equal((await read(repeatedCheckout)).duplicate, true, 'Checkout retries must return the original order.');
   const orderRows = (await read(await request('/api/orders', ownerAToken))).data;
   assert.equal(orderRows.length, 1);
-  const otherCart = await request('/api/cart/items', ownerBToken, 'POST', { productId: 'product-1', quantity: 4 });
-  assert.equal(otherCart.status, 201);
-  const oversell = await request('/api/checkout', ownerBToken, 'POST', {}, { 'idempotency-key': 'checkout-customer-b-001' });
-  assert.equal(oversell.status, 409, 'Inventory must not be oversold after the first order reserves stock.');
-  assert.equal((await read(await request('/api/orders', ownerBToken))).data.length, 0, 'Failed inventory reservation must not create an order.');
+  const overLimitCart = await request('/api/cart/items', ownerBToken, 'POST', { productId: 'product-1', quantity: 4 });
+  assert.equal(overLimitCart.status, 409, 'A cart cannot request more units than current inventory.');
+  assert.equal((await read(await request('/api/cart', ownerBToken))).data.items.length, 0, 'Rejected cart quantities must not be persisted.');
   assert.equal(orderRows[0].id, order.id);
   const otherOrders = (await read(await request('/api/orders', ownerBToken))).data;
   assert.equal(otherOrders.length, 0, 'Order history must be tenant isolated.');
@@ -384,6 +383,17 @@ try {
   const otherDashboard = (await read(await request('/api/dashboard/summary', ownerBToken))).data;
   assert.equal(otherDashboard.paidOrders, 0);
   assert.equal(otherDashboard.revenueMinor, 0);
+
+  // Two independent checkouts compete for the remaining three units. D1 must
+  // serialize the stock reservation so only one order can commit.
+  assert.equal((await request('/api/cart/items', ownerBToken, 'POST', { productId: 'product-1', quantity: 2 })).status, 201);
+  assert.equal((await request('/api/cart/items', ownerCToken, 'POST', { productId: 'product-1', quantity: 2 })).status, 201);
+  const competingCheckouts = await Promise.all([
+    request('/api/checkout', ownerBToken, 'POST', {}, { 'idempotency-key': 'checkout-customer-b-race' }),
+    request('/api/checkout', ownerCToken, 'POST', {}, { 'idempotency-key': 'checkout-customer-c-race' }),
+  ]);
+  assert.deepEqual(competingCheckouts.map(response => response.status).sort((a, b) => a - b), [201, 409],
+    'Concurrent checkout must not oversell the remaining inventory.');
 
   const automationPayload = { workflowId: 'send-order-receipt', idempotencyKey: 'automation-order-a-001' };
   const automationFirst = await request('/api/automation/runs', ownerAToken, 'POST', automationPayload);
