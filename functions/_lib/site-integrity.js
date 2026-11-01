@@ -335,7 +335,7 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
     totalFindings: issues.length,
     counts,
     summary: issues.length
-      ? issues.length + ' source-level website integrity or accessibility issue(s) need review.'
+      ? issues.length + ' source-level website integrity or accessibility issue(s) need review.' + (routeCollisions.length ? ' ' + routeCollisions.length + ' duplicate page route collision(s) were detected.' : '')
       : 'No duplicate page routes, unresolved internal routes, broken same-page or cross-page fragments, placeholder links, missing local asset and responsive-image references, duplicate IDs, images without alt attributes, or obvious source-level form/ARIA label references were found.',
     externalResourcesVerified: false,
     runtimeBehaviorVerified: false,
