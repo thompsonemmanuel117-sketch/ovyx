@@ -9,7 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 const root = await mkdtemp(join(tmpdir(), 'ovyx-generated-backend-runtime-'));
 const functionsDir = join(root, 'functions', 'api');
 const migrationsDir = join(root, 'migrations');
-const configPath = join(root, 'wrangler.toml');
+const configPath = join(root, 'wrangler.jsonc');
 const migrationPath = join(migrationsDir, '0001_initial.sql');
 const routePath = join(functionsDir, 'records.js');
 const databaseName = 'ovyx-generated-backend-runtime';
@@ -52,17 +52,16 @@ let port;
 try {
   await mkdir(functionsDir, { recursive: true });
   await mkdir(migrationsDir, { recursive: true });
-  await writeFile(configPath, [
-    'name = "ovyx-generated-backend-runtime"',
-    'compatibility_date = "2026-10-31"',
-    '',
-    '[[d1_databases]]',
-    'binding = "DB"',
-    'database_name = "' + databaseName + '"',
-    'database_id = "00000000-0000-0000-0000-000000000000"',
-    'migrations_dir = "migrations"',
-    '',
-  ].join('\n'));
+  await writeFile(configPath, JSON.stringify({
+    name: 'ovyx-generated-backend-runtime',
+    compatibility_date: '2026-10-31',
+    d1_databases: [{
+      binding: 'DB',
+      database_name: databaseName,
+      database_id: '00000000-0000-0000-0000-000000000000',
+      migrations_dir: 'migrations',
+    }],
+  }, null, 2));
   await writeFile(migrationPath, migrationSql);
   await writeFile(routePath, routeSource);
   await writeFile(join(functionsDir, 'bookings.js'), bookingRouteSource);
@@ -85,7 +84,7 @@ try {
     });
   };
 
-  await wrangler('d1', 'execute', databaseName, '--local', '--file', migrationPath, '--config', configPath);
+  await wrangler('d1', 'execute', databaseName, '--local', '--file', migrationPath);
   const portServer = createServer();
   await new Promise((resolve, reject) => {
     portServer.once('error', reject);
@@ -95,7 +94,7 @@ try {
   await new Promise(resolve => portServer.close(resolve));
 
   server = spawn(wranglerBin, [
-    'pages', 'dev', '.', '--local', '--ip', '127.0.0.1', '--port', String(port), '--config', configPath,
+    'pages', 'dev', '.', '--local', '--ip', '127.0.0.1', '--port', String(port),
   ], {
     cwd: root,
     env: { ...process.env, WRANGLER_SEND_METRICS: 'false', CI: '1' },
