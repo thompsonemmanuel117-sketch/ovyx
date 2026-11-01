@@ -65,7 +65,8 @@ try {
   await writeFile(configPath, JSON.stringify({
     name: 'ovyx-generated-backend-runtime',
     compatibility_date: '2026-10-31',
-    r2_buckets: [{ binding: 'ASSETS', bucket_name: 'ovyx-generated-backend-runtime-assets' }],\n    d1_databases: [{
+    r2_buckets: [{ binding: 'ASSETS', bucket_name: 'ovyx-generated-backend-runtime-assets' }],
+    d1_databases: [{
       binding: 'DB',
       database_name: databaseName,
       database_id: '00000000-0000-0000-0000-000000000000',
@@ -74,7 +75,8 @@ try {
   }, null, 2));
   await writeFile(migrationPath, migrationSql);
   await writeFile(routePath, routeSource);
-  await writeFile(join(functionsDir, 'bookings.js'), bookingRouteSource);\n  await writeFile(join(functionsDir, 'assets.js'), uploadRouteSource);
+  await writeFile(join(functionsDir, 'bookings.js'), bookingRouteSource);
+  await writeFile(join(functionsDir, 'assets.js'), uploadRouteSource);
 
   const wrangler = (...args) => {
     const child = spawn(wranglerBin, args, {
