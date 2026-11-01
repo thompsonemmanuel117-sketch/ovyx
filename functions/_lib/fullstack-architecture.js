@@ -241,6 +241,10 @@ function buildDataIntegrityContracts(capabilities) {
     { id: 'subscription-idempotency', appliesTo: 'CustomerSubscription, SubscriptionInvoice, PaymentAttempt', rule: 'Deduplicate provider subscription events, invoices and renewals by provider-scoped event/reference IDs.' },
     { id: 'subscription-cancellation-policy', appliesTo: 'CustomerSubscription', rule: 'Distinguish immediate cancellation from cancel-at-period-end and retain access only until the authoritative paid-through boundary.' },
   );
+  if (capabilities.payments) constraints.push(
+    { id: 'refund-captured-amount-limit', appliesTo: 'Refund', rule: 'Refund only a successfully captured payment; cumulative partial and full refunds may never exceed the verified captured amount.' },
+    { id: 'refund-provider-reconciliation', appliesTo: 'Refund', rule: 'A refund remains pending until the authoritative provider confirms it; retries use provider-scoped idempotency keys.' },
+  );
   if (capabilities.notifications) constraints.push(
     { id: 'notification-owner-scope', appliesTo: 'Notification', rule: 'Derive recipient ownership from verified identity and prevent cross-account reads or read-state updates.' },
     { id: 'notification-delivery-truth', appliesTo: 'Notification, DeliveryRecord', rule: 'Keep queued, accepted, delivered, failed and read states distinct; never display delivery success without provider evidence.' },
@@ -255,6 +259,8 @@ function buildDataIntegrityContracts(capabilities) {
   if (capabilities.commerce) constraints.push(
     { id: 'inventory-never-negative', appliesTo: 'Product', rule: 'Reserve and release inventory atomically; available stock is stockOnHand minus stockReserved and may never become negative.' },
     { id: 'inventory-reservation-expiry', appliesTo: 'Order', rule: 'Pending checkout stock reservations have a bounded expiry and are released idempotently after failed or expired payment.' },
+    { id: 'promotion-usage-integrity', appliesTo: 'Promotion', rule: 'Validate active windows, currency, minimum spend and per-customer/global usage limits on the server; increment usage atomically with order commit.' },
+    { id: 'shipment-order-integrity', appliesTo: 'Shipment', rule: 'Shipment status and tracking data are updated only by authorized staff or verified carrier events and remain linked to the owning order.' },
   );
   if (capabilities.newsletter) constraints.push(
     { id: 'newsletter-consent-evidence', appliesTo: 'NewsletterSubscription', rule: 'Store consent source/time and confirmation status; do not activate a subscription before required confirmation.' },
@@ -372,12 +378,17 @@ function buildApiContracts(capabilities) {
     add('POST', '/api/cart/quote', 'commerce', 'session-or-authenticated', 'Recalculate line items, discounts, tax and inventory on the server.', ['model-cart', 'model-cartitem', 'model-product', 'model-order']);
     add('GET', '/api/orders', 'commerce', 'authenticated-owner-or-scoped-guest-session', 'List only the current customer’s orders with bounded pagination and immutable purchase snapshots.', ['model-order', 'model-orderline']);
     add('GET', '/api/orders/:orderId', 'commerce', 'authenticated-owner-or-scoped-guest-session', 'Read an order only after owner or signed guest-session authorization.', ['model-order', 'model-orderline']);
+    add('GET', '/api/orders/:orderId/shipments', 'commerce', 'authenticated-order-owner-or-scoped-guest-session', 'Read shipment and tracking history only for the authorized order owner.', ['model-order', 'model-shipment']);
+    add('POST', '/api/promotions/validate', 'commerce', 'session-or-authenticated', 'Validate a promotion code against server-calculated cart subtotal, currency, date window and usage policy without reserving usage.', ['model-promotion', 'model-cart', 'model-cartitem', 'model-product']);
     if (capabilities.admin) {
       add('GET', '/api/admin/orders', 'commerce', 'administrator-or-fulfillment-role', 'List orders for authorized staff with filters, pagination and audit-safe customer fields.', ['model-order', 'model-orderline']);
       add('GET', '/api/admin/inventory', 'commerce', 'administrator-or-inventory-role', 'Read authoritative stock, reservations and low-stock alerts.', ['model-product']);
       add('POST', '/api/admin/products', 'commerce', 'administrator-or-catalog-manager-role', 'Create a catalog product with server-validated integer minor-unit price, currency and stock policy.', ['model-product']);
       add('PATCH', '/api/admin/products/:productId', 'commerce', 'administrator-or-catalog-manager-role', 'Update allowlisted catalog fields without rewriting immutable order snapshots.', ['model-product']);
       add('POST', '/api/admin/inventory/adjustments', 'commerce', 'administrator-or-inventory-role', 'Apply an atomic stock adjustment with a required reason and append-only inventory movement record.', ['model-product', 'model-inventorymovement']);
+      add('POST', '/api/admin/promotions', 'commerce', 'administrator-or-catalog-manager-role', 'Create a validated promotion with active window, currency and atomic usage limits.', ['model-promotion']);
+      add('PATCH', '/api/admin/promotions/:promotionId', 'commerce', 'administrator-or-catalog-manager-role', 'Update allowlisted promotion policy without changing historical order totals.', ['model-promotion']);
+      add('POST', '/api/admin/orders/:orderId/shipments', 'commerce', 'administrator-or-fulfillment-role', 'Create a shipment for an authorized paid/fulfillable order and persist carrier tracking details.', ['model-order', 'model-shipment']);
       add('PATCH', '/api/admin/orders/:orderId', 'commerce', 'administrator-or-fulfillment-role', 'Apply only allowed fulfillment transitions and record an audit event.', ['model-order']);
     }
     if (!capabilities.payments) {
@@ -419,6 +430,9 @@ function buildApiContracts(capabilities) {
   }
   if (capabilities.automation && capabilities.admin) add('GET', '/api/admin/automation/runs', 'automation', 'administrator-role-and-tenant-scope', 'Inspect scheduled and event-triggered workflow runs, retries and dead letters with redacted errors.', ['model-automationrun']);
   if (capabilities.payments) {
+    add('GET', '/api/payments', 'payments', 'authenticated-owner-only', 'List only the verified owner’s payment attempts with redacted provider metadata.', ['model-paymentattempt']);
+    add('POST', '/api/payments/:paymentId/refunds', 'payments', 'authenticated-owner-or-authorized-refund-staff', 'Request a policy-eligible partial or full refund against a verified captured payment; never exceed the remaining captured amount.', ['model-paymentattempt', 'model-refund'], { sideEffect: 'provider-refund-with-idempotency' });
+    if (capabilities.admin) add('GET', '/api/admin/refunds', 'payments', 'administrator-or-finance-role', 'Review tenant-scoped refund requests and provider reconciliation states.', ['model-refund', 'model-paymentattempt']);
     if (!capabilities.commerce && !capabilities.subscriptions) add('POST', '/api/payments/intents', 'payments', 'verified-customer-or-server-authorized-billable-reference', 'Create a payment intent for a server-authorized invoice or billable action; amount and currency are server-derived.', ['model-paymentattempt'], { sideEffect: 'provider-payment-intent-with-idempotency' });
     add('POST', '/api/webhooks/payments', 'payments', 'provider-signature-and-replay-protected', 'Verify webhook signature, timestamp and event identity before idempotent reconciliation.', ['model-paymentattempt', ...(capabilities.commerce ? ['model-order'] : [])], { sideEffect: 'idempotent-payment-reconciliation', csrf: 'provider signature required' });
   }
