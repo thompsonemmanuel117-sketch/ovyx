@@ -1158,6 +1158,17 @@ export async function runWebsiteGeneration(options = {}) {
       }
     }
   }
+  if (shouldBuild && !scopedEdit) {
+    const existingFiles = result.files && typeof result.files === 'object' && !Array.isArray(result.files)
+      ? result.files : {};
+    const frontendHtml = typeof result.html === 'string' ? result.html
+      : typeof result.content === 'string' ? result.content
+        : typeof result.text === 'string' && /<(?:!doctype\\s+html|html\\b)/i.test(result.text) ? result.text : '';
+    if (!Object.keys(existingFiles).length || !Object.keys(existingFiles).some(file => /\\.html?$/i.test(file))) {
+      result = { ...result, files: { ...existingFiles, ...(frontendHtml ? { 'index.html': frontendHtml } : {}) } };
+    }
+  }
+
   let autonomousQa = null;
   if (shouldBuild && !scopedEdit && result.files && typeof result.files === 'object' && !Array.isArray(result.files)) {
     const initialStaticEvidence = evaluateGeneratedWebsiteFiles(result.files);
