@@ -141,11 +141,54 @@ export function buildWebsiteFileGraph(input, options = {}) {
     kind: /\.css$/i.test(path) ? 'style' : /\.(?:png|jpe?g|gif|webp|avif|svg|woff2?|ttf|otf)$/i.test(path) ? 'asset' :
       /\.(?:html?)$/i.test(path) ? 'page' : CODE_EXT.test(path) ? 'code' : 'data',
   }));
+  // Derive a bounded static route-to-component usage map from module dependencies.
+  const componentCandidates = new Map();
+  for (const [path, source] of files) {
+    if (!CODE_EXT.test(path)) continue;
+    const names = new Set();
+    for (const match of source.matchAll(/\bexport\s+(?:default\s+)?(?:async\s+)?(?:function|class)\s+([A-Z][A-Za-z0-9_$]*)/g)) names.add(match[1]);
+    for (const match of source.matchAll(/\bexport\s+(?:const|let|var)\s+([A-Z][A-Za-z0-9_$]*)\s*=/g)) names.add(match[1]);
+    if (names.size) componentCandidates.set(path, [...names].sort());
+  }
+  const routeEntrypoints = [...files.keys()].filter(path => /\.html?$/i.test(path) || /(?:^|\/)(?:page|index)\.(?:tsx?|jsx?)$/i.test(path));
+  const outgoing = new Map();
+  for (const edge of edges) {
+    if (!outgoing.has(edge.from)) outgoing.set(edge.from, []);
+    outgoing.get(edge.from).push(edge.to);
+  }
+  const componentUsage = new Map([...componentCandidates.keys()].map(path => [path, new Set()]));
+  const routeComponents = [];
+  for (const route of routeEntrypoints) {
+    const visited = new Set([route]), queue = [route], used = [];
+    while (queue.length) {
+      const current = queue.shift();
+      for (const next of outgoing.get(current) || []) {
+        if (visited.has(next)) continue;
+        visited.add(next);
+        queue.push(next);
+        if (componentCandidates.has(next)) {
+          used.push(next);
+          componentUsage.get(next)?.add(route);
+        }
+      }
+    }
+    routeComponents.push({ route, componentPaths: [...new Set(used)].sort() });
+  }
+  const componentGraph = {
+    status: truncated ? 'bounded-partial' : 'analyzed',
+    components: [...componentCandidates].map(([path, exports]) => ({ path, exports, usedByRoutes: [...(componentUsage.get(path) || [])].sort() })),
+    routes: routeComponents,
+    unreferencedComponents: [...componentCandidates.keys()].filter(path => !componentUsage.get(path)?.size).sort(),
+    routeCount: routeComponents.length,
+    componentCount: componentCandidates.size,
+    evidence: 'static-import-graph; dynamic imports, runtime registries and implicit framework usage may not be visible',
+  };
   return {
     version: 1,
     status: truncated ? 'bounded-partial' : files.size ? 'analyzed' : 'no-project-files',
     nodes,
     edges,
+    componentGraph,
     missingReferences,
     limits: { maxFiles, maxTotalSourceChars: maxTotal, maxEdges, maxMissingReferences: maxMissing, filesAnalyzed: files.size, sourceCharsAnalyzed: totalChars, edgesTruncated, missingReferencesTruncated, truncated },
     reverseDependencies: Object.fromEntries([...reverse].map(([path, dependents]) => [path, [...dependents].sort()])),
@@ -172,9 +215,11 @@ export function analyzeWebsiteFileImpact(graph, changedPaths = []) {
     }
   }
   const impacted = [...seen].filter(path => !changed.includes(path)).sort((a,b) => (depth.get(a)||0)-(depth.get(b)||0) || a.localeCompare(b));
+  const affectedRoutes = (graph?.componentGraph?.routes || []).filter(route => [...changed, ...impacted].some(path => route.componentPaths.includes(path) || route.route === path)).map(route => route.route).sort();
   return {
     changedPaths: changed,
     impactedPaths: impacted,
+    affectedRoutes,
     totalAffected: changed.length + impacted.length,
     maxDependencyDepth: Math.max(0, ...[...depth.values()]),
     requiresBroadReview: impacted.length >= 12 || changed.length >= 5,
