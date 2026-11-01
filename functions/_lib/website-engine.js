@@ -624,12 +624,13 @@ function auditBackendFiles(files, architecture) {
       schema.includes("createtable('" + plural + "'");
     return { id: model.id, name, present };
   });
+  const modelNamesById = new Map((architecture.dataModels || []).map(model => [String(model.id), String(model.name || '')]));
   const relations = (architecture.dataIntegrity && architecture.dataIntegrity.relationships || []).map(relation => {
     const field = String(relation.foreignKeyField || '').toLowerCase();
-    const from = String(relation.from || '').replace(/^model-/, '');
-    const to = String(relation.to || '').replace(/^model-/, '');
+    const from = modelNamesById.get(String(relation.from)) || String(relation.from || '').replace(/^model-/, '');
+    const to = modelNamesById.get(String(relation.to)) || String(relation.to || '').replace(/^model-/, '');
     const toTable = value => {
-      const snake = String(value || '').replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+      const snake = String(value || '').replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/-/g, '_').toLowerCase();
       return snake.endsWith('s') ? snake : snake + 's';
     };
     const relationSignal = /foreign key|references|@relation|relation|reference|ref\b/i.test(schema);
