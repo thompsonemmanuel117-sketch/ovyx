@@ -143,7 +143,6 @@
       if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.journeys) || !Array.isArray(parsed.apiChecks)) {
         return { status: 'invalid', journeys: [], apiChecks: [] };
       }
-      var allowed = new Set(['click', 'fill', 'check', 'uncheck', 'select', 'expectText', 'expectVisible', 'expectHidden', 'expectUrl', 'expectValue']);
       var journeys = parsed.journeys.slice(0, 12).map(function (journey, index) {
         var startRoute = text(journey && journey.startRoute).trim();
         if (!startRoute || startRoute.charAt(0) !== '/' || startRoute.indexOf('//') === 0 || startRoute.indexOf('\\') >= 0 || /(?:^|\/)\.\.?(?:\/|$)/.test(startRoute)) startRoute = '';
@@ -159,7 +158,7 @@
               text: trim(step && step.text, 300),
               value: typeof (step && step.value) === 'string' ? step.value.slice(0, 500) : '',
             };
-          }).filter(function (step) { return allowed.has(step.action); })
+          })
         };
       });
       return { status: journeys.length ? 'ready' : 'empty', journeys: journeys, apiChecks: parsed.apiChecks.slice(0, 20) };
