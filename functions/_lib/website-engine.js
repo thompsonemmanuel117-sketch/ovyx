@@ -612,6 +612,22 @@ function auditBackendFiles(files, architecture) {
     id: relation.id, field: relation.foreignKeyField,
     present: !!schema && schema.includes(String(relation.foreignKeyField || '').toLowerCase()),
   }));
+  const indexes = (architecture.dataIntegrity && architecture.dataIntegrity.indexes || []).map(index => {
+    const entity = String(index.entity || '');
+    const snake = entity.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+    const table = snake.endsWith('s') ? snake : snake + 's';
+    const fields = Array.isArray(index.fields) ? index.fields.map(field => String(field).toLowerCase()) : [];
+    const fieldsPresent = fields.length > 0 && fields.every(field => schema.includes(field));
+    const entityPresent = schema.includes(entity.toLowerCase()) || schema.includes(table);
+    const sqlIndex = schema.includes('create index') || schema.includes('create unique index');
+    const ormIndex = schema.includes('@@index') || schema.includes('uniqueindex(') || schema.includes('index(');
+    const documentIndex = schema.includes('collectiongroup') || schema.includes('indexes');
+    const uniquePresent = !index.unique || schema.includes('unique') || schema.includes('@@unique') || schema.includes('uniqueindex(');
+    return {
+      entity, fields, unique: Boolean(index.unique),
+      present: fieldsPresent && entityPresent && (sqlIndex || ormIndex || documentIndex) && uniquePresent,
+    };
+  });
   const allGeneratedSource = entries.map(entry => entry[1]).join('\n').toLowerCase();
   const workflows = (architecture.stateMachines || []).map(machine => {
     const entity = String(machine.entity || '').toLowerCase();
@@ -628,6 +644,7 @@ function auditBackendFiles(files, architecture) {
   });
   models.filter(model => !model.present).forEach(model => missing.push('Missing database schema model: ' + model.name));
   relations.filter(relation => !relation.present).forEach(relation => missing.push('Missing database relationship field: ' + relation.field));
+  indexes.filter(index => !index.present).forEach(index => missing.push('Missing database index: ' + index.entity + '(' + index.fields.join(', ') + ')'));
   workflows.filter(workflow => !workflow.statesPresent || !workflow.transitionPresent).forEach(workflow =>
     missing.push('Missing business workflow implementation evidence: ' + workflow.entity)
   );
@@ -638,6 +655,7 @@ function auditBackendFiles(files, architecture) {
     authorizationEvidenceCount: routes.filter(route => route.authOk).length,
     modelCount: models.length, modelSchemaEvidenceCount: models.filter(model => model.present).length,
     relationshipCount: relations.length, relationshipEvidenceCount: relations.filter(relation => relation.present).length,
+    indexCount: indexes.length, indexEvidenceCount: indexes.filter(index => index.present).length,
     workflowCount: workflows.length, workflowEvidenceCount: workflows.filter(workflow => workflow.statesPresent && workflow.transitionPresent).length,
     workflowEvidence: workflows,
     runtimeBehaviorVerified: false, databasePersistenceVerified: false, integrationDeliveryVerified: false,
