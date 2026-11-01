@@ -6,6 +6,8 @@ const SCRIPT_IMPORT = /(?:\bimport\s+(?:[^'";]*?\s+from\s+)?|\bexport\s+[^'";]*?
 const CSS_IMPORT = /@import\s+(?:url\()?\s*['"]?([^'")\s;]+)['"]?\s*\)?/gi;
 const CSS_URL = /url\(\s*['"]?([^'")]+)['"]?\s*\)/gi;
 const HTML_REFERENCE = /\b(?:src|href|action|poster)\s*=\s*(['"])(.*?)\1/gi;
+const HTML_SRCSET = /\bsrcset\s*=\s*(['"])(.*?)\1/gi;
+const NEW_URL_REFERENCE = /\bnew\s+URL\s*\(\s*(['"])(.*?)\1\s*,\s*import\.meta\.url\s*\)/g;
 const EXTENSIONS = ['', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.json', '.css', '.scss', '.html', '.vue', '.svelte', '.astro', '/index.js', '/index.ts', '/index.tsx', '/index.jsx'];
 
 function safePath(value) {
@@ -33,6 +35,7 @@ function collectReferences(path, source) {
   };
   if (CODE_EXT.test(path)) {
     for (const match of source.matchAll(SCRIPT_IMPORT)) add(match[1], 'module-import');
+    for (const match of source.matchAll(NEW_URL_REFERENCE)) add(match[2], 'module-asset-reference');
   }
   if (/\.css$/i.test(path) || /\.(?:vue|svelte|astro|html?)$/i.test(path)) {
     for (const match of source.matchAll(CSS_IMPORT)) add(match[1], 'stylesheet-import');
@@ -42,12 +45,18 @@ function collectReferences(path, source) {
     for (const match of source.matchAll(HTML_REFERENCE)) {
       const attribute = match[0].slice(0, match[0].indexOf('=')).trim().toLowerCase();
       if (attribute === 'action') continue;
-      add(match[2], 'document-reference');
+      add(match[2], attribute === 'href' ? 'route-or-document-reference' : 'document-reference');
+    }
+    for (const match of source.matchAll(HTML_SRCSET)) {
+      for (const candidate of match[2].split(',')) {
+        const url = candidate.trim().split(/\s+/)[0];
+        if (url) add(url, 'responsive-image-reference');
+      }
     }
   }
   return refs;
 }
-function resolveReference(from, specifier, known) {
+function resolveReference(from, specifier, known, kind = '') {
   const base = specifier.startsWith('/')
     ? specifier.slice(1)
     : from.split('/').slice(0, -1).concat(specifier.split('/')).join('/');
@@ -59,10 +68,22 @@ function resolveReference(from, specifier, known) {
   }
   const normalized = safePath(parts.join('/'));
   if (!normalized) return '';
-  for (const suffix of EXTENSIONS) {
-    const candidate = normalized + suffix;
-    if (known.has(candidate)) return candidate;
+  const candidates = EXTENSIONS.map(suffix => normalized + suffix);
+  if (kind === 'route-or-document-reference') {
+    const route = normalized.replace(/\/$/, '');
+    if (!route) {
+      candidates.push('index.html', 'pages/index.html', 'src/pages/index.html', 'app/page.tsx', 'app/page.jsx', 'src/app/page.tsx', 'src/app/page.jsx');
+    } else if (!/\.[a-z0-9]{1,12}$/i.test(route)) {
+      candidates.push(
+        route + '.html', route + '/index.html',
+        'pages/' + route + '.html', 'pages/' + route + '/index.html',
+        'src/pages/' + route + '.html', 'src/pages/' + route + '/index.html',
+        'app/' + route + '/page.js', 'app/' + route + '/page.jsx', 'app/' + route + '/page.tsx', 'app/' + route + '/page.ts',
+        'src/app/' + route + '/page.js', 'src/app/' + route + '/page.jsx', 'src/app/' + route + '/page.tsx', 'src/app/' + route + '/page.ts',
+      );
+    }
   }
+  for (const candidate of candidates) if (known.has(candidate)) return candidate;
   return '';
 }
 
@@ -98,7 +119,7 @@ export function buildWebsiteFileGraph(input, options = {}) {
   for (const [from, source] of files) {
     for (const reference of collectReferences(from, source)) {
       if (edges.length >= maxEdges) { edgesTruncated = true; truncated = true; break; }
-      const target = resolveReference(from, reference.specifier, known);
+      const target = resolveReference(from, reference.specifier, known, reference.kind);
       if (!target) {
         const looksLikeFile = /\.[a-z0-9]{1,12}$/i.test(reference.specifier) || /(?:^|\/)(?:assets?|images?|scripts?|styles?|fonts?)\//i.test(reference.specifier);
         if (reference.kind !== 'document-reference' || looksLikeFile) {

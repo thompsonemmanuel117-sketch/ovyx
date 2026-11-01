@@ -31,19 +31,37 @@ function splitRequirement(value, index) {
     text: clean(source.replace(/^R\d{1,4}:\s*/, '')),
   };
 }
-function signature(text) {
-  return clean(text, 900).toLowerCase()
-    .replace(/\b(?:do not|don't|dont|must not|mustn't|never|exclude|excluding|without|avoid|avoids|no)\b/g, ' ')
+function tokens(text) {
+  return [...new Set(clean(text, 900).toLowerCase()
+    .replace(/\b(?:do not forget|don't forget|dont forget)\b/g, ' remember ')
+    .replace(/\b(?:do not|don't|dont|must not|mustn't|should not|shouldn't|cannot|can't|never|exclude|excluding|without|avoid|avoids)\b/g, ' ')
+    .replace(/\bno\s+(?=(?:login|sign.?in|account|payment|checkout|tracking|analytics|cookies?|external|third.party|pop.?ups?|animations?|images?|video|forms?|database|email|newsletter|ads?)\b)/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
     .split(/\s+/)
-    .filter(token => token.length > 2 && !STOP.has(token))
-    .sort()
-    .join(' ');
+    .filter(token => token.length > 2 && !STOP.has(token)))];
+}
+function signature(text) {
+  return tokens(text).sort().join(' ');
+}
+function negationEvidence(text) {
+  const source = clean(text, 900)
+    .replace(/\b(?:do not forget|don't forget|dont forget)\b/ig, ' ')
+    .replace(/\bnot only\b/ig, ' ')
+    .replace(/\bno (?:later than|more than|less than)\b/ig, ' ');
+  return source.match(/\b(?:do not|don't|dont|must not|mustn't|should not|shouldn't|cannot|can't|never|exclude|excluding|without|avoid|avoids)\b|^\s*no\b|\bno\s+(?=(?:login|sign.?in|account|payment|checkout|tracking|analytics|cookies?|external|third.party|pop.?ups?|animations?|images?|video|forms?|database|email|newsletter|ads?)\b)/ig) || [];
 }
 function polarity(text) {
-  if (NEGATION.test(text)) return 'prohibited';
-  if (/\b(?:must|required|mandatory|include|implement|build|create|add|provide|ensure|persist|keep|use|support|connect|send|store|validate|display|show|render|deliver|generate|design|write|maintain|preserve|enable|allow|accept|handle)\b/i.test(text)) return 'required';
+  if (negationEvidence(text).length) return 'prohibited';
+  if (/\b(?:must|required|mandatory|always|include|implement|build|create|add|provide|ensure|persist|keep|use|support|connect|send|store|validate|display|show|render|deliver|generate|design|write|maintain|preserve|enable|allow|accept|handle)\b/i.test(text)) return 'required';
   return 'preference';
+}
+function similarity(left, right) {
+  const a = new Set(tokens(left));
+  const b = new Set(tokens(right));
+  if (a.size < 3 || b.size < 3) return 0;
+  let intersection = 0;
+  for (const token of a) if (b.has(token)) intersection += 1;
+  return intersection / (a.size + b.size - intersection);
 }
 function categories(text) {
   return RULES.filter(([, pattern]) => pattern.test(text)).map(([name]) => name);
@@ -68,34 +86,39 @@ export function buildRequirementIntelligence(prompt, contract = {}, architecture
     return {
       id: item.id,
       text: item.text,
+      sourceText: item.text,
       polarity: intent,
-      strength: STRONG.test(item.text) ? 'mandatory' : intent === 'required' ? 'requested' : 'preference',
+      negationEvidence: negationEvidence(item.text),
+      strength: STRONG.test(item.text) && intent !== 'prohibited' ? 'mandatory' : intent === 'required' ? 'requested' : intent === 'prohibited' ? 'prohibited' : 'preference',
+      confidence: STRONG.test(item.text) || negationEvidence(item.text).length || /\b(?:do not forget|don't forget|dont forget|must|required|mandatory|always|include|implement|build|create|add|ensure|preserve|maintain)\b/i.test(item.text) ? 'high' : category.length ? 'medium' : 'low',
       categories: category.length ? category : ['general'],
       priority: critical ? 'critical' : category.some(value => ['routes','interaction','integration'].includes(value)) ? 'high' : 'normal',
       targetNodeIds: targets,
       mappingStatus: targets.length ? 'mapped' : 'unmapped',
+      dependencyRequirementIds: Array.isArray(mapping?.dependencyRequirementIds) ? mapping.dependencyRequirementIds.slice(0, 12).map(String) : [],
+      acceptanceCriteria: Array.isArray(mapping?.acceptanceCriteria) ? mapping.acceptanceCriteria.slice(0, 8).map(value => clean(value, 240)) : [],
       architectureAssessment: clean(mapping?.assessment || 'not-mapped', 80),
       acceptanceEvidence: 'not-generated',
     };
   });
-  const signatures = new Map();
+  const knownIds = new Set(requirements.map(item => item.id));
   for (const item of requirements) {
-    const key = signature(item.text);
-    if (key.length < 8) continue;
-    const group = signatures.get(key) || [];
-    group.push(item);
-    signatures.set(key, group);
+    item.dependencyRequirementIds = [...new Set(item.dependencyRequirementIds)]
+      .filter(id => id !== item.id && knownIds.has(id));
   }
   const conflicts = [];
-  for (const [key, group] of signatures) {
-    const positive = group.filter(item => item.polarity !== 'prohibited');
-    const negative = group.filter(item => item.polarity === 'prohibited');
-    if (!positive.length || !negative.length) continue;
-    for (const a of positive) for (const b of negative) {
-      if (a.id === b.id || conflicts.length >= 24) continue;
+  for (let left = 0; left < requirements.length && conflicts.length < 24; left += 1) {
+    for (let right = left + 1; right < requirements.length && conflicts.length < 24; right += 1) {
+      const a = requirements[left];
+      const b = requirements[right];
+      if ((a.polarity === 'prohibited') === (b.polarity === 'prohibited')) continue;
+      const score = similarity(a.text, b.text);
+      if (score < 0.72) continue;
+      const shared = tokens(a.text).filter(token => tokens(b.text).includes(token));
       conflicts.push({
         requirementIds: [a.id, b.id],
-        sharedIntent: key.slice(0, 180),
+        sharedIntent: shared.join(' ').slice(0, 180),
+        similarity: Number(score.toFixed(3)),
         status: 'conflict-needs-reconciliation',
         instruction: 'Do not silently choose one; resolve against the complete conversation or ask the user.',
       });

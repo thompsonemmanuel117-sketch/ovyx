@@ -2,20 +2,28 @@ import assert from 'node:assert/strict';
 import { buildWebsiteFileGraph, analyzeWebsiteFileImpact } from '../functions/_lib/website-file-graph.js';
 
 const graph = buildWebsiteFileGraph({
-  'index.html': '<a href="/about">About</a><form action="/api/contact"></form><link rel="stylesheet" href="./styles/site.css"><script type="module" src="./src/main.js"></script>',
+  'index.html': '<a href="/about">About</a><img srcset="./assets/hero.webp 1x, ./assets/hero@2x.webp 2x"><form action="/api/contact"></form><link rel="stylesheet" href="./styles/site.css"><script type="module" src="./src/main.js"></script>',
   'styles/site.css': '@import "./tokens.css"; .hero { background: url("../assets/hero.webp"); }',
   'styles/tokens.css': ':root { --space: 1rem; }',
-  'src/main.js': "import { mount } from './app.js'; import './theme.css';",
+  'src/main.js': "import { mount } from './app.js'; import './theme.css'; const icon = new URL('../assets/hero.webp', import.meta.url);",
   'src/app.js': "import { render } from './render.js'; export { render };",
   'src/render.js': 'export function render() {}',
   'src/theme.css': 'body { color: black; }',
   'assets/hero.webp': 'binary-placeholder-not-interpreted',
+  'assets/hero@2x.webp': 'binary-placeholder-not-interpreted',
+  'about/index.html': '<main>About page</main>',
   'external.js': "import React from 'react'; import './missing-local.js';",
   '../escape.js': 'must be ignored',
 });
 assert.equal(graph.status, 'analyzed');
 assert.ok(graph.nodes.every(node => !Object.prototype.hasOwnProperty.call(node, 'content')));
 assert.ok(graph.edges.some(edge => edge.from === 'index.html' && edge.to === 'styles/site.css'));
+assert.ok(graph.edges.some(edge => edge.from === 'index.html' && edge.to === 'about/index.html' && edge.kind === 'route-or-document-reference'),
+  'Extensionless local routes must resolve to a known page entry.');
+assert.ok(graph.edges.some(edge => edge.from === 'index.html' && edge.to === 'assets/hero@2x.webp' && edge.kind === 'responsive-image-reference'),
+  'Responsive srcset candidates must participate in the asset dependency graph.');
+assert.ok(graph.edges.some(edge => edge.from === 'src/main.js' && edge.to === 'assets/hero.webp' && edge.kind === 'module-asset-reference'),
+  'new URL(import.meta.url) asset references must be tracked.');
 assert.ok(graph.edges.some(edge => edge.from === 'src/main.js' && edge.to === 'src/app.js'));
 assert.ok(graph.edges.some(edge => edge.from === 'styles/site.css' && edge.to === 'assets/hero.webp'));
 assert.ok(graph.missingReferences.some(item => item.specifier === './missing-local.js'));

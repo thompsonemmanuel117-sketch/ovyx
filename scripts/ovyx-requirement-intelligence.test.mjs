@@ -44,3 +44,33 @@ const boundedLedger = buildRequirementIntelligence('', {
 assert.equal(boundedLedger.status, 'bounded-partial');
 assert.equal(boundedLedger.counts.total, 180);
 assert.equal(boundedLedger.counts.sourceOmitted, 20);
+
+const nuanceLedger = buildRequirementIntelligence('', {
+  requirementManifestComplete: true,
+  omittedRequirementClauseCount: 0,
+  allBriefClauses: [
+    'R001: Do not forget to include keyboard navigation and visible focus states.',
+    'R002: The page must not include third-party tracking scripts.',
+    'R003: Keep the checkout flow accessible to keyboard users.',
+    'R004: Do not include the checkout flow for keyboard users.',
+    'R005: Keep the layout no more than 1200 pixels wide.',
+    'R006: Not only should the site be responsive, but do not include third-party tracking.',
+    'R007: No third-party tracking scripts should be included.',
+  ],
+}, {
+  requirementMappings: [
+    { requirementId: 'R001', targetNodeIds: ['component-navigation'], dependencyRequirementIds: ['R003', 'R999'], acceptanceCriteria: ['Tab reaches every interactive control.'] },
+  ],
+});
+assert.equal(nuanceLedger.requirements[0].polarity, 'required', '“Do not forget to” is an affirmative requirement, not an exclusion.');
+assert.deepEqual(nuanceLedger.requirements[0].negationEvidence, []);
+assert.equal(nuanceLedger.requirements[0].confidence, 'high');
+assert.deepEqual(nuanceLedger.requirements[0].dependencyRequirementIds, ['R003'], 'Unknown and self dependency IDs must be discarded.');
+assert.deepEqual(nuanceLedger.requirements[0].acceptanceCriteria, ['Tab reaches every interactive control.']);
+assert.equal(nuanceLedger.requirements[1].polarity, 'prohibited');
+assert.equal(nuanceLedger.requirements[4].polarity, 'required', 'A positive bounded-layout constraint remains required, not a feature exclusion.');
+assert.deepEqual(nuanceLedger.requirements[4].negationEvidence, [], 'Comparative “no more than” must not be mistaken for prohibition.');
+assert.equal(nuanceLedger.requirements[5].polarity, 'prohibited', 'A negation later in a compound clause must not be hidden by an earlier “not only” phrase.');
+assert.equal(nuanceLedger.requirements[6].polarity, 'prohibited', 'Explicit no-feature constraints must be recognized even when they do not start the clause.');
+assert.ok(nuanceLedger.conflicts.some(item => item.requirementIds.includes('R003') && item.requirementIds.includes('R004')),
+  'Near-identical positive and prohibited requirements must be surfaced even when their wording differs.');
