@@ -232,6 +232,35 @@ export function buildWebsiteEngineReadiness(prompt, context = {}, options = {}) 
 
 const WEBSITE_ENGINE_PLAN_JSON_LIMIT = 18000;
 
+function compactWebsiteFullStackContract(architecture) {
+  const contract = fullStackArchitectureModelContract(architecture);
+  if (!contract) return contract;
+  const routes = Array.isArray(contract.apiContracts) ? contract.apiContracts : [];
+  const selected = [];
+  const seenCapabilities = new Set();
+  for (const route of routes) {
+    if (!seenCapabilities.has(route.capability)) {
+      selected.push(route);
+      seenCapabilities.add(route.capability);
+    }
+  }
+  for (const route of routes) {
+    if (selected.length >= 32) break;
+    if (!selected.includes(route)) selected.push(route);
+  }
+  contract.apiContracts = selected.slice(0, 32);
+  contract.dataModels = (contract.dataModels || []).slice(0, 24);
+  contract.dataIntegrity.relationships = (contract.dataIntegrity.relationships || []).slice(0, 24);
+  contract.dataIntegrity.constraints = (contract.dataIntegrity.constraints || []).slice(0, 24);
+  contract.dataIntegrity.indexes = (contract.dataIntegrity.indexes || []).slice(0, 24);
+  contract.integrations = (contract.integrations || []).slice(0, 12);
+  contract.dependencyEdges = (contract.dependencyEdges || []).slice(0, 72);
+  contract.security.controls = (contract.security.controls || []).slice(0, 20);
+  contract.stateMachines = (contract.stateMachines || []).slice(0, 14);
+  contract.testPlan = (contract.testPlan || []).slice(0, 18);
+  return contract;
+}
+
 function compactPlanValue(value, depth = 0) {
   if (value === null || typeof value === 'boolean' || typeof value === 'number') return value;
   if (typeof value === 'string') return clean(value, depth >= 3 ? 120 : 200);
@@ -372,7 +401,7 @@ function serializeWebsiteEngineModelPlan(plan) {
         missingReferences: compactPlanList((plan.fileArchitecture?.graph?.missingReferences || []).map(item => item.from + ' -> ' + item.specifier), 12, 120),
       },
       qualityGates: compactPlanList(plan.qualityGates, 14, 140),
-      fullStackArchitecture: fullStackArchitectureModelContract(plan.fullStackArchitecture),
+      fullStackArchitecture: compactWebsiteFullStackContract(plan.fullStackArchitecture),
       implementationRules: compactPlanList(plan.implementationRules, 10, 160),
       detailSummariesAreBounded: true,
     };
@@ -463,6 +492,7 @@ function serializeWebsiteEngineModelPlan(plan) {
       honestyRules: compactPlanList(fullStack.honestyRules, 8, 100),
     };
   }
+  if (plan.fullStackArchitecture) minimal.fullStackArchitecture = compactWebsiteFullStackContract(plan.fullStackArchitecture);
   const serialized = JSON.stringify(minimal);
   if (serialized.length > WEBSITE_ENGINE_PLAN_JSON_LIMIT) {
     throw new RangeError('The Website Engine plan exceeds its safe instruction budget.');
