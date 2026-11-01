@@ -48,13 +48,12 @@ function connectedFor(context, kind) {
 }
 
 function integrationRequirements(contract, context, capabilities = {}) {
-  const signals = contract.contactSignals || {};
   const requested = [
-    ['payments', signals.payments],
-    ['email', signals.emailDelivery || signals.contactForm || signals.newsletter],
-    ['auth', signals.authentication],
-    ['database', signals.backendData],
-    ['booking', signals.bookings],
+    ['payments', capabilities.payments],
+    ['email', capabilities.email],
+    ['auth', capabilities.authentication],
+    ['database', capabilities.database],
+    ['booking', capabilities.booking],
     ['storage', capabilities.fileStorage],
   ];
   return requested.filter(([, needed]) => needed).map(([kind]) => ({
@@ -113,13 +112,15 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
     /\b(?:multi[- ]?page|multiple pages|several pages|\d+ pages)\b/i.test(brief);
   const signals = promptContract.contactSignals || {};
   const workflowCapabilities = [
-    ['forms', signals.contactForm || signals.emailDelivery || fullStackArchitecture.capabilities.forms],
-    ['booking', signals.bookings],
+    ['forms', fullStackArchitecture.capabilities.forms || fullStackArchitecture.capabilities.contact],
+    ['booking', fullStackArchitecture.capabilities.booking],
     ['file-storage', fullStackArchitecture.capabilities.fileStorage],
-    ['commerce', signals.shoppingCart || signals.addToCart || signals.payments],
-    ['authentication', signals.authentication],
-    ['persistent-data', signals.backendData],
-    ['newsletter', signals.newsletter],
+    ['commerce', fullStackArchitecture.capabilities.commerce],
+    ['authentication', fullStackArchitecture.capabilities.authentication],
+    ['persistent-data', fullStackArchitecture.capabilities.database],
+    ['newsletter', fullStackArchitecture.capabilities.newsletter],
+    ['email-delivery', fullStackArchitecture.capabilities.email],
+    ['payments', fullStackArchitecture.capabilities.payments],
   ].filter(([, needed]) => needed).map(([name]) => name);
 
   return {
