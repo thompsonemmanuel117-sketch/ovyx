@@ -16,6 +16,9 @@ The generated-website engine already has a deterministic full-stack architecture
 - Strengthen the unified Website Engine so inferred backend capabilities (database, authentication, booking, forms, file storage, commerce, email and payments) remain consistent across integration planning and user-facing capability summaries.
 - Add explicit backend-generation requirements for private owner-scoped asset storage, signed URLs, MIME/content and quota checks, server-owned form schemas, IANA-timezone booking with transactional conflict prevention, provider-backed sessions/CSRF protection, payment reconciliation and transactional notification outboxes.
 - Add generated-site regression coverage for storage-provider detection, inferred database requirements and the secure backend-generation contract; run `scripts/ovyx-website-engine.test.mjs` in the browser-quality workflow.
+- Strengthen booking contracts with scoped idempotency keys, expiring holds, conflict-safe rescheduling, customer/staff booking listing, cancellation replay safety, and bounded indexes for active holds and overlap checks.
+- Strengthen asset contracts with quarantine/scan/publication states, verified content signatures/checksums, owner-scoped asset listing, idempotent deletion and indexes for owner pagination and quarantine cleanup.
+- Add regression assertions for booking and asset lifecycle state machines, integrity constraints, indexes and API routes.
 - Keep generated backend evidence explicitly `source-evidence-present-runtime-unverified` until the generated app is actually executed against its selected database and external providers.
 
 ## Capability map
