@@ -14,4 +14,8 @@ assert.ok(duplicate.findings.some(x=>x.code==='SITEMAP_NOT_INCLUDED'));
 const seo=auditExperienceQuality({'index.html':'<html lang="en"><head><title>SEO</title><meta name="description" content="SEO"><link rel="canonical"><script type="application/ld+json">{invalid}</script></head><body><main><h1>SEO</h1></main></body></html>'});
 assert.ok(seo.findings.some(x=>x.code==='CANONICAL_HREF_MISSING'));
 assert.ok(seo.findings.some(x=>x.code==='STRUCTURED_DATA_JSON_INVALID'));
+const untypedJsonLd=auditExperienceQuality({'index.html':'<html lang="en"><head><title>Typed data</title><meta name="description" content="Typed data"><script type="application/ld+json">{"name":"Missing type and context"}</script></head><body><main><h1>Typed data</h1></main></body></html>'});
+assert.ok(untypedJsonLd.findings.some(x=>x.code==='STRUCTURED_DATA_SHAPE_INVALID'));
+const typedGraph=auditExperienceQuality({'index.html':'<html lang="en"><head><title>Typed graph</title><meta name="description" content="Typed graph"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"Example"}]}</script></head><body><main><h1>Typed graph</h1></main></body></html>'});
+assert.ok(!typedGraph.findings.some(x=>x.code==='STRUCTURED_DATA_SHAPE_INVALID'));
 console.log('OVYX experience quality audit tests passed.');
