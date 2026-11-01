@@ -38,6 +38,8 @@ const impact = analyzeWebsiteFileImpact(graph, ['src/render.js']);
 assert.deepEqual(impact.impactedPaths, ['src/app.js', 'src/main.js', 'index.html']);
 assert.equal(impact.totalAffected, 4);
 assert.ok(Array.isArray(impact.affectedRoutes));
+const componentImpact = analyzeWebsiteFileImpact(graph, ['src/components/Card.jsx']);
+assert.ok(componentImpact.affectedRoutes.includes('src/pages/Home.tsx'), 'Shared component changes must identify affected page entrypoints.');
 assert.equal(analyzeWebsiteFileImpact(graph, ['not-in-project.js']).unknownChangedPaths[0], 'not-in-project.js');
 const empty = buildWebsiteFileGraph(null);
 assert.equal(empty.status, 'no-project-files');
