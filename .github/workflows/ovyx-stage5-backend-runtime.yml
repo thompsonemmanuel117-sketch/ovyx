@@ -5,6 +5,7 @@ on:
     paths:
       - 'scripts/ovyx-generated-backend-runtime-eval.mjs'
       - 'backend-runtime/**'
+      - '.dockerignore'
       - 'functions/api/webstudio/backend-runtime.js'
       - 'functions/api/_middleware.js'
       - 'assets/ovyx-webstudio-quality.js'
