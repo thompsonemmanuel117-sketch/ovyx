@@ -769,7 +769,12 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   if (capabilities.forms) featureComponents.forms = addComponent('Dynamic form experience', 'Versioned schema-driven fields, server validation, consent evidence, abuse protection and explicit submission states.');
   if (capabilities.newsletter) featureComponents.newsletter = addComponent('Newsletter signup', 'Consent-aware double opt-in, confirmation, unsubscribe and delivery status.');
   if (capabilities.booking) featureComponents.booking = addComponent('Booking experience', 'Timezone-aware selection, authoritative availability and explicit pending/confirmed states.');
-  if (capabilities.commerce) featureComponents.commerce = addComponent('Commerce experience', 'Catalog, cart and checkout using server-calculated prices.');
+  if (capabilities.commerce) featureComponents.commerce = addComponent('Commerce experience', 'Catalog, persistent cart, server-calculated checkout, stock reservations, customer orders and staff fulfillment.');
+  if (capabilities.subscriptions) featureComponents.subscriptions = addComponent('Subscription management', 'Server-owned plans, recurring checkout, invoices, renewal state, cancellation/resume and entitlement-aware account access.');
+  if (capabilities.notifications) featureComponents.notifications = addComponent('Notification center', 'Owner-scoped in-app notifications, unread state, delivery receipts and retry/error feedback.');
+  if (capabilities.dashboards) featureComponents.dashboards = addComponent('Business dashboards', 'Live tenant-scoped KPIs, date/timezone filters, paginated activity and role-safe reporting.');
+  if (capabilities.integrations) featureComponents.integrations = addComponent('Integration settings and status', 'Server-side adapters, safe connection health, webhook state and honest configured/reachable/verified indicators.');
+  if (capabilities.automation) featureComponents.automation = addComponent('Business automation', 'Scheduled and event-triggered workflows with approval gates, bounded retries and execution history.');
   if (capabilities.authentication) featureComponents.authentication = addComponent('Account experience', 'Provider-backed sign-in/session state with protected-route handling.');
   if (capabilities.admin) featureComponents.admin = addComponent('Administration workspace', 'Role-scoped management with auditable sensitive actions.');
   if (capabilities.search) featureComponents.search = addComponent('Search and filtering', 'Accessible search/filter state with empty, loading and failure behavior.');
@@ -822,6 +827,11 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
       payments: /shop|product|catalog|cart|checkout|order|billing/i,
       authentication: /login|sign|account|dashboard|profile/i,
       administration: /admin|dashboard|manage/i,
+      subscriptions: /subscription|membership|billing|pricing|account/i,
+      notifications: /notification|inbox|activity|account/i,
+      dashboards: /dashboard|analytics|report|overview/i,
+      integrations: /integration|connection|webhook|settings/i,
+      automation: /automation|workflow|activity|admin/i,
       storage: /upload|asset|media|document/i,
       search: /search|directory|catalog|product|listing/i,
     };
@@ -860,6 +870,10 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     const relevantRoutes = apiContracts.filter(route => {
       const path = route.path.toLowerCase();
       if (machine.entity === 'Order') return route.capability === 'commerce' || path.includes('checkout') || path.includes('/orders');
+      if (machine.entity === 'CustomerSubscription') return route.capability === 'subscriptions' || path.includes('subscriptions');
+      if (machine.entity === 'Notification') return route.capability === 'notifications' || path.includes('notifications');
+      if (machine.entity === 'IntegrationEvent') return route.capability === 'integrations' || path.includes('webhooks');
+      if (machine.entity === 'AutomationRun') return route.capability === 'automation' || path.includes('automation');
       if (machine.entity === 'PaymentAttempt') return route.capability === 'payments';
       if (machine.entity === 'Booking') return route.capability === 'booking';
       if (machine.entity === 'ContactSubmission') return route.capability === 'contact';
