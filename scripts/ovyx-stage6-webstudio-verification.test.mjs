@@ -18,6 +18,13 @@ assert.match(runtime, /connect-src 'none'; form-action 'none'/,
   'Sandboxed browser previews must not submit forms or make network connections.');
 assert.match(runtime, /function safeSandboxPayload\(page, files, token\)/);
 assert.match(runtime, /function auditSources\(report, pages, files, project\)/);
+assert.match(runtime, /function readProjectQaPlan\(files\)/);
+assert.match(runtime, /function journeysForPage\(plan, page\)/);
+assert.match(runtime, /async function probeJourneys\(\)/);
+assert.match(runtime, /Requirement-derived user journeys/);
+assert.match(runtime, /journeys\.failed/);
+assert.match(runtime, /The in-browser preview is intentionally network-isolated/);
+assert.match(runtime, /ovyx-qa-plan\.json/);
 assert.match(runtime, /var routePlan = \[\]/);
 assert.match(runtime, /WIDTHS = \[320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920\]/);
 assert.match(runtime, /function rejectBuildForQuality\(studio, snapshot, reason\)/);
