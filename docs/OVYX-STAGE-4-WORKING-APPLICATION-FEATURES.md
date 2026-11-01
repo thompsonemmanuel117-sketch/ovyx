@@ -10,12 +10,13 @@ The Stage 3 engine already planned products, carts, orders, payments, bookings, 
 
 Stage 4 adds explicit contracts for the following application-level capabilities:
 
-1. **Commerce:** persistent cart read/add/update/remove; server-calculated quotes; inventory movement ledger; atomic stock reservations/releases; checkout; immutable order snapshots; customer order history; staff order/product/inventory management.
+1. **Commerce:** persistent cart read/add/update/remove; server-calculated quotes; inventory movement ledger; atomic stock reservations/releases; checkout; immutable order snapshots; customer order history; staff order/product/inventory management; promotion validation and usage limits; shipment tracking; payment refunds and reconciliation.
 2. **Recurring subscriptions:** server-owned plan catalog; provider checkout; customer subscription and invoice records; renewals; payment failure and grace-period policy; cancellation/resume; server-enforced entitlements.
 3. **Notifications:** owner-scoped in-app notification records; read/read-all actions; transactional outbox linkage; separate queued, provider-accepted, delivered, failed and read states.
 4. **Dashboards:** tenant-scoped KPI summary and activity APIs; admin aggregate metrics; bounded date filters, explicit timezone, pagination and role-aware data access.
-5. **Integrations:** provider event ledger; server-only credential boundary; provider health and OAuth/setup/disconnect contracts for admin-managed connections; signature/timestamp/replay-protected inbound webhooks.
-6. **Automation:** auditable workflow-run records; unique run keys; bounded retries, execution limits and dead-letter visibility; approval gates for financial or irreversible actions.
+5. **Fulfillment and refunds:** server-owned promotion rules, usage limits, immutable shipment records, carrier tracking events, partial/full refund caps and provider-confirmed refund reconciliation.
+6. **Integrations:** provider event ledger; server-only credential boundary; provider health and OAuth/setup/disconnect contracts for admin-managed connections; signature/timestamp/replay-protected inbound webhooks.
+7. **Automation:** auditable workflow-run records; unique run keys; bounded retries, execution limits and dead-letter visibility; approval gates for financial or irreversible actions.
 
 ## Security and correctness rules
 
