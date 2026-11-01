@@ -7,10 +7,34 @@ import { buildWebsiteFileGraph, analyzeWebsiteFileImpact } from './website-file-
 import { buildRequirementIntelligence } from './requirement-intelligence.js';
 
 const clean = (value, max = 240) => String(value == null ? '' : value)
-  .replace(/[\u0000-\u001f\u007f]/g, ' ')
-  .replace(/\s+/g, ' ')
+  .replace(/[\\u0000-\\u001f\\u007f]/g, ' ')
+  .replace(/\\s+/g, ' ')
   .trim()
   .slice(0, max);
+
+function compactPlanList(value, limit = 8, maxChars = 120) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, Math.max(0, limit)).map(item => clean(
+    typeof item === 'string' ? item : item && (item.description || item.label || item.name || item.title || item.rule || item.requirement || item.purpose) || '',
+    maxChars,
+  )).filter(Boolean);
+}
+
+function compactPlanValue(value, maxChars = 160) {
+  if (value == null) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return clean(value, maxChars);
+  if (Array.isArray(value)) return compactPlanList(value, 4, maxChars);
+  if (typeof value === 'object') {
+    const result = {};
+    for (const [key, item] of Object.entries(value).slice(0, 8)) {
+      if (item == null || typeof item === 'function') continue;
+      if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') result[key] = clean(item, maxChars);
+      else if (Array.isArray(item)) result[key] = compactPlanList(item, 4, Math.min(maxChars, 96));
+    }
+    return result;
+  }
+  return '';
+}
 
 function connectedFor(context, kind) {
   const source = context && typeof context === 'object' ? context : {};
