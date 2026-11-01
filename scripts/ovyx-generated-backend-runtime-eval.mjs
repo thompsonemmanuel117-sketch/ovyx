@@ -3,7 +3,7 @@ import { createServer } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { lstat, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { tmpdir } from 'node:os';
+import { networkInterfaces, tmpdir } from 'node:os';
 
 const MAX_CHECKS = 24;
 const MAX_MIGRATIONS = 60;
@@ -22,6 +22,13 @@ function clean(value, limit = 240) {
     .replace(/((?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*)[^\s,;]+/gi, '$1[REDACTED]')
     .trim()
     .slice(0, limit);
+}
+
+function isLoopbackOnlyNetworkNamespace() {
+  const interfaces = Object.values(networkInterfaces()).flat().filter(Boolean);
+  return interfaces.length > 0 && interfaces.every(item =>
+    item.internal === true || item.address === '::1' || /^127\\./.test(String(item.address || ''))
+  );
 }
 
 function jsonPath(value, key) {
@@ -291,8 +298,8 @@ async function executeChecks(origin, checks, testSecret) {
 }
 
 export async function runCloudflarePagesBackendRuntime(options = {}) {
-  if (process.env.OVYX_QA_NETWORK_ISOLATION !== 'docker-none') {
-    return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'NETWORK_SANDBOX_REQUIRED', message: 'Cloudflare Pages Functions runtime was not started because an outbound-network-disabled container is required.' }] };
+  if (process.env.OVYX_QA_NETWORK_ISOLATION !== 'docker-none' || !isLoopbackOnlyNetworkNamespace()) {
+    return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'NETWORK_SANDBOX_REQUIRED', message: 'Cloudflare Pages Functions runtime was not started because the process is not inside a verified loopback-only network namespace.' }] };
   }
   const projectRoot = path.resolve(String(options.root || ''));
   const sourceRoot = path.resolve(String(options.sourceRoot || process.cwd()));
