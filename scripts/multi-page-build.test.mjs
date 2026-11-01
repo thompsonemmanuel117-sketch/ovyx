@@ -20,6 +20,7 @@ const pages = Array.from({ length: 20 }, (_, index) => ({
       { title: 'Proof', purpose: 'Build trust', contentNotes: 'Only verified proof points' },
     ],
     visualDirection: 'Editorial, calm and premium',
+    motionChoreography: ['Reveal the editorial story sections once on scroll', 'Use a restrained route transition and tactile button feedback'],
     interactionRequirements: ['Accessible mobile navigation', 'Working discovery-call form'],
     dataRequirements: ['Verified contact endpoint'],
     components: ['Global navigation', 'Lead form'],
@@ -60,6 +61,7 @@ const normalized = normalizeSiteMap({
     spacingScale: ['4', '8', '16', '24', '40'],
     componentPrinciples: ['Consistent buttons', 'Reusable cards'],
     motionPrinciples: ['Short purposeful transitions'],
+    motionTokens: ['micro: 140ms', 'transition: 240ms', 'entrance: 420ms'],
     accessibilityPrinciples: ['AA contrast', 'Visible focus'],
   },
   pages,
@@ -75,8 +77,10 @@ assert.equal(normalized.siteMap.pages[0].url, '/');
 assert.equal(normalized.siteMap.pages[1].url, '/page-2/');
 assert.equal(normalized.siteMap.designSystem.artDirection, 'Editorial monochrome with warm accents');
 assert.equal(normalized.siteMap.designSystem.palette.length, 3);
+assert.deepEqual(normalized.siteMap.designSystem.motionTokens, ['micro: 140ms', 'transition: 240ms', 'entrance: 420ms']);
 assert.equal(normalized.siteMap.pages[0].audience, 'First-time visitors evaluating the service');
 assert.equal(normalized.siteMap.pages[0].primaryAction, 'Book a discovery call');
+assert.deepEqual(normalized.siteMap.pages[0].motionChoreography, ['Reveal the editorial story sections once on scroll', 'Use a restrained route transition and tactile button feedback']);
 assert.deepEqual(normalized.siteMap.pages[0].sections.map(section => section.title), ['Hero', 'Proof']);
 assert.deepEqual(normalized.siteMap.pages[0].interactionRequirements, ['Accessible mobile navigation', 'Working discovery-call form']);
 assert.equal(normalized.siteMap.pages[0].integrationBoundaries[0], 'Do not claim delivery until endpoint confirms success');
@@ -128,6 +132,8 @@ assert(context.includes('page-20/index.html'));
 assert(context.includes('ALREADY GENERATED FILE PATHS'));
 assert(context.includes('assets/site.css'));
 assert(context.includes('Editorial monochrome with warm accents'));
+assert(context.includes('Reveal the editorial story sections once on scroll'));
+assert(context.includes('micro: 140ms'));
 assert(context.includes('Book a discovery call'));
 assert(context.includes('Do not claim delivery until endpoint confirms success'));
 
