@@ -144,8 +144,8 @@ function buildDataModels(capabilities) {
     push('SubscriptionInvoice', 'Immutable invoice record reconciled against a provider payment attempt.', ['id', 'subscriptionId', 'amount', 'currency', 'status', 'dueAt', 'paidAt', 'paymentAttemptId'], 'financial');
   }
   if (capabilities.notifications) push('Notification', 'Owner-scoped in-app notification with explicit read and delivery state.', ['id', 'ownerId', 'channel', 'templateKey', 'payload', 'status', 'readAt', 'sentAt', 'idempotencyKey', 'createdAt'], 'personal-data');
-  if (capabilities.integrations) push('IntegrationEvent', 'Deduplicated, redacted inbound/outbound integration event ledger.', ['id', 'provider', 'externalEventId', 'eventType', 'status', 'idempotencyKey', 'receivedAt', 'processedAt', 'redactedError'], 'security-audit');
-  if (capabilities.automation) push('AutomationRun', 'Auditable scheduled or event-triggered business workflow execution.', ['id', 'workflowKey', 'triggerType', 'triggerRef', 'status', 'idempotencyKey', 'attemptCount', 'startedAt', 'completedAt', 'redactedError'], 'business-data');
+  if (capabilities.integrations) push('IntegrationEvent', 'Deduplicated, redacted inbound/outbound integration event ledger.', ['id', ...(capabilities.authentication ? ['ownerId'] : []), 'provider', 'externalEventId', 'eventType', 'status', 'idempotencyKey', 'receivedAt', 'processedAt', 'redactedError'], 'security-audit');
+  if (capabilities.automation) push('AutomationRun', 'Auditable scheduled or event-triggered business workflow execution.', ['id', ...(capabilities.authentication ? ['ownerId'] : []), 'workflowKey', 'triggerType', 'triggerRef', 'status', 'idempotencyKey', 'attemptCount', 'startedAt', 'completedAt', 'redactedError'], 'business-data');
   if (capabilities.email) push('DeliveryRecord', 'Outbox/delivery state with retry and provider receipt; not a claim of delivery.', ['id', 'recipientRef', 'sourceType', 'sourceId', 'templateKey', 'idempotencyKey', 'status', 'attemptCount', 'nextAttemptAt', 'providerReceipt'], 'personal-data');
   if (capabilities.newsletter) push('NewsletterSubscription', 'Permission-aware subscription state with consent evidence and secure unsubscribe lifecycle.', ['id', 'listId', 'userId', 'email', 'emailNormalized', 'status', 'consentAt', 'confirmationTokenHash', 'createdAt'], 'personal-data');
   if (capabilities.fileStorage) push('StoredAsset', 'Owner-scoped metadata for quarantined objects with verified content, scan and publication lifecycle.', ['id', 'ownerId', 'storageKey', 'contentType', 'byteSize', 'checksum', 'uploadState', 'scanStatus', 'visibility', 'idempotencyKey', 'createdAt', 'updatedAt', 'deletedAt'], 'private-file');
@@ -816,9 +816,10 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     const databaseIntegration = integrationIds.find(id => id === 'integration-database');
     if (databaseIntegration && route.modelIds.length) addEdge(edges, route.id, databaseIntegration, 'persists-through-server-adapter');
     if (capabilities.email && (
-      ['contact', 'forms', 'newsletter'].includes(route.capability) ||
+      ['contact', 'forms', 'newsletter', 'subscriptions', 'notifications'].includes(route.capability) ||
       route.sideEffect === 'idempotent-payment-reconciliation' ||
-      route.sideEffect === 'order-intent-only'
+      route.sideEffect === 'order-intent-only' ||
+      route.sideEffect === 'provider-subscription-checkout-with-idempotency'
     )) {
       const emailIntegration = integrationIds.find(id => id === 'integration-email');
       if (emailIntegration) addEdge(edges, route.id, emailIntegration, 'queues-delivery-through-server-adapter');
@@ -864,7 +865,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   if (capabilities.backgroundWork) {
     const queueId = addNode(nodes, { id: 'background-outbox', type: 'background-workflow', name: 'Reliable background outbox', status: 'implementation-required', purpose: 'Process delivery and async work with bounded retries, dead-letter visibility and idempotency.' });
     addEdge(edges, projectId, queueId, 'runs-background-work');
-    for (const route of apiContracts.filter(item => ['contact', 'forms', 'newsletter', 'payments', 'booking'].includes(item.capability))) addEdge(edges, route.id, queueId, 'enqueues-after-commit');
+    for (const route of apiContracts.filter(item => ['contact', 'forms', 'newsletter', 'payments', 'booking', 'subscriptions', 'notifications', 'integrations', 'automation'].includes(item.capability))) addEdge(edges, route.id, queueId, 'enqueues-after-commit');
   }
   const workflowNodeIds = [];
   for (const machine of stateMachines) {
