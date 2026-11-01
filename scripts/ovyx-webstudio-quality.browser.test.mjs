@@ -429,7 +429,7 @@ assert.ok(await page.locator('.ovyx-ws-quality-recommendation strong').filter({ 
   await page.waitForFunction(() => window.__copiedQualitySummary.includes('OVYX WEB STUDIO — CLIENT QA SUMMARY'));
   const copiedSummary = await page.evaluate(() => window.__copiedQualitySummary);
   assert.ok(copiedSummary.includes('Project: Quality test site'), 'The client summary must identify the inspected project.');
-  assert.ok(copiedSummary.includes('Live sign-in, data persistence, email, booking, payments'), 'The client summary must state live integration limits.');
+  assert.ok(copiedSummary.includes('generated backend functions, database migrations/CRUD, data persistence, email, booking, payments'), 'The client summary must state live integration limits.');
   assert.ok(copiedSummary.includes('not production load time or Core Web Vitals'), 'The client summary must not misrepresent sandbox metrics as production performance.');
   assert.ok(copiedSummary.includes('Requirement-derived user journeys: 1/1 passed'), 'The client handoff must summarize executed requirement-derived journeys.');
   const downloadPromise = page.waitForEvent('download');
