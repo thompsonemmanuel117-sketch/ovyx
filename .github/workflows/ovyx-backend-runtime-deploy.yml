@@ -31,7 +31,7 @@ jobs:
           test "${#OVYX_BACKEND_RUNTIME_SECRET}" -ge 32 || { echo "::error::Add a random OVYX_BACKEND_RUNTIME_SECRET of at least 32 characters."; exit 1; }
       - name: Install runtime Worker dependencies
         working-directory: backend-runtime
-        run: npm install --ignore-scripts --no-audit --no-fund
+        run: npm install --no-audit --no-fund
       - name: Deploy isolated backend runtime Worker and container
         working-directory: backend-runtime
         env:
