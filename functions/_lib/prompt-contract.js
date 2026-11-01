@@ -310,6 +310,14 @@ function hasConnectedIntegration(context, kind) {
   });
 }
 
+function hasPositiveIntent(source, pattern) {
+  return splitRequirements(source).items.some(clause => {
+    const match = pattern.exec(clause);
+    if (!match) return false;
+    return !/\b(?:do not|don't|dont|never|avoid|exclude|without|no)\b/i.test(clause.slice(0, match.index));
+  });
+}
+
 export function buildPromptContract(prompt) {
   const rawSource = String(prompt ?? '').replace(/\u0000/g, '').trim();
   const source = clean(rawSource);
@@ -330,15 +338,15 @@ export function buildPromptContract(prompt) {
     explicitConstraints: exclusions.slice(0, 20).map(item => item.slice(0, MAX_MANIFEST_CLAUSE_CHARS)),
     explicitPages: extractExplicitPageNames(source),
     contactSignals: {
-      contactForm: /\b(?:contact|enquiry|inquiry|quote|lead|message)\s+forms?\b|\bforms?\b.{0,40}\b(?:contact|email|message|enquiry|inquiry|quote)\b/i.test(source),
-      emailDelivery: /\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b.{0,55}\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b|\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b.{0,55}\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b/i.test(source),
-      bookings: BOOKING_INTENT_PATTERN.test(source),
-      newsletter: /\b(?:newsletter|subscribe|subscription form)\b/i.test(source),
-      payments: /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing)\b/i.test(source),
-      shoppingCart: SHOPPING_CART_PATTERN.test(source),
-      addToCart: ADD_TO_CART_PATTERN.test(source),
-      authentication: /\b(?:login|log in|sign in|sign up|user accounts?|authentication|register an account)\b/i.test(source),
-      backendData: /\b(?:save|store|persist|database|backend|customer records?|booking records?|order records?)\b/i.test(source),
+      contactForm: hasPositiveIntent(source, /\b(?:contact|enquiry|inquiry|quote|lead|message)\s+forms?\b|\bforms?\b.{0,40}\b(?:contact|email|message|enquiry|inquiry|quote)\b/i),
+      emailDelivery: hasPositiveIntent(source, /\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b.{0,55}\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b|\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b.{0,55}\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b/i),
+      bookings: hasPositiveIntent(source, BOOKING_INTENT_PATTERN),
+      newsletter: hasPositiveIntent(source, /\b(?:newsletter|mailing\s+list|email\s+updates|subscribe\s+(?:to\s+)?(?:the\s+)?(?:newsletter|mailing\s+list)|sign\s+up\s+for\s+(?:email\s+)?updates)\b/i),
+      payments: hasPositiveIntent(source, /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing|recurring billing)\b/i),
+      shoppingCart: hasPositiveIntent(source, SHOPPING_CART_PATTERN),
+      addToCart: hasPositiveIntent(source, ADD_TO_CART_PATTERN),
+      authentication: hasPositiveIntent(source, /\b(?:login|log in|sign in|sign up|user accounts?|authentication|register an account)\b/i),
+      backendData: hasPositiveIntent(source, /\b(?:save|store|persist|database|backend|customer records?|booking records?|order records?)\b/i),
     },
     fidelityRules: [
       'Treat every explicit requirement and exclusion as a delivery contract, not optional inspiration.',

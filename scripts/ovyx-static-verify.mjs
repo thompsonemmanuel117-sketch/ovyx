@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
 const errors = [];
+const packageJsonPath = path.join(root, 'package.json');
 
 function walk(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -317,6 +318,83 @@ if (!fs.existsSync(studioMultiPagePath) || !fs.existsSync(websiteEnginePath) || 
   }
 }
 
+const fullStackArchitecturePath = path.join(root, 'functions/_lib/fullstack-architecture.js');
+const fullStackArchitectureTestPath = path.join(root, 'scripts/ovyx-fullstack-architecture.test.mjs');
+if (!fs.existsSync(fullStackArchitecturePath) || !fs.existsSync(fullStackArchitectureTestPath)) {
+  errors.push('OVYX full-stack architecture: the shared cross-layer planner or its regression suite is missing.');
+} else {
+  const fullStackArchitecture = fs.readFileSync(fullStackArchitecturePath, 'utf8');
+  const websiteEngine = fs.existsSync(websiteEnginePath) ? fs.readFileSync(websiteEnginePath, 'utf8') : '';
+  const fullStackTest = fs.readFileSync(fullStackArchitectureTestPath, 'utf8');
+  const packageJson = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
+  if (
+    !websiteEngine.includes('buildPromptContract(sourceBrief)') ||
+    !websiteEngine.includes('buildFullStackArchitecture(sourceBrief, promptContract, safeContext, pages)') ||
+    !websiteEngine.includes('fullStackArchitectureModelContract(plan.fullStackArchitecture)') ||
+    !websiteEngine.includes('fullStackArchitectureClientSummary(plan.fullStackArchitecture)') ||
+    !websiteEngine.includes('OVYX FULL-STACK ARCHITECTURE CONTRACT — ONE COHERENT APPLICATION') ||
+    !websiteEngine.includes('do not silently return a frontend-only site') ||
+    !websiteEngine.includes('Generate the declared domain schema, relationships, constraints and indexes') ||
+    !websiteEngine.includes('function parseBackendFiles') ||
+    !websiteEngine.includes('maxBackendFiles = 80') ||
+    !websiteEngine.includes('maxBackendSourceBytes = 900000') ||
+    !websiteEngine.includes('containsUnsafeExecution') ||
+    !websiteEngine.includes('function auditBackendFiles') ||
+    !websiteEngine.includes('mergeGenerationUsage') ||
+    !websiteEngine.includes('source-generated-runtime-unverified') ||
+    !fullStackArchitecture.includes('validateFullStackArchitectureGraph') ||
+    !fullStackArchitecture.includes('buildDataIntegrityContracts') ||
+    !fullStackArchitecture.includes('buildWorkflowStateMachines') ||
+    !fullStackArchitecture.includes('missingRelationshipReferences') ||
+    !fullStackArchitecture.includes('relates-to') ||
+    !fullStackArchitecture.includes('transactional-outbox-or-provider-safe-queue') ||
+    !fullStackArchitecture.includes('require-explicit-owner-approval') ||
+    !fullStackTest.includes('payment-integrity') ||
+    !fullStackTest.includes('business-state-transitions') ||
+    !fullStackTest.includes('newsletter-consent-evidence') ||
+    !fullStackTest.includes('needs-semantic-mapping') ||
+    !fullStackTest.includes('Authentication alone must not invent role-based authorization') ||
+    !fullStackTest.includes('public-with-abuse-controls-and-quarantine') ||
+    !packageJson.includes('scripts/ovyx-fullstack-architecture.test.mjs') ||
+    !packageJson.includes('scripts/ovyx-fullstack-d1-migration.test.mjs')
+  ) {
+    errors.push('OVYX full-stack architecture: cross-layer graph, safe migration/background-work contracts, requirement evidence or standard regression coverage is incomplete.');
+  }
+}
+
+const fullStackSourceAuditPath = path.join(root, 'scripts/ovyx-fullstack-source-contracts.mjs');
+const fullStackSourceAuditTestPath = path.join(root, 'scripts/ovyx-fullstack-source-contracts.test.mjs');
+const webStudioEvaluatorPath = path.join(root, 'scripts/ovyx-webstudio-evaluation-runner.mjs');
+const webStudioEvaluatorTestPath = path.join(root, 'scripts/ovyx-webstudio-evaluation-runner.test.mjs');
+if (!fs.existsSync(fullStackSourceAuditPath) || !fs.existsSync(fullStackSourceAuditTestPath) ||
+    !fs.existsSync(webStudioEvaluatorPath) || !fs.existsSync(webStudioEvaluatorTestPath)) {
+  errors.push('OVYX full-stack source auditor: evaluator, source-contract tests or evaluation wiring is missing.');
+} else {
+  const sourceAudit = fs.readFileSync(fullStackSourceAuditPath, 'utf8');
+  const evaluator = fs.readFileSync(webStudioEvaluatorPath, 'utf8');
+  const auditTest = fs.readFileSync(fullStackSourceAuditTestPath, 'utf8');
+  const evaluatorTest = fs.readFileSync(webStudioEvaluatorTestPath, 'utf8');
+  const packageJson = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
+  if (
+    !sourceAudit.includes('evaluateFullStackSourceContracts') ||
+    !sourceAudit.includes('authorization-source-not-detected') ||
+    !sourceAudit.includes('missing-schema-source') ||
+    !sourceAudit.includes('indexDeclarationEvidence') ||
+    !sourceAudit.includes('missing-index-source') ||
+    !sourceAudit.includes('runtimeBehaviorVerified: false') ||
+    !evaluator.includes("from './ovyx-fullstack-source-contracts.mjs'") ||
+    !evaluator.includes('options.fullStackArchitecture') ||
+    !evaluator.includes('fullStackSourceEvidence') ||
+    !auditTest.includes('signed-unsubscribe-token') ||
+    !auditTest.includes('indexSourceEvidenceCount') ||
+    !evaluatorTest.includes('fullStackSourceContracts') ||
+    !evaluatorTest.includes('no-backend-contracts-requested') ||
+    !packageJson.includes('scripts/ovyx-fullstack-source-contracts.test.mjs')
+  ) {
+    errors.push('OVYX full-stack source auditor: route/method/auth, model/relationship evidence and honest runtime boundary must be covered by the standard test suite.');
+  }
+}
+
 const webStudioShellPath = path.join(root, 'index.html');
 if (fs.existsSync(webStudioShellPath)) {
   const webStudioShell = fs.readFileSync(webStudioShellPath, 'utf8');
@@ -352,7 +430,7 @@ if (fs.existsSync(webStudioShellPath)) {
 // required-page recovery are backend-enforced and covered by the standard test suite.
 const promptContractPath = path.join(root, 'functions/_lib/prompt-contract.js');
 const promptContractTestPath = path.join(root, 'scripts/prompt-contract.test.mjs');
-const packageJsonPath = path.join(root, 'package.json');
+
 if (!fs.existsSync(promptContractPath) || !fs.existsSync(promptContractTestPath)) {
   errors.push('OVYX Web Studio: prompt contract enforcement or its regression tests are missing.');
 } else {
@@ -583,6 +661,13 @@ for (const file of [
   path.join(root, 'functions/_lib/multi-page.js'),
   path.join(root, 'functions/_lib/orchestrator.js'),
   path.join(root, 'functions/_lib/prompts.js'),
+  path.join(root, 'functions/_lib/fullstack-architecture.js'),
+  path.join(root, 'scripts/ovyx-fullstack-architecture.test.mjs'),
+  path.join(root, 'scripts/ovyx-fullstack-source-contracts.mjs'),
+  path.join(root, 'scripts/ovyx-fullstack-source-contracts.test.mjs'),
+  path.join(root, 'scripts/ovyx-webstudio-evaluation-runner.mjs'),
+  path.join(root, 'scripts/ovyx-webstudio-evaluation-runner.test.mjs'),
+  path.join(root, 'scripts/ovyx-website-engine.test.mjs'),
 ]) {
   if (!fs.existsSync(file)) continue;
   try {

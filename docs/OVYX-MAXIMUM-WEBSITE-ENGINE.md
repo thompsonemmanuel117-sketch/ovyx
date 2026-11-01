@@ -40,6 +40,15 @@ The following are invariants for every phase:
 | Export and deployment | Three ZIP export modes and Cloudflare Pages deploy/status APIs | Export profile is advisory; build/install, real deployment and user-domain verification are separate. |
 | Workspace, history and recovery | Saved-project tools, snapshots, scoped rollback and recovery | Source revisions, human approval and server read-back remain mandatory for writes. |
 
+## Phase 2 — full-stack architecture and source generation
+
+Phase 2 is tracked separately in [PR #360](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/360) on `feat/ovyx-fullstack-website-engine-phase-2`; it is not merged or accepted yet. Its current implementation includes a deterministic cross-layer architecture compiler and a second backend-source generation stage shared by the authenticated Assistant and Gateway.
+
+The backend stage uses the trusted server-derived architecture contract to request complete route handlers, provider-appropriate database schemas/migrations, relationship declarations and safe tests. It checks generated route files and HTTP methods, protected-route or public-abuse-control evidence, schema/model evidence and declared relationship fields. It rejects unsafe paths and credential-shaped generated source, allows one targeted repair pass, and includes backend model usage in quota accounting. The selected database/auth/payment/email provider identity is preserved without treating connection metadata as proof of live access.
+
+Route-layout evidence currently recognizes Cloudflare Pages Functions, Next.js App Router/Pages Router, SvelteKit, Remix, Nuxt and existing Node server patterns. Cloudflare Pages Functions with D1-compatible migrations are the fallback only when no framework or database provider is selected.
+
+**Important acceptance boundary:** generated source evidence is labelled `source-generated-runtime-unverified`. It does not provision a database, configure bindings/credentials, run migrations, prove persistence, verify live authentication or external delivery, or certify a generated framework production build. Those are still Phase 2 implementation and acceptance work. The full acceptance matrix is in `docs/OVYX-FULLSTACK-WEBSITE-ENGINE.md`.
 ## Additional engineering checklist (43–75)
 
 Statuses below mean: **Existing** = implementation found; **Partial** = useful foundation exists but listed behavior is not fully accepted; **Open** = not yet evidenced in the inspected production path; **PR pending** = code is in PR #359 but its checks have not passed yet.

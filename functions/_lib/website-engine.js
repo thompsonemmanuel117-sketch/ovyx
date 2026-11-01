@@ -2,6 +2,7 @@ import { buildExperienceBrief } from './experience.js';
 import { buildPromptContract, getWebStudioBuildClarification } from './prompt-contract.js';
 import { buildStudioMultiPage } from './studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from './studio-singlepage.js';
+import { buildFullStackArchitecture, fullStackArchitectureClientSummary, fullStackArchitectureModelContract } from './fullstack-architecture.js';
 
 const clean = (value, max = 240) => String(value == null ? '' : value)
   .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -81,6 +82,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
   const promptContract = buildPromptContract(sourceBrief);
   const experience = buildExperienceBrief(brief, safeContext);
   const pages = pagePlan(promptContract);
+  const fullStackArchitecture = buildFullStackArchitecture(sourceBrief, promptContract, safeContext, pages);
   const explicitMultiPage = pages.length > 1 ||
     /\b(?:multi[- ]?page|multiple pages|several pages|\d+ pages)\b/i.test(brief);
   const signals = promptContract.contactSignals || {};
@@ -141,6 +143,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
       motionChoreography: experience.architecture?.motionChoreography || [],
     },
     integrations: integrationRequirements(promptContract, safeContext),
+    fullStackArchitecture,
     qualityGates: experience.qualityGates || [],
     implementationRules: [
       'Plan the complete experience before writing files; do not stop at a visually attractive first screen.',
@@ -282,6 +285,7 @@ function serializeWebsiteEngineModelPlan(plan) {
         verification: clean(item?.verification, 120),
       })),
       qualityGates: compactPlanList(plan.qualityGates, 14, 140),
+      fullStackArchitecture: fullStackArchitectureModelContract(plan.fullStackArchitecture),
       implementationRules: compactPlanList(plan.implementationRules, 10, 160),
       detailSummariesAreBounded: true,
     };
@@ -307,6 +311,71 @@ function serializeWebsiteEngineModelPlan(plan) {
   };
   minimal.qualityGates = compactPlanList(plan.qualityGates, 8, 100);
   minimal.implementationRules = compactPlanList(plan.implementationRules, 8, 100);
+  if (plan.fullStackArchitecture) {
+    const fullStack = plan.fullStackArchitecture;
+    const groupedRequirements = new Map();
+    for (const item of fullStack.requirementMappings || []) {
+      const targets = (item.targetNodeIds || []).slice(0, 3);
+      const key = item.assessment + '|' + targets.join('|');
+      if (!groupedRequirements.has(key)) groupedRequirements.set(key, {
+        assessment: item.assessment,
+        targetNodeIds: targets,
+        requirementIds: [],
+      });
+      groupedRequirements.get(key).requirementIds.push(item.requirementId);
+    }
+    minimal.fullStackArchitecture = {
+      version: fullStack.version,
+      capabilities: fullStack.capabilities,
+      pages: (fullStack.pages || []).slice(0, 14).map(page => [page.id, clean(page.title, 64), clean(page.route, 96)]),
+      apiContracts: (fullStack.apiContracts || []).slice(0, 20).map(route => ({
+        id: route.id, method: route.method, path: route.path, capability: route.capability,
+        authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 5),
+        sideEffect: route.sideEffect || '',
+      })),
+      dataModels: (fullStack.dataModels || []).slice(0, 16).map(model => [
+        model.id, model.name, (model.fields || []).slice(0, 10), model.securityClass,
+      ]),
+      dataIntegrity: {
+        relationships: (fullStack.dataIntegrity?.relationships || []).slice(0, 16).map(item =>
+          [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional]),
+        constraints: (fullStack.dataIntegrity?.constraints || []).slice(0, 16).map(item =>
+          [item.id, clean(item.appliesTo, 64), clean(item.rule, 96)]),
+        indexes: (fullStack.dataIntegrity?.indexes || []).slice(0, 16).map(item =>
+          [item.entity, (item.fields || []).slice(0, 5), item.unique === true]),
+      },
+      integrations: (fullStack.integrations || []).slice(0, 8).map(item =>
+        [item.capability, item.provider, item.connectionMetadata, item.verification]),
+      requirementTraceabilityGroups: [...groupedRequirements.values()],
+      graphIntegrity: {
+        valid: fullStack.graphIntegrity?.valid === true,
+        nodeCount: fullStack.graphIntegrity?.nodeCount || 0,
+        edgeCount: fullStack.graphIntegrity?.edgeCount || 0,
+        unreachableNodeIds: (fullStack.graphIntegrity?.unreachableNodeIds || []).slice(0, 12),
+      },
+      security: {
+        defaultPosture: fullStack.security?.defaultPosture,
+        controls: (fullStack.security?.controls || []).slice(0, 16).map(item => [item.id, clean(item.requirement, 100)]),
+        migrationPolicy: fullStack.security?.migrationPolicy,
+      },
+      backgroundWork: {
+        required: fullStack.backgroundWork?.required === true,
+        pattern: fullStack.backgroundWork?.pattern,
+        controls: (fullStack.backgroundWork?.controls || []).slice(0, 8),
+      },
+      stateMachines: (fullStack.stateMachines || []).slice(0, 8).map(machine => ({
+        entity: machine.entity,
+        initialState: machine.initialState,
+        states: (machine.states || []).slice(0, 10),
+        transitions: (machine.transitions || []).slice(0, 8).map(item =>
+          [item.from, item.to, clean(item.authority, 88), clean(item.sideEffect, 72)]),
+        invariant: clean(machine.invariant, 100),
+      })),
+      testPlan: (fullStack.testPlan || []).slice(0, 12).map(test =>
+        [test.id, test.type, test.status, test.requiresExplicitOwnerApproval === true]),
+      honestyRules: compactPlanList(fullStack.honestyRules, 8, 100),
+    };
+  }
   const serialized = JSON.stringify(minimal);
   if (serialized.length > WEBSITE_ENGINE_PLAN_JSON_LIMIT) {
     throw new RangeError('The Website Engine plan exceeds its safe instruction budget.');
@@ -317,10 +386,22 @@ function serializeWebsiteEngineModelPlan(plan) {
 export function buildWebsiteEngineInstructions(plan) {
   if (!plan || plan.engine !== 'ovyx-unified-website-engine') return '';
   const serializedPlan = serializeWebsiteEngineModelPlan(plan);
+  const fullStackRules = plan.fullStackArchitecture ? [
+    'OVYX FULL-STACK ARCHITECTURE CONTRACT — ONE COHERENT APPLICATION',
+    'Implement the declared architecture as connected source code, not as a proposal, mockup or disconnected collection of files. When backend capability is requested, do not silently return a frontend-only site.',
+    'For each declared API contract, generate the matching server route/handler for the selected framework and HTTP method, validate inputs on the server, enforce the stated authorization policy, return the declared safe success/error contract, and connect every consumer in the frontend to that exact route.',
+    'Generate the declared domain schema, relationships, constraints and indexes from one consistent source of truth. Ensure route model references resolve to the actual schema. Include additive migrations and a dry-run/rollback path; do not execute destructive or production migrations without explicit owner approval.',
+    'Implement the declared workflow state machines with server-authoritative transitions. Never trust browser-supplied roles, owners, prices, totals, inventory, payment success, availability or provider events.',
+    'Use server-side adapters for integrations, bounded timeouts, retry only safe/idempotent operations, idempotency keys, replay protection and auditable reconciliation. A configured connection is not a live delivery or transaction.',
+    'Keep provider credentials in server bindings or encrypted server-side storage. Add only variable names and safe setup guidance to environment templates; never generate real secrets or expose them to browser code, URLs, logs or exported client bundles.',
+    'Generate tests for route contracts, schemas, authorization-negative cases, business state transitions and end-to-end user journeys. Do not mark a route, database write, integration or deployment complete because its source file or mock test exists.',
+    'Preserve existing project files and scoped-edit boundaries. Build the dependency graph before broad edits, update every affected consumer, and report unresolved requirements instead of silently omitting them.',
+  ] : [];
   return [
     'OVYX UNIFIED WEBSITE ENGINE — AUTHORITATIVE PRE-GENERATION PLAN',
     'The complete original user brief is supplied separately as the task prompt and remains authoritative. The JSON below is a bounded architecture plan and requirement index; its clause excerpts never replace the original brief.',
     serializedPlan,
+    ...fullStackRules,
     'Before returning files, internally reconcile every requirement and exclusion against the complete original brief and the actual output. If a real service is not connected and verified, provide an honest pending/UI-only boundary instead of a fake success path.',
   ].join('\n\n');
 }
@@ -341,6 +422,7 @@ export function websiteEngineClientSummary(plan) {
       connection: item.connection,
     })),
     qualityGateCount: plan.qualityGates.length,
+    fullStackArchitecture: fullStackArchitectureClientSummary(plan.fullStackArchitecture),
   };
 }
 
@@ -350,6 +432,311 @@ export function websiteEngineClientSummary(plan) {
  * single-page repair fallback if the staged builder cannot return a project.
  * Scoped edits deliberately bypass full-site rebuild and repair.
  */
+
+function mergeGenerationUsage(...records) {
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let totalTokens = 0;
+  let found = false;
+  for (const record of records) {
+    if (!record || typeof record !== 'object') continue;
+    const prompt = Number(record.prompt_tokens ?? record.input_tokens);
+    const completion = Number(record.completion_tokens ?? record.output_tokens);
+    const total = Number(record.total_tokens);
+    if (Number.isFinite(prompt) || Number.isFinite(completion) || Number.isFinite(total)) {
+      found = true;
+      if (Number.isFinite(prompt)) promptTokens += prompt;
+      if (Number.isFinite(completion)) completionTokens += completion;
+      if (Number.isFinite(total)) totalTokens += total;
+      else totalTokens += (Number.isFinite(prompt) ? prompt : 0) + (Number.isFinite(completion) ? completion : 0);
+    }
+  }
+  return found ? {
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: totalTokens,
+  } : null;
+}
+
+function parseBackendFiles(response) {
+  const candidates = [response, response && response.output, response && response.result, response && response.data];
+  for (const item of candidates) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    let files = item.files || item.generatedFiles || item.projectFiles;
+    if (!files && typeof item.text === 'string') {
+      let raw = item.text.trim();
+      const fence = String.fromCharCode(96).repeat(3);
+      if (raw.startsWith(fence)) {
+        const newline = raw.indexOf('\n');
+        raw = newline >= 0 ? raw.slice(newline + 1) : '';
+      }
+      if (raw.endsWith(fence)) raw = raw.slice(0, -3).trim();
+      try { files = JSON.parse(raw).files; } catch {
+        const first = raw.indexOf('{');
+        const last = raw.lastIndexOf('}');
+        if (first >= 0 && last > first) {
+          try { files = JSON.parse(raw.slice(first, last + 1)).files; } catch {}
+        }
+      }
+    }
+    if (!files || typeof files !== 'object' || Array.isArray(files)) continue;
+    const output = {};
+    let totalSourceBytes = 0;
+    const maxBackendFiles = 80;
+    const maxBackendSourceBytes = 900000;
+    for (const [rawPath, value] of Object.entries(files)) {
+      let filePath = String(rawPath || '').trim();
+      while (filePath.startsWith('/')) filePath = filePath.slice(1);
+      const fileContent = typeof value === 'string' ? value : value && (value.content || value.text || value.code);
+      const allowedRoot = [
+        'functions/', 'api/', 'app/api/', 'src/app/api/', 'pages/api/', 'src/pages/api/',
+        'prisma/', 'migrations/', 'drizzle/', 'db/', 'database/', 'server/', 'src/server/',
+        'src/lib/server/', 'src/routes/', 'app/routes/', 'server/api/', 'server/routes/', 'tests/', 'test/', '__tests__/',
+      ].some(prefix => filePath.startsWith(prefix));
+      const allowedExtension = [
+        '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.prisma', '.sql',
+        '.graphql', '.gql', '.yaml', '.yml', '.toml', '.json',
+      ].some(extension => filePath.toLowerCase().endsWith(extension));
+      const lowerPath = filePath.toLowerCase();
+      const containsCredentialMaterial = typeof fileContent === 'string' && (
+        /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i.test(fileContent) ||
+        /sk_(?:live|test)_[A-Za-z0-9]{12,}/.test(fileContent) ||
+        /AIza[0-9A-Za-z_-]{30,}/.test(fileContent) ||
+        /AKIA[0-9A-Z]{16}/.test(fileContent) ||
+        /Bearer\s+[A-Za-z0-9._-]{24,}/i.test(fileContent)
+      );
+      const containsUnsafeExecution = typeof fileContent === 'string' &&
+        /\beval\s*\(|new\s+Function\s*\(|\bchild_process\b|\bexecSync\s*\(|\bspawn\s*\(/i.test(fileContent);
+      if (!filePath || filePath.length > 300 || filePath.includes('..') || filePath.includes(String.fromCharCode(92)) ||
+          lowerPath.includes('.env') || lowerPath.includes('secret') || lowerPath.includes('credential') ||
+          lowerPath.includes('private-key') || lowerPath.includes('service-account') ||
+          !allowedExtension || !allowedRoot || typeof fileContent !== 'string' ||
+          !fileContent.trim() || fileContent.length > 180000 || containsCredentialMaterial || containsUnsafeExecution ||
+          Object.keys(output).length >= maxBackendFiles || totalSourceBytes + fileContent.length > maxBackendSourceBytes) continue;
+      output[filePath] = fileContent;
+      totalSourceBytes += fileContent.length;
+    }
+    if (Object.keys(output).length) return output;
+  }
+  return {};
+}
+
+function auditBackendFiles(files, architecture) {
+  const entries = Object.entries(files || {});
+  const pathMap = new Map(entries.map(([filePath]) => [filePath.toLowerCase(), filePath]));
+  const routes = (architecture.apiContracts || []).map(route => {
+    let suffix = String(route.path || '').trim();
+    while (suffix.startsWith('/')) suffix = suffix.slice(1);
+    if (suffix.toLowerCase().startsWith('api/')) suffix = suffix.slice(4);
+    suffix = suffix.split('/').filter(Boolean).map(part =>
+      part.startsWith(':') ? '[' + part.slice(1) + ']' : part
+    ).join('/');
+    const remixSuffix = suffix.split('/').map(part => part.startsWith('[') ? String.fromCharCode(36) + part.slice(1, -1) : part).join('.');
+    const verb = String(route.method || 'GET').toLowerCase();
+    const candidates = [
+      'functions/api/' + suffix + '.js', 'functions/api/' + suffix + '.ts',
+      'functions/api/' + suffix + '/index.js', 'app/api/' + suffix + '/route.js',
+      'app/api/' + suffix + '/route.ts', 'src/app/api/' + suffix + '/route.ts',
+      'pages/api/' + suffix + '.js', 'pages/api/' + suffix + '.ts',
+      'src/routes/api/' + suffix + '/+server.js', 'src/routes/api/' + suffix + '/+server.ts',
+      'server/api/' + suffix + '.' + verb + '.js', 'server/api/' + suffix + '.' + verb + '.ts',
+      'server/api/' + suffix + '.js', 'server/api/' + suffix + '.ts',
+      'app/routes/api.' + remixSuffix + '.js', 'app/routes/api.' + remixSuffix + '.ts',
+      'server/routes/' + suffix + '.js', 'server/routes/' + suffix + '.ts',
+      'api/' + suffix + '.js', 'api/' + suffix + '.ts',
+    ];
+    const file = candidates.map(candidate => pathMap.get(candidate.toLowerCase())).find(Boolean) || '';
+    const code = file ? String(files[file]) : '';
+    const method = String(route.method || 'GET').toUpperCase();
+    const pascal = method.charAt(0) + method.slice(1).toLowerCase();
+    const lowerFile = file.toLowerCase();
+    const methodOk = !!file && (
+      code.includes('onRequest' + pascal) ||
+      code.includes('export const ' + method) ||
+      code.includes('export async function ' + method) ||
+      code.includes('export const ' + (method === 'GET' ? 'loader' : 'action')) ||
+      code.includes('function ' + method) ||
+      code.includes('function ' + pascal) ||
+      (lowerFile.startsWith('server/api/') && code.includes('defineEventHandler')) ||
+      code.toLowerCase().includes('router.' + method.toLowerCase() + '(') ||
+      code.toLowerCase().includes('app.' + method.toLowerCase() + '(') ||
+      (lowerFile.includes('/+server.') && code.includes('export const ' + method)) ||
+      (lowerFile.includes('/routes/api.') && code.includes(method === 'GET' ? 'loader' : 'action')) ||
+      (lowerFile.startsWith('server/api/') && lowerFile.includes('.' + method.toLowerCase() + '.') && code.includes('defineEventHandler'))
+    );
+    const policy = String(route.authPolicy || '').toLowerCase();
+    const publicRoute = policy.startsWith('public');
+    const abuseExpected = policy.includes('abuse-controls') || policy.includes('rate-limit');
+    const abuseDetected = !abuseExpected || /enforceRateLimit|checkRateLimit|rateLimiter|rateLimitRequest|verifyTurnstile|verifyCaptcha|throttleRequest/i.test(code);
+    const consentExpected = policy.includes('consent');
+    const consentDetected = !consentExpected || /consent|doubleOptIn|confirmedAt/i.test(code);
+    const publicationExpected = policy.includes('published');
+    const publicationDetected = !publicationExpected || /isPublished|publishedAt|publicationStatus|assertPublished/i.test(code);
+    const quarantineExpected = policy.includes('quarantine');
+    const quarantineDetected = !quarantineExpected || /quarantine|scanStatus|malwareScan|publicationApproval/i.test(code);
+    const credentialExpected = policy.includes('credential-provider');
+    const credentialDetected = !credentialExpected || /verifyCredentials|verifyPassword|verifyIdToken|identityToken|credentialProvider|providerSubject/i.test(code);
+    const ownerScopeExpected = policy.includes('owner') || policy.includes('resource-scope') || policy.includes('object-level') || policy.includes('tenant');
+    const ownerScopeDetected = !ownerScopeExpected || /assertOwner|assertResourceOwner|requireOwner|verifyOwnership|tenantId|ownerId|resourceOwner|scopeToUser/i.test(code);
+    let authorizationDetected;
+    if (policy.includes('provider-signature')) {
+      const signature = /verifyWebhookSignature|verifySignature|constructEvent/i.test(code);
+      const replay = /eventId|event\.id|idempotencyKey|replay|processedEvent|webhookEvent/i.test(code);
+      authorizationDetected = signature && replay;
+    } else if (policy.includes('signed-unsubscribe-token')) {
+      authorizationDetected = /verifyUnsubscribeToken|validateUnsubscribeToken|verifySignature|tokenHash/i.test(code);
+    } else if (publicRoute) {
+      authorizationDetected = abuseDetected && consentDetected && publicationDetected && quarantineDetected && credentialDetected;
+    } else {
+      const authenticated = /requireAuth|assertAuthenticated|getAuthenticatedUser|verifySession|verifyIdToken/i.test(code);
+      const elevated = !(/administrator|role|permission|staff/.test(policy)) ||
+        /requireAdmin|requireRole|authorize|assertPermission/i.test(code);
+      authorizationDetected = authenticated && elevated && ownerScopeDetected;
+    }
+    return {
+      id: route.id, method, path: route.path, file: file || null, methodOk,
+      authOk: authorizationDetected, ownerScopeExpected, ownerScopeDetected,
+      abuseExpected, abuseDetected, consentExpected, consentDetected, publicationExpected, publicationDetected, quarantineExpected, quarantineDetected,
+    };
+  });
+  const schemaFiles = entries.filter(([filePath]) => {
+    const lower = filePath.toLowerCase();
+    return lower.includes('schema') || lower.includes('migration') || lower.includes('prisma') || lower.includes('drizzle') || lower.includes('database') || lower.includes('index');
+  });
+  const schema = schemaFiles.map(entry => entry[1]).join('\n').toLowerCase();
+  const databaseIntegration = (architecture.integrations || []).find(item => item.capability === 'database');
+  const databaseProvider = String(databaseIntegration && databaseIntegration.provider || 'not-selected-by-architecture-planner');
+  const documentDatabase = /firebase|firestore/i.test(databaseProvider);
+  const migrationFiles = entries.filter(([filePath]) => {
+    const lower = filePath.toLowerCase();
+    return lower.startsWith('migrations/') || lower.startsWith('drizzle/') || lower.includes('/migrations/') ||
+      lower.startsWith('prisma/migrations/');
+  });
+  const migrationEvidence = (architecture.dataModels || []).length === 0 ||
+    (documentDatabase
+      ? schemaFiles.some(([filePath]) => filePath.toLowerCase().includes('firestore'))
+      : migrationFiles.length > 0);
+  const models = (architecture.dataModels || []).map(model => {
+    const name = String(model.name || '');
+    const snake = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+    const plural = snake.endsWith('s') ? snake : snake + 's';
+    const present = schema.includes('model ' + name.toLowerCase()) ||
+      schema.includes(name.toLowerCase() + 'schema') ||
+      schema.includes('collection(' + String.fromCharCode(39) + plural + String.fromCharCode(39) + ')') ||
+      schema.includes('create table ' + plural) ||
+      schema.includes('create table if not exists ' + plural) ||
+      schema.includes('create table "' + plural + '"') ||
+      schema.includes("create table '" + plural + "'") ||
+      schema.includes('createtable("' + plural + '"') ||
+      schema.includes("createtable('" + plural + "'");
+    return { id: model.id, name, present };
+  });
+  const modelNamesById = new Map((architecture.dataModels || []).map(model => [String(model.id), String(model.name || '')]));
+  const relations = (architecture.dataIntegrity && architecture.dataIntegrity.relationships || []).map(relation => {
+    const field = String(relation.foreignKeyField || '').toLowerCase();
+    const from = modelNamesById.get(String(relation.from)) || String(relation.from || '').replace(/^model-/, '');
+    const to = modelNamesById.get(String(relation.to)) || String(relation.to || '').replace(/^model-/, '');
+    const toTable = value => {
+      const snake = String(value || '').replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/-/g, '_').toLowerCase();
+      return snake.endsWith('s') ? snake : snake + 's';
+    };
+    const relationSignal = /foreign key|references|@relation|relation|reference|ref\b/i.test(schema);
+    const polymorphic = relation.kind === 'polymorphic-reference'
+      ? /sourceType|targetType|entityType/i.test(schema)
+      : schema.includes(from.toLowerCase()) || schema.includes(toTable(from));
+    const targetPresent = relation.kind === 'polymorphic-reference'
+      ? true
+      : schema.includes(to.toLowerCase()) || schema.includes(toTable(to));
+    return {
+      id: relation.id, field,
+      present: !!field && schema.includes(field) && polymorphic && targetPresent && relationSignal,
+    };
+  });
+  const uniqueSource = entries.map(entry => entry[1]).join('\n').toLowerCase();
+  const indexes = (architecture.dataIntegrity && architecture.dataIntegrity.indexes || []).map(index => {
+    const entity = String(index.entity || '');
+    const snake = entity.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+    const table = snake.endsWith('s') ? snake : snake + 's';
+    const fields = Array.isArray(index.fields) ? index.fields.map(field => String(field).toLowerCase()) : [];
+    const fieldsPresent = fields.length > 0 && fields.every(field => schema.includes(field));
+    const entityPresent = schema.includes(entity.toLowerCase()) || schema.includes(table);
+    const sqlIndex = schema.includes('create index') || schema.includes('create unique index');
+    const ormIndex = schema.includes('@@index') || schema.includes('uniqueindex(') || schema.includes('index(');
+    const documentIndex = schema.includes('collectiongroup') || schema.includes('indexes');
+    const uniquePresent = !index.unique || (documentDatabase
+      ? /transaction|runtransaction/.test(uniqueSource) && /unique|reservation/.test(uniqueSource)
+      : schema.includes('unique') || schema.includes('@@unique') || schema.includes('uniqueindex('));
+    return {
+      entity, fields, unique: Boolean(index.unique),
+      present: fieldsPresent && entityPresent && (sqlIndex || ormIndex || documentIndex) && uniquePresent,
+    };
+  });
+  const allGeneratedSource = entries.map(entry => entry[1]).join('\n').toLowerCase();
+  const testFiles = entries.filter(([filePath]) =>
+    filePath.startsWith('tests/') || filePath.startsWith('test/') || filePath.startsWith('__tests__/')
+  );
+  const generatedTestSource = testFiles.map(entry => entry[1]).join('\n').toLowerCase();
+  const testEvidence = testFiles.length > 0 &&
+    /\btest\s*\(|\bit\s*\(|\bdescribe\s*\(|\bassert\./i.test(generatedTestSource) &&
+    /authorization|permission|owner|role|rate.?limit/i.test(generatedTestSource) &&
+    /idempotency/i.test(generatedTestSource) &&
+    /transition|state.?machine/i.test(generatedTestSource);
+  const workflows = (architecture.stateMachines || []).map(machine => {
+    const entity = String(machine.entity || '').toLowerCase();
+    const states = Array.isArray(machine.states) ? machine.states.map(state => String(state).toLowerCase()) : [];
+    const statesPresent = states.length > 0 && states.every(state => allGeneratedSource.includes(state));
+    const transitionPresent = allGeneratedSource.includes('transition') && !!entity && allGeneratedSource.includes(entity);
+    return { id: machine.id, entity: machine.entity, statesExpected: states.length, statesPresent, transitionPresent };
+  });
+  const missing = [];
+  routes.forEach(route => {
+    if (!route.file) missing.push('Missing route file: ' + route.method + ' ' + route.path);
+    else if (!route.methodOk) missing.push('Missing HTTP method handler: ' + route.method + ' ' + route.path);
+    if (!route.authOk) missing.push('Missing authorization/signature evidence: ' + route.path);
+  });
+  models.filter(model => !model.present).forEach(model => missing.push('Missing database schema model: ' + model.name));
+  if (!migrationEvidence) missing.push(documentDatabase ? 'Missing Firestore collection/index schema artifact.' : 'Missing versioned database migration artifact.');
+  relations.filter(relation => !relation.present).forEach(relation => missing.push('Missing database relationship field: ' + relation.field));
+  indexes.filter(index => !index.present).forEach(index => missing.push('Missing database index: ' + index.entity + '(' + index.fields.join(', ') + ')'));
+  workflows.filter(workflow => !workflow.statesPresent || !workflow.transitionPresent).forEach(workflow =>
+    missing.push('Missing business workflow implementation evidence: ' + workflow.entity)
+  );
+  if (!testEvidence) missing.push('Missing safe generated backend regression tests for authorization, idempotency and workflow transitions.');
+  return {
+    status: missing.length ? 'incomplete-source-generation' : 'source-evidence-present-runtime-unverified',
+    routeCount: routes.length, routeSourceCount: routes.filter(route => route.file).length,
+    routeMethodCount: routes.filter(route => route.methodOk).length,
+    authorizationEvidenceCount: routes.filter(route => route.authOk).length,
+    modelCount: models.length, modelSchemaEvidenceCount: models.filter(model => model.present).length,
+    databaseProvider, migrationEvidence, migrationFileCount: migrationFiles.length,
+    relationshipCount: relations.length, relationshipEvidenceCount: relations.filter(relation => relation.present).length,
+    indexCount: indexes.length, indexEvidenceCount: indexes.filter(index => index.present).length,
+    workflowCount: workflows.length, workflowEvidenceCount: workflows.filter(workflow => workflow.statesPresent && workflow.transitionPresent).length,
+    workflowEvidence: workflows, generatedTestFileCount: testFiles.length, generatedTestEvidence: testEvidence,
+    runtimeBehaviorVerified: false, databasePersistenceVerified: false, integrationDeliveryVerified: false,
+    missing: missing.slice(0, 40), routeEvidence: routes,
+  };
+}
+
+function buildBackendSourcePrompt(architecture, originalPrompt, existingPaths, failures) {
+  const contract = fullStackArchitectureModelContract(architecture);
+  return [
+    'OVYX FULL-STACK SOURCE GENERATION — REQUIRED IMPLEMENTATION STAGE',
+    'Return only valid JSON: {"files":{"relative/path":"complete source text"}}. No Markdown fences.',
+    'Generate real server route handlers, database schema, versioned migrations, relationships, constraints, indexes and safe tests for every declared API contract and model. A frontend-only response is not acceptable.',
+    'Preserve the framework detected in existing project paths: Cloudflare Pages Functions, Next.js App Router/Pages Router, SvelteKit, Remix, Nuxt or an existing Node server. Use that framework’s native route-handler conventions. Prefer the explicitly selected database/auth/payment/email provider in the architecture contract; its connection metadata is not proof of live access, so generate server-only adapters and fail safely when bindings are absent. Only when no framework or database provider is selected, target Cloudflare Pages Functions with Cloudflare D1-compatible SQLite migrations and matching onRequestGet/onRequestPost/onRequestPut/onRequestPatch/onRequestDelete exports.',
+    'Use prepared database statements, strict server-side validation, safe error envelopes, size limits, owner scoping, deny-by-default authorization, idempotency and transactional business-state changes. Missing DB/auth bindings must fail explicitly; never simulate persistence or success.',
+    'Generate provider-appropriate schemas, migrations, relationships, constraints and indexes for every model. Use SQL CREATE TABLE/foreign keys plus a versioned migrations/0001_initial.sql for relational databases; for Firebase Firestore emit db/firestore-schema.js and db/firestore.indexes.json with explicit collection/document validators, reference fields and required composite-index declarations. Keep money in integer minor units with ISO currency and timestamps in UTC with IANA timezone context.',
+    'Generate protected identity/authorization middleware and negative permission tests when requested. Payment webhooks require signature and replay verification; booking commits must recheck availability; external email requires an outbox and verified receipt.',
+    'Never include secrets, .env files, credentials, private keys, real customer data or invented production prices/availability. Do not execute migrations or contact real providers.',
+    'Only output backend, schema, migration, server-service and test files. Do not overwrite frontend pages, styles, browser scripts, package manifests or unrelated files.',
+    'Existing project paths: ' + existingPaths.join(', '),
+    failures.length ? 'Fix these missing source contracts: ' + failures.join(' | ') : '',
+    'Original user brief:\n' + String(originalPrompt || '').slice(0, 80000),
+    'Architecture contract:\n' + JSON.stringify(contract),
+  ].filter(Boolean).join('\n\n');
+}
+
 export async function runWebsiteGeneration(options = {}) {
   const {
     env,
@@ -362,6 +749,8 @@ export async function runWebsiteGeneration(options = {}) {
     initialQuotaInputText = '',
     buildMultiPage = buildStudioMultiPage,
     repairSinglePage = validateOrRepairSinglePageBuild,
+    fullStackArchitecture = null,
+    originalPrompt = '',
   } = options;
   if (typeof callModel !== 'function') throw new TypeError('Website generation requires a model caller.');
 
@@ -399,5 +788,93 @@ export async function runWebsiteGeneration(options = {}) {
   }
 
   if (!result) throw new Error('Website generation returned no result.');
-  return { result, multiPageBuild, quotaInputText, quotaOutputText };
+
+  let fullStackSourceEvidence = null;
+  if (shouldBuild && !scopedEdit && fullStackArchitecture &&
+      fullStackArchitecture.capabilities && fullStackArchitecture.capabilities.backend === true) {
+    let failures = [];
+    let generatedFiles = {};
+    let backendResponse = null;
+    let backendUsage = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const sourcePrompt = buildBackendSourcePrompt(
+        fullStackArchitecture, originalPrompt || multiPageOptions.prompt || modelOptions.taskPrompt || '',
+        [...new Set(Object.keys(multiPageOptions.files || {}).concat(Object.keys(result.files || {})))], failures
+      );
+      quotaInputText += (quotaInputText ? '\n\n' : '') + sourcePrompt;
+      try {
+        backendResponse = await callModel(env, {
+          ...modelOptions,
+          taskPrompt: sourcePrompt,
+          system: [String(modelOptions.system || ''), 'Generate complete backend source code and output only the requested JSON files object. Never simulate database writes, identity verification or provider success.'].filter(Boolean).join('\n\n'),
+          responseFormat: 'json',
+        });
+      } catch (generationError) {
+        generationError.partialUsage = mergeGenerationUsage(result.rawUsage, backendUsage, generationError.partialUsage);
+        generationError.quotaInputText = quotaInputText;
+        generationError.quotaOutputText = quotaOutputText;
+        throw generationError;
+      }
+      backendUsage = mergeGenerationUsage(backendUsage, backendResponse && (backendResponse.usage || backendResponse.rawUsage));
+      quotaOutputText += (quotaOutputText ? '\n\n' : '') + String(backendResponse && backendResponse.text || '');
+      generatedFiles = parseBackendFiles(backendResponse);
+      fullStackSourceEvidence = auditBackendFiles(generatedFiles, fullStackArchitecture);
+      if (fullStackSourceEvidence.status === 'source-evidence-present-runtime-unverified') break;
+      failures = fullStackSourceEvidence.missing.length
+        ? fullStackSourceEvidence.missing
+        : ['No valid backend files object was returned.'];
+    }
+    if (!Object.keys(generatedFiles).length ||
+        fullStackSourceEvidence.status !== 'source-evidence-present-runtime-unverified') {
+      const error = new Error('Full-stack source generation did not satisfy the required route, authorization, schema and relationship contracts.');
+      error.code = 'WEBSTUDIO_FULLSTACK_SOURCE_INCOMPLETE';
+      error.fullStackSourceEvidence = fullStackSourceEvidence;
+      error.partialUsage = mergeGenerationUsage(result.rawUsage, backendUsage);
+      error.quotaInputText = quotaInputText;
+      error.quotaOutputText = quotaOutputText;
+      throw error;
+    }
+    result = {
+      ...result,
+      files: { ...(result.files || {}), ...generatedFiles },
+      rawUsage: mergeGenerationUsage(result.rawUsage, backendUsage) || result.rawUsage || null,
+      fullStackSourceEvidence,
+      fullStackGeneration: {
+        status: 'source-generated-runtime-unverified',
+        filesGenerated: Object.keys(generatedFiles).length,
+      },
+    };
+
+    if (!multiPageBuild) {
+      const frontendHtml = typeof result.html === 'string' ? result.html
+        : typeof result.content === 'string' ? result.content
+          : typeof result.text === 'string' ? result.text : '';
+      const hasFrontendFile = Object.keys(result.files || {}).some(filePath => {
+        const backendPrefixes = [
+          'functions/', 'api/', 'app/api/', 'src/app/api/', 'pages/api/', 'src/pages/api/',
+          'server/', 'src/server/', 'src/lib/server/', 'src/routes/api/', 'app/routes/api.',
+          'prisma/', 'migrations/', 'db/', 'database/', 'tests/', 'test/', '__tests__/',
+        ];
+        const isBackendPath = backendPrefixes.some(prefix => filePath.startsWith(prefix));
+        return !isBackendPath && /\.(?:html?|tsx?|jsx?|astro|vue|svelte)$/i.test(filePath);
+      });
+      if (result.files && typeof result.files === 'object' && Object.keys(result.files).length) {
+        if (!hasFrontendFile && /<(?:!doctype\s+html|html\b)/i.test(frontendHtml)) {
+          result = { ...result, files: { ...result.files, 'index.html': frontendHtml } };
+        }
+        multiPageBuild = true;
+      } else if (/<(?:!doctype\s+html|html\b)/i.test(frontendHtml)) {
+        result = { ...result, files: { 'index.html': frontendHtml } };
+        multiPageBuild = true;
+      } else {
+        const error = new Error('Full-stack generation produced backend source but no exportable frontend project file.');
+        error.code = 'WEBSTUDIO_FULLSTACK_FRONTEND_FILE_MISSING';
+        error.partialUsage = result.rawUsage || null;
+        error.quotaInputText = quotaInputText;
+        error.quotaOutputText = quotaOutputText;
+        throw error;
+      }
+    }
+  }
+  return { result, multiPageBuild, quotaInputText, quotaOutputText, fullStackSourceEvidence };
 }

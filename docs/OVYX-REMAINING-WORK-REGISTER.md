@@ -77,3 +77,7 @@ These are ongoing release gates, not optional cleanups:
 - Stage 4 benchmark protocol PR #248: merged at `81101827b7e0d6b4d0260a574bce332e4175bdb7`; protocol prepared only—no empirical model scores or device results are claimed.
 - Live acceptance configuration and gates: `docs/OVYX-LIVE-ACCEPTANCE-SETUP.md`.
 - On merge SHA `d48d7d6a70efb1a9f54fd155b5cc7d64ab5c232e`, post-merge Agent Verify, Settings Regression Browser Tests, Owner Controls, Cloudflare Diagnostics, Web Studio browser quality, and Assistant Workspace Browser Tests all completed successfully. The separate Live Website Generation and Acceptance Evidence run `40086196880` failed at provider-only preflight with the categories recorded above; full website generation and browser/integration probes were not run.
+
+## Phase 2 full-stack website engine
+
+PR #360 is the separate Phase 2 track on `feat/ovyx-fullstack-website-engine-phase-2`; its architecture/source-generation acceptance matrix is in `docs/OVYX-FULLSTACK-WEBSITE-ENGINE.md`. The current branch contains the cross-layer planner and an audited backend-source generation pass, but database provisioning, migration execution, real auth/provider verification, generated-framework builds, complete regression/browser checks and the final merge remain open.

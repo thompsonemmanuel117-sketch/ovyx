@@ -324,6 +324,8 @@ When discussing project changes, distinguish recommendations from changes actual
         callModel: routeCallModel,
         shouldBuild: isWebStudio && mode === 'build',
         scopedEdit: scopedWebStudioEdit,
+        fullStackArchitecture: websiteEnginePlan && websiteEnginePlan.fullStackArchitecture || null,
+        originalPrompt: promptText,
         initialQuotaInputText: quotaInputText,
         multiPageOptions: {
           provider: String(payload.provider || 'automatic').toLowerCase(),
@@ -461,6 +463,9 @@ When discussing project changes, distinguish recommendations from changes actual
         structuredFields[key] = result[key];
       }
     }
+
+    if (result.fullStackGeneration) structuredFields.fullStackGeneration = result.fullStackGeneration;
+    if (result.fullStackSourceEvidence) structuredFields.fullStackSourceEvidence = result.fullStackSourceEvidence;
 
     if (multiPageBuild) {
       structuredFields.files = result.files || {};
