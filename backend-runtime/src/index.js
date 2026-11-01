@@ -142,8 +142,8 @@ async function runEvaluation(payload, env) {
   const files = safeFiles(payload.files);
   const sandboxId = 'ovyx-qa-' + crypto.randomUUID();
   const sandbox = getSandbox(env.SANDBOX, sandboxId);
-  await sandbox.setInactivityTimeout(60_000);
-  await sandbox.exec('mkdir -p /workspace/project /opt/ovyx-runtime/scripts');
+  try {
+    await sandbox.exec('mkdir -p /workspace/project /opt/ovyx-runtime/scripts');
   for (const file of files) {
     const target = '/workspace/project/' + file.path;
     const parent = target.slice(0, target.lastIndexOf('/'));
@@ -170,6 +170,9 @@ async function runEvaluation(payload, env) {
   report.runtime = 'cloudflare-sandbox-pages-d1';
   report.dependencyInstall = dependencyInstall;
   return report;
+  } finally {
+    try { await sandbox.destroy(); } catch {}
+  }
 }
 
 export default {
