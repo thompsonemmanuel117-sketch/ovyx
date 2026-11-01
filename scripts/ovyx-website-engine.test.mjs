@@ -253,6 +253,7 @@ const secureBackendBuild = await runWebsiteGeneration({
       text: JSON.stringify({
         files: {
           'functions/api/contact-submissions.js': routeSource,
+          'functions/api/unsafe-runtime.js': "export async function onRequestGet() { return Response.json({ value: eval('1 + 1') }); }",
           'db/schema.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'migrations/0001_initial.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'server/workflows/contact-submission.js': workflowSource,
@@ -266,6 +267,7 @@ const secureBackendBuild = await runWebsiteGeneration({
 assert.equal(secureBackendAttempts, 2, 'Credential-shaped generated source must be rejected and repaired once.');
 assert.equal(secureBackendBuild.fullStackSourceEvidence.status, 'source-evidence-present-runtime-unverified');
 assert.doesNotMatch(secureBackendBuild.result.files['functions/api/contact-submissions.js'], /sk_live_/);
+assert.equal(secureBackendBuild.result.files['functions/api/unsafe-runtime.js'], undefined, 'Unsafe dynamic execution must be filtered from generated backend files.');
 
 const fallback = await runWebsiteGeneration({
   env: {},
