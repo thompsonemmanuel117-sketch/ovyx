@@ -433,6 +433,31 @@ export function websiteEngineClientSummary(plan) {
  * Scoped edits deliberately bypass full-site rebuild and repair.
  */
 
+function mergeGenerationUsage(...records) {
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let totalTokens = 0;
+  let found = false;
+  for (const record of records) {
+    if (!record || typeof record !== 'object') continue;
+    const prompt = Number(record.prompt_tokens ?? record.input_tokens);
+    const completion = Number(record.completion_tokens ?? record.output_tokens);
+    const total = Number(record.total_tokens);
+    if (Number.isFinite(prompt) || Number.isFinite(completion) || Number.isFinite(total)) {
+      found = true;
+      if (Number.isFinite(prompt)) promptTokens += prompt;
+      if (Number.isFinite(completion)) completionTokens += completion;
+      if (Number.isFinite(total)) totalTokens += total;
+      else totalTokens += (Number.isFinite(prompt) ? prompt : 0) + (Number.isFinite(completion) ? completion : 0);
+    }
+  }
+  return found ? {
+    prompt_tokens: promptTokens,
+    completion_tokens: completionTokens,
+    total_tokens: totalTokens,
+  } : null;
+}
+
 function parseBackendFiles(response) {
   const candidates = [response, response && response.output, response && response.result, response && response.data];
   for (const item of candidates) {
@@ -664,18 +689,27 @@ export async function runWebsiteGeneration(options = {}) {
     let failures = [];
     let generatedFiles = {};
     let backendResponse = null;
+    let backendUsage = null;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const sourcePrompt = buildBackendSourcePrompt(
         fullStackArchitecture, originalPrompt || multiPageOptions.prompt || modelOptions.taskPrompt || '',
         [...new Set(Object.keys(multiPageOptions.files || {}).concat(Object.keys(result.files || {})))], failures
       );
       quotaInputText += (quotaInputText ? '\n\n' : '') + sourcePrompt;
-      backendResponse = await callModel(env, {
-        ...modelOptions,
-        taskPrompt: sourcePrompt,
-        system: [String(modelOptions.system || ''), 'Generate complete backend source code and output only the requested JSON files object. Never simulate database writes, identity verification or provider success.'].filter(Boolean).join('\n\n'),
-        responseFormat: 'json',
-      });
+      try {
+        backendResponse = await callModel(env, {
+          ...modelOptions,
+          taskPrompt: sourcePrompt,
+          system: [String(modelOptions.system || ''), 'Generate complete backend source code and output only the requested JSON files object. Never simulate database writes, identity verification or provider success.'].filter(Boolean).join('\n\n'),
+          responseFormat: 'json',
+        });
+      } catch (generationError) {
+        generationError.partialUsage = mergeGenerationUsage(result.rawUsage, backendUsage, generationError.partialUsage);
+        generationError.quotaInputText = quotaInputText;
+        generationError.quotaOutputText = quotaOutputText;
+        throw generationError;
+      }
+      backendUsage = mergeGenerationUsage(backendUsage, backendResponse && (backendResponse.usage || backendResponse.rawUsage));
       quotaOutputText += (quotaOutputText ? '\n\n' : '') + String(backendResponse && backendResponse.text || '');
       generatedFiles = parseBackendFiles(backendResponse);
       fullStackSourceEvidence = auditBackendFiles(generatedFiles, fullStackArchitecture);
@@ -689,12 +723,15 @@ export async function runWebsiteGeneration(options = {}) {
       const error = new Error('Full-stack source generation did not satisfy the required route, authorization, schema and relationship contracts.');
       error.code = 'WEBSTUDIO_FULLSTACK_SOURCE_INCOMPLETE';
       error.fullStackSourceEvidence = fullStackSourceEvidence;
-      error.partialUsage = backendResponse && backendResponse.usage || null;
+      error.partialUsage = mergeGenerationUsage(result.rawUsage, backendUsage);
+      error.quotaInputText = quotaInputText;
+      error.quotaOutputText = quotaOutputText;
       throw error;
     }
     result = {
       ...result,
       files: { ...(result.files || {}), ...generatedFiles },
+      rawUsage: mergeGenerationUsage(result.rawUsage, backendUsage) || result.rawUsage || null,
       fullStackSourceEvidence,
       fullStackGeneration: {
         status: 'source-generated-runtime-unverified',
