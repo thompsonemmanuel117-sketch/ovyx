@@ -281,15 +281,15 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
     if (sourceFiles.length > 500 || sourceFiles.reduce((sum, file) => sum + file.bytes, 0) > 20 * 1024 * 1024) throw new Error('generated-artifact-size-limit');
     for (const file of sourceFiles) {
       if (file.bytes > 2 * 1024 * 1024) throw new Error('generated-source-file-size-limit');
-      if (/\\.(?:m?js|jsx|tsx?)$/i.test(file.relative)) {
+      if (/\.(?:m?js|jsx|tsx?)$/i.test(file.relative)) {
         const source = await readFile(file.full, 'utf8');
-        for (const match of source.matchAll(/(?:from\\s*|import\\s*\\(|require\\s*\\()\\s*['"]([^'"]+)['"]/g)) {
+        for (const match of source.matchAll(/(?:from\s*|import\s*\(|require\s*\()\s*['"]([^'"]+)['"]/g)) {
           const specifier = match[1];
-          if (/^(?:\\.{1,2}\\/|\\/|node:|cloudflare:|workerd:)/.test(specifier)) continue;
+          if (/^(?:\.{1,2}\/|\/|node:|cloudflare:|workerd:)/.test(specifier)) continue;
           throw new Error('third-party-package-import-requires-pinned-isolated-dependency-adapter');
         }
       }
-      if (/\\.(?:js|mjs|cjs|json|html|sql|toml|jsonc)$/i.test(file.relative)) {
+      if (/\.(?:js|mjs|cjs|json|html|sql|toml|jsonc)$/i.test(file.relative)) {
         const source = await readFile(file.full, 'utf8');
         if (/(?:sk_(?:live|test|proj)_[A-Za-z0-9_-]{12,}|whsec_[A-Za-z0-9]{12,}|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)/i.test(source)) {
           throw new Error('credential-shaped-generated-source-blocked');
