@@ -255,8 +255,10 @@ function buildApiContracts(capabilities) {
   }
   if (capabilities.booking) {
     add('GET', '/api/availability', 'booking', 'public-read-with-rate-limit', 'Return current authoritative availability for a requested resource and time window.', ['model-booking'], { cachePolicy: 'short-lived-only-if-provider-allows' });
+    add('GET', '/api/bookings', 'booking', capabilities.authentication ? 'authenticated-owner-or-authorized-staff' : 'signed-scoped-booking-management-token', 'List only bookings visible to the verified customer or authorized staff member with bounded cursor pagination and redacted personal data.', ['model-booking']);
     add('POST', '/api/bookings', 'booking', 'public-with-abuse-controls', 'Recheck availability and atomically create a booking; never trust client availability.', ['model-booking'], { sideEffect: 'reserve-resource-with-conflict-check' });
-    add('POST', '/api/bookings/:bookingId/cancel', 'booking', 'owner-or-authorized-staff', 'Cancel an owned booking subject to provider and lifecycle rules.', ['model-booking']);
+    add('POST', '/api/bookings/:bookingId/cancel', 'booking', capabilities.authentication ? 'owner-or-authorized-staff' : 'signed-scoped-booking-management-token', 'Cancel an owned booking subject to provider and lifecycle rules; enforce a replay-safe idempotency key and release the slot only after the authoritative cancellation succeeds.', ['model-booking'], { sideEffect: 'idempotent-provider-cancellation-and-slot-release' });
+    add('PATCH', '/api/bookings/:bookingId/reschedule', 'booking', capabilities.authentication ? 'owner-or-authorized-staff' : 'signed-scoped-booking-management-token', 'Recheck availability and atomically acquire the new slot before releasing the old slot; preserve the existing booking if the move conflicts.', ['model-booking'], { sideEffect: 'atomic-reschedule-with-compensation' });
   }
   if (capabilities.authentication) {
     add('POST', '/api/auth/session', 'authentication', 'public-with-credential-provider', 'Create a session only after provider-backed identity verification.', ['model-useraccount'], { sideEffect: 'rotate-session-and-csrf-state' });
@@ -279,6 +281,7 @@ function buildApiContracts(capabilities) {
     add('POST', '/api/webhooks/payments', 'payments', 'provider-signature-and-replay-protected', 'Verify webhook signature, timestamp and event identity before idempotent reconciliation.', ['model-paymentattempt', ...(capabilities.commerce ? ['model-order'] : [])], { sideEffect: 'idempotent-payment-reconciliation', csrf: 'provider signature required' });
   }
   if (capabilities.fileStorage) {
+    add('GET', '/api/assets', 'storage', capabilities.authentication ? 'authenticated-owner-scoped' : 'signed-scoped-upload-session', 'List only the current owner’s assets with bounded pagination and exclude quarantined or rejected objects from public results.', ['model-storedasset']);
     add('POST', '/api/assets', 'storage',
       capabilities.authentication ? 'authenticated-owner-scoped' : 'public-with-abuse-controls-and-quarantine',
       'Authorize upload intent, enforce MIME/size/quota, and keep unauthenticated uploads quarantined until an explicit owner/publication policy allows access.',
@@ -287,6 +290,7 @@ function buildApiContracts(capabilities) {
       capabilities.authentication ? 'authenticated-owner-or-explicit-public-policy' : 'public-only-for-explicitly-published-assets',
       'Resolve an asset only after ownership/publication checks; never expose quarantined or private objects by identifier alone.',
       ['model-storedasset']);
+    add('DELETE', '/api/assets/:assetId', 'storage', capabilities.authentication ? 'authenticated-owner-only' : 'signed-scoped-upload-session', 'Tombstone the owner-authorized asset and enqueue idempotent object deletion; never trust a client storage key.', ['model-storedasset'], { sideEffect: 'idempotent-object-cleanup' });
   }
   if (capabilities.admin) add('GET', '/api/admin/audit-events', 'administration', 'administrator-role-and-resource-scope', 'Read authorized audit history with pagination and sensitive-field redaction.', ['model-auditevent']);
   return routes;
