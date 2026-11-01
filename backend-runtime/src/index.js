@@ -145,7 +145,7 @@ async function runEvaluation(payload, env) {
   if (!validPlan(payload.qaPlan)) return { channel: 'backend', status: 'blocked', testsRun: 0, findings: [{ severity: 'warning', code: 'BACKEND_PLAN_INVALID', message: 'A valid backend-required QA plan with 1–24 checks is required.' }] };
   const files = safeFiles(payload.files);
   const sandboxId = 'ovyx-qa-' + crypto.randomUUID();
-  const sandbox = getSandbox(env.SANDBOX, sandboxId);
+  const sandbox = getSandbox(env.SANDBOX, sandboxId, { enableDefaultSession: false, sleepAfter: '1m' });
   try {
     await sandbox.exec('mkdir -p /workspace/project /opt/ovyx-runtime/scripts');
   for (const file of files) {
