@@ -80,7 +80,8 @@ export function buildWebsiteFileGraph(input, options = {}) {
   for (const [rawPath, value] of Object.entries(bag)) {
     const path = safePath(rawPath);
     const source = sourceOf(value);
-    if (!path || !source || source.length > MAX_FILE_CHARS) continue;
+    if (!path || !source) continue;
+    if (source.length > MAX_FILE_CHARS) { truncated = true; continue; }
     if (files.size >= maxFiles || totalChars + source.length > maxTotal) { truncated = true; break; }
     files.set(path, source);
     totalChars += source.length;
