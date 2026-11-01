@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { buildWebsiteFileGraph, analyzeWebsiteFileImpact } from '../functions/_lib/website-file-graph.js';
 
 const graph = buildWebsiteFileGraph({
-  'index.html': '<link rel="stylesheet" href="./styles/site.css"><script type="module" src="./src/main.js"></script>',
+  'index.html': '<a href="/about">About</a><form action="/api/contact"></form><link rel="stylesheet" href="./styles/site.css"><script type="module" src="./src/main.js"></script>',
   'styles/site.css': '@import "./tokens.css"; .hero { background: url("../assets/hero.webp"); }',
   'styles/tokens.css': ':root { --space: 1rem; }',
   'src/main.js': "import { mount } from './app.js'; import './theme.css';",
@@ -18,6 +18,7 @@ assert.ok(graph.edges.some(edge => edge.from === 'index.html' && edge.to === 'st
 assert.ok(graph.edges.some(edge => edge.from === 'src/main.js' && edge.to === 'src/app.js'));
 assert.ok(graph.edges.some(edge => edge.from === 'styles/site.css' && edge.to === 'assets/hero.webp'));
 assert.ok(graph.missingReferences.some(item => item.specifier === './missing-local.js'));
+assert.ok(!graph.missingReferences.some(item => item.from === 'index.html' && /about|api\\/contact/.test(item.specifier)));
 assert.ok(!graph.nodes.some(node => node.path.includes('escape')));
 const impact = analyzeWebsiteFileImpact(graph, ['src/render.js']);
 assert.deepEqual(impact.impactedPaths, ['src/app.js', 'src/main.js', 'index.html']);
