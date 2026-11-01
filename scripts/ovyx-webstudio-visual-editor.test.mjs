@@ -10,6 +10,7 @@ const appShell = await readFile(new URL('../index.html', import.meta.url), 'utf8
 assert.doesNotThrow(() => new Function(runtime), 'The visual editor enhancement must parse.');
 assert.match(packageJson.scripts.test, /ovyx-webstudio-visual-editor\.test\.mjs/);
 assert.match(middleware, /ovyx-webstudio-visual-editor\.js\?v=20261101-1/);
+assert.ok(middleware.indexOf('ovyx-scoped-rollback.js') < middleware.indexOf('ovyx-webstudio-visual-editor.js'), 'Visual editor must load after existing workspace integrations.');
 assert.match(headers, /\/assets\/ovyx-webstudio-visual-editor\.js\n  Cache-Control: no-store, no-cache, must-revalidate/);
 for (const token of [
   'applyVisualEditorStyle', 'applyVisualEditorAttribute', 'applyVisualEditorText', 'background-image',
