@@ -399,6 +399,7 @@ function buildSecurityArchitecture(capabilities) {
   if (capabilities.booking) controls.push(['booking-integrity', 'Recheck authoritative availability at commit time and prevent overlapping reservations transactionally or through provider locking.']);
   if (capabilities.forms) controls.push(['form-submission-integrity', 'Use versioned server-owned schemas, abuse throttles, idempotency, applicable consent, personal-data redaction and retention/deletion controls.']);
   if (capabilities.fileStorage) controls.push(['upload-isolation', 'Validate MIME by content, enforce per-file/project limits, randomize storage keys and scan files before public distribution.']);
+  if (capabilities.multiTenant) controls.push(['tenant-isolation', 'Resolve tenant scope from verified membership; enforce tenant predicates across APIs, database queries, caches, storage, background jobs, exports and audit records. Test cross-tenant access denial.']);
   return controls.map(([id, requirement]) => ({ id, requirement, mandatory: true, status: 'acceptance-required' }));
 }
 
@@ -417,6 +418,7 @@ function buildTestPlan(capabilities) {
   if (capabilities.forms) tests.push({ id: 'form-schema-validation', type: 'contract-and-security', scope: 'forms', assertion: 'Unknown fields, stale schemas, missing required values, forged owner/status fields, duplicate requests and abuse thresholds are handled safely.' });
   if (capabilities.email) tests.push({ id: 'delivery-receipt', type: 'external-sandbox', scope: 'email', assertion: 'Controlled QA message is accepted and provider delivery receipt is reconciled.', requiresExplicitOwnerApproval: true });
   if (capabilities.booking) tests.push({ id: 'booking-conflicts', type: 'integration', scope: 'booking', assertion: 'Concurrent reservations cannot claim the same unavailable slot.' });
+  if (capabilities.multiTenant) tests.push({ id: 'tenant-isolation', type: 'security-and-integration', scope: 'all tenant-owned data and side effects', assertion: 'Two principals in separate tenants cannot read, mutate, upload, export, cache-hit or trigger background work against each other’s records, even with guessed identifiers.' });
   return tests.map(test => ({ ...test, status: 'planned-not-executed', evidence: null }));
 }
 
