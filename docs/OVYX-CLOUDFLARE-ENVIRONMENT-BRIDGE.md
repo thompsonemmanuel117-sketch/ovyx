@@ -22,11 +22,11 @@ The endpoint requires an authenticated OVYX administrator/owner and sends no-sto
 | Email | Brevo | `BREVO_API_KEY`, `SENDINBLUE_API_KEY` |
 | Payments | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_API_KEY` |
 | Payments | Paystack | `PAYSTACK_SECRET_KEY`, `PAYSTACK_SECRET` |
-| Payments | Flutterwave | `FLUTTERWAVE_SECRET_KEY`, `FLW_SECRET_KEY` |
+| Payments | Flutterwave | `FLUTTERWAVE_SECRET_KEY`, `FLW_SECRET_KEY` |\n| Payments | OPay Cashier | `OPAY_CASHIER_PUBLIC_KEY`, `OPAY_CASHIER_SECRET_KEY`, `OPAY_PUBLIC_KEY`, `OPAY_SECRET_KEY` |
 | Messaging | Twilio | `TWILIO_AUTH_TOKEN`, `TWILIO_API_KEY_SECRET` |
 | Messaging | WhatsApp | `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_TOKEN` |
 
-The server-side `resolveIntegrationCredential(env, integrationId, providerId)` helper returns a credential only to a registered adapter. Do not serialize its result, log it, include it in prompts, or forward it to a caller-selected URL. Each provider still needs a narrowly scoped API adapter with fixed trusted endpoints, provider-specific authentication, request validation and response sanitization before it can perform work.
+The server-side `resolveIntegrationCredential(env, integrationId, providerId)` helper returns the first configured credential for a registered adapter; `resolveIntegrationCredentials(...)` returns all configured credential fields for multi-key providers such as OPay. Do not serialize its result, log it, include it in prompts, or forward it to a caller-selected URL. Each provider still needs a narrowly scoped API adapter with fixed trusted endpoints, provider-specific authentication, request validation and response sanitization before it can perform work.
 
 ## Adding a provider safely
 
