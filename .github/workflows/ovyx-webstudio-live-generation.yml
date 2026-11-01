@@ -184,6 +184,8 @@ jobs:
         id: backend
         if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') || contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]'))))
         continue-on-error: true
+        env:
+          CLOUDFLARE_PAGES_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT }}
         run: |
           mkdir -p artifacts/webstudio-evaluation-report/backend
           required_count=0
