@@ -141,16 +141,9 @@ assert.equal(modelCalls, 0);
 assert.equal(repairCalls, 0);
 
 
-const backendArchitecture = {
-  capabilities: { backend: true },
-  apiContracts: [
-    { id: 'api-contact-submissions', method: 'POST', path: '/api/contact-submissions', authPolicy: 'public-with-abuse-controls' },
-  ],
-  dataModels: [
-    { id: 'model-contactsubmission', name: 'ContactSubmission' },
-  ],
-  dataIntegrity: { relationships: [] },
-};
+const backendArchitecture = buildWebsiteEnginePlan(
+  'Build a full-stack contact website with a contact form and database persistence.'
+).fullStackArchitecture;
 let backendCalls = 0;
 const backendBuild = await runWebsiteGeneration({
   env: {},
