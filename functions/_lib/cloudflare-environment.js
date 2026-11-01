@@ -113,7 +113,7 @@ export function getCloudflareEnvironmentInventory(env) {
   const unrecognizedCredentialNames = names.filter(name => {
     if (knownNames.has(name) || isAiProviderSecretName(name)) return false;
     if (RESERVED_PREFIXES.some(prefix => name.startsWith(prefix))) return false;
-    return /(?:API_KEY|API_TOKEN|ACCESS_TOKEN|SECRET_KEY|CLIENT_SECRET|AUTH_TOKEN)$/.test(name);
+    return isConfiguredSecret(env?.[name]) && /(?:API_KEY|API_TOKEN|ACCESS_TOKEN|SECRET_KEY|CLIENT_SECRET|AUTH_TOKEN)$/.test(name);
   });
 
   return Object.freeze({
