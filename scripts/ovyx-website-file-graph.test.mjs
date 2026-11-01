@@ -14,6 +14,7 @@ const graph = buildWebsiteFileGraph({
   '../escape.js': 'must be ignored',
 });
 assert.equal(graph.status, 'analyzed');
+assert.ok(graph.nodes.every(node => !Object.prototype.hasOwnProperty.call(node, 'content')));
 assert.ok(graph.edges.some(edge => edge.from === 'index.html' && edge.to === 'styles/site.css'));
 assert.ok(graph.edges.some(edge => edge.from === 'src/main.js' && edge.to === 'src/app.js'));
 assert.ok(graph.edges.some(edge => edge.from === 'styles/site.css' && edge.to === 'assets/hero.webp'));
@@ -28,4 +29,7 @@ const empty = buildWebsiteFileGraph(null);
 assert.equal(empty.status, 'no-project-files');
 const bounded = buildWebsiteFileGraph({ 'a.js': 'x'.repeat(20_000), 'b.js': 'y'.repeat(20_000) }, { maxTotalSourceChars: 20_000 });
 assert.equal(bounded.limits.truncated, true);
+const oversized = buildWebsiteFileGraph({ 'huge.js': 'z'.repeat(240_001) });
+assert.equal(oversized.status, 'bounded-partial');
+assert.equal(oversized.limits.truncated, true);
 console.log('OVYX website file graph tests passed.');
