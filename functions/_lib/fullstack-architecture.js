@@ -115,6 +115,7 @@ function buildDataModels(capabilities) {
   if (capabilities.multiTenant) {
     push('Tenant', 'Isolated organization or workspace with an explicit lifecycle and plan boundary.', ['id', 'name', 'slug', 'status', 'planId', 'createdAt'], 'tenant-data');
     push('TenantMembership', 'Verified principal membership and scoped role within one tenant.', ['id', 'tenantId', 'principalId', 'role', 'status', 'invitedAt', 'joinedAt'], 'authorization');
+    push('TenantInvitation', 'Single-use tenant-scoped invitation with hashed token, expiry and auditable acceptance/revocation.', ['id', 'tenantId', 'emailNormalized', 'role', 'tokenHash', 'expiresAt', 'acceptedAt', 'revokedAt', 'createdBy', 'createdAt'], 'personal-data');
   }
   if (capabilities.contact) push('ContactSubmission', 'Validated enquiry with an auditable delivery state.', ['id', 'name', 'replyTo', 'message', 'status', 'createdAt'], 'personal-data');
   if (capabilities.forms) {
@@ -158,6 +159,7 @@ function buildDataIntegrityContracts(capabilities) {
   if (capabilities.authentication && capabilities.authorization) addRelation('RoleAssignment', 'UserAccount', 'many-to-one', 'Every role grant belongs to a verified principal.', 'principalId');
   if (capabilities.multiTenant) {
     addRelation('TenantMembership', 'Tenant', 'many-to-one', 'Every membership is scoped to exactly one tenant.', 'tenantId');
+    addRelation('TenantInvitation', 'Tenant', 'many-to-one', 'Every invitation is restricted to one tenant.', 'tenantId');
     if (capabilities.authentication) addRelation('TenantMembership', 'UserAccount', 'many-to-one', 'Membership identity comes from the verified account, never a client-supplied principal.', 'principalId');
   }
   if (capabilities.booking) {
@@ -216,6 +218,7 @@ function buildDataIntegrityContracts(capabilities) {
     { id: 'tenant-membership-unique', appliesTo: 'TenantMembership', rule: 'A verified principal has at most one active membership record per tenant; enforce a unique tenant/principal key and explicit invitation acceptance.' },
     { id: 'tenant-scope-required', appliesTo: 'tenant-owned business records', rule: 'Resolve the active tenant from a verified membership or signed scoped context, then apply tenantId to every read, write, cache key, background job and storage object; never trust a browser-supplied tenantId.' },
     { id: 'tenant-boundary-deny', appliesTo: 'all tenant APIs', rule: 'Reject cross-tenant reads, writes, exports, uploads and administrative actions even when an identifier is known; test same-role users in different tenants.' },
+    { id: 'tenant-invitation-single-use', appliesTo: 'TenantInvitation', rule: 'Store only a hash of a high-entropy invitation token; enforce expiry, intended email, tenant scope and single-use acceptance, and revoke outstanding invitations when required.' },
   );
   if (capabilities.authentication) constraints.push(
     { id: 'session-token-hashing', appliesTo: 'Session', rule: 'Store only cryptographic hashes of opaque session and CSRF tokens; never persist raw bearer tokens.' },
@@ -237,6 +240,8 @@ function buildDataIntegrityContracts(capabilities) {
     addIndex('Tenant', ['slug'], true, 'Resolve tenant workspaces by a stable unique slug.');
     addIndex('TenantMembership', ['tenantId', 'principalId'], true, 'Prevent duplicate memberships and resolve tenant access efficiently.');
     addIndex('TenantMembership', ['principalId', 'status'], false, 'List a verified user’s active tenant memberships.');
+    addIndex('TenantInvitation', ['tokenHash'], true, 'Resolve single-use invitation tokens without storing raw tokens.');
+    addIndex('TenantInvitation', ['tenantId', 'emailNormalized', 'expiresAt'], false, 'Find pending invitations for a tenant and prevent stale invitation reuse.');
   }
   if (capabilities.booking) {
     addIndex('Booking', ['resourceId', 'startsAt', 'endsAt', 'status'], false, 'Find candidate overlapping reservations for an atomic conflict check.');
@@ -333,7 +338,7 @@ function buildApiContracts(capabilities) {
     add('GET', '/api/tenants', 'tenancy', 'authenticated-membership-scoped', 'List only tenants where the verified principal has an active membership.', ['model-tenant', 'model-tenantmembership']);
     add('POST', '/api/tenants', 'tenancy', 'authenticated-with-creation-abuse-controls', 'Create a tenant and its initial owner membership atomically; derive the principal from the verified session.', ['model-tenant', 'model-tenantmembership'], { sideEffect: 'atomic-tenant-and-owner-membership' });
     add('GET', '/api/tenants/:tenantId/members', 'tenancy', 'tenant-owner-or-authorized-admin', 'List members only within the active tenant with bounded pagination and personal-data minimization.', ['model-tenant', 'model-tenantmembership']);
-    add('POST', '/api/tenants/:tenantId/invitations', 'tenancy', 'tenant-owner-or-authorized-admin', 'Create a scoped expiring invitation with single-use token hashing and idempotent delivery.', ['model-tenant', 'model-tenantmembership'], { sideEffect: 'create-invitation-and-enqueue-outbox' });
+    add('POST', '/api/tenants/:tenantId/invitations', 'tenancy', 'tenant-owner-or-authorized-admin', 'Create a scoped expiring invitation with single-use token hashing and idempotent delivery.', ['model-tenant', 'model-tenantmembership', 'model-tenantinvitation'], { sideEffect: 'create-invitation-and-enqueue-outbox' });
     add('PATCH', '/api/tenants/:tenantId/members/:memberId', 'tenancy', 'tenant-owner-or-authorized-admin', 'Change or revoke a membership only within the active tenant; protect the last owner and audit every role change.', ['model-tenant', 'model-tenantmembership'], { sideEffect: 'audited-membership-state-transition' });
   }
   if (capabilities.admin) add('GET', '/api/admin/audit-events', 'administration', 'administrator-role-and-resource-scope', 'Read authorized audit history with pagination and sensitive-field redaction.', ['model-auditevent']);
