@@ -90,7 +90,7 @@ export function buildRequirementIntelligence(prompt, contract = {}, architecture
       polarity: intent,
       negationEvidence: negationEvidence(item.text),
       strength: STRONG.test(item.text) && intent !== 'prohibited' ? 'mandatory' : intent === 'required' ? 'requested' : intent === 'prohibited' ? 'prohibited' : 'preference',
-      confidence: STRONG.test(item.text) || negationEvidence(item.text).length ? 'high' : category.length ? 'medium' : 'low',
+      confidence: STRONG.test(item.text) || negationEvidence(item.text).length || /\\b(?:do not forget|don't forget|dont forget|must|required|mandatory|always|include|implement|build|create|add|ensure|preserve|maintain)\\b/i.test(item.text) ? 'high' : category.length ? 'medium' : 'low',
       categories: category.length ? category : ['general'],
       priority: critical ? 'critical' : category.some(value => ['routes','interaction','integration'].includes(value)) ? 'high' : 'normal',
       targetNodeIds: targets,
