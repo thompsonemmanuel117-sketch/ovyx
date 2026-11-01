@@ -645,6 +645,7 @@ function auditBackendFiles(files, architecture) {
       present: !!field && schema.includes(field) && polymorphic && targetPresent && relationSignal,
     };
   });
+  const uniqueSource = entries.map(entry => entry[1]).join('\n').toLowerCase();
   const indexes = (architecture.dataIntegrity && architecture.dataIntegrity.indexes || []).map(index => {
     const entity = String(index.entity || '');
     const snake = entity.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
@@ -655,7 +656,9 @@ function auditBackendFiles(files, architecture) {
     const sqlIndex = schema.includes('create index') || schema.includes('create unique index');
     const ormIndex = schema.includes('@@index') || schema.includes('uniqueindex(') || schema.includes('index(');
     const documentIndex = schema.includes('collectiongroup') || schema.includes('indexes');
-    const uniquePresent = !index.unique || schema.includes('unique') || schema.includes('@@unique') || schema.includes('uniqueindex(');
+    const uniquePresent = !index.unique || (documentDatabase
+      ? /transaction|runtransaction/.test(uniqueSource) && /unique|reservation/.test(uniqueSource)
+      : schema.includes('unique') || schema.includes('@@unique') || schema.includes('uniqueindex('));
     return {
       entity, fields, unique: Boolean(index.unique),
       present: fieldsPresent && entityPresent && (sqlIndex || ormIndex || documentIndex) && uniquePresent,
