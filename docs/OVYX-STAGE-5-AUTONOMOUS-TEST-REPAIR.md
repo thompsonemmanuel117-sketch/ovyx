@@ -2,7 +2,7 @@
 
 **Roadmap stage:** 5 of 10  
 **Product goal:** OVYX must inspect the actual website/application it has generated, execute meaningful browser and backend tests, repair failures safely, and repeat verification before reporting completion.  
-**Status:** In progress — static generation-time repair and in-editor requirement-derived browser journey repair are integrated; per-generated-backend runtime verification and its repair/retest adapter remain outstanding.
+**Status:** In progress — static generation-time repair, in-editor requirement-derived browser journey repair, and a no-egress Cloudflare Pages/D1 backend runtime evaluator are implemented. The backend evaluator is wired into trusted live acceptance runs. General per-project runtime invocation and backend-feedback repair/retest are still outstanding.
 
 ## Important naming distinction
 
@@ -35,12 +35,15 @@ These are useful foundations, but they do not yet form one general autonomous te
 - [x] Audit existing static evaluator, Chromium evaluator, bounded generation repair, Stage 4 D1 runtime fixture and trusted live-generation workflow.
 - [x] Add a normalized autonomous-QA report contract that combines evidence without promoting missing checks to passes.
 - [x] Instruct the Website Engine to generate a bounded `ovyx-qa-plan.json` manifest from the original requirements and actual routes/controls.
-- [ ] Add isolated generated-backend runtime execution for supported deployment targets and disposable databases.
+- [x] Add an isolated Cloudflare Pages Functions runtime adapter with disposable D1 migrations and local KV/R2 bindings. It requires a Docker container with `--network none`, a read-only repository mount, no production environment variables, and synthetic-only request data. Third-party packages, unsupported bindings and credentials are fail-closed.
+- [ ] Add adapters for other generated frameworks and unsupported Cloudflare bindings (Durable Objects, Queues, services, Vectorize, Hyperdrive and external providers).
 - [x] Add requirement-aware browser journeys with explicit expected outcomes and state assertions, loaded from the generated `ovyx-qa-plan.json` manifest. Safe same-origin GET/HEAD API probes are supported.
 - [x] Add one bounded in-editor browser-journey feedback repair attempt through the existing guarded AI provider and snapshot rollback boundary. Backend-runtime-feedback repair remains pending.
 - [x] Re-run the same in-editor journey and responsive browser checks after repair; reject regressions and restore the previous snapshot when the repair does not pass. Server-side backend-runtime retesting remains pending.
-- [ ] Integrate browser/backend runtime evidence and post-repair verification into the full Web Studio preview/project revision lifecycle. The generation response now includes static QA/repair evidence and explicitly blocked runtime channels.
-- [ ] Add CI fixtures for clean, broken, security-sensitive and backend-connected generated apps.
+- [ ] Integrate backend runtime evidence and backend repair/retest into every Web Studio project revision lifecycle. The current runtime adapter is integrated into the trusted live-generation acceptance workflow; ordinary in-product generation still reports backend runtime as blocked until a dedicated sandbox service is connected.
+- [x] Add a no-egress CI fixture that boots generated Cloudflare Pages Functions, applies a fresh D1 migration, and verifies synthetic authentication, API validation, CRUD persistence and tenant isolation.
+- [x] Add fail-closed tests for missing backend plans, unsafe mutation declarations, sensitive request data, unsupported dependencies/bindings and unavailable network isolation.
+- [ ] Add CI fixtures for supported KV/R2 data flows, concurrent backend mutations, role escalation, CSRF and unsupported framework adapters.
 - [ ] Run full repository tests, static validation, production build, browser/device checks and live acceptance where credentials and approvals exist.
 - [ ] Merge Stage 5 into `main` only after all required automated checks pass and all external/human-only limitations are explicitly recorded.
 
@@ -61,7 +64,7 @@ The real in-editor Web Studio quality runtime now reads `ovyx-qa-plan.json`, map
 
 ## Remaining backend-runtime adapter contract
 
-The first supported adapter should target OVYX's Cloudflare Pages Functions + D1 output, then add other generated deployment targets through separate adapters.
+The first adapter now targets Cloudflare Pages Functions with disposable D1 plus local KV/R2 bindings. It runs only inside a Docker container with outbound networking disabled (`--network none`); Cloudflare explicitly warns that local Wrangler/Miniflare execution is not a hardened sandbox for untrusted code. The adapter refuses to start without the no-egress marker, strips environment files and credentials, rejects secret-shaped source and unpinned third-party package imports, overrides D1 IDs with fresh local IDs, and runs only synthetic `/api/` checks. Other deployment targets and unsupported Cloudflare bindings remain blocked.
 
 1. Copy only the generated project artifact into a temporary workspace. Exclude `.git`, `.env*`, `node_modules`, build caches and any owner credentials.
 2. Start Wrangler Pages in local-only mode with a new disposable D1 database and local R2/KV bindings only when the generated project declares supported bindings.
