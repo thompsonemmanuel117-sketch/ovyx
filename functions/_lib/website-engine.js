@@ -747,7 +747,13 @@ export async function runWebsiteGeneration(options = {}) {
       const frontendHtml = typeof result.html === 'string' ? result.html
         : typeof result.content === 'string' ? result.content
           : typeof result.text === 'string' ? result.text : '';
+      const hasFrontendFile = Object.keys(result.files || {}).some(filePath =>
+        /\.(?:html?|tsx?|jsx?|astro|vue|svelte)$/i.test(filePath)
+      );
       if (result.files && typeof result.files === 'object' && Object.keys(result.files).length) {
+        if (!hasFrontendFile && /<(?:!doctype\s+html|html\b)/i.test(frontendHtml)) {
+          result = { ...result, files: { ...result.files, 'index.html': frontendHtml } };
+        }
         multiPageBuild = true;
       } else if (/<(?:!doctype\s+html|html\b)/i.test(frontendHtml)) {
         result = { ...result, files: { 'index.html': frontendHtml } };
