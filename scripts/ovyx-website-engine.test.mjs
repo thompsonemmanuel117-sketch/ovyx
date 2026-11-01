@@ -49,6 +49,14 @@ assert.match(buildWebsiteEngineInstructions(plan), /workflow state machines/i);
 assert.match(buildWebsiteEngineInstructions(plan), /authorization-negative cases/i);
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
 assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
+const genericFullStackPlan = buildWebsiteEnginePlan(
+  'Build a full-stack business website with a custom backend and persistent data.',
+);
+assert.ok(genericFullStackPlan.integrations.some(item => item.capability === 'database'),
+  'A full-stack brief must include its inferred database integration in the website plan.');
+assert.ok(genericFullStackPlan.interactionArchitecture.capabilities.includes('persistent-data'),
+  'The website capability summary must reflect inferred persistent data requirements.');
+
 const uploadPlan = buildWebsiteEnginePlan(
   'Build a full-stack client portal with secure image and document uploads stored in Cloudflare R2.',
   { connections: [{ provider: 'Cloudflare R2', connected: true }] },
