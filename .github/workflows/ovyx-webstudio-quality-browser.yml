@@ -27,8 +27,11 @@ on:
       - 'assets/ovyx-webstudio-quality.js'
       - 'assets/ovyx-webstudio-navigation-polish.js'
       - 'assets/ovyx-webstudio-code-search.js'
+      - 'assets/ovyx-webstudio-visual-editor.js'
       - 'scripts/ovyx-webstudio-code-search.test.mjs'
       - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
+      - 'scripts/ovyx-webstudio-visual-editor.test.mjs'
+      - 'scripts/ovyx-webstudio-visual-editor.browser.test.mjs'
       - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
       - 'scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs'
       - 'scripts/ovyx-app-shell-favicon.browser.test.mjs'
@@ -78,8 +81,11 @@ on:
       - 'assets/ovyx-webstudio-quality.js'
       - 'assets/ovyx-webstudio-navigation-polish.js'
       - 'assets/ovyx-webstudio-code-search.js'
+      - 'assets/ovyx-webstudio-visual-editor.js'
       - 'scripts/ovyx-webstudio-code-search.test.mjs'
       - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
+      - 'scripts/ovyx-webstudio-visual-editor.test.mjs'
+      - 'scripts/ovyx-webstudio-visual-editor.browser.test.mjs'
       - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
       - 'scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs'
       - 'scripts/ovyx-app-shell-favicon.browser.test.mjs'
@@ -173,6 +179,8 @@ jobs:
         run: node scripts/ovyx-webstudio-code-search.browser.test.mjs
       - name: Test Web Studio to App Studio to Code integration in Chromium
         run: node scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs
+      - name: Test OVYX visual editor in Chromium
+        run: node scripts/ovyx-webstudio-visual-editor.browser.test.mjs
       - name: Test desktop Code Workspace editing and dashboard route recovery in Chromium
         # Keep this independent recovery probe on successful/other-failure runs,
         # but don't delay the focused composer regression report when its own
