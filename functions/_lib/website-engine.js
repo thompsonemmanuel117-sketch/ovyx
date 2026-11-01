@@ -460,6 +460,21 @@ function serializeWebsiteEngineModelPlan(plan) {
   }
 
   const minimal = makeModelPlan(0);
+  minimal.requirementManifest.requirements = minimal.requirementManifest.requirements.slice(0, 100);
+  minimal.requirementManifest.constraints = minimal.requirementManifest.constraints.slice(0, 10);
+  minimal.requirementIntelligence.requirementSignals = minimal.requirementIntelligence.requirementSignals.slice(0, 120);
+  minimal.requirementIntelligence.unmappedRequirementIds = minimal.requirementIntelligence.unmappedRequirementIds.slice(0, 12);
+  minimal.integrations = minimal.integrations.slice(0, 5);
+  minimal.fileArchitecture = {
+    status: minimal.fileArchitecture.status,
+    fileCount: minimal.fileArchitecture.fileCount,
+    dependencyCount: minimal.fileArchitecture.dependencyCount,
+    unresolvedLocalReferenceCount: minimal.fileArchitecture.unresolvedLocalReferenceCount,
+    truncated: minimal.fileArchitecture.truncated,
+    nodes: minimal.fileArchitecture.nodes.slice(0, 10),
+    dependencies: minimal.fileArchitecture.dependencies.slice(0, 12),
+    missingReferences: minimal.fileArchitecture.missingReferences.slice(0, 6),
+  };
   minimal.designArchitecture = {
     mission: clean(plan.designArchitecture?.mission, 120),
     direction: clean(plan.designArchitecture?.direction, 120),
@@ -490,14 +505,14 @@ function serializeWebsiteEngineModelPlan(plan) {
     minimal.fullStackArchitecture = {
       version: fullStack.version,
       capabilities: fullStack.capabilities,
-      pages: (fullStack.pages || []).slice(0, 14).map(page => [page.id, clean(page.title, 64), clean(page.route, 96)]),
-      apiContracts: (fullStack.apiContracts || []).slice(0, 20).map(route => ({
+      pages: (fullStack.pages || []).slice(0, 10).map(page => [page.id, clean(page.title, 48), clean(page.route, 64)]),
+      apiContracts: (fullStack.apiContracts || []).slice(0, 12).map(route => ({
         id: route.id, method: route.method, path: route.path, capability: route.capability,
-        authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 5),
-        sideEffect: route.sideEffect || '',
+        authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 3),
+        sideEffect: clean(route.sideEffect, 48),
       })),
-      dataModels: (fullStack.dataModels || []).slice(0, 16).map(model => [
-        model.id, model.name, (model.fields || []).slice(0, 10), model.securityClass,
+      dataModels: (fullStack.dataModels || []).slice(0, 12).map(model => [
+        model.id, model.name, (model.fields || []).slice(0, 6), model.securityClass,
       ]),
       dataIntegrity: {
         relationships: (fullStack.dataIntegrity?.relationships || []).slice(0, 16).map(item =>
