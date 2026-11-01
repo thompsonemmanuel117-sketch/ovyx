@@ -1,48 +1,48 @@
 const MAX_REQUIREMENTS = 180;
-const NEGATION = /\\b(?:do not|don't|dont|must not|mustn't|never|exclude|excluding|without|avoid|avoids|no)\\b/i;
-const STRONG = /\\b(?:must|required|mandatory|always|never|must not|mustn't)\\b/i;
+const NEGATION = /\b(?:do not|don't|dont|must not|mustn't|never|exclude|excluding|without|avoid|avoids|no)\b/i;
+const STRONG = /\b(?:must|required|mandatory|always|never|must not|mustn't)\b/i;
 const STOP = new Set(['the','and','for','with','from','that','this','then','than','into','onto','your','you','our','their','them','they','are','was','were','will','shall','can','could','should','would','make','made','have','has','had','use','using','used','include','including','provide','ensure','keep','keep','not','dont','don','must','never','avoid','without','only','also','all','any','each','every','where','when','what','who','how','its','it','a','an','to','of','in','on','at','by','as','is','be','or','but']);
 const RULES = [
-  ['security', /\\b(?:security|secure|secret|credential|private|encrypt|csrf|xss|injection|rate.?limit|permission|authorization|privacy|personal data)\\b/i],
-  ['identity', /\\b(?:login|log in|sign.?in|sign.?up|register|account|authentication|identity|role.?based|user role|admin access)\\b/i],
-  ['data', /\\b(?:database|persist|storage|save|record|schema|migration|firestore|d1|sql|data model)\\b/i],
-  ['commerce', /\\b(?:payment|checkout|cart|basket|order|subscription|billing|invoice|product price)\\b/i],
-  ['integration', /\\b(?:api|webhook|provider|integration|send email|email delivery|third.party|external service)\\b/i],
-  ['routes', /\\b(?:page|route|url|navigation|nav|sitemap|multi.page|homepage|landing page)\\b/i],
-  ['interaction', /\\b(?:button|form|menu|modal|dialog|tab|accordion|search|filter|submit|workflow|interaction|click)\\b/i],
-  ['design', /\\b(?:design|visual|layout|colour|color|typography|font|spacing|animation|motion|brand|style|theme|aesthetic)\\b/i],
-  ['content', /\\b(?:content|copy|text|headline|description|faq|testimonial|review|story|article|blog)\\b/i],
-  ['responsive', /\\b(?:responsive|mobile|tablet|desktop|breakpoint|viewport|screen size)\\b/i],
-  ['accessibility', /\\b(?:accessibility|accessible|wcag|aria|keyboard|screen reader|focus state|contrast)\\b/i],
-  ['performance', /\\b(?:performance|fast|speed|load time|lazy load|bundle|core web vitals|cache)\\b/i],
-  ['seo', /\\b(?:seo|meta description|metadata|structured data|schema.org|sitemap|robots.txt|open graph)\\b/i],
-  ['assets', /\\b(?:image|photo|video|icon|logo|font file|upload|media|asset|gallery)\\b/i],
-  ['localization', /\\b(?:locale|locali[sz]ation|currency|timezone|time zone|language|translation|region)\\b/i],
-  ['constraints', /\\b(?:exactly|only|must|must not|never|exclude|without|avoid|preserve|keep existing|do not|don't)\\b/i],
+  ['security', /\b(?:security|secure|secret|credential|private|encrypt|csrf|xss|injection|rate.?limit|permission|authorization|privacy|personal data)\b/i],
+  ['identity', /\b(?:login|log in|sign.?in|sign.?up|register|account|authentication|identity|role.?based|user role|admin access)\b/i],
+  ['data', /\b(?:database|persist|storage|save|record|schema|migration|firestore|d1|sql|data model)\b/i],
+  ['commerce', /\b(?:payment|checkout|cart|basket|order|subscription|billing|invoice|product price)\b/i],
+  ['integration', /\b(?:api|webhook|provider|integration|send email|email delivery|third.party|external service)\b/i],
+  ['routes', /\b(?:page|route|url|navigation|nav|sitemap|multi.page|homepage|landing page)\b/i],
+  ['interaction', /\b(?:button|form|menu|modal|dialog|tab|accordion|search|filter|submit|workflow|interaction|click)\b/i],
+  ['design', /\b(?:design|visual|layout|colour|color|typography|font|spacing|animation|motion|brand|style|theme|aesthetic)\b/i],
+  ['content', /\b(?:content|copy|text|headline|description|faq|testimonial|review|story|article|blog)\b/i],
+  ['responsive', /\b(?:responsive|mobile|tablet|desktop|breakpoint|viewport|screen size)\b/i],
+  ['accessibility', /\b(?:accessibility|accessible|wcag|aria|keyboard|screen reader|focus state|contrast)\b/i],
+  ['performance', /\b(?:performance|fast|speed|load time|lazy load|bundle|core web vitals|cache)\b/i],
+  ['seo', /\b(?:seo|meta description|metadata|structured data|schema.org|sitemap|robots.txt|open graph)\b/i],
+  ['assets', /\b(?:image|photo|video|icon|logo|font file|upload|media|asset|gallery)\b/i],
+  ['localization', /\b(?:locale|locali[sz]ation|currency|timezone|time zone|language|translation|region)\b/i],
+  ['constraints', /\b(?:exactly|only|must|must not|never|exclude|without|avoid|preserve|keep existing|do not|don't)\b/i],
 ];
 function clean(value, max = 900) {
-  return String(value ?? '').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').trim().slice(0, max);
+  return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
 }
 function splitRequirement(value, index) {
   const source = clean(value);
-  const match = source.match(/^(R\\d{1,4}):\\s*/);
+  const match = source.match(/^(R\d{1,4}):\s*/);
   return {
     id: match ? match[1] : 'R' + String(index + 1).padStart(3, '0'),
-    text: clean(source.replace(/^R\\d{1,4}:\\s*/, '')),
+    text: clean(source.replace(/^R\d{1,4}:\s*/, '')),
   };
 }
 function signature(text) {
   return clean(text, 900).toLowerCase()
-    .replace(/\\b(?:do not|don't|dont|must not|mustn't|never|exclude|excluding|without|avoid|avoids|no)\\b/g, ' ')
+    .replace(/\b(?:do not|don't|dont|must not|mustn't|never|exclude|excluding|without|avoid|avoids|no)\b/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
-    .split(/\\s+/)
+    .split(/\s+/)
     .filter(token => token.length > 2 && !STOP.has(token))
     .sort()
     .join(' ');
 }
 function polarity(text) {
   if (NEGATION.test(text)) return 'prohibited';
-  if (/\\b(?:must|required|mandatory|include|implement|build|create|add|provide|ensure|persist|keep|use|support|connect|send|store|validate|display|show|render|deliver|generate|design|write|maintain|preserve|enable|allow|accept|handle)\\b/i.test(text)) return 'required';
+  if (/\b(?:must|required|mandatory|include|implement|build|create|add|provide|ensure|persist|keep|use|support|connect|send|store|validate|display|show|render|deliver|generate|design|write|maintain|preserve|enable|allow|accept|handle)\b/i.test(text)) return 'required';
   return 'preference';
 }
 function categories(text) {
