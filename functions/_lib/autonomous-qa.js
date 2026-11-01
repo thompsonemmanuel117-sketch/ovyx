@@ -394,10 +394,11 @@ export function evaluateGeneratedWebsiteFiles(rawFiles = {}) {
           const method = String(check?.method || 'GET').toUpperCase();
           const route = String(check?.route || '');
           const routeSafe = route.startsWith('/api/') && !route.startsWith('//') &&
-            !/[?#\\\\\u0000-\u001f]/.test(route) && !route.split('/').some(part => part === '.' || part === '..');
+            !/[?#]/.test(route) && !route.includes(String.fromCharCode(92)) &&
+            !/[\\u0000-\\u001f]/.test(route) && !route.split('/').some(part => part === '.' || part === '..');
           const bodyText = check?.body === undefined ? '' : JSON.stringify(check.body);
           const bodySafe = bodyText.length <= 4096 &&
-            !/"(?:password|passcode|secret|token|api[_-]?key|authorization|card|cvv|cvc|iban|bank[_-]?account|email|phone|address)"\\s*:/i.test(bodyText);
+            !/(?:password|passcode|secret|token|api[_-]?key|authorization|card|cvv|cvc|iban|bank[_-]?account|email|phone|address)/i.test(bodyText);
           if (!check?.id || backendIds.has(String(check.id)) || !['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ||
               !routeSafe || !bodySafe || (!['GET', 'HEAD'].includes(method) && check.sideEffect !== 'disposable-local-only') ||
               (check.identity != null && !['anonymous', 'synthetic-owner-a', 'synthetic-owner-b'].includes(check.identity))) {
