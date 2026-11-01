@@ -32,6 +32,7 @@ on:
       - 'functions/_lib/autonomous-qa.js'
       - 'scripts/ovyx-generated-backend-runtime-eval.mjs'
       - 'scripts/ovyx-generated-backend-runtime-eval.test.mjs'
+      - 'scripts/ovyx-cloudflare-backend-repair-client.mjs'
       - 'functions/_lib/prompts.js'
       - 'functions/_lib/experience.js'
       - 'functions/_lib/market-context.js'
@@ -208,25 +209,56 @@ jobs:
             fi
             site_name="$(basename "$project_dir")"
             report_name="$(printf '%s' "$site_name" | sed 's/[^A-Za-z0-9_-]/-/g')"
-            if ! docker run --rm \
-              --network none \
-              --read-only \
-              --tmpfs /tmp:rw,nosuid,nodev,size=2g,mode=1777 \
-              --shm-size=256m \
-              --memory=3g \
-              --cpus=2 \
-              --pids-limit=128 \
-              --cap-drop=ALL \
-              --security-opt=no-new-privileges \
-              --volume "$PWD:/workspace:ro" \
-              --volume "$PWD/artifacts/webstudio-evaluation-report/backend:/reports:rw" \
-              --workdir /workspace \
-              --env OVYX_QA_NETWORK_ISOLATION=docker-none \
-              ovyx-pages-runtime-sandbox \
-              node scripts/ovyx-generated-backend-runtime-eval.mjs \
-                --root "/workspace/$project_dir" \
-                --out "/reports/$report_name.json"; then
-              runtime_failed=1
+            report_path="artifacts/webstudio-evaluation-report/backend/$report_name.json"
+            run_backend_runtime() {
+              docker run --rm \
+                --network none \
+                --read-only \
+                --tmpfs /tmp:rw,nosuid,nodev,size=2g,mode=1777 \
+                --shm-size=256m \
+                --memory=3g \
+                --cpus=2 \
+                --pids-limit=128 \
+                --cap-drop=ALL \
+                --security-opt=no-new-privileges \
+                --volume "$PWD:/workspace:ro" \
+                --volume "$PWD/artifacts/webstudio-evaluation-report/backend:/reports:rw" \
+                --workdir /workspace \
+                --env OVYX_QA_NETWORK_ISOLATION=docker-none \
+                ovyx-pages-runtime-sandbox \
+                node scripts/ovyx-generated-backend-runtime-eval.mjs \
+                  --root "/workspace/$project_dir" \
+                  --out "/reports/$report_name.json"
+            }
+            if ! run_backend_runtime; then
+              backend_status="$(node --input-type=module -e "import fs from 'node:fs';try{process.stdout.write(JSON.parse(fs.readFileSync(process.argv[1],'utf8')).status||'blocked')}catch{process.stdout.write('blocked')}" "$report_path")"
+              if [ "$backend_status" = "failed" ]; then
+                backup_dir="$PWD/artifacts/webstudio-evaluation-report/backend-backups/$report_name"
+                mkdir -p "$backup_dir"
+                cp "$report_path" "$backup_dir/original-report.json"
+                if node scripts/ovyx-cloudflare-backend-repair-client.mjs \
+                  --site-dir "$PWD/$project_dir" \
+                  --runtime-report "$PWD/$report_path" \
+                  --backup-dir "$backup_dir"; then
+                  if run_backend_runtime; then
+                    rm -rf "$backup_dir"
+                    echo "One bounded backend repair passed the exact same disposable runtime checks for $site_name."
+                  else
+                    node scripts/ovyx-cloudflare-backend-repair-client.mjs --restore --site-dir "$PWD/$project_dir" --backup-dir "$backup_dir" || true
+                    cp "$backup_dir/original-report.json" "$report_path"
+                    rm -rf "$backup_dir"
+                    runtime_failed=1
+                    echo "Backend repair failed verification; original generated source and failure evidence were restored."
+                  fi
+                else
+                  rm -rf "$backup_dir"
+                  runtime_failed=1
+                  echo "No safe backend repair candidate was accepted for $site_name."
+                fi
+              else
+                runtime_failed=1
+                echo "Backend runtime is blocked (not a repairable test failure) for $site_name."
+              fi
             fi
           done < <(find artifacts/webstudio-generated-sites -type f -name ovyx-qa-plan.json -not -path '*/node_modules/*' | sort)
           node --input-type=module <<'NODE'
