@@ -152,9 +152,15 @@ async function walkSafe(root, relative = '') {
 
 function validateWranglerConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) return { ok: false, reason: 'wrangler-config-invalid' };
-  const unsupported = ['kv_namespaces', 'r2_buckets', 'durable_objects', 'services', 'queues', 'vectorize', 'hyperdrive', 'browser', 'ai', 'analytics_engine_datasets', 'dispatch_namespaces'];
+  const unsupported = ['durable_objects', 'services', 'queues', 'vectorize', 'hyperdrive', 'browser', 'ai', 'analytics_engine_datasets', 'dispatch_namespaces'];
   if (unsupported.some(key => Array.isArray(config[key]) && config[key].length)) {
     return { ok: false, reason: 'unsupported-cloudflare-binding-requires-dedicated-adapter' };
+  }
+  const kv = Array.isArray(config.kv_namespaces) ? config.kv_namespaces : [];
+  const r2 = Array.isArray(config.r2_buckets) ? config.r2_buckets : [];
+  if (kv.some(item => !item || typeof item.binding !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(item.binding) || item.remote === true) ||
+      r2.some(item => !item || typeof item.binding !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(item.binding) || typeof item.bucket_name !== 'string' || item.remote === true)) {
+    return { ok: false, reason: 'kv-or-r2-binding-invalid-or-remote' };
   }
   if (config.env && Object.keys(config.env).length) return { ok: false, reason: 'wrangler-environment-overrides-require-dedicated-adapter' };
   const vars = config.vars && typeof config.vars === 'object' ? config.vars : {};
@@ -175,7 +181,7 @@ function validateWranglerConfig(config) {
       databaseId: randomUUID(), migrationsDir: typeof db.migrations_dir === 'string' ? db.migrations_dir : 'migrations',
     });
   }
-  return { ok: true, bindings };
+  return { ok: true, bindings, kvBindings: kv.map(item => item.binding), r2Bindings: r2.map(item => item.binding) };
 }
 
 async function nextPort() {
@@ -350,6 +356,8 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
     if (path.isAbsolute(outputDir) || outputDir.split(/[\\/]/).includes('..')) throw new Error('pages-output-path-invalid');
     const args = ['pages', 'dev', outputDir, '--ip', '127.0.0.1', '--port', String(port), '--persist-to', stateDir, '--log-level', 'error'];
     for (const binding of configCheck.bindings) args.push('--d1', binding.binding + '=' + binding.databaseId);
+    for (const binding of configCheck.kvBindings) args.push('--kv', binding);
+    for (const binding of configCheck.r2Bindings) args.push('--r2', binding);
     args.push('--binding', 'OVYX_QA_MODE=1', '--binding', 'OVYX_QA_TEST_SECRET=' + env.OVYX_QA_TEST_SECRET);
     child = spawn(wrangler, args, { cwd: workspace, env, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout.on('data', () => {});
