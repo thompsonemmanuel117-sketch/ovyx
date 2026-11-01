@@ -166,10 +166,45 @@ export function buildDesignSystemContract(prompt = '', context = {}) {
     },
     motionSystem: {
       requested: explicitMotion,
+      intensity: /\\b(?:high[- ]motion|motion[- ]rich|cinematic|immersive|expressive animation|advanced animation|rich motion|dynamic motion)\\b/i.test(brief)
+        ? 'expressive'
+        : explicitMotion ? 'purposeful' : 'restrained',
+      direction: 'Create a coherent motion language that reinforces the product identity, hierarchy and user journey. Motion quality should feel intentional and polished, never like a collection of unrelated effects.',
+      choreography: [
+        { id: 'page-entry', trigger: 'Initial route render', treatment: 'Use a short, composed entrance for the primary content; avoid delaying first paint or hiding essential content.', preferredProperties: ['opacity', 'transform'], reducedMotion: 'Render content immediately without entrance movement.' },
+        { id: 'section-reveal', trigger: 'Meaningful sections enter the viewport', treatment: 'Use subtle staggered reveals for related content groups; reveal each group once and keep text readable while scrolling.', preferredProperties: ['opacity', 'transform'], reducedMotion: 'Show all content immediately; no scroll-triggered hiding.' },
+        { id: 'navigation-transition', trigger: 'Route or major view changes', treatment: 'Use a consistent, brief transition that preserves orientation and never blocks navigation or browser history.', preferredProperties: ['opacity', 'transform'], reducedMotion: 'Switch views immediately with focus moved to the destination heading when appropriate.' },
+        { id: 'micro-interaction', trigger: 'Hover, focus, press, selection or toggle', treatment: 'Give controls crisp tactile feedback with clear active, focus and selected states; do not rely on hover for essential information.', preferredProperties: ['transform', 'opacity', 'color'], reducedMotion: 'Keep state changes immediate and clearly visible without movement.' },
+        { id: 'workflow-feedback', trigger: 'Submit, save, load, success or error', treatment: 'Animate state changes only when it improves comprehension; pair motion with text and semantic status announcements.', preferredProperties: ['opacity', 'transform'], reducedMotion: 'Use immediate state changes and persistent text/status feedback.' },
+        { id: 'signature-moment', trigger: 'One high-value brand or product moment', treatment: 'Design one distinctive, purpose-led motion moment when it supports the brief; do not repeat it on every section.', preferredProperties: ['transform', 'opacity', 'clip-path'], reducedMotion: 'Provide a complete static composition with the same information and affordance.' },
+      ],
+      timing: {
+        tokenGuidance: 'Define shared CSS motion tokens for instant feedback, micro-interactions, standard transitions and deliberate entrances; use a consistent easing family rather than arbitrary durations.',
+        microInteraction: '100–180ms',
+        standardTransition: '180–320ms',
+        entrance: '280–520ms',
+        stagger: '40–90ms between related elements',
+        easing: 'Use a refined ease-out for entrances, ease-in-out for state transitions and a restrained spring only for tactile controls.',
+      },
+      performance: [
+        'Prefer transform and opacity; avoid animating layout properties such as width, height, top, left or margin.',
+        'Avoid permanent will-change, expensive blur filters, large-area filters and continuous animation on low-value decoration.',
+        'Use IntersectionObserver or the framework-native equivalent for scroll reveals; disconnect or unobserve completed one-shot reveals.',
+        'Do not animate large media before it has dimensions; prevent layout shift and respect reduced data/performance preferences where available.',
+        'Keep animation work interruptible, composited where practical and responsive to pointer, touch and keyboard input.',
+      ],
+      accessibility: [
+        'Honor prefers-reduced-motion: reduce globally and provide a meaningful static alternative.',
+        'Never hide essential content until an animation runs; content must remain available if scripts or observers fail.',
+        'Never communicate state, errors or navigation exclusively through motion, color or sound.',
+        'Do not auto-play flashing, rapid, looping or parallax motion that can cause discomfort; avoid vestibular-triggering movement.',
+        'Ensure focus, keyboard interaction and reading order remain stable during transitions.',
+      ],
       rules: [
         explicitMotion
-          ? 'Implement only the motion requested or clearly justified by the brief; use restrained timing and transform/opacity where appropriate.'
-          : 'Use restrained motion only when it clarifies hierarchy, state or feedback.',
+          ? 'Implement the requested motion at the intensity justified by the brief, with coherent choreography and clear interaction purpose.'
+          : 'Use refined motion by default for meaningful feedback and hierarchy; reserve prominent reveals and signature animation for moments that benefit from them.',
+        'Treat the motion choreography as a system shared across routes, not isolated page effects.',
         'Respect prefers-reduced-motion with a usable reduced or static alternative.',
         'Keep motion interruptible and never block navigation, reading or primary actions.',
       ],
