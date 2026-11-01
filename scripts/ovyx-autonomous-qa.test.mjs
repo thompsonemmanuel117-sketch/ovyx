@@ -157,6 +157,25 @@ assert.equal(rejected.repair.status, 'rejected', 'A repair that introduces a new
 assert.equal(rejected.repair.reason, 'repair-introduced-new-findings');
 assert.equal(rejected.files['src/checkout.js'], files['src/checkout.js'], 'Rejected candidates must not replace the original project files.');
 
+const reducedCoverage = await runAutonomousRepairCycle({
+  files,
+  requiredChannels,
+  initialEvidence,
+  repair: async () => ({ files: { 'src/checkout.js': 'export function checkout(){ return { ok: true }; }' } }),
+  verify: async () => [
+    { channel: 'static', status: 'passed', testsRun: 5 },
+    { channel: 'browser', status: 'not-run', testsRun: 0 },
+    { channel: 'backend', status: 'passed', testsRun: 4 },
+    { channel: 'journeys', status: 'failed', testsRun: 2, findings: [
+      { severity: 'blocker', code: 'CHECKOUT_FAILED', message: 'Checkout journey did not reach confirmation.', file: 'src/checkout.js' },
+    ] },
+  ],
+});
+assert.equal(reducedCoverage.repair.status, 'rejected');
+assert.equal(reducedCoverage.repair.reason, 'repair-reduced-or-blocked-test-coverage',
+  'A repair must not pass by skipping or reducing a previously executed test channel.');
+assert.equal(reducedCoverage.files['src/checkout.js'], files['src/checkout.js']);
+
 const unavailable = await runAutonomousRepairCycle({
   files,
   requiredChannels,
