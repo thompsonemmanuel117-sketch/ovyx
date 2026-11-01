@@ -529,53 +529,39 @@ function serializeWebsiteEngineModelPlan(plan) {
     minimal.fullStackArchitecture = {
       version: fullStack.version,
       capabilities: fullStack.capabilities,
-      pages: (fullStack.pages || []).slice(0, 8).map(page => [page.id, clean(page.title, 48), clean(page.route, 64)]),
-      apiContracts: prioritizedRoutes.map(route => ({
+      apiContracts: prioritizedRoutes.slice(0, 8).map(route => ({
         id: route.id, method: route.method, path: route.path, capability: route.capability,
-        authPolicy: route.authPolicy, modelIds: (route.modelIds || []).slice(0, 3),
-        sideEffect: clean(route.sideEffect, 48),
+        authPolicy: route.authPolicy,
       })),
-      dataModels: (fullStack.dataModels || []).slice(0, 10).map(model => [
-        model.id, model.name, (model.fields || []).slice(0, 6), model.securityClass,
-      ]),
+      dataModels: (fullStack.dataModels || []).slice(0, 8).map(model => [model.id, model.name]),
       dataIntegrity: {
-        relationships: (fullStack.dataIntegrity?.relationships || []).slice(0, 6).map(item =>
-          [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional]),
-        constraints: prioritizedConstraints.map(item =>
-          [item.id, clean(item.appliesTo, 64), clean(item.rule, 96)]),
-        indexes: (fullStack.dataIntegrity?.indexes || []).slice(0, 4).map(item =>
-          [item.entity, (item.fields || []).slice(0, 5), item.unique === true]),
+        constraints: prioritizedConstraints.map(item => [item.id, clean(item.appliesTo, 40), clean(item.rule, 64)]),
       },
-      integrations: (fullStack.integrations || []).slice(0, 4).map(item =>
-        [item.capability, item.provider, item.connectionMetadata, item.verification]),
-      requirementTraceabilityGroups: [...groupedRequirements.values()],
+      requirementTraceabilityGroups: [...groupedRequirements.values()].map(group => ({
+        assessment: group.assessment,
+        targetNodeIds: group.targetNodeIds.slice(0, 2),
+        requirementIds: group.requirementIds,
+      })),
       graphIntegrity: {
         valid: fullStack.graphIntegrity?.valid === true,
         nodeCount: fullStack.graphIntegrity?.nodeCount || 0,
         edgeCount: fullStack.graphIntegrity?.edgeCount || 0,
-        unreachableNodeIds: (fullStack.graphIntegrity?.unreachableNodeIds || []).slice(0, 12),
+        unreachableNodeIds: (fullStack.graphIntegrity?.unreachableNodeIds || []).slice(0, 3),
       },
       security: {
         defaultPosture: fullStack.security?.defaultPosture,
-        controls: prioritizedControls.map(item => [item.id, clean(item.requirement, 100)]),
-        migrationPolicy: fullStack.security?.migrationPolicy,
+        controls: prioritizedControls.map(item => [item.id, clean(item.requirement, 64)]),
       },
-      backgroundWork: {
-        required: fullStack.backgroundWork?.required === true,
-        pattern: fullStack.backgroundWork?.pattern,
-        controls: (fullStack.backgroundWork?.controls || []).slice(0, 4),
-      },
-      stateMachines: (fullStack.stateMachines || []).slice(0, 6).map(machine => ({
-        entity: machine.entity,
-        initialState: machine.initialState,
-        states: (machine.states || []).slice(0, 10),
-        transitions: (machine.transitions || []).slice(0, 8).map(item =>
-          [item.from, item.to, clean(item.authority, 88), clean(item.sideEffect, 72)]),
-        invariant: clean(machine.invariant, 100),
-      })),
-      testPlan: prioritizedTests.map(test =>
-        [test.id, test.type, test.status, test.requiresExplicitOwnerApproval === true]),
-      honestyRules: compactPlanList(fullStack.honestyRules, 5, 80),
+      stateMachines: (fullStack.stateMachines || [])
+        .filter(machine => ['PaymentAttempt', 'Booking', 'Order', 'CustomerSubscription'].includes(machine.entity))
+        .slice(0, 4)
+        .map(machine => ({
+          entity: machine.entity,
+          initialState: machine.initialState,
+          states: (machine.states || []).slice(0, 6),
+          transitions: (machine.transitions || []).slice(0, 2).map(item => [item.from, item.to]),
+        })),
+      testPlan: prioritizedTests.map(test => [test.id, test.type, test.status]),
     };
   }
   const serialized = JSON.stringify(minimal);
