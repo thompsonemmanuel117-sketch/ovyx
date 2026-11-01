@@ -48,6 +48,9 @@ assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'sessi
 assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'session-csrf-binding'));
 assert.ok(architecture.dataIntegrity.indexes.some(item => item.entity === 'Session' && item.unique && item.fields.includes('tokenHash')));
 assert.ok(architecture.apiContracts.some(route => route.path === '/api/auth/session' && route.modelIds.includes('model-session')));
+assert.ok(architecture.apiContracts.some(route => route.path === '/api/auth/registration' && route.authPolicy.includes('credential-provider')));
+assert.ok(architecture.apiContracts.some(route => route.path === '/api/auth/recovery' && /do not reveal whether an account exists/i.test(route.purpose)));
+
 
 assert.equal(architecture.capabilities.authorization, true);
 assert.equal(architecture.capabilities.payments, true);
