@@ -2,7 +2,7 @@
 
 **Roadmap stage:** 5 of 10  
 **Product goal:** OVYX must inspect the actual website/application it has generated, execute meaningful browser and backend tests, repair failures safely, and repeat verification before reporting completion.  
-**Status:** In progress — static generation-time repair, in-editor requirement-derived browser journey repair, and a no-egress Cloudflare Pages/D1 backend runtime evaluator are implemented. The backend evaluator is wired into trusted live acceptance runs. General per-project runtime invocation and backend-feedback repair/retest are still outstanding.
+**Status:** In progress — static generation-time repair, in-editor browser-journey repair, and a no-egress Cloudflare Pages/D1/KV/R2 runtime evaluator are implemented. Trusted live acceptance now performs one OIDC-protected backend repair attempt and reruns the exact same checks with rollback on failure. Ordinary user-project builds still need a dedicated isolated runtime service to invoke that backend cycle automatically.
 
 ## Important naming distinction
 
@@ -30,6 +30,19 @@ These are useful foundations, but they do not yet form one general autonomous te
 7. **Safe persistence:** generated-project edits must use existing owner-scoped project APIs, current revision checks, backups/recovery and the required approval boundary. Do not silently overwrite a user's saved project.
 8. **Honest reporting:** separate local fixture evidence, generated-source evidence, isolated runtime evidence, external-provider receipts, human review and production deployment. Never claim real email, payment, OAuth, inventory or booking success from a mocked QA endpoint.
 
+## Backend runtime and repair boundary
+
+The trusted acceptance workflow now has a complete one-pass backend loop for supported Cloudflare Pages projects:
+
+1. Read the generated `ovyx-qa-plan.json` and require `backendRequired:true` plus exact source-file mappings for every backend check.
+2. Copy only bounded project files into a temporary workspace; reject symlinks, environment files, secret-shaped source, unpinned package imports, unsafe migrations and unsupported remote bindings.
+3. Build a disposable Pages runtime with fresh local D1 IDs/migrations and local KV/R2 bindings inside Docker `--network none`. The runner verifies that only loopback interfaces exist before executing generated code.
+4. Run synthetic API checks, including expected HTTP status and JSON state assertions. No production database, provider credentials, external network, real payment or customer data is available.
+5. If a check fails and its exact function source is mapped, request one OIDC-authenticated server-side AI repair for only those function files.
+6. Rebuild the same disposable runtime and rerun the exact same check plan. Keep the candidate only when every check passes; otherwise restore the original files and original failure report.
+
+This path is used by the trusted live-generation acceptance workflow. It is not yet a per-user service for arbitrary Firebase-saved projects or arbitrary framework outputs. The production Pages request cannot safely execute generated code itself; a dedicated remote sandbox service (or equivalent isolated runner integration) is still required before ordinary full-stack project generation can be called fully autonomous.
+
 ## Implementation sequence
 
 - [x] Audit existing static evaluator, Chromium evaluator, bounded generation repair, Stage 4 D1 runtime fixture and trusted live-generation workflow.
@@ -40,7 +53,7 @@ These are useful foundations, but they do not yet form one general autonomous te
 - [x] Add requirement-aware browser journeys with explicit expected outcomes and state assertions, loaded from the generated `ovyx-qa-plan.json` manifest. Safe same-origin GET/HEAD API probes are supported.
 - [x] Add one bounded in-editor browser-journey feedback repair attempt through the existing guarded AI provider and snapshot rollback boundary. Backend-runtime-feedback repair remains pending.
 - [x] Re-run the same in-editor journey and responsive browser checks after repair; reject regressions and restore the previous snapshot when the repair does not pass. Server-side backend-runtime retesting remains pending.
-- [ ] Integrate backend runtime evidence and backend repair/retest into every Web Studio project revision lifecycle. The current runtime adapter is integrated into the trusted live-generation acceptance workflow; ordinary in-product generation still reports backend runtime as blocked until a dedicated sandbox service is connected.
+- [ ] Integrate backend runtime evidence and backend repair/retest into every ordinary Web Studio project revision lifecycle. The trusted live-generation acceptance workflow can execute and repair supported Cloudflare Pages backends, but the Cloudflare Pages app itself cannot launch this Docker sandbox. Ordinary in-product full-stack builds correctly remain `blocked` rather than claiming backend runtime tests passed until a dedicated remote sandbox service is deployed and connected.
 - [x] Add a no-egress CI fixture that boots generated Cloudflare Pages Functions, applies a fresh D1 migration, and verifies synthetic authentication, API validation, CRUD persistence and tenant isolation.
 - [x] Add fail-closed tests for missing backend plans, unsafe mutation declarations, sensitive request data, unsupported dependencies/bindings and unavailable network isolation.
 - [ ] Add CI fixtures for supported KV/R2 data flows, concurrent backend mutations, role escalation, CSRF and unsupported framework adapters.
