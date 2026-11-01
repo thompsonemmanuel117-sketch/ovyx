@@ -91,8 +91,9 @@
       if (!token) throw new Error('Firebase session token unavailable.');
       var response = await fetch('/api/webstudio/backend-runtime', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Bearer ' + token },
         credentials: 'same-origin',
+        cache: 'no-store',
         body: JSON.stringify({
           projectId: text(projectId),
           qaPlan: { version: 1, backendRequired: true, backendChecks: qaPlan.backendChecks },
