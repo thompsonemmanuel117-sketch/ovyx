@@ -71,6 +71,12 @@ async function webhook(request, env, provider) {
   if (event.type === 'subscription.activated' && typeof event.subscriptionId === 'string') {
     await env.DB.prepare("UPDATE subscriptions SET status = 'active', current_period_end = ?, updated_at = ? WHERE id = ? AND status = 'pending'").bind(String(event.currentPeriodEnd || ''), now(), event.subscriptionId).run();
   }
+  if (event.type === 'subscription.payment_failed' && typeof event.subscriptionId === 'string') {
+    await env.DB.prepare("UPDATE subscriptions SET status = 'past_due', updated_at = ? WHERE id = ? AND status = 'active'").bind(now(), event.subscriptionId).run();
+  }
+  if (event.type === 'subscription.cancelled' && typeof event.subscriptionId === 'string') {
+    await env.DB.prepare("UPDATE subscriptions SET status = 'cancelled', updated_at = ? WHERE id = ? AND status IN ('active','past_due')").bind(now(), event.subscriptionId).run();
+  }
   return json({ data: { accepted: true } });
 }
 export async function onRequest({ request, env }) {
@@ -303,6 +309,11 @@ try {
   assert.equal((await read(repeatedCheckout)).duplicate, true, 'Checkout retries must return the original order.');
   const orderRows = (await read(await request('/api/orders', ownerAToken))).data;
   assert.equal(orderRows.length, 1);
+  const otherCart = await request('/api/cart/items', ownerBToken, 'POST', { productId: 'product-1', quantity: 4 });
+  assert.equal(otherCart.status, 201);
+  const oversell = await request('/api/checkout', ownerBToken, 'POST', {}, { 'idempotency-key': 'checkout-customer-b-001' });
+  assert.equal(oversell.status, 409, 'Inventory must not be oversold after the first order reserves stock.');
+  assert.equal((await read(await request('/api/orders', ownerBToken))).data.length, 0, 'Failed inventory reservation must not create an order.');
   assert.equal(orderRows[0].id, order.id);
   const otherOrders = (await read(await request('/api/orders', ownerBToken))).data;
   assert.equal(otherOrders.length, 0, 'Order history must be tenant isolated.');
@@ -320,6 +331,25 @@ try {
   assert.equal(unavailableSubscription.status, 503, 'Subscription checkout must fail closed without provider credentials.');
   assert.equal((await read(await request('/api/subscriptions', ownerAToken))).data.length, 0,
     'A failed provider setup must not grant or persist an active subscription.');
+  // Seed a provider-created pending subscription to exercise signed lifecycle reconciliation.
+  const subscriptionId = 'subscription-provider-pending-1';
+  await run(['d1', 'execute', databaseName, '--local', '--command',
+    "INSERT INTO subscriptions (id, owner_id, plan_id, status, created_at, updated_at) VALUES ('" + subscriptionId + "', 'customer-a', 'plan-pro', 'pending', '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z')"]);
+  const sendSubscriptionEvent = async (eventId, payload) => {
+    const raw = JSON.stringify(payload);
+    const sig = createHmac('sha256', 'local-only-stage4-webhook-secret').update(raw).digest('hex');
+    return fetch(baseUrl + '/api/webhooks/paystack', {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-provider-event-id': eventId, 'x-provider-signature': sig },
+      body: raw, signal: AbortSignal.timeout(5000),
+    });
+  };
+  assert.equal((await sendSubscriptionEvent('evt-sub-activated', { type: 'subscription.activated', subscriptionId, currentPeriodEnd: '2026-12-01T00:00:00.000Z' })).status, 200);
+  assert.equal((await read(await request('/api/subscriptions', ownerAToken))).data[0].status, 'active');
+  assert.equal((await sendSubscriptionEvent('evt-sub-failed', { type: 'subscription.payment_failed', subscriptionId })).status, 200);
+  assert.equal((await read(await request('/api/subscriptions', ownerAToken))).data[0].status, 'past_due');
+  assert.equal((await sendSubscriptionEvent('evt-sub-cancelled', { type: 'subscription.cancelled', subscriptionId })).status, 200);
+  assert.equal((await read(await request('/api/subscriptions', ownerAToken))).data[0].status, 'cancelled',
+    'Subscription lifecycle must reconcile only from signed provider events.');
 
   const badWebhook = await request('/api/webhooks/paystack', null, 'POST', { type: 'payment.succeeded', orderId: order.id },
     { 'x-provider-event-id': 'evt-bad', 'x-provider-signature': '00' });
