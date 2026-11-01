@@ -1208,7 +1208,8 @@ export async function runWebsiteGeneration(options = {}) {
     let declaredBackendChecks = 0;
     try {
       const qaPlanSource = result.files['ovyx-qa-plan.json'];
-      const qaPlan = typeof qaPlanSource === 'string' ? JSON.parse(qaPlanSource) : null;
+      const qaPlanText = typeof qaPlanSource === 'string' ? qaPlanSource : typeof qaPlanSource?.content === 'string' ? qaPlanSource.content : '';
+      const qaPlan = qaPlanText ? JSON.parse(qaPlanText) : null;
       backendRequired = backendRequired || qaPlan?.backendRequired === true;
       declaredBackendChecks = Array.isArray(qaPlan?.backendChecks) ? qaPlan.backendChecks.length : 0;
     } catch { /* The static QA channel already reports malformed manifests. */ }
