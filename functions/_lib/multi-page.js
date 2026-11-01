@@ -169,6 +169,14 @@ function routeFromPath(path) {
   return '/' + normalized.replace(/\/+$/, '') + '/';
 }
 
+function routeSignature(url) {
+  return String(url || '/')
+    .split(/[?#]/, 1)[0]
+    .replace(/\\[\\[?\\.\\.\\.[^\\]]+\\]\\]?|\\[[^\\]]+\\]|:[A-Za-z0-9_]+|\\*/g, ':param')
+    .replace(/\\/{2,}/g, '/')
+    .replace(/\\/+$/, '') .toLowerCase() || '/';
+}
+
 export function normalizeSiteMap(raw, maxPages = DEFAULT_PAGE_LIMIT) {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.pages)) {
     return { siteMap: null, overflow: 0 };
@@ -208,6 +216,28 @@ export function normalizeSiteMap(raw, maxPages = DEFAULT_PAGE_LIMIT) {
     });
   }
 
+  const routeGroups = new Map();
+  for (const page of pages) {
+    const signature = routeSignature(page.url);
+    const group = routeGroups.get(signature) || [];
+    group.push({ path: page.path, url: page.url, title: page.title });
+    routeGroups.set(signature, group);
+  }
+  const routeCollisions = [...routeGroups.entries()]
+    .filter(([, group]) => group.length > 1)
+    .map(([signature, group]) => ({ signature, pages: group }));
+
+  const routeValidation = {
+    status: routeCollisions.length ? 'conflicts-detected' : 'valid',
+    blocking: routeCollisions.length > 0,
+    pageCount: pages.length,
+    routeCollisionCount: routeCollisions.length,
+    routeCollisions,
+    instruction: routeCollisions.length
+      ? 'Resolve every colliding route explicitly. Never silently overwrite a page or discard an explicitly requested route.'
+      : 'No duplicate normalized route signatures were detected in the supplied page plan.',
+  };
+
   const sharedSeen = new Set();
   const sharedFiles = [];
   for (const item of Array.isArray(raw.sharedFiles) ? raw.sharedFiles : []) {
@@ -239,7 +269,9 @@ export function normalizeSiteMap(raw, maxPages = DEFAULT_PAGE_LIMIT) {
       pages,
       sharedFiles,
       foundationPaths,
+      routeValidation,
     },
+    routeValidation,
     overflow,
   };
 }
@@ -361,6 +393,7 @@ export function buildSiteBatchContext({
   const sitemapText = JSON.stringify({
     architecture: siteMap?.architecture || '',
     designSystem: siteMap?.designSystem || {},
+    routeValidation: siteMap?.routeValidation || { status: 'not-available', blocking: false },
     pages: pages.map(page => ({
       title: page.title, path: page.path, url: page.url, goal: page.goal,
       audience: page.audience, primaryAction: page.primaryAction, sections: page.sections,
@@ -436,6 +469,8 @@ export function buildSiteBatchContext({
     '',
     'FULL WEBSITE ROUTE MANIFEST (keep these paths and URLs consistent):',
     sitemapText,
+    '',
+    'ROUTE COLLISION POLICY: If routeValidation reports conflicts, do not overwrite, merge or silently rename a requested page. Preserve all requested page intents and resolve the route conflict explicitly before finalizing the site.',
     '',
     'CURRENT BASE REPOSITORY FILES FOR THIS BATCH:',
     repositoryText || '(No existing target files were needed from the base repository.)',
