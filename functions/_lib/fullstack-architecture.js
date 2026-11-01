@@ -1077,25 +1077,25 @@ export function fullStackArchitectureModelContract(architecture) {
     version: architecture.version,
     capabilities: architecture.capabilities,
     pages: architecture.pages.map(page => [page.id, text(page.title), text(page.route)]).slice(0, 14),
-    components: architecture.components.map(item => [item.id, text(item.name), text(item.purpose)]).slice(0, 10),
+    components: architecture.components.map(item => [item.id, text(item.name), text(item.purpose)]).slice(0, 24),
     apiContracts: architecture.apiContracts.map(route => ({
       id: route.id, method: route.method, path: route.path, capability: route.capability,
       authPolicy: route.authPolicy, modelIds: route.modelIds.slice(0, 5), idempotency: route.idempotency,
       rateLimit: route.rateLimit, sideEffect: text(route.sideEffect),
-    })).slice(0, 18),
+    })).slice(0, 64),
     dataModels: architecture.dataModels.map(model => ({
       id: model.id, name: model.name, fields: model.fields.slice(0, 10), securityClass: model.securityClass,
-    })).slice(0, 14),
+    })).slice(0, 32),
     dataIntegrity: {
-      relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional, text(item.purpose)]).slice(0, 14),
-      constraints: architecture.dataIntegrity.constraints.map(item => [item.id, text(item.appliesTo), text(item.rule)]).slice(0, 14),
-      indexes: architecture.dataIntegrity.indexes.map(item => [item.entity, item.fields.slice(0, 5), item.unique]).slice(0, 14),
+      relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional, text(item.purpose)]).slice(0, 40),
+      constraints: architecture.dataIntegrity.constraints.map(item => [item.id, text(item.appliesTo), text(item.rule)]).slice(0, 40),
+      indexes: architecture.dataIntegrity.indexes.map(item => [item.entity, item.fields.slice(0, 5), item.unique]).slice(0, 40),
     },
     integrations: architecture.integrations.map(item => ({
       capability: item.capability, provider: text(item.provider),
       connectionMetadata: item.connectionMetadata, verification: item.verification,
       liveDeliveryOrTransaction: item.liveDeliveryOrTransaction,
-    })).slice(0, 6),
+    })).slice(0, 16),
     requirementTraceabilityGroups: (() => {
       const grouped = new Map();
       for (const item of architecture.requirementMappings) {
@@ -1111,7 +1111,7 @@ export function fullStackArchitectureModelContract(architecture) {
     requirementsNeedingSemanticMapping: architecture.requirementMappings
       .filter(item => item.assessment === 'needs-semantic-mapping')
       .map(item => item.requirementId),
-    dependencyEdges: architecture.graph.edges.slice(0, 36).map(edge => [edge.from, edge.relation, edge.to]),
+    dependencyEdges: architecture.graph.edges.slice(0, 120).map(edge => [edge.from, edge.relation, edge.to]),
     graphIntegrity: architecture.graphIntegrity,
     crossLayerContracts: {
       apiBoundary: ['typed-api-contracts', 'server-validation', 'safe-errors-no-secrets'],
@@ -1126,7 +1126,7 @@ export function fullStackArchitectureModelContract(architecture) {
     },
     security: {
       defaultPosture: architecture.security.defaultPosture,
-      controls: architecture.security.controls.map(item => [item.id, text(item.requirement)]).slice(0, 14),
+      controls: architecture.security.controls.map(item => [item.id, text(item.requirement)]).slice(0, 24),
       migrationPolicy: architecture.security.migrationPolicy,
     },
     backgroundWork: architecture.backgroundWork,
@@ -1139,12 +1139,12 @@ export function fullStackArchitectureModelContract(architecture) {
       })),
       invariant: text(machine.invariant),
       executionState: machine.executionState,
-    })).slice(0, 8),
+    })).slice(0, 16),
     testPlan: architecture.testPlan.map(test => ({
       id: test.id, type: test.type, scope: text(test.scope),
       assertion: text(test.assertion), status: test.status,
       requiresExplicitOwnerApproval: test.requiresExplicitOwnerApproval === true,
-    })).slice(0, 12),
+    })).slice(0, 24),
     deployment: architecture.deployment,
     honestyRules: compact(architecture.honestyRules),
   };
