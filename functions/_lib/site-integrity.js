@@ -69,7 +69,7 @@ function fileIndex(files) {
 
 function routeCollisionSignature(value) {
   return normalizeRoute(value)
-    .replace(/\\[\\[?\\.\\.\\.[^\\]]+\\]\\]?|\\[[^\\]]+\\]|:[A-Za-z0-9_]+|\\*/g, ':param');
+    .replace(/\[\[?\.\.\.[^\]]+\]\]?|\[[^\]]+\]|:[A-Za-z0-9_]+|\*/g, ':param');
 }
 
 function routeCollisionGroups(siteMap) {
