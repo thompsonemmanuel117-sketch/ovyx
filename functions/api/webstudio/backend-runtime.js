@@ -19,7 +19,7 @@ function safePath(raw) {
   if (!path || path.length > 240 || path.split('/').some(part => !part || part === '.' || part === '..')) return '';
   if (/(?:^|\/)(?:\.git|node_modules|\.wrangler|\.next|coverage)(?:\/|$)/i.test(path)) return '';
   if (/(?:^|\/)(?:\.env(?:\..*)?|\.dev\.vars(?:\..*)?)$/i.test(path)) return '';
-  if (ROOT_FILES.has(path) || /^(?:functions|migrations)\//i.test(path)) return path;
+  if (ROOT_FILES.has(path) || /^(?:functions|migrations|src|lib|api|server)\//i.test(path)) return path;
   return '';
 }
 
@@ -153,7 +153,6 @@ export async function onRequestPost(context) {
       requestedAt: new Date().toISOString(),
       projectId,
       runtimeService: 'cloudflare-sandbox-pages-d1',
-      authenticatedUser: user.uid,
     }, 200);
   } catch (error) {
     return errorResponse(error?.message || 'The isolated backend runtime request failed.', error?.status || 500, error?.code || 'BACKEND_RUNTIME_FAILED');
