@@ -25,6 +25,12 @@ const routeSource = [
   "export async function onRequestDelete({ request, env }) { const user = authenticate(request); if (!user) return json({ error: { code: 'UNAUTHENTICATED' } }, 401); const id = new URL(request.url).searchParams.get('id'); if (!id) return json({ error: { code: 'VALIDATION_FAILED' } }, 400); const result = await env.DB.prepare('DELETE FROM records WHERE id = ? AND owner_id = ?').bind(id, user.id).run(); if (!result.meta || result.meta.changes !== 1) return json({ error: { code: 'NOT_FOUND' } }, 404); return json({ data: { deleted: true } }); }",
 ].join('\n');
 
+const bookingRouteSource = [
+  "const json = (body, status = 200) => Response.json(body, { status });",
+  "function authenticate(request) { const token = request.headers.get('authorization') || ''; if (token === 'Bearer test-owner-a') return { id: 'owner-a' }; if (token === 'Bearer test-owner-b') return { id: 'owner-b' }; return null; }",
+  "export async function onRequestPost({ request, env }) { const user = authenticate(request); if (!user) return json({ error: { code: 'UNAUTHENTICATED' } }, 401); let input; try { input = await request.json(); } catch { return json({ error: { code: 'INVALID_JSON' } }, 400); } const start = Date.parse(input?.startAt); const end = Date.parse(input?.endAt); if (typeof input?.resourceId !== 'string' || !input.resourceId || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return json({ error: { code: 'VALIDATION_FAILED' } }, 400); const id = crypto.randomUUID(); const startIso = new Date(start).toISOString(); const endIso = new Date(end).toISOString(); const result = await env.DB.prepare(\"INSERT INTO bookings (id, owner_id, resource_id, start_at, end_at, status, created_at) SELECT ?, ?, ?, ?, ?, 'confirmed', ? WHERE NOT EXISTS (SELECT 1 FROM bookings WHERE resource_id = ? AND status IN ('held', 'confirmed') AND start_at < ? AND end_at > ?)\").bind(id, user.id, input.resourceId, startIso, endIso, new Date().toISOString(), input.resourceId, endIso, startIso).run(); if (!result.meta || result.meta.changes !== 1) return json({ error: { code: 'SLOT_UNAVAILABLE' } }, 409); return json({ data: { id, owner_id: user.id, resource_id: input.resourceId, start_at: startIso, end_at: endIso } }, 201); }",
+].join('\\n');
+
 const migrationSql = [
   'CREATE TABLE records (',
   '  id TEXT PRIMARY KEY,',
@@ -35,6 +41,8 @@ const migrationSql = [
   '  updated_at TEXT NOT NULL',
   ');',
   'CREATE INDEX idx_records_owner_created ON records(owner_id, created_at);',
+  "CREATE TABLE bookings (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, resource_id TEXT NOT NULL, start_at TEXT NOT NULL, end_at TEXT NOT NULL, status TEXT NOT NULL CHECK (status IN ('held', 'confirmed', 'cancelled')), created_at TEXT NOT NULL);",
+  'CREATE INDEX idx_bookings_resource_window ON bookings(resource_id, status, start_at, end_at);',
 ].join('\n');
 
 let server;
@@ -57,6 +65,7 @@ try {
   ].join('\n'));
   await writeFile(migrationPath, migrationSql);
   await writeFile(routePath, routeSource);
+  await writeFile(join(functionsDir, 'bookings.js'), bookingRouteSource);
 
   const wrangler = (...args) => {
     const child = spawn(wranglerBin, args, {
@@ -163,7 +172,17 @@ try {
   const afterDelete = await request('/api/records?id=' + encodeURIComponent(created.data.id), 'test-owner-a');
   assert.equal(afterDelete.status, 404, 'Deleted data must no longer be returned.');
 
-  process.stdout.write('OVYX generated-backend runtime integration test passed: auth, validation, D1 CRUD and tenant isolation.\n');
+  const bookingPayload = { resourceId: 'studio-room-1', startAt: '2026-11-05T10:00:00.000Z', endAt: '2026-11-05T11:00:00.000Z' };
+  const competingBookings = await Promise.all([
+    request('/api/bookings', 'test-owner-a', 'POST', bookingPayload),
+    request('/api/bookings', 'test-owner-b', 'POST', bookingPayload),
+  ]);
+  assert.deepEqual(competingBookings.map(response => response.status).sort((a, b) => a - b), [201, 409], 'Overlapping booking requests must not both reserve the same resource slot.');
+  const invalidBooking = await request('/api/bookings', 'test-owner-a', 'POST', {
+    resourceId: 'studio-room-1', startAt: '2026-11-05T11:00:00.000Z', endAt: '2026-11-05T10:00:00.000Z',
+  });
+  assert.equal(invalidBooking.status, 400, 'Bookings with invalid time windows must be rejected.');
+  process.stdout.write('OVYX generated-backend runtime integration test passed: auth, validation, D1 CRUD, tenant isolation and booking conflicts.\\n');
 } finally {
   if (server && server.exitCode === null) {
     server.kill('SIGTERM');
