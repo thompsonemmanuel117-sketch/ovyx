@@ -18,10 +18,10 @@ const clean = (value, limit = 400) => String(value ?? '')
 
 function redactSensitiveText(value, limit = 400) {
   let text = clean(value, limit * 2);
-  text = text.replace(/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\\s\\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/gi, '[REDACTED PRIVATE KEY]');
-  text = text.replace(/\\bAKIA[0-9A-Z]{16}\\b/g, '[REDACTED ACCESS KEY]');
-  text = text.replace(/\\bsk_(?:live|test)_[A-Za-z0-9]{12,}\\b/gi, '[REDACTED SECRET]');
-  text = text.replace(/\\b((?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\\s*[:=]\\s*)[\"']?[^\\s\"'&,;]{8,}/gi, '$1[REDACTED]');
+  text = text.replace(/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/gi, '[REDACTED PRIVATE KEY]');
+  text = text.replace(/\bAKIA[0-9A-Z]{16}\b/g, '[REDACTED ACCESS KEY]');
+  text = text.replace(/\bsk_(?:live|test)_[A-Za-z0-9]{12,}\b/gi, '[REDACTED SECRET]');
+  text = text.replace(/\b((?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*)["']?[^\s"'&,;]{8,}/gi, '$1[REDACTED]');
   return text.slice(0, limit);
 }
 
