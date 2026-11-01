@@ -1217,7 +1217,7 @@
               });
               var journeyAudit = report.browser.journeys;
       if (qaPlan.status !== 'ready' || !journeyAudit.total) {
-        addCheck(report, 'Coverage', 'Requirement-derived user journeys', 'warn',
+        addCheck(report, 'Browser testing', 'Requirement-derived user journeys', 'warn',
           qaPlan.status === 'missing'
             ? 'No ovyx-qa-plan.json was found. The page matrix and safe-control smoke test ran, but requirement-derived user journeys were not executed.'
             : qaPlan.status === 'invalid' || qaPlan.status === 'empty'
