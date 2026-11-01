@@ -181,6 +181,22 @@ assert.ok(withContacts.dataModels.some(model => model.name === 'ContactSubmissio
 assert.ok(withContacts.integrations.some(item => item.capability === 'email'));
 assert.ok(withContacts.graph.edges.some(edge => edge.relation === 'queues-delivery-through-server-adapter'));
 
+const dynamicFormsBrief = 'Build a staff application portal with a multi-step application form, dynamic fields, required consent, server validation and a private submission review queue.';
+const dynamicForms = buildFullStackArchitecture(dynamicFormsBrief, buildPromptContract(dynamicFormsBrief));
+assert.equal(dynamicForms.capabilities.forms, true, 'Generic application and multi-step forms must be recognized independently of contact forms.');
+assert.ok(dynamicForms.dataModels.some(model => model.name === 'FormDefinition'));
+assert.ok(dynamicForms.dataModels.some(model => model.name === 'FormSubmission' && model.securityClass === 'personal-data'));
+assert.ok(dynamicForms.apiContracts.some(route => route.path === '/api/forms/:formId' && route.method === 'GET'));
+assert.ok(dynamicForms.apiContracts.some(route => route.path === '/api/forms/:formId/submissions' && route.method === 'POST' && /schema-validation/.test(route.authPolicy)));
+assert.ok(dynamicForms.dataIntegrity.constraints.some(item => item.id === 'form-schema-versioned'));
+assert.ok(dynamicForms.dataIntegrity.constraints.some(item => item.id === 'form-abuse-and-consent'));
+assert.ok(dynamicForms.dataIntegrity.indexes.some(item => item.entity === 'FormSubmission' && item.unique && item.fields.includes('idempotencyKey')));
+assert.ok(dynamicForms.stateMachines.some(machine => machine.entity === 'FormSubmission'));
+assert.ok(dynamicForms.testPlan.some(item => item.id === 'form-schema-validation'));
+assert.ok(dynamicForms.security.controls.some(item => item.id === 'form-submission-integrity'));
+assert.equal(dynamicForms.graphIntegrity.valid, true);
+assert.ok(dynamicForms.apiContracts.every(route => route.modelIds.every(id => dynamicForms.dataModels.some(model => model.id === id))));
+
 const catalogOnlyBrief = 'Build a product catalogue for a distributor with searchable products and product detail pages. No checkout or payment is requested.';
 const catalogOnly = buildFullStackArchitecture(catalogOnlyBrief, buildPromptContract(catalogOnlyBrief));
 assert.equal(catalogOnly.capabilities.commerce, true);
