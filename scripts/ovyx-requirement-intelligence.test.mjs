@@ -84,18 +84,18 @@ const understandingPlan = buildWebsiteEnginePlan([
   'Build a customer portal for small business owners.',
   'Must include customer login and order history.',
   'Do not include third-party tracking scripts.',
-  'Prefer a minimal visual design.',
-].join('\\n'));
+  'A minimal visual direction is preferred.',
+].join('\n'));
 const modelInstructions = buildWebsiteEngineInstructions(understandingPlan);
-assert.match(modelInstructions, /"requirementSignals":\\[/,
+assert.match(modelInstructions, /"requirementSignals":\[/,
   'The generation model must receive classified signals for the brief requirements.');
-assert.match(modelInstructions, /"R002","\\+","C","auth,commerce","[MU]"/,
+assert.match(modelInstructions, /"R002","\+","C","auth,commerce","[MU]"/,
   'Critical identity and commerce requirements must be marked as required.');
 assert.match(modelInstructions, /"R003","!","N","int,constraint","[MU]"/,
   'Explicit third-party tracking exclusions must be marked as prohibited.');
 assert.match(modelInstructions, /"R004","~","N","design","[MU]"/,
   'Design preferences must not be promoted to mandatory requirements.');
-assert.match(modelInstructions, /Polarity \\+ means required, ! means prohibited and must remain excluded, ~ means preference/i,
+assert.match(modelInstructions, /Polarity \+ means required, ! means prohibited and must remain excluded, ~ means preference/i,
   'The model must receive the meaning of each requirement signal.');
 assert.match(modelInstructions, /These are deterministic signals, not a substitute for reading the complete brief/i,
   'The complete original brief must remain authoritative.');
