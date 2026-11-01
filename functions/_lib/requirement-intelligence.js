@@ -42,7 +42,7 @@ function signature(text) {
 }
 function polarity(text) {
   if (NEGATION.test(text)) return 'prohibited';
-  if (/\\b(?:must|required|mandatory|include|implement|build|create|add|provide|ensure)\\b/i.test(text)) return 'required';
+  if (/\\b(?:must|required|mandatory|include|implement|build|create|add|provide|ensure|persist|keep|use|support|connect|send|store|validate|display|show|render|deliver|generate|design|write|maintain|preserve|enable|allow|accept|handle)\\b/i.test(text)) return 'required';
   return 'preference';
 }
 function categories(text) {
