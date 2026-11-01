@@ -35,6 +35,7 @@ export const INTEGRATION_ADAPTERS = Object.freeze({
       stripe: Object.freeze(['STRIPE_SECRET_KEY', 'STRIPE_API_KEY']),
       paystack: Object.freeze(['PAYSTACK_SECRET_KEY', 'PAYSTACK_SECRET']),
       flutterwave: Object.freeze(['FLUTTERWAVE_SECRET_KEY', 'FLW_SECRET_KEY']),
+      opay: Object.freeze(['OPAY_CASHIER_PUBLIC_KEY', 'OPAY_CASHIER_SECRET_KEY', 'OPAY_PUBLIC_KEY', 'OPAY_SECRET_KEY']),
     }),
   }),
   messaging: Object.freeze({
@@ -65,7 +66,7 @@ function isConfiguredSecret(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-export function resolveIntegrationCredential(env, integrationId, providerId) {
+export function resolveIntegrationCredentials(env, integrationId, providerId) {
   const integration = INTEGRATION_ADAPTERS[String(integrationId || '').toLowerCase()];
   const provider = integration?.providers?.[String(providerId || '').toLowerCase()];
   if (!provider) {
@@ -75,12 +76,13 @@ export function resolveIntegrationCredential(env, integrationId, providerId) {
     });
   }
 
-  for (const key of provider) {
-    const value = env?.[key];
-    if (isConfiguredSecret(value)) return Object.freeze({ key, value });
-  }
+  return Object.freeze(provider
+    .filter(key => isConfiguredSecret(env?.[key]))
+    .map(key => Object.freeze({ key, value: env[key] })));
+}
 
-  return null;
+export function resolveIntegrationCredential(env, integrationId, providerId) {
+  return resolveIntegrationCredentials(env, integrationId, providerId)[0] || null;
 }
 
 export function getCloudflareEnvironmentInventory(env) {
