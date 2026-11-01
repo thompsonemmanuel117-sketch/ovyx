@@ -21,6 +21,10 @@ assert.ok(contract.interactionSystem.rules.some(item => /Booking flows must dist
 assert.ok(contract.interactionSystem.rules.some(item => /Forms must have associated labels/i.test(item)));
 assert.ok(contract.interactionSystem.requirementTraceability.some(item => /requested control to its owning route/i.test(item)));
 assert.deepEqual(contract.interactionSystem.evidenceContract.allowedResults, ['passed', 'failed', 'skipped', 'blocked', 'not-verified']);
+assert.ok(contract.interactionSystem.verificationPlan.some(item => item.id === 'form-validation'));
+assert.ok(contract.interactionSystem.verificationPlan.some(item => item.id === 'booking-selection'));
+assert.ok(contract.interactionSystem.verificationPlan.some(item => item.id === 'primary-navigation'));
+assert.ok(!minimal.interactionSystem.verificationPlan.some(item => item.id === 'booking-selection'));
 assert.ok(contract.responsiveSystem.viewports.some(item => item.width === 320));
 assert.ok(contract.responsiveSystem.viewports.some(item => item.width === 1440));
 assert.deepEqual(contract.responsiveSystem.viewports.map(item => item.width), [320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920]);
