@@ -44,9 +44,11 @@ function signature(text) {
   return tokens(text).sort().join(' ');
 }
 function negationEvidence(text) {
-  const source = clean(text, 900);
-  if (/\b(?:do not forget|don't forget|dont forget|not only|no later than|no more than|no less than)\b/i.test(source)) return [];
-  return source.match(/\b(?:do not|don't|dont|must not|mustn't|should not|shouldn't|cannot|can't|never|exclude|excluding|without|avoid|avoids)\b|^\s*no\b/ig) || [];
+  const source = clean(text, 900)
+    .replace(/\b(?:do not forget|don't forget|dont forget)\b/ig, ' ')
+    .replace(/\bnot only\b/ig, ' ')
+    .replace(/\bno (?:later than|more than|less than)\b/ig, ' ');
+  return source.match(/\b(?:do not|don't|dont|must not|mustn't|should not|shouldn't|cannot|can't|never|exclude|excluding|without|avoid|avoids)\b|^\s*no\b|\bno\s+(?=(?:login|sign.?in|account|payment|checkout|tracking|analytics|cookies?|external|third.party|pop.?ups?|animations?|images?|video|forms?|database|email|newsletter|ads?)\b)/ig) || [];
 }
 function polarity(text) {
   if (negationEvidence(text).length) return 'prohibited';
