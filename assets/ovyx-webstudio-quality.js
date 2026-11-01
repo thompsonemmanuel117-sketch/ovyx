@@ -140,10 +140,23 @@
     if (!planPath) return { status: 'missing', journeys: [], apiChecks: [] };
     try {
       var parsed = JSON.parse(fileText(files[planPath]));
-      if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.journeys) || !Array.isArray(parsed.apiChecks)) {
+      if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.journeys) || !Array.isArray(parsed.apiChecks) ||
+          parsed.journeys.length > 12 || parsed.apiChecks.length > 20 ||
+          parsed.journeys.some(function (journey) { return Array.isArray(journey && journey.steps) && journey.steps.length > 30; })) {
         return { status: 'invalid', journeys: [], apiChecks: [] };
       }
-      var journeys = parsed.journeys.slice(0, 12).map(function (journey, index) {
+      var routeCounts = {};
+      parsed.journeys.forEach(function (journey) {
+        var route = text(journey && journey.startRoute).trim().split(/[?#]/)[0];
+        if (route && route.charAt(0) === '/' && route.indexOf('//') !== 0 && route.indexOf('\\') < 0 && !/(?:^|\/)\.\.?(?:\/|$)/.test(route)) {
+          route = normalizeRoute(route);
+          routeCounts[route] = (routeCounts[route] || 0) + 1;
+        }
+      });
+      if (Object.keys(routeCounts).some(function (route) { return routeCounts[route] > 4; })) {
+        return { status: 'invalid', journeys: [], apiChecks: [] };
+      }
+      var journeys = parsed.journeys.map(function (journey, index) {
         var startRoute = text(journey && journey.startRoute).trim().split(/[?#]/)[0];
         if (!startRoute || startRoute.charAt(0) !== '/' || startRoute.indexOf('//') === 0 || startRoute.indexOf('\\') >= 0 || /(?:^|\/)\.\.?(?:\/|$)/.test(startRoute)) startRoute = '';
         return {
