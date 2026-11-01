@@ -155,7 +155,7 @@ function validateWranglerConfig(config) {
   }
   if (config.env && Object.keys(config.env).length) return { ok: false, reason: 'wrangler-environment-overrides-require-dedicated-adapter' };
   const vars = config.vars && typeof config.vars === 'object' ? config.vars : {};
-  if (Object.keys(vars).some(key => /secret|token|password|credential|api[_-]?key/i.test(key)) ||
+  if (Object.keys(vars).some(key => /secret|token|password|credential|private|(?:^|[_-])key(?:$|[_-])/i.test(key)) ||
       Object.values(vars).some(value => typeof value === 'string' && /(?:sk_(?:live|test)_|whsec_|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,})/i.test(value))) {
     return { ok: false, reason: 'secret-like-wrangler-var-blocked' };
   }
@@ -303,7 +303,7 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
     const isolatedConfig = { ...config };
     isolatedConfig.d1_databases = configCheck.bindings.map(binding => ({
       binding: binding.binding, database_name: binding.databaseName,
-      database_id: binding.databaseId, migrations_dir: binding.migrationsDir,
+      database_id: binding.databaseId, preview_database_id: binding.databaseId, migrations_dir: binding.migrationsDir,
     }));
     await writeFile(path.join(workspace, configName), JSON.stringify(isolatedConfig, null, 2));
     const wrangler = options.wranglerBin || path.resolve(sourceRoot, 'node_modules/.bin/wrangler');
@@ -325,6 +325,7 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
     if (path.isAbsolute(outputDir) || outputDir.split(/[\\/]/).includes('..')) throw new Error('pages-output-path-invalid');
     const args = ['pages', 'dev', outputDir, '--ip', '127.0.0.1', '--port', String(port), '--persist-to', stateDir, '--log-level', 'error'];
     for (const binding of configCheck.bindings) args.push('--d1', binding.binding + '=' + binding.databaseId);
+    args.push('--binding', 'OVYX_QA_MODE=1', '--binding', 'OVYX_QA_TEST_SECRET=' + env.OVYX_QA_TEST_SECRET);
     child = spawn(wrangler, args, { cwd: workspace, env, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout.on('data', () => {});
     child.stderr.on('data', () => {});
@@ -341,8 +342,13 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
     report.findings.push({ severity: 'warning', code: 'BACKEND_RUNTIME_BLOCKED', message: clean(error?.message || error, 300) });
   } finally {
     if (child && child.exitCode == null) {
-      child.kill('SIGTERM');
-      await new Promise(resolve => child.once('close', resolve).unref?.());
+      await new Promise(resolve => {
+        const timer = setTimeout(resolve, 2500);
+        timer.unref?.();
+        child.once('close', () => { clearTimeout(timer); resolve(); });
+        child.kill('SIGTERM');
+      });
+      if (child.exitCode == null) child.kill('SIGKILL');
     }
     if (workspace) await rm(workspace, { recursive: true, force: true });
   }
