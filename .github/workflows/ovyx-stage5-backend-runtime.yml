@@ -56,6 +56,11 @@ jobs:
           DOCKERFILE
       - name: Verify per-project backend runtime bridge contracts
         run: node scripts/ovyx-backend-runtime-bridge.test.mjs
+      - name: Bundle and validate the Cloudflare Sandbox Worker
+        working-directory: backend-runtime
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npx wrangler deploy --dry-run --config wrangler.jsonc
       - name: Execute generated backend fixture in a no-egress container
         env:
           OVYX_QA_NETWORK_ISOLATION: docker-none
