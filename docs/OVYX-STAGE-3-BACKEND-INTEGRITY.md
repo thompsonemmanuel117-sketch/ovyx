@@ -40,6 +40,23 @@ The existing Unified Website Engine already provides requirement-to-architecture
 
 Never promote one level to another based only on source files, mocks, saved connection metadata or a successful deployment.
 
+## Isolated backend runtime verification added
+
+The repository now includes `scripts/ovyx-generated-backend-runtime.test.mjs`, which writes a disposable Cloudflare Pages Functions project and a local D1 database into a temporary directory, applies its migration, starts the generated API under Wrangler's local Pages runtime, and exercises it over HTTP.
+
+The test verifies:
+- unauthenticated requests are rejected;
+- invalid request bodies are rejected;
+- a valid create operation persists in D1 and can be read back;
+- separate owners cannot list, read, update or delete another owner's records;
+- updates persist across subsequent requests;
+- deletion is reflected in subsequent reads;
+- the disposable project and local runtime process are cleaned up after the test.
+
+This is runtime evidence for the tested Cloudflare Pages + D1 fixture, not proof that every arbitrary AI-generated backend or every external provider integration works. The harness uses isolated test identities and disposable data; it does not touch OVYX production customer data or run live payments/emails.
+
+The new test is included in `npm test` and therefore in the repository verification workflow.
+
 ## Safety boundaries
 
 Generated project code must not execute inside the OVYX production request process. Runtime verification must use an isolated disposable environment with bounded CPU, memory, time, filesystem and network access, no inherited OVYX secrets, and disposable test data. Production database migrations, real payments, external emails and customer-impacting actions require explicit owner approval.
