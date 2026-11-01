@@ -20,8 +20,23 @@ function routeCandidates(routePath, method = 'GET') {
   const parts = routePathSegments(routePath);
   const suffix = parts.join('/');
   if (!suffix) return [];
-  const remixSuffix = parts.map(part => part.startsWith('[') ? '
-
+  const dollar = String.fromCharCode(36);
+  const remixSuffix = parts.map(part => part.startsWith('[') ? dollar + part.slice(1, -1) : part).join('.');
+  const verb = String(method || 'GET').toLowerCase();
+  const candidates = [];
+  for (const ext of SOURCE_EXTENSIONS) {
+    candidates.push(
+      'functions/api/' + suffix + ext, 'functions/api/' + suffix + '/index' + ext,
+      'api/' + suffix + ext, 'api/' + suffix + '/index' + ext,
+      'pages/api/' + suffix + ext, 'src/pages/api/' + suffix + ext,
+      'app/api/' + suffix + '/route' + ext, 'src/app/api/' + suffix + '/route' + ext,
+      'src/routes/api/' + suffix + '/+server' + ext,
+      'server/api/' + suffix + '.' + verb + ext, 'server/api/' + suffix + ext,
+      'app/routes/api.' + remixSuffix + ext, 'server/routes/' + suffix + ext,
+    );
+  }
+  return candidates.map(normalizePath);
+}
 function methodEvidence(source, method) {
   const verb = String(method || 'GET').toUpperCase();
   const pascal = verb.charAt(0) + verb.slice(1).toLowerCase();
