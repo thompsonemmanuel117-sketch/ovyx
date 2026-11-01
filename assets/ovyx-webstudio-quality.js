@@ -1069,7 +1069,7 @@
       startedAt: new Date().toISOString(),
       finishedAt: null,
       checks: [],
-      browser: { total: 0, completed: 0, pagesTested: 0, pagesAvailable: 0, widths: WIDTHS.slice(), interactions: { candidates: 0, tested: 0, responded: 0, skipped: 0, pagesProbed: 0, noOp: [] }, forms: { candidates: 0, tested: 0, invalidRejected: 0, invalidAccepted: [], noNativeValidation: [], skipped: 0 }, accessibility: { contrastSamples: 0, contrastSkipped: 0, lowContrast: [], focusControls: 0, noFocusIndicator: [], authoredFocusStyles: 0, pagesChecked: 0 }, performance: { samples: 0, totalInitialRenderMs: 0, maxInitialRenderMs: 0, maxDomNodes: 0, maxImages: 0, maxScripts: 0, maxStylesheets: 0 } },
+      browser: { total: 0, completed: 0, pagesTested: 0, pagesAvailable: 0, widths: WIDTHS.slice(), interactions: { candidates: 0, tested: 0, responded: 0, skipped: 0, pagesProbed: 0, noOp: [] }, forms: { candidates: 0, tested: 0, invalidRejected: 0, invalidAccepted: [], noNativeValidation: [], skipped: 0 }, accessibility: { contrastSamples: 0, contrastSkipped: 0, lowContrast: [], focusControls: 0, noFocusIndicator: [], focusObscured: [], authoredFocusStyles: 0, pagesChecked: 0 }, performance: { samples: 0, totalInitialRenderMs: 0, maxInitialRenderMs: 0, maxDomNodes: 0, maxImages: 0, maxScripts: 0, maxStylesheets: 0 } },
       notes: []
     };
     currentReport = report;
@@ -1159,6 +1159,10 @@
                 var entry = page.path + ': ' + trim(finding, 100);
                 if (accessibilityAudit.noFocusIndicator.indexOf(entry) < 0) accessibilityAudit.noFocusIndicator.push(entry);
               });
+              (accessibilityResult.focusObscured || []).forEach(function (finding) {
+                var entry = page.path + ': ' + trim(finding, 100);
+                if (accessibilityAudit.focusObscured.indexOf(entry) < 0) accessibilityAudit.focusObscured.push(entry);
+              });
               var interactionAudit = report.browser.interactions;
               interactionAudit.pagesProbed += 1;
               interactionAudit.candidates += Number(browserResult.interactions.candidates || 0);
@@ -1186,7 +1190,8 @@
             if (browserResult.viewportWidth && Math.abs(browserResult.viewportWidth - width) > 3) {
               timeouts.push(page.path + ' at requested ' + width + 'px, actual sandbox viewport was ' + browserResult.viewportWidth + 'px.');
             }
-            var performanceAudit = report.browser.performance;
+            addCheck(report, 'Accessibility', 'Keyboard focus is not obscured', accessibilityAudit.focusObscured.length ? 'warn' : accessibilityAudit.focusControls ? 'pass' : 'info', accessibilityAudit.focusObscured.length ? accessibilityAudit.focusObscured.slice(0, 20).join('\\n') : accessibilityAudit.focusControls ? 'No sampled keyboard-focused control was covered by another element at its visible center point. This is a targeted focus-obscuration probe, not a complete WCAG audit.' : 'No visible keyboard-operable controls were available for an obstruction probe.');
+      var performanceAudit = report.browser.performance;
             if (Number.isFinite(Number(browserResult.initialRenderMs)) && browserResult.domNodes != null) {
               performanceAudit.samples += 1;
               performanceAudit.totalInitialRenderMs += Math.max(0, Number(browserResult.initialRenderMs) || 0);
