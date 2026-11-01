@@ -357,6 +357,9 @@ function buildApiContracts(capabilities) {
     if (capabilities.admin) {
       add('GET', '/api/admin/orders', 'commerce', 'administrator-or-fulfillment-role', 'List orders for authorized staff with filters, pagination and audit-safe customer fields.', ['model-order', 'model-orderline']);
       add('GET', '/api/admin/inventory', 'commerce', 'administrator-or-inventory-role', 'Read authoritative stock, reservations and low-stock alerts.', ['model-product']);
+      add('POST', '/api/admin/products', 'commerce', 'administrator-or-catalog-manager-role', 'Create a catalog product with server-validated integer minor-unit price, currency and stock policy.', ['model-product']);
+      add('PATCH', '/api/admin/products/:productId', 'commerce', 'administrator-or-catalog-manager-role', 'Update allowlisted catalog fields without rewriting immutable order snapshots.', ['model-product']);
+      add('POST', '/api/admin/inventory/adjustments', 'commerce', 'administrator-or-inventory-role', 'Apply an atomic stock adjustment with a required reason and append-only inventory movement record.', ['model-product', 'model-inventorymovement']);
       add('PATCH', '/api/admin/orders/:orderId', 'commerce', 'administrator-or-fulfillment-role', 'Apply only allowed fulfillment transitions and record an audit event.', ['model-order']);
     }
     if (!capabilities.payments) {
@@ -369,6 +372,8 @@ function buildApiContracts(capabilities) {
   if (capabilities.subscriptions) {
     add('GET', '/api/subscription-plans', 'subscriptions', 'public-read-of-active-plans', 'Return only active server-owned plans with fixed currency and billing intervals.', ['model-subscriptionplan']);
     add('GET', '/api/subscriptions', 'subscriptions', 'authenticated-owner-or-authorized-billing-staff', 'List only subscriptions visible to the verified owner or billing staff.', ['model-customersubscription', 'model-subscriptionplan']);
+    add('GET', '/api/subscriptions/:subscriptionId/invoices', 'subscriptions', 'authenticated-owner-or-billing-staff', 'List immutable invoices only for an owned or authorized subscription.', ['model-customersubscription', 'model-subscriptioninvoice']);
+    add('POST', '/api/subscriptions/:subscriptionId/portal', 'subscriptions', 'authenticated-owner-only', 'Create a short-lived provider billing-portal session for the verified subscription owner.', ['model-customersubscription'], { sideEffect: 'provider-billing-portal-session' });
     if (capabilities.payments) add('POST', '/api/subscriptions/checkout', 'subscriptions', 'authenticated-owner-only', 'Create recurring provider checkout from a server-owned plan; never accept client price, currency or entitlement state.', ['model-customersubscription', 'model-subscriptionplan', 'model-subscriptioninvoice', 'model-paymentattempt'], { sideEffect: 'provider-subscription-checkout-with-idempotency' });
     else add('POST', '/api/subscriptions', 'subscriptions', 'authenticated-owner-only', 'Create a free membership only when the selected server-owned plan has zero price.', ['model-customersubscription', 'model-subscriptionplan']);
     add('POST', '/api/subscriptions/:subscriptionId/cancel', 'subscriptions', 'authenticated-owner-or-billing-staff', 'Request immediate or period-end cancellation through the authoritative provider and reconcile the effective end date.', ['model-customersubscription'], { sideEffect: 'provider-cancellation-with-idempotency' });
@@ -387,10 +392,14 @@ function buildApiContracts(capabilities) {
     if (capabilities.admin) add('GET', '/api/admin/dashboard/metrics', 'dashboards', 'administrator-role-and-tenant-scope', 'Return aggregate business metrics without exposing cross-tenant personal or financial records.', dashboardModels);
   }
   if (capabilities.integrations) {
-    add('GET', '/api/admin/integrations/health', 'integrations', 'administrator-role-and-tenant-scope', 'Return configured, reachable and last-verified integration health without exposing credentials.', ['model-integrationevent']);
+    if (capabilities.admin) {
+      add('GET', '/api/admin/integrations/health', 'integrations', 'administrator-role-and-tenant-scope', 'Return configured, reachable and last-verified integration health without exposing credentials.', ['model-integrationevent']);
+      add('POST', '/api/admin/integrations/:provider/connect', 'integrations', 'administrator-role-and-tenant-scope', 'Start a provider-approved OAuth or credential setup handshake without returning secrets to the browser.', ['model-integrationevent']);
+      add('DELETE', '/api/admin/integrations/:provider', 'integrations', 'administrator-role-and-tenant-scope', 'Revoke or disconnect the selected integration and audit the action without exposing stored credentials.', ['model-integrationevent']);
+    }
     add('POST', '/api/webhooks/:provider', 'integrations', 'provider-signature-timestamp-and-replay-protected', 'Verify provider-specific webhook authenticity and deduplicate event IDs before applying scoped business changes.', ['model-integrationevent'], { sideEffect: 'verified-idempotent-integration-event' });
   }
-  if (capabilities.automation) add('GET', '/api/admin/automation/runs', 'automation', 'administrator-role-and-tenant-scope', 'Inspect scheduled and event-triggered workflow runs, retries and dead letters with redacted errors.', ['model-automationrun']);
+  if (capabilities.automation && capabilities.admin) add('GET', '/api/admin/automation/runs', 'automation', 'administrator-role-and-tenant-scope', 'Inspect scheduled and event-triggered workflow runs, retries and dead letters with redacted errors.', ['model-automationrun']);
   if (capabilities.payments) {
     if (!capabilities.commerce && !capabilities.subscriptions) add('POST', '/api/payments/intents', 'payments', 'verified-customer-or-server-authorized-billable-reference', 'Create a payment intent for a server-authorized invoice or billable action; amount and currency are server-derived.', ['model-paymentattempt'], { sideEffect: 'provider-payment-intent-with-idempotency' });
     add('POST', '/api/webhooks/payments', 'payments', 'provider-signature-and-replay-protected', 'Verify webhook signature, timestamp and event identity before idempotent reconciliation.', ['model-paymentattempt', ...(capabilities.commerce ? ['model-order'] : [])], { sideEffect: 'idempotent-payment-reconciliation', csrf: 'provider signature required' });
