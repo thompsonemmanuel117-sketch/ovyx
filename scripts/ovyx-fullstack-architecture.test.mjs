@@ -37,6 +37,18 @@ assert.equal(architecture.capabilities.frontend, true);
 assert.equal(architecture.capabilities.backend, true);
 assert.equal(architecture.capabilities.database, true);
 assert.equal(architecture.capabilities.authentication, true);
+const sessionModel = architecture.dataModels.find(model => model.name === 'Session');
+assert.ok(sessionModel, 'Provider-backed authentication must include a persisted server session model.');
+assert.ok(sessionModel.fields.includes('tokenHash'));
+assert.ok(sessionModel.fields.includes('csrfTokenHash'));
+assert.ok(sessionModel.fields.includes('expiresAt'));
+assert.ok(architecture.dataIntegrity.relationships.some(item => item.from === 'model-session' && item.to === 'model-useraccount'));
+assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'session-token-hashing'));
+assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'session-expiry-and-revocation'));
+assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'session-csrf-binding'));
+assert.ok(architecture.dataIntegrity.indexes.some(item => item.entity === 'Session' && item.unique && item.fields.includes('tokenHash')));
+assert.ok(architecture.apiContracts.some(route => route.path === '/api/auth/session' && route.modelIds.includes('model-session')));
+
 assert.equal(architecture.capabilities.authorization, true);
 assert.equal(architecture.capabilities.payments, true);
 assert.equal(architecture.capabilities.commerce, true);
