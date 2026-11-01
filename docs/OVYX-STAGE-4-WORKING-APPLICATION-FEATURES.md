@@ -44,6 +44,8 @@ The architecture now plans feature-specific acceptance checks for:
 
 Every test contract begins as `planned-not-executed`. It is not runtime or provider evidence. The generated backend evaluator continues to distinguish source evidence from actual execution. The existing disposable Wrangler/D1/R2 runtime fixture does not certify every generated commerce, subscription or provider integration.
 
+A new disposable Wrangler Pages/D1 reference-runtime acceptance test is included in the full repository test chain at `scripts/ovyx-stage4-business-runtime.test.mjs`. It exercises persistent cart totals, server-owned product pricing, checkout/order persistence, inventory oversell rejection, tenant isolation, fail-closed payment and subscription setup, signed webhook replay protection, subscription lifecycle reconciliation from signed events, notification ownership/read state, dashboard aggregates and automation idempotency. It is deliberately a reference implementation fixture: it validates the business API and persistence invariants under local D1, but it does not claim that every AI-generated project has identical runtime behavior or that a live payment/email/OAuth provider was contacted. Those remain release gates for each real generated project when credentials and owner approval are available.
+
 ## Acceptance criteria
 
 Stage 4 is not complete until the generated source for each requested capability passes:
