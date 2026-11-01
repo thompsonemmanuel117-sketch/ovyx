@@ -112,7 +112,7 @@ jobs:
         run: npm install --ignore-scripts --no-save playwright@^1.55.0
 
       - name: Install Chromium
-        run: npx playwright install chromium --only-shell
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Start local Cloudflare Pages app shell
         run: |
@@ -135,6 +135,8 @@ jobs:
         run: node scripts/ovyx-webstudio-pulse-composer.browser.test.mjs
       - name: Test app-shell favicon in Chromium against local Pages runtime
         run: node scripts/ovyx-app-shell-favicon.browser.test.mjs
+      - name: Test generated-site responsive behavior in Chromium, Firefox and WebKit
+        run: node scripts/ovyx-webstudio-cross-browser.smoke.mjs
       - name: Test Web Studio quality inspector in Chromium
         run: node scripts/ovyx-webstudio-quality.browser.test.mjs
       - name: Test code workspace search and sidebar logo in Chromium
