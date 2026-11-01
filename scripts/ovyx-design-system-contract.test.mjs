@@ -21,6 +21,7 @@ assert.ok(contract.interactionSystem.rules.some(item => /Booking flows must dist
 assert.ok(contract.interactionSystem.rules.some(item => /Forms must have associated labels/i.test(item)));
 assert.ok(contract.responsiveSystem.viewports.some(item => item.width === 320));
 assert.ok(contract.responsiveSystem.viewports.some(item => item.width === 1440));
+assert.deepEqual(contract.responsiveSystem.viewports.map(item => item.width), [320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920]);
 assert.ok(contract.imageSystem.rules.some(item => /srcset and sizes/i.test(item)));
 assert.ok(contract.imageSystem.rules.some(item => /alt text/i.test(item)));
 assert.ok(contract.accessibilitySystem.rules.some(item => /4.5:1/i.test(item)));
