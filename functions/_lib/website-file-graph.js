@@ -142,15 +142,34 @@ export function buildWebsiteFileGraph(input, options = {}) {
       /\.(?:html?)$/i.test(path) ? 'page' : CODE_EXT.test(path) ? 'code' : 'data',
   }));
   // Derive a bounded static route-to-component usage map from module dependencies.
+  // Include common framework route conventions, while keeping route entrypoints out
+  // of the reusable-component candidate list to avoid false "orphan component" flags.
+  const routeEntrypoints = [...files.keys()].filter(path =>
+    /\.html?$/i.test(path) ||
+    /(?:^|\/)pages\/.+\.(?:tsx?|jsx?|vue|svelte|astro)$/i.test(path) ||
+    /(?:^|\/)app\/(?:.*\/)?page\.(?:tsx?|jsx?)$/i.test(path) ||
+    /(?:^|\/)routes\/(?:.*\/)?\+page\.(?:svelte|tsx?|jsx?)$/i.test(path)
+  );
+  const routeEntrySet = new Set(routeEntrypoints);
   const componentCandidates = new Map();
   for (const [path, source] of files) {
-    if (!CODE_EXT.test(path)) continue;
+    if (!CODE_EXT.test(path) || routeEntrySet.has(path)) continue;
     const names = new Set();
     for (const match of source.matchAll(/\bexport\s+(?:default\s+)?(?:async\s+)?(?:function|class)\s+([A-Z][A-Za-z0-9_$]*)/g)) names.add(match[1]);
     for (const match of source.matchAll(/\bexport\s+(?:const|let|var)\s+([A-Z][A-Za-z0-9_$]*)\s*=/g)) names.add(match[1]);
+    for (const match of source.matchAll(/\bexport\s*\{([^}]+)\}/g)) {
+      for (const entry of match[1].split(',')) {
+        const local = entry.trim().split(/\s+as\s+/i)[0].trim();
+        if (/^[A-Z][A-Za-z0-9_$]*$/.test(local)) names.add(local);
+      }
+    }
+    if (/\.(?:vue|svelte|astro)$/i.test(path) && /<[a-z][\w:-]*\b/i.test(source)) {
+      const base = path.split('/').pop().replace(/\.(?:vue|svelte|astro)$/i, '');
+      const inferred = base ? base.charAt(0).toUpperCase() + base.slice(1) : '';
+      if (inferred) names.add(inferred);
+    }
     if (names.size) componentCandidates.set(path, [...names].sort());
   }
-  const routeEntrypoints = [...files.keys()].filter(path => /\.html?$/i.test(path) || /(?:^|\/)pages\/.+\.(?:tsx?|jsx?)$/i.test(path));
   const outgoing = new Map();
   for (const edge of edges) {
     if (!outgoing.has(edge.from)) outgoing.set(edge.from, []);
