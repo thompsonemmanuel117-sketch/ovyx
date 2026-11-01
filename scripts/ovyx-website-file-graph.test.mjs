@@ -11,6 +11,9 @@ const graph = buildWebsiteFileGraph({
   'src/pages/Home.tsx': "import Header from '../components/Header.jsx'; import { Card } from '../components/Card.jsx'; export default function Home(){ return <><Header/><Card/></> }",
   'src/components/Header.jsx': 'export default function Header(){ return <header>Brand</header> }',
   'src/components/Card.jsx': 'export function Card(){ return <article>Card</article> }',
+  'src/app/page.tsx': "import Badge from '../components/Badge.vue'; import Promo from '../components/Promo.svelte'; export default function AppPage(){ return <><Badge/><Promo/></> }",
+  'src/components/Badge.vue': '<template><span class="badge">New</span></template>',
+  'src/components/Promo.svelte': '<script>export let title = "Promo";</script><aside>{title}</aside>',
   'src/theme.css': 'body { color: black; }',
   'assets/hero.webp': 'binary-placeholder-not-interpreted',
   'assets/hero@2x.webp': 'binary-placeholder-not-interpreted',
@@ -21,6 +24,10 @@ const graph = buildWebsiteFileGraph({
 assert.equal(graph.status, 'analyzed');
 assert.ok(graph.componentGraph.components.some(item => item.path === 'src/components/Header.jsx'));
 assert.ok(graph.componentGraph.routes.some(item => item.route === 'src/pages/Home.tsx' && item.componentPaths.includes('src/components/Card.jsx')));
+assert.ok(graph.componentGraph.routes.some(item => item.route === 'src/app/page.tsx' && item.componentPaths.includes('src/components/Badge.vue') && item.componentPaths.includes('src/components/Promo.svelte')), 'Next app-router entrypoints must trace Vue/Svelte component imports.');
+assert.ok(!graph.componentGraph.components.some(item => item.path === 'src/app/page.tsx' || item.path === 'src/pages/Home.tsx'), 'Page entrypoints must not be misclassified as orphan reusable components.');
+assert.ok(graph.componentGraph.components.some(item => item.path === 'src/components/Badge.vue' && item.exports.includes('Badge')));
+assert.ok(graph.componentGraph.components.some(item => item.path === 'src/components/Promo.svelte' && item.exports.includes('Promo')));
 assert.ok(graph.nodes.every(node => !Object.prototype.hasOwnProperty.call(node, 'content')));
 assert.ok(graph.edges.some(edge => edge.from === 'index.html' && edge.to === 'styles/site.css'));
 assert.ok(graph.edges.some(edge => edge.from === 'index.html' && edge.to === 'about/index.html' && edge.kind === 'route-or-document-reference'),
