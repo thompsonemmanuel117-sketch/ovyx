@@ -16,6 +16,15 @@ const clean = (value, limit = 400) => String(value ?? '')
   .trim()
   .slice(0, limit);
 
+function redactSensitiveText(value, limit = 400) {
+  let text = clean(value, limit * 2);
+  text = text.replace(/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\\s\\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/gi, '[REDACTED PRIVATE KEY]');
+  text = text.replace(/\\bAKIA[0-9A-Z]{16}\\b/g, '[REDACTED ACCESS KEY]');
+  text = text.replace(/\\bsk_(?:live|test)_[A-Za-z0-9]{12,}\\b/gi, '[REDACTED SECRET]');
+  text = text.replace(/\\b((?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\\s*[:=]\\s*)[\"']?[^\\s\"'&,;]{8,}/gi, '$1[REDACTED]');
+  return text.slice(0, limit);
+}
+
 function safeSourcePath(value) {
   const path = String(value ?? '').replace(/\\/g, '/').trim();
   if (!path || path.length > 240 || path.startsWith('/') ||
@@ -35,7 +44,7 @@ function normalizeFinding(finding, channel) {
     channel: clean(finding.channel || channel, 40),
     severity,
     code: clean(finding.code || finding.rule || 'UNCLASSIFIED', 80),
-    message: clean(finding.message || finding.description || 'A verification check reported an issue.', 500),
+    message: redactSensitiveText(finding.message || finding.description || 'A verification check reported an issue.', 500),
     file: safeSourcePath(finding.file || finding.path || ''),
   };
 }
@@ -143,12 +152,12 @@ export function buildAutonomousRepairPrompt(options = {}) {
     'Do not add files, change dependencies, alter migrations or database schemas, introduce credentials, call external services, weaken authorization, or claim a test passed.',
     'Do not make unrelated visual redesigns or remove requirements to silence a test.',
     'The candidate will be rerun through the same tests. Any new failure or regression causes the entire candidate to be rejected.',
-    'ORIGINAL USER REQUIREMENTS:\n' + clean(options.originalBrief, 8000),
+    'ORIGINAL USER REQUIREMENTS:\n' + redactSensitiveText(options.originalBrief, 8000),
     'FAILED TEST EVIDENCE:\n' + JSON.stringify(findings.map(item => ({
       channel: clean(item.channel, 40),
       severity: clean(item.severity, 20),
       code: clean(item.code, 80),
-      message: clean(item.message, 500),
+      message: redactSensitiveText(item.message, 500),
       file: safeSourcePath(item.file || ''),
     }))),
     'EXACT REPAIR ALLOWLIST:\n' + JSON.stringify(targets.map(item => item.path)),
