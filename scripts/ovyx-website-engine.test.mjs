@@ -191,6 +191,39 @@ assert.equal(backendBuild.fullStackSourceEvidence.databasePersistenceVerified, f
 assert.deepEqual(backendBuild.result.rawUsage, { prompt_tokens: 13, completion_tokens: 24, total_tokens: 37 }, 'Backend model usage must be added to frontend generation usage before quota settlement.');
 
 
+
+let singlePageBackendCalls = 0;
+const singlePageHtml = '<!doctype html><html><body>Single page contact</body></html>';
+const singlePageBackend = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  fullStackArchitecture: backendArchitecture,
+  originalPrompt: 'Build a single-page full-stack contact website.',
+  modelOptions: { system: 'system' },
+  callModel: async (_env, options) => {
+    singlePageBackendCalls += 1;
+    if (!options.taskPrompt || !options.taskPrompt.includes('FULL-STACK SOURCE GENERATION')) {
+      return { text: singlePageHtml, rawUsage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 } };
+    }
+    return {
+      text: JSON.stringify({
+        files: {
+          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const result = await context.env.DB.prepare("INSERT INTO contact_submissions").run(); return Response.json({ ok: true, result }); }',
+          'db/schema.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
+        },
+      }),
+      usage: { prompt_tokens: 4, completion_tokens: 6, total_tokens: 10 },
+    };
+  },
+  buildMultiPage: async () => null,
+  repairSinglePage: async ({ result }) => ({ result, quotaInputText: 'single page prompt', quotaOutputText: result.text }),
+});
+assert.equal(singlePageBackendCalls, 2);
+assert.equal(singlePageBackend.multiPageBuild, true, 'A single-page frontend must be packaged with its generated backend files.');
+assert.equal(singlePageBackend.result.files['index.html'], singlePageHtml);
+assert.ok(singlePageBackend.result.files['functions/api/contact-submissions.js']);
+assert.deepEqual(singlePageBackend.result.rawUsage, { prompt_tokens: 6, completion_tokens: 9, total_tokens: 15 });
+
 let secureBackendAttempts = 0;
 const secureBackendBuild = await runWebsiteGeneration({
   env: {},
