@@ -42,7 +42,16 @@ function safeFile(root, relative) {
   return file===root||file.startsWith(root+path.sep)?file:null;
 }
 async function loadSiteMetadata(root) {
-  try {return JSON.parse(await fs.readFile(path.join(root,'ovyx-live-generation.json'),'utf8'));} catch {return {};}
+  let metadata = {};
+  try {
+    const value = JSON.parse(await fs.readFile(path.join(root, 'ovyx-live-generation.json'), 'utf8'));
+    if (value && typeof value === 'object' && !Array.isArray(value)) metadata = value;
+  } catch {}
+  try {
+    const plan = JSON.parse(await fs.readFile(path.join(root, 'ovyx-qa-plan.json'), 'utf8'));
+    if (plan && typeof plan === 'object' && !Array.isArray(plan)) metadata.qaPlan = plan;
+  } catch {}
+  return metadata;
 }
 function buildRouteMap(metadata) {
   const map=new Map();
