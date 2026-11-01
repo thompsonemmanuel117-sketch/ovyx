@@ -1172,7 +1172,7 @@ export async function runWebsiteGeneration(options = {}) {
 
   let autonomousQa = null;
   if (shouldBuild && !scopedEdit && result.files && typeof result.files === 'object' && !Array.isArray(result.files)) {
-    const backendRequired = fullStackArchitecture?.capabilities?.backend === true;
+    let backendRequired = fullStackArchitecture?.capabilities?.backend === true;
     const initialStaticEvidence = evaluateGeneratedWebsiteFiles(result.files, { backendRequired });
     const repairCycle = await runAutonomousRepairCycle({
       files: result.files,
@@ -1205,7 +1205,6 @@ export async function runWebsiteGeneration(options = {}) {
         repairCycle.repair.status === 'repaired-needs-attention') {
       result = { ...result, files: repairCycle.files };
     }
-    let backendRequired = fullStackArchitecture?.capabilities?.backend === true;
     let declaredBackendChecks = 0;
     try {
       const qaPlanSource = result.files['ovyx-qa-plan.json'];
