@@ -68,7 +68,8 @@ assert.equal(nuanceLedger.requirements[0].confidence, 'high');
 assert.deepEqual(nuanceLedger.requirements[0].dependencyRequirementIds, ['R003'], 'Unknown and self dependency IDs must be discarded.');
 assert.deepEqual(nuanceLedger.requirements[0].acceptanceCriteria, ['Tab reaches every interactive control.']);
 assert.equal(nuanceLedger.requirements[1].polarity, 'prohibited');
-assert.equal(nuanceLedger.requirements[4].polarity, 'preference', 'Comparative “no more than” constraints are not feature exclusions.');
+assert.equal(nuanceLedger.requirements[4].polarity, 'required', 'A positive bounded-layout constraint remains required, not a feature exclusion.');
+assert.deepEqual(nuanceLedger.requirements[4].negationEvidence, [], 'Comparative “no more than” must not be mistaken for prohibition.');
 assert.equal(nuanceLedger.requirements[5].polarity, 'prohibited', 'A negation later in a compound clause must not be hidden by an earlier “not only” phrase.');
 assert.equal(nuanceLedger.requirements[6].polarity, 'prohibited', 'Explicit no-feature constraints must be recognized even when they do not start the clause.');
 assert.ok(nuanceLedger.conflicts.some(item => item.requirementIds.includes('R003') && item.requirementIds.includes('R004')),
