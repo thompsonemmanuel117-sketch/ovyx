@@ -6,7 +6,13 @@ const SOURCE_EXTENSION = /\.(?:html?|css|m?js|jsx|tsx?|vue|svelte|astro)$/i;
 const SECRET_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
   /\bAKIA[0-9A-Z]{16}\b/,
-  /\bsk_(?:live|test)_[A-Za-z0-9]{12,}\b/i,
+  /\bsk_(?:live|test|proj)_[A-Za-z0-9_-]{12,}\b/i,
+  /\bAIza[0-9A-Za-z_-]{30,}\b/,
+  /\bgh[pousr]_[A-Za-z0-9]{20,}\b/i,
+  /\bgithub_pat_[A-Za-z0-9_]{20,}\b/i,
+  /\bxox[baprs]-[A-Za-z0-9-]{15,}\b/i,
+  /\bwhsec_[A-Za-z0-9]{12,}\b/i,
+  /\brk_live_[A-Za-z0-9]{12,}\b/i,
   /\b(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*["']?[A-Za-z0-9_./+=-]{16,}/i,
 ];
 
@@ -20,7 +26,13 @@ function redactSensitiveText(value, limit = 400) {
   let text = clean(value, limit * 2);
   text = text.replace(/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/gi, '[REDACTED PRIVATE KEY]');
   text = text.replace(/\bAKIA[0-9A-Z]{16}\b/g, '[REDACTED ACCESS KEY]');
-  text = text.replace(/\bsk_(?:live|test)_[A-Za-z0-9]{12,}\b/gi, '[REDACTED SECRET]');
+  text = text.replace(/\bsk_(?:live|test|proj)_[A-Za-z0-9_-]{12,}\b/gi, '[REDACTED SECRET]');
+  text = text.replace(/\bAIza[0-9A-Za-z_-]{30,}\b/g, '[REDACTED API KEY]');
+  text = text.replace(/\bgh[pousr]_[A-Za-z0-9]{20,}\b/gi, '[REDACTED TOKEN]');
+  text = text.replace(/\bgithub_pat_[A-Za-z0-9_]{20,}\b/gi, '[REDACTED TOKEN]');
+  text = text.replace(/\bxox[baprs]-[A-Za-z0-9-]{15,}\b/gi, '[REDACTED TOKEN]');
+  text = text.replace(/\bwhsec_[A-Za-z0-9]{12,}\b/gi, '[REDACTED WEBHOOK SECRET]');
+  text = text.replace(/\brk_live_[A-Za-z0-9]{12,}\b/gi, '[REDACTED SECRET]');
   text = text.replace(/\b((?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*)["']?[^\s"'&,;]{8,}/gi, '$1[REDACTED]');
   return text.slice(0, limit);
 }
