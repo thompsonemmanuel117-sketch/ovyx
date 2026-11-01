@@ -559,14 +559,18 @@ function auditBackendFiles(files, architecture) {
     );
     const policy = String(route.authPolicy || '').toLowerCase();
     const publicRoute = policy.startsWith('public');
-    const authOk = publicRoute || (
+    const abuseExpected = policy.includes('abuse-controls') || policy.includes('rate-limit');
+    const abuseDetected = !abuseExpected || /enforceRateLimit|checkRateLimit|rateLimiter|rateLimitRequest|verifyTurnstile|verifyCaptcha|throttleRequest/i.test(code);
+    const consentExpected = policy.includes('consent');
+    const consentDetected = !consentExpected || /consent|doubleOptIn|confirmedAt/i.test(code);
+    const authorizationDetected = publicRoute ? abuseDetected && consentDetected : (
       policy.includes('provider-signature')
-        ? code.includes('verifyWebhookSignature') || code.includes('verifySignature') || code.includes('constructEvent')
+        ? /verifyWebhookSignature|verifySignature|constructEvent/i.test(code)
         : policy.includes('administrator') || policy.includes('role') || policy.includes('permission')
-          ? code.includes('requireAdmin') || code.includes('requireRole') || code.includes('authorize') || code.includes('assertPermission')
-          : code.includes('requireAuth') || code.includes('assertAuthenticated') || code.includes('getAuthenticatedUser') || code.includes('verifySession')
+          ? /requireAdmin|requireRole|authorize|assertPermission/i.test(code)
+          : /requireAuth|assertAuthenticated|getAuthenticatedUser|verifySession/i.test(code)
     );
-    return { id: route.id, method, path: route.path, file: file || null, methodOk, authOk };
+    return { id: route.id, method, path: route.path, file: file || null, methodOk, authOk: authorizationDetected };
   });
   const schemaFiles = entries.filter(([filePath]) => {
     const lower = filePath.toLowerCase();
