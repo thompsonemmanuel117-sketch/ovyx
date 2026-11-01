@@ -16,7 +16,7 @@ export function buildDesignSystemContract(prompt = '', context = {}) {
   const brand = context && typeof context.brandProfile === 'object' ? context.brandProfile : {};
   const suppliedTokens = context && typeof context.designTokens === 'object' ? context.designTokens : {};
   const suppliedAssets = Array.isArray(context?.assets) ? context.assets.slice(0, 80) : [];
-  const hasOrigin = /^https?:\\/\\//i.test(clean(context?.siteOrigin || context?.canonicalOrigin, 300));
+  const hasOrigin = /^https?:\/\//i.test(clean(context?.siteOrigin || context?.canonicalOrigin, 300));
   const isMultiPage = /\\b(?:multi[- ]page|pages|about page|contact page|pricing page|blog|case studies|portfolio)\\b/i.test(brief);
   const requestsForms = /\\b(?:form|enquir(?:y|ies)|inquir(?:y|ies)|contact|application|newsletter|subscribe|submit)\\b/i.test(brief);
   const requestsCommerce = /\\b(?:cart|checkout|purchase|payment|order|e-?commerce|storefront)\\b/i.test(brief);
