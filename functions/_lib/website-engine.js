@@ -563,6 +563,10 @@ function auditBackendFiles(files, architecture) {
     const abuseDetected = !abuseExpected || /enforceRateLimit|checkRateLimit|rateLimiter|rateLimitRequest|verifyTurnstile|verifyCaptcha|throttleRequest/i.test(code);
     const consentExpected = policy.includes('consent');
     const consentDetected = !consentExpected || /consent|doubleOptIn|confirmedAt/i.test(code);
+    const publicationExpected = policy.includes('published');
+    const publicationDetected = !publicationExpected || /isPublished|publishedAt|publicationStatus|assertPublished/i.test(code);
+    const quarantineExpected = policy.includes('quarantine');
+    const quarantineDetected = !quarantineExpected || /quarantine|scanStatus|malwareScan|publicationApproval/i.test(code);
     const credentialExpected = policy.includes('credential-provider');
     const credentialDetected = !credentialExpected || /verifyCredentials|verifyPassword|verifyIdToken|identityToken|credentialProvider|providerSubject/i.test(code);
     const ownerScopeExpected = policy.includes('owner') || policy.includes('resource-scope') || policy.includes('object-level') || policy.includes('tenant');
@@ -575,7 +579,7 @@ function auditBackendFiles(files, architecture) {
     } else if (policy.includes('signed-unsubscribe-token')) {
       authorizationDetected = /verifyUnsubscribeToken|validateUnsubscribeToken|verifySignature|tokenHash/i.test(code);
     } else if (publicRoute) {
-      authorizationDetected = abuseDetected && consentDetected && credentialDetected;
+      authorizationDetected = abuseDetected && consentDetected && publicationDetected && quarantineDetected && credentialDetected;
     } else {
       const authenticated = /requireAuth|assertAuthenticated|getAuthenticatedUser|verifySession|verifyIdToken/i.test(code);
       const elevated = !(/administrator|role|permission|staff/.test(policy)) ||
@@ -585,7 +589,7 @@ function auditBackendFiles(files, architecture) {
     return {
       id: route.id, method, path: route.path, file: file || null, methodOk,
       authOk: authorizationDetected, ownerScopeExpected, ownerScopeDetected,
-      abuseExpected, abuseDetected, consentExpected, consentDetected,
+      abuseExpected, abuseDetected, consentExpected, consentDetected, publicationExpected, publicationDetected, quarantineExpected, quarantineDetected,
     };
   });
   const schemaFiles = entries.filter(([filePath]) => {
