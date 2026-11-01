@@ -378,24 +378,6 @@
     w.applyVisualEditorStyle = writeStyle;
     w.applyVisualEditorAttribute = writeAttribute;
     w.applyVisualEditorText = writeText;
-    var originalRecordHistory = typeof w.recordHistory === 'function' ? w.recordHistory : null;
-    if (originalRecordHistory) w.recordHistory = function () {
-      if (Array.isArray(this.historyStack) && Number.isInteger(this.historyPointer) && this.historyPointer < this.historyStack.length - 1) this.historyStack.splice(this.historyPointer + 1);
-      var result = originalRecordHistory.apply(this, arguments);
-      this.__ovyxHistoryAwaitingSync = true;
-      return result;
-    };
-    var originalSyncGraph = typeof w.syncGraphToProject === 'function' ? w.syncGraphToProject : null;
-    if (originalSyncGraph) w.syncGraphToProject = function () {
-      var result = originalSyncGraph.apply(this, arguments);
-      if (this.__ovyxHistoryAwaitingSync) {
-        this.__ovyxHistoryAwaitingSync = false;
-        var before = {};
-        try { before = JSON.parse(this.historyStack[this.historyPointer] || '{}'); } catch (_) {}
-        pushUndoState(this, before);
-      }
-      return result;
-    };
     var originalSelect = typeof w.selectPreviewElement === 'function' ? w.selectPreviewElement : null;
     if (originalSelect) w.selectPreviewElement = function (info) { var result = originalSelect.apply(this, arguments); window.requestAnimationFrame(function () { renderInspector(); renderInspectorWithUpload(); }); return result; };
     var originalBuild = typeof w.buildPreviewDocument === 'function' ? w.buildPreviewDocument : null;
