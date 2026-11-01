@@ -17,12 +17,12 @@ Improve how OVYX understands complex website and application briefs before gener
 
 The model-facing Website Engine plan now includes a compact `requirementSignals` entry for every retained requirement:
 
-`[requirementId, polarity, priority, categories, mapping]`
+`[polarity][priority]:[category letters]:[mapping]`, aligned by position with the requirement manifest.
 
 - Polarity: `+` required, `!` prohibited, `~` preference.
 - Priority: `C` critical, `H` high, `N` normal.
 - Mapping: `M` linked to architecture nodes, `U` unmapped.
-- Category codes are documented in the model instruction legend.
+- Category letters are documented in the model instruction legend. Repeated IDs are omitted from the compact signal list because each entry is aligned with the same-index requirement in the manifest; this keeps all 180 classifications inside the existing 18 KB model-plan budget.
 
 This closes a hand-off gap: previously the model received requirement excerpts and aggregate ledger counts/conflicts, but not the per-requirement polarity, priority, category and mapping classification. The compact signals let generation preserve hard exclusions and focus on critical requirements even when excerpts are shortened to fit the instruction budget.
 
