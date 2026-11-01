@@ -315,8 +315,10 @@ async function runDeclaredJourneys(page, baseUrl, rawJourneys) {
           if (!actual.includes(text)) { status = 'failed'; detail = 'expected-text-not-found'; }
         } else if (action === 'expectvisible' || action === 'expecthidden') {
           if (!selector) throw new Error('expected-selector-required');
-          const visible = await page.locator(selector).first().isVisible().catch(() => false);
-          if (action === 'expectvisible' ? !visible : visible) { status = 'failed'; detail = action + '-assertion-failed'; }
+          const target = page.locator(selector).first();
+          const exists = await target.count() > 0;
+          const visible = exists && await target.isVisible().catch(() => false);
+          if (!exists || (action === 'expectvisible' ? !visible : visible)) { status = 'failed'; detail = action + '-assertion-failed'; }
         } else if (action === 'expecturl') {
           const expected = safeQaRoute(step.route);
           const actual = new URL(page.url()).pathname;
