@@ -116,7 +116,7 @@ export function buildRequirementIntelligence(prompt, contract = {}, architecture
   return {
     version: 1,
     engine: 'ovyx-requirement-intelligence',
-    status: conflicts.length ? 'conflicts-detected' : counts.unmapped ? 'traceability-gaps' : 'ledger-built',
+    status: !counts.sourceComplete || counts.sourceOmitted > 0 ? 'bounded-partial' : conflicts.length ? 'conflicts-detected' : counts.unmapped ? 'traceability-gaps' : 'ledger-built',
     counts,
     requirements,
     conflicts,
