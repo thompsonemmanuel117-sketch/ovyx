@@ -28,6 +28,13 @@ assert.ok(staticFailure.findings.some(item => item.code === 'HTML_ENTRY_MISSING'
 assert.ok(staticFailure.findings.some(item => item.code === 'DYNAMIC_CODE_EXECUTION'));
 assert.ok(staticFailure.findings.some(item => item.code === 'QA_PLAN_MUTATING_API_PROBE'));
 assert.ok(staticFailure.findings.some(item => item.code === 'QA_PLAN_ACTION_UNSUPPORTED'));
+const overLimitPlan = evaluateGeneratedWebsiteFiles({
+  'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Bounded plan</title></head><body><h1>Bounded plan</h1></body></html>',
+  'ovyx-qa-plan.json': JSON.stringify({ version: 1, journeys: Array.from({ length: 13 }, (_, index) => ({ id: 'journey-' + index, startRoute: '/', steps: [{ action: 'expectText', text: 'Bounded plan' }] })), apiChecks: [] }),
+});
+assert.equal(overLimitPlan.status, 'failed');
+assert.ok(overLimitPlan.findings.some(item => item.code === 'QA_PLAN_LIMIT_EXCEEDED'),
+  'QA plan limits must be enforced before a runner silently truncates tests.');
 
 const requiredChannels = ['static', 'browser', 'backend', 'journeys'];
 const allPassed = requiredChannels.map(channel => ({ channel, status: 'passed', testsRun: 12, findings: [] }));
