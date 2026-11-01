@@ -5,6 +5,7 @@ export { ContainerProxy };
 const MAX_BODY_BYTES = 2_200_000;
 const MAX_FILES = 140;
 const MAX_FILE_BYTES = 280_000;
+const MAX_LOCKFILE_BYTES = 1_600_000;
 const MAX_OUTPUT_CHARS = 150_000;
 const MAX_RUN_MS = 210_000;
 const ALLOWED_ROOT_FILES = new Set([
@@ -125,7 +126,7 @@ async function installProjectDependencies(sandbox, files) {
   if (!manifest) return { installed: false, reason: 'no-package-manifest' };
   let parsed;
   try { parsed = JSON.parse(manifest.content); } catch { throw new Error('package-json-invalid'); }
-  const dependencies = { ...(parsed.dependencies || {}), ...(parsed.devDependencies || {}) };
+  const dependencies = { ...(parsed.dependencies || {}), ...(parsed.devDependencies || {}), ...(parsed.optionalDependencies || {}) };
   if (!Object.keys(dependencies).length) return { installed: false, reason: 'no-dependencies-declared' };
   await sandbox.writeFile('/workspace/project/.npmrc', 'registry=http://npm.registry/\nreplace-registry-host=always\nignore-scripts=true\naudit=false\nfund=false\n');
   const lock = files.some(item => item.path === 'package-lock.json' || item.path === 'npm-shrinkwrap.json');
