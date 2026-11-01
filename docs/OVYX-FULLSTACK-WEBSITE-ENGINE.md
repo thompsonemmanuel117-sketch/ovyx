@@ -90,6 +90,8 @@ The backend pass asks the existing guarded model route to return complete source
 
 Returned files are constrained to backend/server/schema/migration/test locations, bounded in size, and filtered against traversal and secret-bearing paths. A bounded source audit checks each planned API route's handler file and method, identity/role/owner scope, public abuse and consent controls, signature/replay protection, model schema, versioned migration, relationship/index declarations, state-machine evidence and safe generated tests. One targeted repair generation is attempted when source evidence is incomplete. A single-page HTML result is packaged as `index.html` alongside generated backend files so the API source is not lost on the non-multi-page path. If the second pass still misses required contracts, the full-stack build fails rather than silently presenting a frontend-only site as complete.
 
+The repository test suite now includes a local Wrangler D1 migration smoke test that applies a versioned SQL migration and checks table creation, foreign-key integrity, idempotency uniqueness and invalid-state rejection. This validates the local D1 migration path; it does not provision or migrate a user's remote database.
+
 Successful output is explicitly labelled `source-generated-runtime-unverified`. This is real generated source, not database provisioning: the pass does not create Cloudflare D1 resources, configure bindings or credentials, run migrations, prove database persistence, establish external provider delivery, or certify a production deployment. Those remain separate release and acceptance gates.
 
 
