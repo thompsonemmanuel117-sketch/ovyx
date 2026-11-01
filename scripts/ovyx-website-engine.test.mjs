@@ -189,6 +189,11 @@ const backendBuild = await runWebsiteGeneration({
   callModel: async (_env, options) => {
     backendCalls += 1;
     assert.match(options.taskPrompt, /FULL-STACK SOURCE GENERATION/);
+    assert.match(options.taskPrompt, /opaque owner-scoped object keys/);
+    assert.match(options.taskPrompt, /valid IANA timezone/);
+    assert.match(options.taskPrompt, /active server-owned schema version/);
+    assert.match(options.taskPrompt, /CSRF protection/);
+    assert.match(options.taskPrompt, /transactional outbox/);
     return {
       text: JSON.stringify({
         files: {
