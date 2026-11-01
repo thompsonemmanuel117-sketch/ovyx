@@ -232,12 +232,12 @@ export async function runAutonomousRepairCycle(options = {}) {
   const beforeKeys = new Set(before.findings.map(failureKey));
   const newFailures = after.findings.filter(finding => !beforeKeys.has(failureKey(finding)));
   const beforeChannels = new Map(before.channels.map(channel => [channel.channel, channel]));
+  const channelStatusRank = { passed: 0, failed: 1, blocked: 2, 'not-run': 3 };
   const channelRegressions = after.channels.filter(channel => {
     const previous = beforeChannels.get(channel.channel);
     if (!previous) return false;
-    return (previous.status === 'passed' && channel.status !== 'passed') ||
-      channel.testsRun < previous.testsRun ||
-      (previous.status === 'failed' && ['blocked', 'not-run'].includes(channel.status));
+    return channelStatusRank[channel.status] > channelStatusRank[previous.status] ||
+      channel.testsRun < previous.testsRun;
   });
   const improved = after.summary.blockers < before.summary.blockers ||
     after.findings.length < before.findings.length ||
