@@ -119,5 +119,13 @@ assert.equal(dependencyImpact.totalAffected, 3);
 assert.equal(dependencyImpact.evidence, 'static-source-dependency-analysis');
 assert.ok(!JSON.stringify(dependencyImpact).includes('export const header'));
 assert.equal(buildWorkspaceFileImpact({}, 'missing.js').status, 'no-project-files');
+const manyWorkspaceFiles = Object.fromEntries(Array.from({ length: 505 }, (_, index) => [
+  'src/file-' + String(index).padStart(3, '0') + '.js',
+  { type: 'text/javascript', content: 'export const value' + index + ' = ' + index + ';' },
+]));
+const boundedImpact = buildWorkspaceFileImpact({ ovyxGraph: { files: manyWorkspaceFiles } }, 'src/file-000.js');
+assert.equal(boundedImpact.status, 'bounded-partial');
+assert.equal(boundedImpact.truncated, true);
+assert.equal(boundedImpact.filesAnalyzed, 500);
 
 console.log('OVYX workspace tool tests passed.');
