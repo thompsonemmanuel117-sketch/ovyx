@@ -57,6 +57,7 @@ function inferCapabilities(prompt, contract) {
     hasPositiveIntent(source, /\b(?:member portal|sign in|sign up|login|authentication|user account|customer account|staff accounts?)\b/i);
   const authorization = admin ||
     hasPositiveIntent(source, /\b(?:user roles?|role-based access|admin access|permissions?|permission policies|tenant access|workspace roles?|staff permissions?)\b/i);
+  const multiTenant = hasPositiveIntent(source, /\b(?:multi[- ]tenant|multiple organizations|multiple workspaces|team workspaces|organization accounts|workspace members|tenant isolation|teams with separate data)\b/i);
   const booking = signals.bookings === true ||
     hasPositiveIntent(source, /\b(?:appointment|reservation|booking|schedule a|availability calendar)\b/i);
   const contact = signals.contactForm === true ||
@@ -82,6 +83,7 @@ function inferCapabilities(prompt, contract) {
     database: persistentData,
     authentication: auth,
     authorization,
+    multiTenant,
     payments: payment,
     commerce,
     contact,
@@ -110,6 +112,10 @@ function buildDataModels(capabilities) {
     push('Session', 'Server-controlled session lifecycle with hashed opaque tokens, CSRF binding, expiry, rotation and revocation.', ['id', 'userId', 'tokenHash', 'csrfTokenHash', 'createdAt', 'expiresAt', 'rotatedFrom', 'revokedAt', 'lastSeenAt'], 'identity');
   }
   if (capabilities.authorization) push('RoleAssignment', 'Server-enforced workspace, resource and action permissions.', ['id', 'principalId', 'role', 'scope', 'grantedAt'], 'authorization');
+  if (capabilities.multiTenant) {
+    push('Tenant', 'Isolated organization or workspace with an explicit lifecycle and plan boundary.', ['id', 'name', 'slug', 'status', 'planId', 'createdAt'], 'tenant-data');
+    push('TenantMembership', 'Verified principal membership and scoped role within one tenant.', ['id', 'tenantId', 'principalId', 'role', 'status', 'invitedAt', 'joinedAt'], 'authorization');
+  }
   if (capabilities.contact) push('ContactSubmission', 'Validated enquiry with an auditable delivery state.', ['id', 'name', 'replyTo', 'message', 'status', 'createdAt'], 'personal-data');
   if (capabilities.forms) {
     push('FormDefinition', 'Versioned server-owned form schema and retention policy.', ['id', 'slug', 'version', 'status', 'fieldSchema', 'submitPolicy', 'retentionPolicy']);
@@ -150,6 +156,10 @@ function buildDataIntegrityContracts(capabilities) {
   };
   if (capabilities.authentication) addRelation('Session', 'UserAccount', 'many-to-one', 'Every session belongs to one verified provider identity and can be revoked independently.', 'userId');
   if (capabilities.authentication && capabilities.authorization) addRelation('RoleAssignment', 'UserAccount', 'many-to-one', 'Every role grant belongs to a verified principal.', 'principalId');
+  if (capabilities.multiTenant) {
+    addRelation('TenantMembership', 'Tenant', 'many-to-one', 'Every membership is scoped to exactly one tenant.', 'tenantId');
+    if (capabilities.authentication) addRelation('TenantMembership', 'UserAccount', 'many-to-one', 'Membership identity comes from the verified account, never a client-supplied principal.', 'principalId');
+  }
   if (capabilities.booking) {
     addRelation('Booking', 'BookableResource', 'many-to-one', 'A booking reserves one resource or service.', 'resourceId');
     if (capabilities.authentication) addRelation('Booking', 'UserAccount', 'many-to-one', 'The booking customer is the verified account owner.', 'customerId', true);
@@ -202,6 +212,11 @@ function buildDataIntegrityContracts(capabilities) {
     { id: 'form-data-minimization', appliesTo: 'FormDefinition, FormSubmission', rule: 'Collect declared fields only, redact logs and enforce retention/deletion policy.' },
   );
 
+  if (capabilities.multiTenant) constraints.push(
+    { id: 'tenant-membership-unique', appliesTo: 'TenantMembership', rule: 'A verified principal has at most one active membership record per tenant; enforce a unique tenant/principal key and explicit invitation acceptance.' },
+    { id: 'tenant-scope-required', appliesTo: 'tenant-owned business records', rule: 'Resolve the active tenant from a verified membership or signed scoped context, then apply tenantId to every read, write, cache key, background job and storage object; never trust a browser-supplied tenantId.' },
+    { id: 'tenant-boundary-deny', appliesTo: 'all tenant APIs', rule: 'Reject cross-tenant reads, writes, exports, uploads and administrative actions even when an identifier is known; test same-role users in different tenants.' },
+  );
   if (capabilities.authentication) constraints.push(
     { id: 'session-token-hashing', appliesTo: 'Session', rule: 'Store only cryptographic hashes of opaque session and CSRF tokens; never persist raw bearer tokens.' },
     { id: 'session-expiry-and-revocation', appliesTo: 'Session', rule: 'Enforce absolute and idle expiry, rotate tokens on sensitive transitions, revoke on logout/password or identity-provider events, and reject revoked sessions immediately.' },
@@ -218,6 +233,11 @@ function buildDataIntegrityContracts(capabilities) {
     addIndex('Session', ['revokedAt', 'expiresAt'], false, 'Find expired or revoked sessions for bounded cleanup.');
   }
   if (capabilities.authorization) addIndex('RoleAssignment', ['principalId', 'role', 'scope'], true, 'Prevent duplicate role grants.');
+  if (capabilities.multiTenant) {
+    addIndex('Tenant', ['slug'], true, 'Resolve tenant workspaces by a stable unique slug.');
+    addIndex('TenantMembership', ['tenantId', 'principalId'], true, 'Prevent duplicate memberships and resolve tenant access efficiently.');
+    addIndex('TenantMembership', ['principalId', 'status'], false, 'List a verified user’s active tenant memberships.');
+  }
   if (capabilities.booking) {
     addIndex('Booking', ['resourceId', 'startsAt', 'endsAt', 'status'], false, 'Find candidate overlapping reservations for an atomic conflict check.');
     addIndex('Booking', ['customerId', 'startsAt'], false, 'List a customer’s upcoming bookings.');
@@ -308,6 +328,13 @@ function buildApiContracts(capabilities) {
       'Resolve an asset only after ownership/publication checks; never expose quarantined or private objects by identifier alone.',
       ['model-storedasset']);
     add('DELETE', '/api/assets/:assetId', 'storage', capabilities.authentication ? 'authenticated-owner-only' : 'signed-scoped-upload-session', 'Tombstone the owner-authorized asset and enqueue idempotent object deletion; never trust a client storage key.', ['model-storedasset'], { sideEffect: 'idempotent-object-cleanup' });
+  }
+  if (capabilities.multiTenant) {
+    add('GET', '/api/tenants', 'tenancy', 'authenticated-membership-scoped', 'List only tenants where the verified principal has an active membership.', ['model-tenant', 'model-tenantmembership']);
+    add('POST', '/api/tenants', 'tenancy', 'authenticated-with-creation-abuse-controls', 'Create a tenant and its initial owner membership atomically; derive the principal from the verified session.', ['model-tenant', 'model-tenantmembership'], { sideEffect: 'atomic-tenant-and-owner-membership' });
+    add('GET', '/api/tenants/:tenantId/members', 'tenancy', 'tenant-owner-or-authorized-admin', 'List members only within the active tenant with bounded pagination and personal-data minimization.', ['model-tenant', 'model-tenantmembership']);
+    add('POST', '/api/tenants/:tenantId/invitations', 'tenancy', 'tenant-owner-or-authorized-admin', 'Create a scoped expiring invitation with single-use token hashing and idempotent delivery.', ['model-tenant', 'model-tenantmembership'], { sideEffect: 'create-invitation-and-enqueue-outbox' });
+    add('PATCH', '/api/tenants/:tenantId/members/:memberId', 'tenancy', 'tenant-owner-or-authorized-admin', 'Change or revoke a membership only within the active tenant; protect the last owner and audit every role change.', ['model-tenant', 'model-tenantmembership'], { sideEffect: 'audited-membership-state-transition' });
   }
   if (capabilities.admin) add('GET', '/api/admin/audit-events', 'administration', 'administrator-role-and-resource-scope', 'Read authorized audit history with pagination and sensitive-field redaction.', ['model-auditevent']);
   return routes;
