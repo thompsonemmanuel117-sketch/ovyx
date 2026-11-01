@@ -6,8 +6,8 @@
  * and generator concrete acceptance rules without forcing one industry or aesthetic.
  */
 const clean = (value, max = 500) => String(value == null ? '' : value)
-  .replace(/[\\u0000-\\u001f\\u007f]/g, ' ')
-  .replace(/\\s+/g, ' ')
+  .replace(/[\u0000-\u001f\u007f]/g, ' ')
+  .replace(/\s+/g, ' ')
   .trim()
   .slice(0, max);
 
@@ -17,12 +17,12 @@ export function buildDesignSystemContract(prompt = '', context = {}) {
   const suppliedTokens = context && typeof context.designTokens === 'object' ? context.designTokens : {};
   const suppliedAssets = Array.isArray(context?.assets) ? context.assets.slice(0, 80) : [];
   const hasOrigin = /^https?:\/\//i.test(clean(context?.siteOrigin || context?.canonicalOrigin, 300));
-  const isMultiPage = /\\b(?:multi[- ]page|pages|about page|contact page|pricing page|blog|case studies|portfolio)\\b/i.test(brief);
-  const requestsForms = /\\b(?:form|enquir(?:y|ies)|inquir(?:y|ies)|contact|application|newsletter|subscribe|submit)\\b/i.test(brief);
-  const requestsCommerce = /\\b(?:cart|checkout|purchase|payment|order|e-?commerce|storefront)\\b/i.test(brief);
-  const requestsBooking = /\\b(?:book(?:ing)?|appointment|reservation|schedule|availability|calendar)\\b/i.test(brief);
-  const requestsIdentity = /\\b(?:sign ?in|log ?in|account|member|authentication|permission|role|invite)\\b/i.test(brief);
-  const explicitMotion = /\\b(?:animation|animated|motion|parallax|scroll[- ]?reveal|microinteraction|cinematic|3d)\\b/i.test(brief);
+  const isMultiPage = /\b(?:multi[- ]page|pages|about page|contact page|pricing page|blog|case studies|portfolio)\b/i.test(brief);
+  const requestsForms = /\b(?:form|enquir(?:y|ies)|inquir(?:y|ies)|contact|application|newsletter|subscribe|submit)\b/i.test(brief);
+  const requestsCommerce = /\b(?:cart|checkout|purchase|payment|order|e-?commerce|storefront)\b/i.test(brief);
+  const requestsBooking = /\b(?:book(?:ing)?|appointment|reservation|schedule|availability|calendar)\b/i.test(brief);
+  const requestsIdentity = /\b(?:sign ?in|log ?in|account|member|authentication|permission|role|invite)\b/i.test(brief);
+  const explicitMotion = /\b(?:animation|animated|motion|parallax|scroll[- ]?reveal|microinteraction|cinematic|3d)\b/i.test(brief);
 
   return {
     version: 1,
