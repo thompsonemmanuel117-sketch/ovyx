@@ -43,7 +43,8 @@ try {
   ].join('\n'));
   await writeFile(migrationPath, migrationSql);
 
-  const wrangler = (...args) => execFileSync('npx', ['wrangler', ...args], {
+  const wranglerBin = join(process.cwd(), 'node_modules', '.bin', 'wrangler');
+  const wrangler = (...args) => execFileSync(wranglerBin, args, {
     cwd: root,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
