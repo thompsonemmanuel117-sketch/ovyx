@@ -610,6 +610,43 @@ function parseBackendFiles(response) {
   return {};
 }
 
+function collectLocalBackendModuleSource(entryFile, files) {
+  const pathMap = new Map(Object.keys(files || {}).map(filePath => [filePath.toLowerCase(), filePath]));
+  const visited = new Set();
+  let total = 0;
+  function resolve(fromFile, specifier) {
+    if (!specifier || !specifier.startsWith('.')) return '';
+    const parts = fromFile.split('/');
+    parts.pop();
+    for (const part of specifier.split('/')) {
+      if (!part || part === '.') continue;
+      if (part === '..') {
+        if (!parts.length) return '';
+        parts.pop();
+      } else {
+        parts.push(part);
+      }
+    }
+    const base = parts.join('/');
+    const candidates = [base, ...['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx'].map(ext => base + ext),
+      ...['index.js', 'index.ts', 'index.tsx'].map(name => base + '/' + name)];
+    return candidates.map(candidate => pathMap.get(candidate.toLowerCase())).find(Boolean) || '';
+  }
+  function visit(filePath, depth) {
+    if (!filePath || depth > 6 || visited.size >= 24 || visited.has(filePath.toLowerCase()) || total >= 500000) return '';
+    visited.add(filePath.toLowerCase());
+    const source = String(files[filePath] || '');
+    total += source.length;
+    const imports = [];
+    for (const match of source.matchAll(/(?:\bimport\s+(?:[\s\S]*?\s+from\s+)?|\bexport\s+[\s\S]*?\s+from\s+|\brequire\s*\(\s*|\bimport\s*\(\s*)['"]([^'"]+)['"]/g)) {
+      const dependency = resolve(filePath, match[1]);
+      if (dependency) imports.push(dependency);
+    }
+    return source + '\n' + imports.map(dependency => visit(dependency, depth + 1)).join('\n');
+  }
+  return visit(entryFile, 0);
+}
+
 function auditBackendFiles(files, architecture) {
   const entries = Object.entries(files || {});
   const pathMap = new Map(entries.map(([filePath]) => [filePath.toLowerCase(), filePath]));
@@ -635,7 +672,7 @@ function auditBackendFiles(files, architecture) {
       'api/' + suffix + '.js', 'api/' + suffix + '.ts',
     ];
     const file = candidates.map(candidate => pathMap.get(candidate.toLowerCase())).find(Boolean) || '';
-    const code = file ? String(files[file]) : '';
+    const code = file ? collectLocalBackendModuleSource(file, files) : '';
     const method = String(route.method || 'GET').toUpperCase();
     const pascal = method.charAt(0) + method.slice(1).toLowerCase();
     const lowerFile = file.toLowerCase();
