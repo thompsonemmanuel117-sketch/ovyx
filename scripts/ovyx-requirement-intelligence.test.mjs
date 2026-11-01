@@ -89,11 +89,11 @@ const understandingPlan = buildWebsiteEnginePlan([
 const modelInstructions = buildWebsiteEngineInstructions(understandingPlan);
 assert.match(modelInstructions, /"requirementSignals":\[/,
   'The generation model must receive classified signals for the brief requirements.');
-assert.match(modelInstructions, /"R002","\+","C","auth,commerce","[MU]"/,
+assert.match(modelInstructions, /"requirementSignals":\["\+C:ic:[MU]"/,
   'Critical identity and commerce requirements must be marked as required.');
-assert.match(modelInstructions, /"R003","!","H","int,constraint","[MU]"/,
+assert.match(modelInstructions, /"requirementSignals":\[[^\]]*"!H:xq:[MU]"/,
   'Explicit third-party tracking exclusions must be marked as prohibited.');
-assert.match(modelInstructions, /"R004","~","N","design","[MU]"/,
+assert.match(modelInstructions, /"requirementSignals":\[[^\]]*"~N:v:[MU]"/,
   'Design preferences must not be promoted to mandatory requirements.');
 assert.match(modelInstructions, /Polarity \+ means required, ! means prohibited and must remain excluded, ~ means preference/i,
   'The model must receive the meaning of each requirement signal.');
