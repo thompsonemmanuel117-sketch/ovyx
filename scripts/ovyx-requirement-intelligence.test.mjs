@@ -35,3 +35,12 @@ assert.ok(ledger.requirements.every(item => item.acceptanceEvidence === 'not-gen
 const empty = buildRequirementIntelligence('', { allBriefClauses: [] }, {});
 assert.equal(empty.counts.total, 0);
 console.log('OVYX requirement intelligence tests passed.');
+
+const boundedLedger = buildRequirementIntelligence('', {
+  requirementManifestComplete: false,
+  omittedRequirementClauseCount: 20,
+  allBriefClauses: Array.from({ length: 180 }, (_, index) => 'R' + String(index + 1).padStart(3, '0') + ': Build an explicit section ' + (index + 1) + '.'),
+}, {});
+assert.equal(boundedLedger.status, 'bounded-partial');
+assert.equal(boundedLedger.counts.total, 180);
+assert.equal(boundedLedger.counts.sourceOmitted, 20);
