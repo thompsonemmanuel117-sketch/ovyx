@@ -1080,3 +1080,11 @@ const caseSensitiveRoutes = auditWebsiteIntegrity({}, {
   ],
 });
 assert.equal(caseSensitiveRoutes.routeCollisionCount, 0, 'Distinct case-sensitive routes must not be reported as duplicate URLs.');
+
+const dynamicRouteAudit = auditWebsiteIntegrity({}, {
+  pages: [
+    { title: 'User by ID', path: 'src/app/users/[id]/page.tsx', url: '/users/[id]' },
+    { title: 'User by slug', path: 'src/app/users/[slug]/page.tsx', url: '/users/[slug]' },
+  ],
+});
+assert.equal(dynamicRouteAudit.routeCollisionCount, 1, 'Dynamic route parameter names must not conceal a route collision.');
