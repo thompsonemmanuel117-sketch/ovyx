@@ -114,7 +114,7 @@ function buildDataModels(capabilities) {
   }
   if (capabilities.booking) {
     push('BookableResource', 'A resource, service or staff calendar whose availability can be reserved.', ['id', 'name', 'timezone', 'capacity', 'status']);
-    push('Booking', 'Availability-backed reservation with timezone-aware start/end and explicit lifecycle.', ['id', 'resourceId', 'customerId', 'startsAt', 'endsAt', 'timezone', 'status'], 'personal-data');
+    push('Booking', 'Availability-backed reservation with timezone-aware start/end, atomic holds and idempotent lifecycle.', ['id', 'resourceId', 'customerId', 'startsAt', 'endsAt', 'timezone', 'status', 'idempotencyKey', 'holdExpiresAt', 'createdAt', 'updatedAt'], 'personal-data');
   }
   if (capabilities.commerce) {
     push('Product', 'Catalog item and purchasable offer; price and availability come from an authoritative source.', ['id', 'name', 'sku', 'priceAmount', 'currency', 'status']);
@@ -126,7 +126,7 @@ function buildDataModels(capabilities) {
   if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', 'billableReference', 'provider', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
   if (capabilities.email) push('DeliveryRecord', 'Outbox/delivery state with retry and provider receipt; not a claim of delivery.', ['id', 'recipientRef', 'sourceType', 'sourceId', 'templateKey', 'idempotencyKey', 'status', 'attemptCount', 'nextAttemptAt', 'providerReceipt'], 'personal-data');
   if (capabilities.newsletter) push('NewsletterSubscription', 'Permission-aware subscription state with consent evidence and secure unsubscribe lifecycle.', ['id', 'listId', 'userId', 'email', 'emailNormalized', 'status', 'consentAt', 'confirmationTokenHash', 'createdAt'], 'personal-data');
-  if (capabilities.fileStorage) push('StoredAsset', 'Owner-scoped metadata for uploaded objects stored outside public source control.', ['id', 'ownerId', 'storageKey', 'contentType', 'byteSize', 'checksum', 'createdAt'], 'private-file');
+  if (capabilities.fileStorage) push('StoredAsset', 'Owner-scoped metadata for quarantined objects with verified content, scan and publication lifecycle.', ['id', 'ownerId', 'storageKey', 'contentType', 'byteSize', 'checksum', 'uploadState', 'scanStatus', 'visibility', 'idempotencyKey', 'createdAt', 'updatedAt', 'deletedAt'], 'private-file');
   if (capabilities.admin) push('AuditEvent', 'Append-only record of sensitive administrative actions and actor/resource context.', ['id', 'actorId', 'action', 'resourceType', 'resourceId', 'createdAt'], 'security-audit');
   return models;
 }
@@ -177,6 +177,13 @@ function buildDataIntegrityContracts(capabilities) {
   if (capabilities.booking) constraints.push(
     { id: 'booking-no-overlap', appliesTo: 'Booking', rule: 'Prevent overlapping active reservations for the same resource using a transaction, exclusion constraint or provider lock.' },
     { id: 'booking-time-valid', appliesTo: 'Booking', rule: 'Require startsAt before endsAt; persist UTC instants and the user’s IANA timezone.' },
+    { id: 'booking-hold-expiry', appliesTo: 'Booking', rule: 'Every temporary hold has a bounded expiry; an expiry worker releases it idempotently and expired holds never appear as confirmed availability.' },
+    { id: 'booking-idempotency', appliesTo: 'Booking', rule: 'Scope a unique idempotency key to the customer or anonymous session and resource so retries cannot create duplicate reservations.' },
+    { id: 'booking-duration-policy', appliesTo: 'Booking', rule: 'Validate resource-specific duration, lead time, business hours, buffers and capacity on the server before acquiring a slot.' },
+    { id: 'booking-confirmation-authority', appliesTo: 'Booking', rule: 'A booking becomes confirmed only after the authoritative resource/provider confirms the reservation; pending holds remain visibly pending.' },
+    { id: 'asset-publication-gate', appliesTo: 'StoredAsset', rule: 'Only scanned, policy-approved assets may become available; quarantined, rejected and deleted objects must never be served by public routes.' },
+    { id: 'asset-content-integrity', appliesTo: 'StoredAsset', rule: 'Verify actual file signature, byte count and checksum server-side; client-declared MIME type and size are advisory only.' },
+    { id: 'asset-deletion-consistency', appliesTo: 'StoredAsset', rule: 'Delete or tombstone metadata and object storage through an idempotent cleanup workflow; never leave a public stale object reference.' },
   );
   if (capabilities.newsletter) constraints.push(
     { id: 'newsletter-consent-evidence', appliesTo: 'NewsletterSubscription', rule: 'Store consent source/time and confirmation status; do not activate a subscription before required confirmation.' },
@@ -197,8 +204,10 @@ function buildDataIntegrityContracts(capabilities) {
   }
   if (capabilities.authorization) addIndex('RoleAssignment', ['principalId', 'role', 'scope'], true, 'Prevent duplicate role grants.');
   if (capabilities.booking) {
-    addIndex('Booking', ['resourceId', 'startsAt', 'status'], false, 'Bound availability and conflict queries.');
+    addIndex('Booking', ['resourceId', 'startsAt', 'endsAt', 'status'], false, 'Find candidate overlapping reservations for an atomic conflict check.');
     addIndex('Booking', ['customerId', 'startsAt'], false, 'List a customer’s upcoming bookings.');
+    addIndex('Booking', ['resourceId', 'customerId', 'idempotencyKey'], true, 'Make reservation retries idempotent within a resource and customer/session scope.');
+    addIndex('Booking', ['status', 'holdExpiresAt'], false, 'Find expired temporary holds for safe release.');
   }
   if (capabilities.commerce) {
     addIndex('Product', ['sku'], true, 'Enforce unique catalog SKU within the configured catalog scope.');
@@ -214,6 +223,11 @@ function buildDataIntegrityContracts(capabilities) {
     addIndex('FormSubmission', ['formId', 'idempotencyKey'], true, 'Prevent duplicate submission side effects for one form request.');
   }
   if (capabilities.fileStorage) addIndex('StoredAsset', ['storageKey'], true, 'Prevent storage object-key collisions.');
+  if (capabilities.fileStorage) {
+    addIndex('StoredAsset', ['ownerId', 'createdAt'], false, 'List a verified owner’s assets with bounded pagination.');
+    addIndex('StoredAsset', ['uploadState', 'scanStatus', 'createdAt'], false, 'Find quarantined assets awaiting inspection or cleanup.');
+    addIndex('StoredAsset', ['ownerId', 'idempotencyKey'], true, 'Prevent duplicate asset ingestion on retried upload intents.');
+  }
   if (capabilities.admin) addIndex('AuditEvent', ['resourceType', 'resourceId', 'createdAt'], false, 'Review sensitive activity for a resource.');
   return { relationships, constraints, indexes };
 }
@@ -407,11 +421,12 @@ function buildWorkflowStateMachines(capabilities) {
   );
   if (capabilities.booking) add(
     'Booking lifecycle', 'Booking', 'requested',
-    ['requested', 'pending_confirmation', 'confirmed', 'rejected', 'completed', 'cancelled', 'no_show'],
+    ['requested', 'pending_confirmation', 'confirmed', 'rejected', 'completed', 'cancelled', 'no_show', 'expired'],
     [
       ['requested', 'pending_confirmation', 'server availability recheck and atomic hold', 'hold-resource-slot'],
       ['pending_confirmation', 'confirmed', 'authoritative provider or owner confirmation', 'confirm-resource-slot'],
       ['pending_confirmation', 'rejected', 'availability conflict or provider rejection', 'release-resource-slot'],
+      ['pending_confirmation', 'expired', 'hold expiry worker after authoritative time check', 'release-expired-resource-slot'],
       ['confirmed', 'completed', 'verified service completion', 'close-booking'],
       ['confirmed', 'cancelled', 'authorized cancellation under policy', 'release-resource-slot'],
       ['confirmed', 'no_show', 'authorized staff action after scheduled time', 'record-no-show'],
@@ -463,7 +478,7 @@ function buildWorkflowStateMachines(capabilities) {
       ['quarantined', 'rejected', 'content inspection, malware or policy checks fail', 'delete-or-isolate-object'],
       ['available', 'deleted', 'owner-authorized deletion and retention policy', 'delete-object-and-metadata'],
     ],
-    'Do not expose a file before content, size, ownership and publication-policy checks pass.'
+    'Do not expose a file before content, size, ownership and publication-policy checks pass. Every upload intent is idempotent; verify content signature, exact byte count and checksum, scan or inspect before publication, serve through an owner/publication authorization check, and clean up abandoned multipart uploads and deleted objects.'
   );
   if (capabilities.email && !capabilities.contact) add(
     'Provider delivery lifecycle', 'DeliveryRecord', 'queued',
