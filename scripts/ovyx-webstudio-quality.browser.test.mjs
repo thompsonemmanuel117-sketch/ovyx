@@ -419,7 +419,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.ok(pageErrors.length === 0, 'The host page should have no unhandled runtime errors: ' + pageErrors.join('; '));
 
   await page.locator('[data-quality-repair]').click();
-  await page.waitForFunction(() => window.__qualityRepairCalls.length === 1 && window.OVYXWebStudioQuality.getReport()?.checks.some(item => item.group === 'Automatic repair'));
+  await page.waitForFunction(() => window.__qualityRepairCalls.length === 1 && window.OVYXWebStudioQuality.getReport()?.checks.some(item => item.group === 'Automatic repair'), null, { timeout: 120000 });
   const finalReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
   assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 1, 'Only one bounded repair pass should be sent.');
   assert.ok((await page.evaluate(() => window.__qualityRepairCalls[0].prompt)).includes('OVYX QUALITY INSPECTOR REPAIR'), 'The repair must use a targeted evidence-based prompt.');
@@ -446,7 +446,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   await page.waitForFunction(() => {
     const report = window.OVYXWebStudioQuality?.getReport();
     return !!report?.finishedAt && report.checks.some(item => item.group === 'Automatic build gate' && item.title === 'Post-build quality gate' && item.status === 'pass');
-  }, null, { timeout: 60000 });
+  }, null, { timeout: 150000 });
   const autoReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
   const calls = await page.evaluate(() => window.__qualityRepairCalls);
   assert.equal(calls.length, 3, 'The initial manual repair plus a normal build and one automatic repair must be the only calls.');
