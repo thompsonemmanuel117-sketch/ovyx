@@ -135,7 +135,7 @@ function buildDataModels(capabilities) {
     push('InventoryMovement', 'Auditable stock reservation, release, receipt and adjustment ledger.', ['id', 'productId', 'quantityDelta', 'reason', 'referenceType', 'referenceId', 'actorId', 'createdAt']);
     push('Cart', 'User or session cart with server-recomputed prices and inventory validation.', ['id', 'ownerId', 'sessionKeyHash', 'currency', 'updatedAt']);
     push('CartItem', 'A selected product and quantity; client prices are never authoritative.', ['id', 'cartId', 'productId', 'quantity', 'addedAt']);
-    push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'discountAmount', 'taxAmount', 'shippingAmount', 'totalAmount', 'status', 'fulfillmentStatus', 'inventoryReservationExpiresAt', 'trackingReference', 'fulfilledAt', 'createdAt', 'updatedAt'], 'financial');
+    push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'discountAmount', 'taxAmount', 'shippingAmount', 'totalAmount', 'promotionId', 'status', 'fulfillmentStatus', 'inventoryReservationExpiresAt', 'trackingReference', 'fulfilledAt', 'createdAt', 'updatedAt'], 'financial');
     push('OrderLine', 'Immutable purchase-time snapshot of product identity, SKU, name, quantity, tax and unit amount.', ['id', 'orderId', 'productId', 'skuSnapshot', 'productNameSnapshot', 'quantity', 'unitAmount', 'discountAmount', 'taxAmount', 'lineAmount', 'currency'], 'financial');
     push('Promotion', 'Server-owned discount rule with usage limits and active date window.', ['id', 'codeNormalized', 'discountType', 'discountValue', 'currency', 'startsAt', 'endsAt', 'usageLimit', 'usageCount', 'perCustomerLimit', 'status']);
     push('Shipment', 'Order fulfillment and carrier tracking lifecycle.', ['id', 'orderId', 'carrier', 'trackingNumber', 'trackingUrl', 'status', 'shippedAt', 'deliveredAt', 'createdAt']);
@@ -185,13 +185,13 @@ function buildDataIntegrityContracts(capabilities) {
     addRelation('OrderLine', 'Order', 'many-to-one', 'Each immutable order line belongs to one order.', 'orderId');
     addRelation('OrderLine', 'Product', 'many-to-one', 'Each order line references its catalog source and preserves a purchase-time snapshot.', 'productId');
     addRelation('InventoryMovement', 'Product', 'many-to-one', 'Every stock change is attributed to one catalog product.', 'productId');
-    addRelation('Promotion', 'Order', 'many-to-one', 'Promotion usage is reconciled against an order.', 'id', true, 'promotion-reference');
+    addRelation('Order', 'Promotion', 'many-to-one', 'An order may apply one server-validated promotion.', 'promotionId', true);
     addRelation('Shipment', 'Order', 'many-to-one', 'Every shipment fulfills one order.', 'orderId');
     if (capabilities.authentication) addRelation('Order', 'UserAccount', 'many-to-one', 'The order belongs to the verified principal.', 'ownerId', true);
   }
+  if (capabilities.payments) addRelation('Refund', 'PaymentAttempt', 'many-to-one', 'Every refund references the captured payment it compensates.', 'paymentAttemptId');
   if (capabilities.payments && capabilities.commerce) {
     addRelation('PaymentAttempt', 'Order', 'many-to-one', 'Payment attempts reconcile against an order.', 'orderId');
-    addRelation('Refund', 'PaymentAttempt', 'many-to-one', 'Every refund references the captured payment it compensates.', 'paymentAttemptId');
     addRelation('Refund', 'Order', 'many-to-one', 'Every commerce refund is reconciled against its order.', 'orderId', true);
   }
   if (capabilities.subscriptions) {
