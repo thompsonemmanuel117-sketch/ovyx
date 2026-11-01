@@ -18,7 +18,7 @@ assert.doesNotMatch(providerSelector, /- automatic|gemini|claude|deepseek|openai
 
 assert.ok(workflow.includes("if: github.ref == 'refs/heads/main' && ((github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') && !contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only'))"), 'provider-only enforcement must exclude both one-time live generation markers');
 const siteEvidenceCondition = /if: always\(\) && github\.ref == 'refs\/heads\/main' && \(\(github\.event_name == 'workflow_dispatch' && \(inputs\.operation == 'full-acceptance' \|\| inputs\.operation == 'stage4-site-smoke'\)\) \|\| \(github\.event_name == 'push' && \(contains\(github\.event\.head_commit\.message, '\[OVYX_FULL_ACCEPTANCE_ONCE\]'\) \|\| contains\(github\.event\.head_commit\.message, '\[OVYX_STAGE4_SITE_SMOKE_ONCE\]'\)\)\)\)/g;
-assert.equal((workflow.match(siteEvidenceCondition) || []).length, 3,
+assert.equal((workflow.match(siteEvidenceCondition) || []).length, 4,
   'browser, integration reporting and audit must run for full acceptance and explicitly requested site smoke');
 const fullAcceptanceCondition = /if: always\(\) && github\.ref == 'refs\/heads\/main' && \(\(github\.event_name == 'workflow_dispatch' && inputs\.operation == 'full-acceptance'\) \|\| \(github\.event_name == 'push' && contains\(github\.event\.head_commit\.message, '\[OVYX_FULL_ACCEPTANCE_ONCE\]'\)\)\)/g;
 assert.equal((workflow.match(fullAcceptanceCondition) || []).length, 1,
