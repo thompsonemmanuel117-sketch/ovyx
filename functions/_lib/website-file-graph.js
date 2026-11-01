@@ -1,18 +1,18 @@
 const MAX_FILES = 500;
 const MAX_TOTAL_SOURCE_CHARS = 2_000_000;
 const MAX_FILE_CHARS = 240_000;
-const CODE_EXT = /\\.(?:mjs|cjs|js|jsx|ts|tsx|vue|svelte|astro)$/i;
-const SCRIPT_IMPORT = /(?:\\bimport\\s+(?:[^'";]*?\\s+from\\s+)?|\\bexport\\s+[^'";]*?\\s+from\\s+|\\bimport\\s*\\(|\\brequire\\s*\\()\\s*['"]([^'"]+)['"]/g;
-const CSS_IMPORT = /@import\\s+(?:url\\()?\\s*['"]?([^'")\\s;]+)['"]?\\s*\\)?/gi;
-const CSS_URL = /url\\(\\s*['"]?([^'")]+)['"]?\\s*\\)/gi;
-const HTML_REFERENCE = /\\b(?:src|href|action|poster)\\s*=\\s*(['"])(.*?)\\1/gi;
+const CODE_EXT = /\.(?:mjs|cjs|js|jsx|ts|tsx|vue|svelte|astro)$/i;
+const SCRIPT_IMPORT = /(?:\bimport\s+(?:[^'";]*?\s+from\s+)?|\bexport\s+[^'";]*?\s+from\s+|\bimport\s*\(|\brequire\s*\()\s*['"]([^'"]+)['"]/g;
+const CSS_IMPORT = /@import\s+(?:url\()?\s*['"]?([^'")\s;]+)['"]?\s*\)?/gi;
+const CSS_URL = /url\(\s*['"]?([^'")]+)['"]?\s*\)/gi;
+const HTML_REFERENCE = /\b(?:src|href|action|poster)\s*=\s*(['"])(.*?)\1/gi;
 const EXTENSIONS = ['', '.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx', '.json', '.css', '.scss', '.html', '.vue', '.svelte', '.astro', '/index.js', '/index.ts', '/index.tsx', '/index.jsx'];
 
 function safePath(value) {
   if (typeof value !== 'string') return '';
-  const path = value.trim().replace(/\\\\/g, '/').replace(/^\\.\\//, '');
+  const path = value.trim().replace(/\\/g, '/').replace(/^\.\//, '');
   if (!path || path.length > 500 || path.startsWith('/') || /^[a-z]:/i.test(path) ||
-      /[\\u0000-\\u001f\\u007f]/.test(path) ||
+      /[\u0000-\u001f\u007f]/.test(path) ||
       path.split('/').some(part => !part || part === '.' || part === '..' || /^(?:__proto__|prototype|constructor)$/i.test(part)) ||
       /^(?:node_modules|dist|build|coverage|\.git|\.env)(?:\/|$)/i.test(path)) return '';
   return path;
@@ -28,17 +28,17 @@ function collectReferences(path, source) {
   const add = (raw, kind) => {
     if (kind === 'document-action') return;
     const value = String(raw || '').trim().replace(/[?#].*$/, '');
-    if (!value || /^(?:[a-z][a-z0-9+.-]*:|\\/\\/|#|data:|blob:|mailto:|tel:|javascript:)/i.test(value)) return;
+    if (!value || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|data:|blob:|mailto:|tel:|javascript:)/i.test(value)) return;
     if (value.startsWith('/') || value.startsWith('./') || value.startsWith('../')) refs.push({ specifier: value, kind });
   };
   if (CODE_EXT.test(path)) {
     for (const match of source.matchAll(SCRIPT_IMPORT)) add(match[1], 'module-import');
   }
-  if (/\\.css$/i.test(path) || /\\.(?:vue|svelte|astro|html?)$/i.test(path)) {
+  if (/\.css$/i.test(path) || /\.(?:vue|svelte|astro|html?)$/i.test(path)) {
     for (const match of source.matchAll(CSS_IMPORT)) add(match[1], 'stylesheet-import');
     for (const match of source.matchAll(CSS_URL)) add(match[1], 'asset-url');
   }
-  if (/\\.(?:html?|vue|svelte|astro)$/i.test(path)) {
+  if (/\.(?:html?|vue|svelte|astro)$/i.test(path)) {
     for (const match of source.matchAll(HTML_REFERENCE)) {
       const attribute = match[0].slice(0, match[0].indexOf('=')).trim().toLowerCase();
       if (attribute === 'action') continue;
@@ -95,7 +95,7 @@ export function buildWebsiteFileGraph(input, options = {}) {
     for (const reference of collectReferences(from, source)) {
       const target = resolveReference(from, reference.specifier, known);
       if (!target) {
-        const looksLikeFile = /\\.[a-z0-9]{1,12}$/i.test(reference.specifier) || /(?:^|\\/)(?:assets?|images?|scripts?|styles?|fonts?)\\//i.test(reference.specifier);
+        const looksLikeFile = /\.[a-z0-9]{1,12}$/i.test(reference.specifier) || /(?:^|\/)(?:assets?|images?|scripts?|styles?|fonts?)\//i.test(reference.specifier);
         if (reference.kind !== 'document-reference' || looksLikeFile) {
           missingReferences.push({ from, specifier: reference.specifier, kind: reference.kind });
         }
@@ -110,8 +110,8 @@ export function buildWebsiteFileGraph(input, options = {}) {
   }
   const nodes = [...known].map(path => ({
     path,
-    kind: /\\.css$/i.test(path) ? 'style' : /\\.(?:png|jpe?g|gif|webp|avif|svg|woff2?|ttf|otf)$/i.test(path) ? 'asset' :
-      /\\.(?:html?)$/i.test(path) ? 'page' : CODE_EXT.test(path) ? 'code' : 'data',
+    kind: /\.css$/i.test(path) ? 'style' : /\.(?:png|jpe?g|gif|webp|avif|svg|woff2?|ttf|otf)$/i.test(path) ? 'asset' :
+      /\.(?:html?)$/i.test(path) ? 'page' : CODE_EXT.test(path) ? 'code' : 'data',
   }));
   return {
     version: 1,
