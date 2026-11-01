@@ -8,6 +8,9 @@ const graph = buildWebsiteFileGraph({
   'src/main.js': "import { mount } from './app.js'; import './theme.css'; const icon = new URL('../assets/hero.webp', import.meta.url);",
   'src/app.js': "import { render } from './render.js'; export { render };",
   'src/render.js': 'export function render() {}',
+  'src/pages/Home.tsx': "import Header from '../components/Header.jsx'; import { Card } from '../components/Card.jsx'; export default function Home(){ return <><Header/><Card/></> }",
+  'src/components/Header.jsx': 'export default function Header(){ return <header>Brand</header> }',
+  'src/components/Card.jsx': 'export function Card(){ return <article>Card</article> }',
   'src/theme.css': 'body { color: black; }',
   'assets/hero.webp': 'binary-placeholder-not-interpreted',
   'assets/hero@2x.webp': 'binary-placeholder-not-interpreted',
@@ -16,6 +19,8 @@ const graph = buildWebsiteFileGraph({
   '../escape.js': 'must be ignored',
 });
 assert.equal(graph.status, 'analyzed');
+assert.ok(graph.componentGraph.components.some(item => item.path === 'src/components/Header.jsx'));
+assert.ok(graph.componentGraph.routes.some(item => item.route === 'src/pages/Home.tsx' && item.componentPaths.includes('src/components/Card.jsx')));
 assert.ok(graph.nodes.every(node => !Object.prototype.hasOwnProperty.call(node, 'content')));
 assert.ok(graph.edges.some(edge => edge.from === 'index.html' && edge.to === 'styles/site.css'));
 assert.ok(graph.edges.some(edge => edge.from === 'index.html' && edge.to === 'about/index.html' && edge.kind === 'route-or-document-reference'),
@@ -32,6 +37,7 @@ assert.ok(!graph.nodes.some(node => node.path.includes('escape')));
 const impact = analyzeWebsiteFileImpact(graph, ['src/render.js']);
 assert.deepEqual(impact.impactedPaths, ['src/app.js', 'src/main.js', 'index.html']);
 assert.equal(impact.totalAffected, 4);
+assert.ok(Array.isArray(impact.affectedRoutes));
 assert.equal(analyzeWebsiteFileImpact(graph, ['not-in-project.js']).unknownChangedPaths[0], 'not-in-project.js');
 const empty = buildWebsiteFileGraph(null);
 assert.equal(empty.status, 'no-project-files');
