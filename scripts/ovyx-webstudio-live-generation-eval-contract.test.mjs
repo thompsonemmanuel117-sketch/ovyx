@@ -1,6 +1,38 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { safeLiveGenerationFailureDetail } from '../functions/api/internal/live-generation-eval.js';
+import { safeLiveGenerationFailureDetail, performBackendRuntimeRepair } from '../functions/api/internal/live-generation-eval.js';
+
+const backendRepairSource = {
+  'functions/api/catalog.js': 'export async function onRequest({ env }) { return Response.json({ ok: true }); }',
+};
+let backendRepairPrompt = '';
+const backendRepair = await performBackendRuntimeRepair({
+  caseId: 'nigeria-baby-products',
+  provider: 'cloudflare-workers-ai',
+  files: backendRepairSource,
+  findings: [{ code: 'BACKEND_CHECK_FAILED', file: 'functions/api/catalog.js', message: 'GET /api/catalog returned HTTP 500.' }],
+}, { AI: { run: async () => ({ response: 'unused' }) } }, {
+  callModel: async (_env, options) => {
+    backendRepairPrompt = options.taskPrompt;
+    return {
+      provider: 'cloudflare-workers-ai',
+      model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      text: JSON.stringify({ files: { 'functions/api/catalog.js': 'export async function onRequest({ env }) { return Response.json({ ok: true, items: [] }); }' } }),
+    };
+  },
+});
+assert.equal(backendRepair.ok, true, 'A trusted runtime finding should produce one allowlisted candidate repair.');
+assert.equal(backendRepair.attempts, 1);
+assert.deepEqual(backendRepair.changedPaths, ['functions/api/catalog.js']);
+assert.match(backendRepairPrompt, /FAILED TEST EVIDENCE/);
+assert.equal(backendRepair.files['functions/api/catalog.js'].includes('items: []'), true);
+const unsafeBackendRepair = await performBackendRuntimeRepair({
+  caseId: 'nigeria-baby-products',
+  provider: 'cloudflare-workers-ai',
+  files: { '../secrets.js': 'export default 1;' },
+  findings: [{ code: 'BACKEND_CHECK_FAILED', file: '../secrets.js', message: 'unsafe path' }],
+}, { AI: { run: async () => ({}) } }, { callModel: async () => { throw new Error('must-not-call-model'); } });
+assert.equal(unsafeBackendRepair.ok, false, 'Backend repair must reject paths outside the exact generated function source allowlist.');
 
 const liveGenerationRoute = fs.readFileSync('functions/api/internal/live-generation-eval.js', 'utf8');
 const liveGenerationWorkflow = fs.readFileSync('.github/workflows/ovyx-webstudio-live-generation.yml', 'utf8');
@@ -70,6 +102,9 @@ assert.doesNotMatch(liveGenerationRoute, /Create exactly TWO linked pages for a 
 assert.match(liveGenerationRoute, /Do not present any sample merchandise as available for purchase/,
   'the two-page smoke prompt must not accidentally infer a third Products page from ordinary merchandise wording');
 assert.doesNotMatch(liveGenerationRoute, /Do not invent products as available for purchase/);
+assert.match(liveGenerationRoute, /operation === 'repair-backend'/);
+assert.match(liveGenerationRoute, /verifyGithubOidcToken\(match\[1\], options\)/);
+assert.match(liveGenerationRoute, /verificationRequired/);
 assert.ok(liveGenerationRoute.includes("payload?.profile === 'stage4-budgeted-smoke'"));
 assert.ok(liveGenerationRoute.includes("requestedProvider === 'cloudflare-workers-ai'"));
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_POLISH_ENABLED: isBudgetedStage4Smoke ? 'false'"));
