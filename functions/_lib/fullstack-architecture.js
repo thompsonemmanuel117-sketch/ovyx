@@ -61,6 +61,7 @@ function inferCapabilities(prompt, contract) {
     hasPositiveIntent(source, /\b(?:appointment|reservation|booking|schedule a|availability calendar)\b/i);
   const contact = signals.contactForm === true ||
     hasPositiveIntent(source, /\b(?:contact form|enquiry form|inquiry form|lead capture|send (?:us )?a message|contact submission)\b/i);
+  const forms = signals.forms === true || hasPositiveIntent(source, /\b(?:application forms?|registration forms?|feedback forms?|survey forms?|intake forms?|custom forms?|multi[- ]step forms?|form builder|form submissions?)\b/i);
   const newsletter = signals.newsletter === true ||
     hasPositiveIntent(source, /\b(?:newsletter|mailing list|email updates|subscribe for updates)\b/i);
   const email = signals.emailDelivery === true || newsletter ||
@@ -68,7 +69,7 @@ function inferCapabilities(prompt, contract) {
   const fileStorage = hasPositiveIntent(source, /\b(?:file uploads?|image uploads?|document uploads?|media library|file storage|user uploads?|user[- ]uploaded|uploaded by users|users?\s+to\s+upload)\b/i) ||
     hasPositiveIntent(source, /\b(?:upload|store)\b.{0,60}\b(?:files?|documents?|images?|media)\b/i) ||
     hasPositiveIntent(source, /\b(?:files?|documents?|images?|media)\b.{0,60}\b(?:upload|store)\b/i);
-  const persistentData = explicitFullStack || signals.backendData === true || commerce || booking || auth || contact || email || payment || fileStorage ||
+  const persistentData = explicitFullStack || signals.backendData === true || commerce || booking || auth || contact || forms || email || payment || fileStorage ||
     hasPositiveIntent(source, /\b(?:database|persistent data|save records|customer records|reporting dashboard)\b/i);
   const search = hasPositiveIntent(source, /\b(?:search|filter|sort|catalogue|catalog|directory|listing)\b/i);
   const backgroundWork = email || booking || payment ||
@@ -76,7 +77,7 @@ function inferCapabilities(prompt, contract) {
 
   return {
     frontend: true,
-    backend: explicitFullStack || contact || booking || payment || auth || persistentData || fileStorage || admin || backgroundWork,
+    backend: explicitFullStack || contact || forms || booking || payment || auth || persistentData || fileStorage || admin || backgroundWork,
     fullStackRequested: explicitFullStack,
     database: persistentData,
     authentication: auth,
@@ -84,6 +85,7 @@ function inferCapabilities(prompt, contract) {
     payments: payment,
     commerce,
     contact,
+    forms,
     email,
     newsletter,
     booking,
@@ -103,12 +105,19 @@ function buildDataModels(capabilities) {
       persistence: 'required-when-feature-is-enabled',
     });
   };
-  if (capabilities.authentication) push('UserAccount', 'Identity and account lifecycle; credentials remain with the configured auth provider.', ['id', 'providerSubject', 'email', 'emailNormalized', 'status'], 'identity');
+  if (capabilities.authentication) {
+    push('UserAccount', 'Identity and account lifecycle; credentials remain with the configured auth provider.', ['id', 'providerSubject', 'email', 'emailNormalized', 'status'], 'identity');
+    push('Session', 'Server-controlled session lifecycle with hashed opaque tokens, CSRF binding, expiry, rotation and revocation.', ['id', 'userId', 'tokenHash', 'csrfTokenHash', 'createdAt', 'expiresAt', 'rotatedFrom', 'revokedAt', 'lastSeenAt'], 'identity');
+  }
   if (capabilities.authorization) push('RoleAssignment', 'Server-enforced workspace, resource and action permissions.', ['id', 'principalId', 'role', 'scope', 'grantedAt'], 'authorization');
   if (capabilities.contact) push('ContactSubmission', 'Validated enquiry with an auditable delivery state.', ['id', 'name', 'replyTo', 'message', 'status', 'createdAt'], 'personal-data');
+  if (capabilities.forms) {
+    push('FormDefinition', 'Versioned server-owned form schema and retention policy.', ['id', 'slug', 'version', 'status', 'fieldSchema', 'submitPolicy', 'retentionPolicy']);
+    push('FormSubmission', 'Validated form response with schema version, idempotency and consent evidence.', ['id', 'formId', 'formVersion', 'ownerId', 'submitterRef', 'fieldValues', 'consentEvidence', 'idempotencyKey', 'status', 'createdAt'], 'personal-data');
+  }
   if (capabilities.booking) {
     push('BookableResource', 'A resource, service or staff calendar whose availability can be reserved.', ['id', 'name', 'timezone', 'capacity', 'status']);
-    push('Booking', 'Availability-backed reservation with timezone-aware start/end and explicit lifecycle.', ['id', 'resourceId', 'customerId', 'startsAt', 'endsAt', 'timezone', 'status'], 'personal-data');
+    push('Booking', 'Availability-backed reservation with timezone-aware start/end, atomic holds and idempotent lifecycle.', ['id', 'resourceId', 'customerId', 'startsAt', 'endsAt', 'timezone', 'status', 'idempotencyKey', 'holdExpiresAt', 'createdAt', 'updatedAt'], 'personal-data');
   }
   if (capabilities.commerce) {
     push('Product', 'Catalog item and purchasable offer; price and availability come from an authoritative source.', ['id', 'name', 'sku', 'priceAmount', 'currency', 'status']);
@@ -120,7 +129,7 @@ function buildDataModels(capabilities) {
   if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', 'billableReference', 'provider', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
   if (capabilities.email) push('DeliveryRecord', 'Outbox/delivery state with retry and provider receipt; not a claim of delivery.', ['id', 'recipientRef', 'sourceType', 'sourceId', 'templateKey', 'idempotencyKey', 'status', 'attemptCount', 'nextAttemptAt', 'providerReceipt'], 'personal-data');
   if (capabilities.newsletter) push('NewsletterSubscription', 'Permission-aware subscription state with consent evidence and secure unsubscribe lifecycle.', ['id', 'listId', 'userId', 'email', 'emailNormalized', 'status', 'consentAt', 'confirmationTokenHash', 'createdAt'], 'personal-data');
-  if (capabilities.fileStorage) push('StoredAsset', 'Owner-scoped metadata for uploaded objects stored outside public source control.', ['id', 'ownerId', 'storageKey', 'contentType', 'byteSize', 'checksum', 'createdAt'], 'private-file');
+  if (capabilities.fileStorage) push('StoredAsset', 'Owner-scoped metadata for quarantined objects with verified content, scan and publication lifecycle.', ['id', 'ownerId', 'storageKey', 'contentType', 'byteSize', 'checksum', 'uploadState', 'scanStatus', 'visibility', 'idempotencyKey', 'createdAt', 'updatedAt', 'deletedAt'], 'private-file');
   if (capabilities.admin) push('AuditEvent', 'Append-only record of sensitive administrative actions and actor/resource context.', ['id', 'actorId', 'action', 'resourceType', 'resourceId', 'createdAt'], 'security-audit');
   return models;
 }
@@ -139,6 +148,7 @@ function buildDataIntegrityContracts(capabilities) {
       optional,
     });
   };
+  if (capabilities.authentication) addRelation('Session', 'UserAccount', 'many-to-one', 'Every session belongs to one verified provider identity and can be revoked independently.', 'userId');
   if (capabilities.authentication && capabilities.authorization) addRelation('RoleAssignment', 'UserAccount', 'many-to-one', 'Every role grant belongs to a verified principal.', 'principalId');
   if (capabilities.booking) {
     addRelation('Booking', 'BookableResource', 'many-to-one', 'A booking reserves one resource or service.', 'resourceId');
@@ -157,6 +167,8 @@ function buildDataIntegrityContracts(capabilities) {
   if (capabilities.email && capabilities.contact) addRelation('DeliveryRecord', 'ContactSubmission', 'many-to-one', 'Contact delivery events retain a link to the original submission.', 'sourceId', false, 'polymorphic-reference');
   if (capabilities.newsletter && capabilities.email) addRelation('DeliveryRecord', 'NewsletterSubscription', 'many-to-one', 'Subscription confirmation and unsubscribe notices retain a link to subscription state.', 'sourceId', false, 'polymorphic-reference');
   if (capabilities.newsletter && capabilities.authentication) addRelation('NewsletterSubscription', 'UserAccount', 'many-to-one', 'Account linkage is optional; public subscriptions remain possible.', 'userId', true);
+  if (capabilities.forms) addRelation('FormSubmission', 'FormDefinition', 'many-to-one', 'Every submission is validated against the immutable form schema version it used.', 'formId');
+  if (capabilities.forms && capabilities.authentication) addRelation('FormSubmission', 'UserAccount', 'many-to-one', 'Authenticated submitter linkage is optional; public submissions remain possible.', 'submitterRef', true);
 
   const constraints = [
     { id: 'owner-scope-not-null', appliesTo: 'all owner-scoped entities', rule: 'Protected records must carry a server-derived owner or tenant scope; never accept it from an untrusted client.' },
@@ -169,10 +181,31 @@ function buildDataIntegrityContracts(capabilities) {
   if (capabilities.booking) constraints.push(
     { id: 'booking-no-overlap', appliesTo: 'Booking', rule: 'Prevent overlapping active reservations for the same resource using a transaction, exclusion constraint or provider lock.' },
     { id: 'booking-time-valid', appliesTo: 'Booking', rule: 'Require startsAt before endsAt; persist UTC instants and the user’s IANA timezone.' },
+    { id: 'booking-hold-expiry', appliesTo: 'Booking', rule: 'Every temporary hold has a bounded expiry; an expiry worker releases it idempotently and expired holds never appear as confirmed availability.' },
+    { id: 'booking-idempotency', appliesTo: 'Booking', rule: 'Scope a unique idempotency key to the customer or anonymous session and resource so retries cannot create duplicate reservations.' },
+    { id: 'booking-duration-policy', appliesTo: 'Booking', rule: 'Validate resource-specific duration, lead time, business hours, buffers and capacity on the server before acquiring a slot.' },
+    { id: 'booking-confirmation-authority', appliesTo: 'Booking', rule: 'A booking becomes confirmed only after the authoritative resource/provider confirms the reservation; pending holds remain visibly pending.' },
+  );
+  if (capabilities.fileStorage) constraints.push(
+    { id: 'asset-publication-gate', appliesTo: 'StoredAsset', rule: 'Only scanned, policy-approved assets may become available; quarantined, rejected and deleted objects must never be served by public routes.' },
+    { id: 'asset-content-integrity', appliesTo: 'StoredAsset', rule: 'Verify actual file signature, byte count and checksum server-side; client-declared MIME type and size are advisory only.' },
+    { id: 'asset-deletion-consistency', appliesTo: 'StoredAsset', rule: 'Delete or tombstone metadata and object storage through an idempotent cleanup workflow; never leave a public stale object reference.' },
   );
   if (capabilities.newsletter) constraints.push(
     { id: 'newsletter-consent-evidence', appliesTo: 'NewsletterSubscription', rule: 'Store consent source/time and confirmation status; do not activate a subscription before required confirmation.' },
     { id: 'newsletter-unsubscribe-effective', appliesTo: 'NewsletterSubscription', rule: 'Opt-out takes effect immediately and blocks future campaign delivery.' },
+  );
+
+  if (capabilities.forms) constraints.push(
+    { id: 'form-schema-versioned', appliesTo: 'FormSubmission', rule: 'Validate each submission against the active server-owned schema version.' },
+    { id: 'form-abuse-and-consent', appliesTo: 'FormSubmission', rule: 'Apply per-IP/per-form abuse controls, require applicable consent and never trust client owner or status fields.' },
+    { id: 'form-data-minimization', appliesTo: 'FormDefinition, FormSubmission', rule: 'Collect declared fields only, redact logs and enforce retention/deletion policy.' },
+  );
+
+  if (capabilities.authentication) constraints.push(
+    { id: 'session-token-hashing', appliesTo: 'Session', rule: 'Store only cryptographic hashes of opaque session and CSRF tokens; never persist raw bearer tokens.' },
+    { id: 'session-expiry-and-revocation', appliesTo: 'Session', rule: 'Enforce absolute and idle expiry, rotate tokens on sensitive transitions, revoke on logout/password or identity-provider events, and reject revoked sessions immediately.' },
+    { id: 'session-csrf-binding', appliesTo: 'Session', rule: 'Bind CSRF tokens to the authenticated session and require origin/CSRF validation for cookie-authenticated state-changing requests.' },
   );
 
   const indexes = [];
@@ -180,11 +213,16 @@ function buildDataIntegrityContracts(capabilities) {
   if (capabilities.authentication) {
     addIndex('UserAccount', ['providerSubject'], true, 'Resolve a verified identity uniquely.');
     addIndex('UserAccount', ['emailNormalized'], true, 'Prevent account identity ambiguity where the identity provider requires unique email.');
+    addIndex('Session', ['tokenHash'], true, 'Resolve opaque session cookies without storing raw bearer tokens.');
+    addIndex('Session', ['userId', 'expiresAt'], false, 'List and expire a user’s active sessions efficiently.');
+    addIndex('Session', ['revokedAt', 'expiresAt'], false, 'Find expired or revoked sessions for bounded cleanup.');
   }
   if (capabilities.authorization) addIndex('RoleAssignment', ['principalId', 'role', 'scope'], true, 'Prevent duplicate role grants.');
   if (capabilities.booking) {
-    addIndex('Booking', ['resourceId', 'startsAt', 'status'], false, 'Bound availability and conflict queries.');
+    addIndex('Booking', ['resourceId', 'startsAt', 'endsAt', 'status'], false, 'Find candidate overlapping reservations for an atomic conflict check.');
     addIndex('Booking', ['customerId', 'startsAt'], false, 'List a customer’s upcoming bookings.');
+    addIndex('Booking', ['resourceId', 'customerId', 'idempotencyKey'], true, 'Make reservation retries idempotent within a resource and customer/session scope.');
+    addIndex('Booking', ['status', 'holdExpiresAt'], false, 'Find expired temporary holds for safe release.');
   }
   if (capabilities.commerce) {
     addIndex('Product', ['sku'], true, 'Enforce unique catalog SKU within the configured catalog scope.');
@@ -195,7 +233,16 @@ function buildDataIntegrityContracts(capabilities) {
   if (capabilities.payments) addIndex('PaymentAttempt', ['provider', 'providerReference'], true, 'Prevent duplicate provider payment references.');
   if (capabilities.email) addIndex('DeliveryRecord', ['status', 'nextAttemptAt'], false, 'Find due outbox deliveries without scanning all records.');
   if (capabilities.newsletter) addIndex('NewsletterSubscription', ['listId', 'emailNormalized'], true, 'Prevent duplicate subscriptions to one list.');
+  if (capabilities.forms) {
+    addIndex('FormSubmission', ['formId', 'createdAt'], false, 'Paginate submissions for one form.');
+    addIndex('FormSubmission', ['formId', 'idempotencyKey'], true, 'Prevent duplicate submission side effects for one form request.');
+  }
   if (capabilities.fileStorage) addIndex('StoredAsset', ['storageKey'], true, 'Prevent storage object-key collisions.');
+  if (capabilities.fileStorage) {
+    addIndex('StoredAsset', ['ownerId', 'createdAt'], false, 'List a verified owner’s assets with bounded pagination.');
+    addIndex('StoredAsset', ['uploadState', 'scanStatus', 'createdAt'], false, 'Find quarantined assets awaiting inspection or cleanup.');
+    addIndex('StoredAsset', ['ownerId', 'idempotencyKey'], true, 'Prevent duplicate asset ingestion on retried upload intents.');
+  }
   if (capabilities.admin) addIndex('AuditEvent', ['resourceType', 'resourceId', 'createdAt'], false, 'Review sensitive activity for a resource.');
   return { relationships, constraints, indexes };
 }
@@ -212,20 +259,29 @@ function buildApiContracts(capabilities) {
   });
 
   if (capabilities.contact) add('POST', '/api/contact-submissions', 'contact', 'public-with-abuse-controls', 'Validate and persist a contact request with an explicit receipt state; delivery is only claimed when the requested email adapter is verified.', ['model-contactsubmission'], { sideEffect: capabilities.email ? 'enqueue-delivery-after-commit' : 'persist-submission-without-claiming-delivery' });
+  if (capabilities.forms) {
+    add('GET', '/api/forms/:formId', 'forms', 'public-read-of-published-schema', 'Return only the published versioned schema and public metadata.', ['model-formdefinition']);
+    add('POST', '/api/forms/:formId/submissions', 'forms', 'public-with-abuse-controls-and-schema-validation', 'Validate allowlisted fields against the server schema, enforce consent and rate limits, derive ownership from verified identity and persist idempotently.', ['model-formdefinition', 'model-formsubmission'], { sideEffect: capabilities.email ? 'persist-then-enqueue-notification' : 'persist-validated-submission' });
+    if (capabilities.admin) add('GET', '/api/admin/forms/:formId/submissions', 'forms', 'administrator-role-and-form-scope', 'List authorized submissions with bounded pagination, field redaction and audit logging.', ['model-formsubmission']);
+  }
   if (capabilities.newsletter) {
     add('POST', '/api/newsletter/subscriptions', 'newsletter', 'public-with-abuse-controls-and-consent', 'Create a pending subscription and issue an owner-configured confirmation message; never assume consent before confirmation.', ['model-newslettersubscription'], { sideEffect: 'double-opt-in-outbox' });
     add('POST', '/api/newsletter/unsubscribe', 'newsletter', 'signed-unsubscribe-token', 'Verify a scoped, expiring unsubscribe token and record the opt-out.', ['model-newslettersubscription']);
   }
   if (capabilities.booking) {
     add('GET', '/api/availability', 'booking', 'public-read-with-rate-limit', 'Return current authoritative availability for a requested resource and time window.', ['model-booking'], { cachePolicy: 'short-lived-only-if-provider-allows' });
+    add('GET', '/api/bookings', 'booking', capabilities.authentication ? 'authenticated-owner-or-authorized-staff' : 'signed-scoped-booking-management-token', 'List only bookings visible to the verified customer or authorized staff member with bounded cursor pagination and redacted personal data.', ['model-booking']);
     add('POST', '/api/bookings', 'booking', 'public-with-abuse-controls', 'Recheck availability and atomically create a booking; never trust client availability.', ['model-booking'], { sideEffect: 'reserve-resource-with-conflict-check' });
-    add('POST', '/api/bookings/:bookingId/cancel', 'booking', 'owner-or-authorized-staff', 'Cancel an owned booking subject to provider and lifecycle rules.', ['model-booking']);
+    add('POST', '/api/bookings/:bookingId/cancel', 'booking', capabilities.authentication ? 'owner-or-authorized-staff' : 'signed-scoped-booking-management-token', 'Cancel an owned booking subject to provider and lifecycle rules; enforce a replay-safe idempotency key and release the slot only after the authoritative cancellation succeeds.', ['model-booking'], { sideEffect: 'idempotent-provider-cancellation-and-slot-release' });
+    add('PATCH', '/api/bookings/:bookingId/reschedule', 'booking', capabilities.authentication ? 'owner-or-authorized-staff' : 'signed-scoped-booking-management-token', 'Recheck availability and atomically acquire the new slot before releasing the old slot; preserve the existing booking if the move conflicts.', ['model-booking'], { sideEffect: 'atomic-reschedule-with-compensation' });
   }
   if (capabilities.authentication) {
-    add('POST', '/api/auth/session', 'authentication', 'public-with-credential-provider', 'Create a session only after provider-backed identity verification.', ['model-useraccount'], { sideEffect: 'rotate-session-and-csrf-state' });
+    add('POST', '/api/auth/registration', 'authentication', 'public-with-credential-provider-and-abuse-controls', 'Create an identity only through the configured authentication provider, enforce registration policy and consent, and require provider email verification before granting protected access.', ['model-useraccount'], { sideEffect: 'provider-managed-registration-and-verification' });
+    add('POST', '/api/auth/recovery', 'authentication', 'public-with-credential-provider-and-abuse-controls', 'Start provider-managed account recovery with uniform responses that do not reveal whether an account exists.', ['model-useraccount'], { sideEffect: 'provider-managed-recovery-with-enumeration-resistance' });
+    add('POST', '/api/auth/session', 'authentication', 'public-with-credential-provider', 'Create a session only after provider-backed identity verification; persist only hashed opaque session/CSRF tokens and revoke any rotated predecessor.', ['model-useraccount', 'model-session'], { sideEffect: 'rotate-session-and-csrf-state' });
     add('GET', '/api/account/profile', 'authentication', 'authenticated', 'Read the current verified principal profile; derive identity from the session, never a client UID.', ['model-useraccount']);
     add('PATCH', '/api/account/profile', 'authentication', 'authenticated-owner-only', 'Update only allowlisted profile fields for the current authenticated principal.', ['model-useraccount']);
-    add('DELETE', '/api/auth/session', 'authentication', 'authenticated', 'Revoke the current session and clear session cookies.', ['model-useraccount']);
+    add('DELETE', '/api/auth/session', 'authentication', 'authenticated', 'Revoke the current session and clear session cookies.', ['model-useraccount', 'model-session']);
   }
   if (capabilities.commerce) {
     add('GET', '/api/products', 'commerce', 'public-read', 'Read catalog items from the configured authoritative source.', ['model-product'], { cachePolicy: 'source-aware' });
@@ -242,6 +298,7 @@ function buildApiContracts(capabilities) {
     add('POST', '/api/webhooks/payments', 'payments', 'provider-signature-and-replay-protected', 'Verify webhook signature, timestamp and event identity before idempotent reconciliation.', ['model-paymentattempt', ...(capabilities.commerce ? ['model-order'] : [])], { sideEffect: 'idempotent-payment-reconciliation', csrf: 'provider signature required' });
   }
   if (capabilities.fileStorage) {
+    add('GET', '/api/assets', 'storage', capabilities.authentication ? 'authenticated-owner-scoped' : 'signed-scoped-upload-session', 'List only the current owner’s assets with bounded pagination and exclude quarantined or rejected objects from public results.', ['model-storedasset']);
     add('POST', '/api/assets', 'storage',
       capabilities.authentication ? 'authenticated-owner-scoped' : 'public-with-abuse-controls-and-quarantine',
       'Authorize upload intent, enforce MIME/size/quota, and keep unauthenticated uploads quarantined until an explicit owner/publication policy allows access.',
@@ -250,6 +307,7 @@ function buildApiContracts(capabilities) {
       capabilities.authentication ? 'authenticated-owner-or-explicit-public-policy' : 'public-only-for-explicitly-published-assets',
       'Resolve an asset only after ownership/publication checks; never expose quarantined or private objects by identifier alone.',
       ['model-storedasset']);
+    add('DELETE', '/api/assets/:assetId', 'storage', capabilities.authentication ? 'authenticated-owner-only' : 'signed-scoped-upload-session', 'Tombstone the owner-authorized asset and enqueue idempotent object deletion; never trust a client storage key.', ['model-storedasset'], { sideEffect: 'idempotent-object-cleanup' });
   }
   if (capabilities.admin) add('GET', '/api/admin/audit-events', 'administration', 'administrator-role-and-resource-scope', 'Read authorized audit history with pagination and sensitive-field redaction.', ['model-auditevent']);
   return routes;
@@ -312,6 +370,7 @@ function buildSecurityArchitecture(capabilities) {
   if (capabilities.authorization) controls.push(['object-level-authorization', 'Check resource ownership and scope on every read/write; role labels alone never grant cross-tenant access.']);
   if (capabilities.payments) controls.push(['payment-integrity', 'Recompute amounts server-side; verify signatures, replay windows and provider references; reconcile idempotently before fulfillment.']);
   if (capabilities.booking) controls.push(['booking-integrity', 'Recheck authoritative availability at commit time and prevent overlapping reservations transactionally or through provider locking.']);
+  if (capabilities.forms) controls.push(['form-submission-integrity', 'Use versioned server-owned schemas, abuse throttles, idempotency, applicable consent, personal-data redaction and retention/deletion controls.']);
   if (capabilities.fileStorage) controls.push(['upload-isolation', 'Validate MIME by content, enforce per-file/project limits, randomize storage keys and scan files before public distribution.']);
   return controls.map(([id, requirement]) => ({ id, requirement, mandatory: true, status: 'acceptance-required' }));
 }
@@ -328,6 +387,7 @@ function buildTestPlan(capabilities) {
     { id: 'deployment-smoke', type: 'deployment', scope: 'deployed project', assertion: 'Production build, health endpoints, routes, assets, secrets and critical journeys work in target environment.' },
   ];
   if (capabilities.payments) tests.push({ id: 'payment-sandbox', type: 'external-sandbox', scope: 'payments', assertion: 'Sandbox checkout, signature verification, webhook replay, reconciliation and fulfillment pass without real charges.', requiresExplicitOwnerApproval: true });
+  if (capabilities.forms) tests.push({ id: 'form-schema-validation', type: 'contract-and-security', scope: 'forms', assertion: 'Unknown fields, stale schemas, missing required values, forged owner/status fields, duplicate requests and abuse thresholds are handled safely.' });
   if (capabilities.email) tests.push({ id: 'delivery-receipt', type: 'external-sandbox', scope: 'email', assertion: 'Controlled QA message is accepted and provider delivery receipt is reconciled.', requiresExplicitOwnerApproval: true });
   if (capabilities.booking) tests.push({ id: 'booking-conflicts', type: 'integration', scope: 'booking', assertion: 'Concurrent reservations cannot claim the same unavailable slot.' });
   return tests.map(test => ({ ...test, status: 'planned-not-executed', evidence: null }));
@@ -382,16 +442,29 @@ function buildWorkflowStateMachines(capabilities) {
   );
   if (capabilities.booking) add(
     'Booking lifecycle', 'Booking', 'requested',
-    ['requested', 'pending_confirmation', 'confirmed', 'rejected', 'completed', 'cancelled', 'no_show'],
+    ['requested', 'pending_confirmation', 'confirmed', 'rejected', 'completed', 'cancelled', 'no_show', 'expired'],
     [
       ['requested', 'pending_confirmation', 'server availability recheck and atomic hold', 'hold-resource-slot'],
       ['pending_confirmation', 'confirmed', 'authoritative provider or owner confirmation', 'confirm-resource-slot'],
       ['pending_confirmation', 'rejected', 'availability conflict or provider rejection', 'release-resource-slot'],
+      ['pending_confirmation', 'expired', 'hold expiry worker after authoritative time check', 'release-expired-resource-slot'],
       ['confirmed', 'completed', 'verified service completion', 'close-booking'],
       ['confirmed', 'cancelled', 'authorized cancellation under policy', 'release-resource-slot'],
       ['confirmed', 'no_show', 'authorized staff action after scheduled time', 'record-no-show'],
     ],
     'No two active bookings may occupy the same exclusive resource/time slot; never show confirmed before the authoritative reservation succeeds.'
+  );
+  if (capabilities.forms) add(
+    'Form submission lifecycle', 'FormSubmission', 'received',
+    ['received', 'accepted', 'quarantined', 'rejected', 'archived'],
+    [
+      ['received', 'accepted', 'server schema, consent and abuse checks pass', 'persist-validated-submission'],
+      ['received', 'quarantined', 'abuse or moderation policy requires review', 'quarantine-submission'],
+      ['received', 'rejected', 'schema validation or consent requirements fail', 'record-safe-validation-failure'],
+      ['quarantined', 'accepted', 'authorized owner/staff moderation decision', 'audit-moderation-decision'],
+      ['accepted', 'archived', 'retention policy or authorized archive action', 'apply-retention-policy'],
+    ],
+    'Only allowlisted fields from the active server-owned schema may be stored; rejected or quarantined submissions never trigger business side effects.'
   );
   if (capabilities.contact) add(
     'Contact submission delivery', 'ContactSubmission', 'received',
@@ -426,7 +499,7 @@ function buildWorkflowStateMachines(capabilities) {
       ['quarantined', 'rejected', 'content inspection, malware or policy checks fail', 'delete-or-isolate-object'],
       ['available', 'deleted', 'owner-authorized deletion and retention policy', 'delete-object-and-metadata'],
     ],
-    'Do not expose a file before content, size, ownership and publication-policy checks pass.'
+    'Do not expose a file before content, size, ownership and publication-policy checks pass. Every upload intent is idempotent; verify content signature, exact byte count and checksum, scan or inspect before publication, serve through an owner/publication authorization check, and clean up abandoned multipart uploads and deleted objects.'
   );
   if (capabilities.email && !capabilities.contact) add(
     'Provider delivery lifecycle', 'DeliveryRecord', 'queued',
@@ -532,6 +605,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   for (const page of pageEntries) addEdge(edges, page.id, navigationId, 'uses');
   const featureComponents = {};
   if (capabilities.contact) featureComponents.contact = addComponent('Contact form', 'Validated fields, consent/error/success states and honest submission status.');
+  if (capabilities.forms) featureComponents.forms = addComponent('Dynamic form experience', 'Versioned schema-driven fields, server validation, consent evidence, abuse protection and explicit submission states.');
   if (capabilities.newsletter) featureComponents.newsletter = addComponent('Newsletter signup', 'Consent-aware double opt-in, confirmation, unsubscribe and delivery status.');
   if (capabilities.booking) featureComponents.booking = addComponent('Booking experience', 'Timezone-aware selection, authoritative availability and explicit pending/confirmed states.');
   if (capabilities.commerce) featureComponents.commerce = addComponent('Commerce experience', 'Catalog, cart and checkout using server-calculated prices.');
@@ -568,7 +642,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     const databaseIntegration = integrationIds.find(id => id === 'integration-database');
     if (databaseIntegration && route.modelIds.length) addEdge(edges, route.id, databaseIntegration, 'persists-through-server-adapter');
     if (capabilities.email && (
-      ['contact', 'newsletter'].includes(route.capability) ||
+      ['contact', 'forms', 'newsletter'].includes(route.capability) ||
       route.sideEffect === 'idempotent-payment-reconciliation' ||
       route.sideEffect === 'order-intent-only'
     )) {
@@ -580,6 +654,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     const title = page.title;
     const pageCapabilityMatchers = {
       contact: /contact|enquir|inquir/i,
+      forms: /form|application|registration|feedback|survey|intake/i,
       newsletter: /newsletter|subscribe|updates/i,
       booking: /book|reserv|appointment/i,
       commerce: /shop|product|catalog|cart|checkout|order/i,
@@ -610,7 +685,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   if (capabilities.backgroundWork) {
     const queueId = addNode(nodes, { id: 'background-outbox', type: 'background-workflow', name: 'Reliable background outbox', status: 'implementation-required', purpose: 'Process delivery and async work with bounded retries, dead-letter visibility and idempotency.' });
     addEdge(edges, projectId, queueId, 'runs-background-work');
-    for (const route of apiContracts.filter(item => ['contact', 'newsletter', 'payments', 'booking'].includes(item.capability))) addEdge(edges, route.id, queueId, 'enqueues-after-commit');
+    for (const route of apiContracts.filter(item => ['contact', 'forms', 'newsletter', 'payments', 'booking'].includes(item.capability))) addEdge(edges, route.id, queueId, 'enqueues-after-commit');
   }
   const workflowNodeIds = [];
   for (const machine of stateMachines) {
@@ -627,6 +702,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
       if (machine.entity === 'PaymentAttempt') return route.capability === 'payments';
       if (machine.entity === 'Booking') return route.capability === 'booking';
       if (machine.entity === 'ContactSubmission') return route.capability === 'contact';
+      if (machine.entity === 'FormSubmission') return route.capability === 'forms';
       if (machine.entity === 'NewsletterSubscription') return route.capability === 'newsletter';
       if (machine.entity === 'StoredAsset') return route.capability === 'storage';
       if (machine.entity === 'DeliveryRecord') return route.capability === 'email';
@@ -653,8 +729,8 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
       nodes.filter(item => item.type === 'data-model' && /booking/i.test(item.name)).forEach(item => addTarget(item.id));
     }
     if (/\b(?:contact|enquiry|inquiry|form|newsletter|email|notification)\b/i.test(text)) {
-      apiContracts.filter(item => ['contact', 'email'].includes(item.capability)).forEach(item => addTarget(item.id));
-      nodes.filter(item => item.type === 'data-model' && /contact|delivery/i.test(item.name)).forEach(item => addTarget(item.id));
+      apiContracts.filter(item => ['contact', 'forms', 'email'].includes(item.capability)).forEach(item => addTarget(item.id));
+      nodes.filter(item => item.type === 'data-model' && /contact|form|delivery/i.test(item.name)).forEach(item => addTarget(item.id));
     }
     if (/\b(?:upload|asset|file|image|media)\b/i.test(text)) {
       apiContracts.filter(item => item.capability === 'storage').forEach(item => addTarget(item.id));

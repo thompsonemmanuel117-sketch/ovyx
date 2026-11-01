@@ -36,6 +36,7 @@ function connectedFor(context, kind) {
     auth: /firebase|supabase|auth|identity|clerk|auth0/i,
     database: /firebase|supabase|database|firestore|d1|postgres|mysql/i,
     booking: /booking|reservation|calendar|scheduling/i,
+    storage: /storage|cloudflare\s*r2|firebase\s*storage|s3|supabase\s*storage/i,
   };
   return flatten(roots).some(item => {
     if (!item || typeof item !== 'object') return false;
@@ -46,14 +47,14 @@ function connectedFor(context, kind) {
   });
 }
 
-function integrationRequirements(contract, context) {
-  const signals = contract.contactSignals || {};
+function integrationRequirements(contract, context, capabilities = {}) {
   const requested = [
-    ['payments', signals.payments],
-    ['email', signals.emailDelivery || signals.contactForm || signals.newsletter],
-    ['auth', signals.authentication],
-    ['database', signals.backendData],
-    ['booking', signals.bookings],
+    ['payments', capabilities.payments],
+    ['email', capabilities.email],
+    ['auth', capabilities.authentication],
+    ['database', capabilities.database],
+    ['booking', capabilities.booking],
+    ['storage', capabilities.fileStorage],
   ];
   return requested.filter(([, needed]) => needed).map(([kind]) => ({
     capability: kind,
@@ -111,12 +112,15 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
     /\b(?:multi[- ]?page|multiple pages|several pages|\d+ pages)\b/i.test(brief);
   const signals = promptContract.contactSignals || {};
   const workflowCapabilities = [
-    ['forms', signals.contactForm || signals.emailDelivery],
-    ['booking', signals.bookings],
-    ['commerce', signals.shoppingCart || signals.addToCart || signals.payments],
-    ['authentication', signals.authentication],
-    ['persistent-data', signals.backendData],
-    ['newsletter', signals.newsletter],
+    ['forms', fullStackArchitecture.capabilities.forms || fullStackArchitecture.capabilities.contact],
+    ['booking', fullStackArchitecture.capabilities.booking],
+    ['file-storage', fullStackArchitecture.capabilities.fileStorage],
+    ['commerce', fullStackArchitecture.capabilities.commerce],
+    ['authentication', fullStackArchitecture.capabilities.authentication],
+    ['persistent-data', fullStackArchitecture.capabilities.database],
+    ['newsletter', fullStackArchitecture.capabilities.newsletter],
+    ['email-delivery', fullStackArchitecture.capabilities.email],
+    ['payments', fullStackArchitecture.capabilities.payments],
   ].filter(([, needed]) => needed).map(([name]) => name);
 
   return {
@@ -166,7 +170,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
       interactionConcepts: experience.architecture?.interactionConcepts || [],
       motionChoreography: experience.architecture?.motionChoreography || [],
     },
-    integrations: integrationRequirements(promptContract, safeContext),
+    integrations: integrationRequirements(promptContract, safeContext, fullStackArchitecture.capabilities),
     fullStackArchitecture,
     requirementIntelligence,
     fileArchitecture,
@@ -787,6 +791,11 @@ function buildBackendSourcePrompt(architecture, originalPrompt, existingPaths, f
     'Use prepared database statements, strict server-side validation, safe error envelopes, size limits, owner scoping, deny-by-default authorization, idempotency and transactional business-state changes. Missing DB/auth bindings must fail explicitly; never simulate persistence or success.',
     'Generate provider-appropriate schemas, migrations, relationships, constraints and indexes for every model. Use SQL CREATE TABLE/foreign keys plus a versioned migrations/0001_initial.sql for relational databases; for Firebase Firestore emit db/firestore-schema.js and db/firestore.indexes.json with explicit collection/document validators, reference fields and required composite-index declarations. Keep money in integer minor units with ISO currency and timestamps in UTC with IANA timezone context.',
     'Generate protected identity/authorization middleware and negative permission tests when requested. Payment webhooks require signature and replay verification; booking commits must recheck availability; external email requires an outbox and verified receipt.',
+    'For uploaded assets, implement provider-native private object storage with short-lived signed upload/download URLs where supported. Generate opaque owner-scoped object keys; enforce per-file and per-project quotas, allowlisted MIME types, actual content/signature checks, byte limits and checksum verification. Persist metadata only after upload verification, keep private/quarantined objects inaccessible by default, and never trust browser-supplied owner IDs, paths, MIME claims or public URLs.',
+    'For forms, load the active server-owned schema version, reject unknown fields, validate each field type/length/format and required consent, enforce abuse throttles and idempotency, derive submitter ownership from verified identity, and redact personal data from logs.',
+    'For bookings, require a valid IANA timezone and parse explicit local time into UTC instants. Recheck the slot inside the reservation transaction or provider lock, prevent overlapping active reservations under concurrency, and make confirmation/cancellation transitions idempotent.',
+    'For authentication, use the selected identity provider rather than custom password storage. Verify issuer/audience/expiry, rotate and revoke sessions, use secure HttpOnly SameSite cookies and CSRF protection for cookie-authenticated mutations, and enforce resource-level authorization on every protected operation.',
+    'For payments and external services, calculate billable amounts on the server, verify provider signatures and event replay windows, reconcile provider receipts before fulfillment, use a transactional outbox for notifications, and bound provider timeouts/retries without duplicating side effects.',
     'Never include secrets, .env files, credentials, private keys, real customer data or invented production prices/availability. Do not execute migrations or contact real providers.',
     'Only output backend, schema, migration, server-service and test files. Do not overwrite frontend pages, styles, browser scripts, package manifests or unrelated files.',
     'Existing project paths: ' + existingPaths.join(', '),

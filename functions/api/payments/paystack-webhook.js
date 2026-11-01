@@ -1,6 +1,6 @@
 'use strict';
 
-const { createHash } = require('node:crypto');
+const { timingSafeEqual } = require('node:crypto');
 const { hmacSha512, verifyPayment } = require('../_lib/payments/paystack.js');
 const { claimIdempotencyKey, completeIdempotencyKey } = require('../_lib/payments/idempotency.js');
 const { internationalProduct } = require('../_lib/payments/catalog.js');
@@ -82,9 +82,9 @@ async function onRequest(context){
   if(!signature)return json({ok:false,error:'Paystack signature is required.'},401);
   const expected=await hmacSha512(raw,secret);
   if(!/^[a-f0-9]{128}$/.test(signature))return json({ok:false,error:'Invalid Paystack webhook signature.'},401);
-  const actualDigest=createHash('sha256').update(signature).digest('hex');
-  const expectedDigest=createHash('sha256').update(expected).digest('hex');
-  if(actualDigest!==expectedDigest)return json({ok:false,error:'Invalid Paystack webhook signature.'},401);
+  const actualBytes=Buffer.from(signature,'hex');
+  const expectedBytes=Buffer.from(expected,'hex');
+  if(actualBytes.length!==expectedBytes.length||!timingSafeEqual(actualBytes,expectedBytes))return json({ok:false,error:'Invalid Paystack webhook signature.'},401);
 
   let body;try{body=JSON.parse(raw)}catch{return json({ok:false,error:'Invalid webhook JSON.'},400);}
   if(text(body?.event)!=='charge.success')return json({ok:true,ignored:true,event:text(body?.event,80)},200);
@@ -109,12 +109,12 @@ async function onRequest(context){
   const verifiedEmail=text(record.email,320).toLowerCase();
   if(!verifiedEmail)return json({ok:false,error:'Payment order has no verified account email.'},409);
 
+  if(record.fulfillmentStatus==='fulfilled')return json({ok:true,alreadyFulfilled:true},200);
+
   const eventKey=`paystack:${reference}:${text(transaction.id,160)||'charge-success'}`;
   const claim=await claimIdempotencyKey(context.env,eventKey,{uid:record.uid,operation:'payment.webhook.paystack',requestId:text(context.request.headers.get('CF-Ray'),160)||reference});
   if(claim?.replay===true)return json({ok:true,alreadyFulfilled:true},200);
   if(claim?.inProgress===true)return json({ok:true,alreadyProcessing:true},200);
-
-  if(record.fulfillmentStatus==='fulfilled')return json({ok:true,alreadyFulfilled:true},200);
 
   const userQuery=await (await import('../_lib/firebase-query.js')).findUserByExactEmail(context.env,verifiedEmail);
   if(text(userQuery?.data?.email).toLowerCase()!==verifiedEmail)return json({ok:false,error:'Verified account email mismatch.'},409);

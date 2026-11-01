@@ -1,6 +1,6 @@
 'use strict';
 
-const { createHmac } = require('node:crypto');
+const { createHmac, timingSafeEqual } = require('node:crypto');
 const { getFirestoreDocument, getFirestoreData, setFirestoreDocumentIfCurrent } = require('../../_lib/firebase-admin.js');
 const { findUserByExactEmail } = require('../_lib/firebase-query.js');
 const { queryCashierPayment } = require('../_lib/payments/opay-cashier.js');
@@ -12,9 +12,11 @@ function callbackString(p){
   return `{Amount:"${clean(p.amount)}",Currency:"${clean(p.currency)}",Reference:"${clean(p.reference)}",Refunded:${p.refunded?'t':'f'},Status:"${clean(p.status)}",Timestamp:"${clean(p.timestamp)}",Token:"${clean(p.token||'')}",TransactionID:"${clean(p.transactionId)}"}`;
 }
 function validSignature(payload,secret){
-  const expected=createHmac('sha3-512',secret).update(callbackString(payload),'utf8').digest('hex');
   const actual=clean(payload?.sha512).toLowerCase();
-  return actual.length===expected.length&&createHmac('sha256',actual).digest('hex')===createHmac('sha256',expected).digest('hex');
+  if(!/^[a-f0-9]{128}$/.test(actual))return false;
+  const expected=createHmac('sha3-512',secret).update(callbackString(payload),'utf8').digest();
+  const supplied=Buffer.from(actual,'hex');
+  return supplied.length===expected.length&&timingSafeEqual(supplied,expected);
 }
 function response(body,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});}
 async function fulfill(env,record,user,product,provider){
@@ -72,6 +74,9 @@ async function onRequest(context){
   if(clean(provider.reference)!==reference||clean(provider.status).toUpperCase()!=='SUCCESS')return response({ok:false,error:'Provider verification did not match the callback.'},409);
   const paymentDoc=await getFirestoreDocument(context.env,'payment_orders',reference);if(!paymentDoc)return response({ok:false,error:'Payment reference is not a known OVYX order.'},404);
   const record=await getFirestoreData(context.env,'payment_orders',reference)||{};
+  if(record.fulfillmentStatus==='fulfilled')return response({ok:true,alreadyFulfilled:true},200);
+  const processingStartedAt=Date.parse(String(record.processingStartedAt||''));
+  if(record.fulfillmentStatus==='processing'&&Number.isFinite(processingStartedAt)&&Date.now()-processingStartedAt<5*60*1000)return response({ok:true,alreadyProcessing:true},200);
   const expectedMinor=Number(record.minorUnitAmount)||Math.round(Number(record.amount)*100);
   if(clean(record.provider)!=='opay'||String(record.currency||'').toUpperCase()!=='NGN'||!Number.isSafeInteger(expectedMinor)||expectedMinor<=0||
     Number(provider.amount?.total)!==expectedMinor||Number(payload.amount)!==expectedMinor||
@@ -83,7 +88,6 @@ async function onRequest(context){
   const claim=await setFirestoreDocumentIfCurrent(context.env,'payment_orders',reference,{fulfillmentStatus:'processing',processingStartedAt:new Date().toISOString()},paymentDoc.updateTime).catch(e=>e);
   if(claim?.status===409||claim?.code==='FIRESTORE_PRECONDITION_FAILED')return response({ok:true,alreadyProcessing:true},200);
   if(claim instanceof Error)throw claim;
-  if(record.fulfillmentStatus==='fulfilled')return response({ok:true,alreadyFulfilled:true},200);
   const email=verifiedEmail;
   const user=await findUserByExactEmail(context.env,email);
   if(clean(user.data.email).toLowerCase()!==email)return response({ok:false,error:'Verified Firestore email mismatch.'},409);

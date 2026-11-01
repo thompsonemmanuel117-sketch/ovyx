@@ -37,6 +37,21 @@ assert.equal(architecture.capabilities.frontend, true);
 assert.equal(architecture.capabilities.backend, true);
 assert.equal(architecture.capabilities.database, true);
 assert.equal(architecture.capabilities.authentication, true);
+const sessionModel = architecture.dataModels.find(model => model.name === 'Session');
+assert.ok(sessionModel, 'Provider-backed authentication must include a persisted server session model.');
+assert.ok(sessionModel.fields.includes('tokenHash'));
+assert.ok(sessionModel.fields.includes('csrfTokenHash'));
+assert.ok(sessionModel.fields.includes('expiresAt'));
+assert.ok(architecture.dataIntegrity.relationships.some(item => item.from === 'model-session' && item.to === 'model-useraccount'));
+assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'session-token-hashing'));
+assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'session-expiry-and-revocation'));
+assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'session-csrf-binding'));
+assert.ok(architecture.dataIntegrity.indexes.some(item => item.entity === 'Session' && item.unique && item.fields.includes('tokenHash')));
+assert.ok(architecture.apiContracts.some(route => route.path === '/api/auth/session' && route.modelIds.includes('model-session')));
+assert.ok(architecture.apiContracts.some(route => route.path === '/api/auth/registration' && route.authPolicy.includes('credential-provider')));
+assert.ok(architecture.apiContracts.some(route => route.path === '/api/auth/recovery' && /do not reveal whether an account exists/i.test(route.purpose)));
+
+
 assert.equal(architecture.capabilities.authorization, true);
 assert.equal(architecture.capabilities.payments, true);
 assert.equal(architecture.capabilities.commerce, true);
@@ -50,6 +65,36 @@ assert.equal(emailOnlyArchitecture.capabilities.email, true, 'Order confirmation
 const uploadBrief = 'Allow users to upload and securely store product documents.';
 const uploadArchitecture = buildFullStackArchitecture(uploadBrief, buildPromptContract(uploadBrief), {}, []);
 assert.equal(uploadArchitecture.capabilities.fileStorage, true, 'User-uploaded documents must be recognized as a storage requirement.');
+const storedAssetModel = uploadArchitecture.dataModels.find(model => model.name === 'StoredAsset');
+assert.ok(storedAssetModel.fields.includes('scanStatus'));
+assert.ok(storedAssetModel.fields.includes('idempotencyKey'));
+assert.ok(uploadArchitecture.dataIntegrity.constraints.some(item => item.id === 'asset-publication-gate'));
+assert.ok(uploadArchitecture.apiContracts.some(route => route.method === 'GET' && route.path === '/api/assets'));
+assert.ok(uploadArchitecture.apiContracts.some(route => route.method === 'DELETE' && route.path === '/api/assets/:assetId' && /idempotent/i.test(route.purpose)));
+
+assert.ok(uploadArchitecture.dataIntegrity.constraints.some(item => item.id === 'asset-content-integrity'));
+assert.ok(uploadArchitecture.dataIntegrity.indexes.some(item => item.entity === 'StoredAsset' && item.fields.includes('ownerId')));
+assert.ok(uploadArchitecture.stateMachines.some(machine =>
+  machine.entity === 'StoredAsset' && machine.states.includes('quarantined') && machine.states.includes('rejected')
+));
+
+const bookingBrief = 'Build a full-stack appointment booking platform with staff calendars, customer accounts and confirmed reservations.';
+const bookingArchitecture = buildFullStackArchitecture(bookingBrief, buildPromptContract(bookingBrief), {}, []);
+const bookingModel = bookingArchitecture.dataModels.find(model => model.name === 'Booking');
+assert.ok(bookingModel.fields.includes('idempotencyKey'));
+assert.ok(bookingModel.fields.includes('holdExpiresAt'));
+assert.ok(bookingArchitecture.dataIntegrity.constraints.some(item => item.id === 'booking-idempotency'));
+assert.ok(bookingArchitecture.apiContracts.some(route => route.method === 'GET' && route.path === '/api/bookings' && /pagination/i.test(route.purpose)));
+assert.ok(bookingArchitecture.apiContracts.some(route => route.method === 'PATCH' && route.path === '/api/bookings/:bookingId/reschedule' && /atomically acquire/i.test(route.purpose)));
+assert.ok(bookingArchitecture.apiContracts.some(route => route.path === '/api/bookings/:bookingId/cancel' && route.idempotency === 'required-for-retryable-side-effects'));
+
+assert.ok(bookingArchitecture.dataIntegrity.constraints.some(item => item.id === 'booking-hold-expiry'));
+assert.ok(bookingArchitecture.dataIntegrity.indexes.some(item => item.entity === 'Booking' && item.unique && item.fields.includes('idempotencyKey')));
+assert.ok(bookingArchitecture.dataIntegrity.indexes.some(item => item.entity === 'Booking' && item.fields.includes('holdExpiresAt')));
+const bookingMachine = bookingArchitecture.stateMachines.find(machine => machine.entity === 'Booking');
+assert.ok(bookingMachine.states.includes('expired'));
+assert.ok(bookingMachine.transitions.some(item => item.from === 'pending_confirmation' && item.to === 'expired'));
+
 
 assert.ok(architecture.apiContracts.some(route => route.path === '/api/checkout' && route.authPolicy === 'session-or-authenticated'));
 assert.ok(architecture.apiContracts.some(route => route.path === '/api/webhooks/payments' && route.authPolicy === 'provider-signature-and-replay-protected'));
@@ -180,6 +225,22 @@ assert.ok(withContacts.apiContracts.some(route => route.path === '/api/contact-s
 assert.ok(withContacts.dataModels.some(model => model.name === 'ContactSubmission'));
 assert.ok(withContacts.integrations.some(item => item.capability === 'email'));
 assert.ok(withContacts.graph.edges.some(edge => edge.relation === 'queues-delivery-through-server-adapter'));
+
+const dynamicFormsBrief = 'Build a staff application portal with a multi-step application form, dynamic fields, required consent, server validation and a private submission review queue.';
+const dynamicForms = buildFullStackArchitecture(dynamicFormsBrief, buildPromptContract(dynamicFormsBrief));
+assert.equal(dynamicForms.capabilities.forms, true, 'Generic application and multi-step forms must be recognized independently of contact forms.');
+assert.ok(dynamicForms.dataModels.some(model => model.name === 'FormDefinition'));
+assert.ok(dynamicForms.dataModels.some(model => model.name === 'FormSubmission' && model.securityClass === 'personal-data'));
+assert.ok(dynamicForms.apiContracts.some(route => route.path === '/api/forms/:formId' && route.method === 'GET'));
+assert.ok(dynamicForms.apiContracts.some(route => route.path === '/api/forms/:formId/submissions' && route.method === 'POST' && /schema-validation/.test(route.authPolicy)));
+assert.ok(dynamicForms.dataIntegrity.constraints.some(item => item.id === 'form-schema-versioned'));
+assert.ok(dynamicForms.dataIntegrity.constraints.some(item => item.id === 'form-abuse-and-consent'));
+assert.ok(dynamicForms.dataIntegrity.indexes.some(item => item.entity === 'FormSubmission' && item.unique && item.fields.includes('idempotencyKey')));
+assert.ok(dynamicForms.stateMachines.some(machine => machine.entity === 'FormSubmission'));
+assert.ok(dynamicForms.testPlan.some(item => item.id === 'form-schema-validation'));
+assert.ok(dynamicForms.security.controls.some(item => item.id === 'form-submission-integrity'));
+assert.equal(dynamicForms.graphIntegrity.valid, true);
+assert.ok(dynamicForms.apiContracts.every(route => route.modelIds.every(id => dynamicForms.dataModels.some(model => model.id === id))));
 
 const catalogOnlyBrief = 'Build a product catalogue for a distributor with searchable products and product detail pages. No checkout or payment is requested.';
 const catalogOnly = buildFullStackArchitecture(catalogOnlyBrief, buildPromptContract(catalogOnlyBrief));
