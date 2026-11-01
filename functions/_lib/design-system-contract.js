@@ -166,7 +166,7 @@ export function buildDesignSystemContract(prompt = '', context = {}) {
     },
     motionSystem: {
       requested: explicitMotion,
-      intensity: /\\b(?:high[- ]motion|motion[- ]rich|cinematic|immersive|expressive animation|advanced animation|rich motion|dynamic motion)\\b/i.test(brief)
+      intensity: /\b(?:high[- ]motion|motion[- ]rich|cinematic|immersive|expressive animation|advanced animation|rich motion|dynamic motion)\b/i.test(brief)
         ? 'expressive'
         : explicitMotion ? 'purposeful' : 'restrained',
       direction: 'Create a coherent motion language that reinforces the product identity, hierarchy and user journey. Motion quality should feel intentional and polished, never like a collection of unrelated effects.',
