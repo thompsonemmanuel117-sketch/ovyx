@@ -432,6 +432,123 @@ export function websiteEngineClientSummary(plan) {
  * single-page repair fallback if the staged builder cannot return a project.
  * Scoped edits deliberately bypass full-site rebuild and repair.
  */
+
+function parseBackendFiles(response) {
+  const candidates = [response, response && response.output, response && response.result, response && response.data];
+  for (const item of candidates) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    let files = item.files || item.generatedFiles || item.projectFiles;
+    if (!files && typeof item.text === 'string') {
+      const raw = item.text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+      try { files = JSON.parse(raw).files; } catch {
+        const first = raw.indexOf('{');
+        const last = raw.lastIndexOf('}');
+        if (first >= 0 && last > first) {
+          try { files = JSON.parse(raw.slice(first, last + 1)).files; } catch {}
+        }
+      }
+    }
+    if (!files || typeof files !== 'object' || Array.isArray(files)) continue;
+    const output = {};
+    for (const [rawPath, value] of Object.entries(files)) {
+      const filePath = String(rawPath || '').trim().replace(/^\\/+/, '');
+      const content = typeof value === 'string' ? value : value && (value.content || value.text || value.code);
+      if (!filePath || filePath.length > 300 || filePath.includes('..') || filePath.includes('\\\\') ||
+          /(?:^|\\/)\\.env(?:\\.|$)|secret|credential|private[-_]?key|service[-_]?account/i.test(filePath) ||
+          !/\\.(?:[cm]?[jt]sx?|prisma|sql|graphql|gql|ya?ml|toml|json)$/i.test(filePath) ||
+          !/^(?:functions\\/|api\\/|app\\/api\\/|src\\/app\\/api\\/|pages\\/api\\/|src\\/pages\\/api\\/|prisma\\/|migrations\\/|db\\/|database\\/|server\\/|src\\/server\\/|src\\/lib\\/server\\/|tests?\\/|__tests__\\/)/i.test(filePath) ||
+          typeof content !== 'string' || !content.trim() || content.length > 180000) continue;
+      output[filePath] = content;
+    }
+    if (Object.keys(output).length) return output;
+  }
+  return {};
+}
+
+function auditBackendFiles(files, architecture) {
+  const entries = Object.entries(files || {});
+  const pathMap = new Map(entries.map(([filePath]) => [filePath.toLowerCase(), filePath]));
+  const routes = (architecture.apiContracts || []).map(route => {
+    const suffix = String(route.path || '').replace(/^\\/?api\\//i, '')
+      .split('/').filter(Boolean).map(part => part.charAt(0) === ':' ? '[' + part.slice(1) + ']' : part).join('/');
+    const candidates = [
+      'functions/api/' + suffix + '.js', 'functions/api/' + suffix + '.ts',
+      'functions/api/' + suffix + '/index.js', 'app/api/' + suffix + '/route.js',
+      'app/api/' + suffix + '/route.ts', 'src/app/api/' + suffix + '/route.ts',
+      'pages/api/' + suffix + '.js', 'pages/api/' + suffix + '.ts',
+      'api/' + suffix + '.js', 'api/' + suffix + '.ts',
+    ];
+    const file = candidates.map(candidate => pathMap.get(candidate.toLowerCase())).find(Boolean) || '';
+    const code = file ? String(files[file]) : '';
+    const method = String(route.method || 'GET').toUpperCase();
+    const pascal = method.charAt(0) + method.slice(1).toLowerCase();
+    const methodOk = !!file && (
+      new RegExp('\\\\bonRequest' + pascal + '\\\\b').test(code) ||
+      new RegExp('\\\\bexport\\\\s+(?:async\\\\s+)?function\\\\s+' + method + '\\\\b').test(code) ||
+      new RegExp('\\\\b(?:router|app|server)\\\\s*\\\\.\\\\s*' + method.toLowerCase() + '\\\\s*\\\\(').test(code)
+    );
+    const policy = String(route.authPolicy || '').toLowerCase();
+    const publicRoute = /^(?:public|public-read|public-with-abuse-controls|public-only)/.test(policy);
+    const authOk = publicRoute || (/provider-signature/.test(policy)
+      ? /verify(?:Webhook)?Signature|signatureValid|constructEvent/i.test(code)
+      : /administrator|role|permission/.test(policy)
+        ? /requireAdmin|requireRole|authorize|assertPermission/i.test(code)
+        : /requireAuth|assertAuthenticated|getAuthenticatedUser|verifySession|auth\\.getUser/i.test(code));
+    return { id: route.id, method, path: route.path, file: file || null, methodOk, authOk };
+  });
+  const schemaFiles = entries.filter(([filePath]) => /schema|migration|migrations|prisma|drizzle|database/i.test(filePath));
+  const schema = schemaFiles.map(entry => entry[1]).join('\\n');
+  const models = (architecture.dataModels || []).map(model => {
+    const name = String(model.name || '');
+    const snake = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+    const plural = snake.endsWith('s') ? snake : snake + 's';
+    const present = new RegExp('\\\\bmodel\\\\s+' + name + '\\\\b').test(schema) ||
+      new RegExp('\\\\bCREATE\\\\s+TABLE\\\\s+(?:IF\\\\s+NOT\\\\s+EXISTS\\\\s+)?["\\\\x27]?' + plural + '["\\\\x27]?(?=\\\\s|\\\\(|;|$)', 'i').test(schema);
+    return { id: model.id, name, present };
+  });
+  const relations = (architecture.dataIntegrity && architecture.dataIntegrity.relationships || []).map(relation => ({
+    id: relation.id, field: relation.foreignKeyField,
+    present: !!schema && schema.includes(String(relation.foreignKeyField || '')),
+  }));
+  const missing = [];
+  routes.forEach(route => {
+    if (!route.file) missing.push('Missing route file: ' + route.method + ' ' + route.path);
+    else if (!route.methodOk) missing.push('Missing HTTP method handler: ' + route.method + ' ' + route.path);
+    if (!route.authOk) missing.push('Missing authorization/signature evidence: ' + route.path);
+  });
+  models.filter(model => !model.present).forEach(model => missing.push('Missing database schema model: ' + model.name));
+  relations.filter(relation => !relation.present).forEach(relation => missing.push('Missing database relationship field: ' + relation.field));
+  return {
+    status: missing.length ? 'incomplete-source-generation' : 'source-evidence-present-runtime-unverified',
+    routeCount: routes.length, routeSourceCount: routes.filter(route => route.file).length,
+    routeMethodCount: routes.filter(route => route.methodOk).length,
+    authorizationEvidenceCount: routes.filter(route => route.authOk).length,
+    modelCount: models.length, modelSchemaEvidenceCount: models.filter(model => model.present).length,
+    relationshipCount: relations.length, relationshipEvidenceCount: relations.filter(relation => relation.present).length,
+    runtimeBehaviorVerified: false, databasePersistenceVerified: false, integrationDeliveryVerified: false,
+    missing: missing.slice(0, 40), routeEvidence: routes,
+  };
+}
+
+function buildBackendSourcePrompt(architecture, originalPrompt, existingPaths, failures) {
+  const contract = fullStackArchitectureModelContract(architecture);
+  return [
+    'OVYX FULL-STACK SOURCE GENERATION — REQUIRED IMPLEMENTATION STAGE',
+    'Return only valid JSON: {"files":{"relative/path":"complete source text"}}. No Markdown fences.',
+    'Generate real server route handlers, database schema, versioned migrations, relationships, constraints, indexes and safe tests for every declared API contract and model. A frontend-only response is not acceptable.',
+    'Preserve the framework detected in existing project paths. If none exists, target Cloudflare Pages Functions with Cloudflare D1-compatible SQLite migrations. Use functions/api/<route>.js and matching onRequestGet/onRequestPost/onRequestPut/onRequestPatch/onRequestDelete exports for Cloudflare Pages.',
+    'Use prepared database statements, strict server-side validation, safe error envelopes, size limits, owner scoping, deny-by-default authorization, idempotency and transactional business-state changes. Missing DB/auth bindings must fail explicitly; never simulate persistence or success.',
+    'Generate CREATE TABLE statements, foreign keys, unique constraints and indexes for all models and relationships. Keep money in integer minor units with ISO currency and timestamps in UTC with IANA timezone context.',
+    'Generate protected identity/authorization middleware and negative permission tests when requested. Payment webhooks require signature and replay verification; booking commits must recheck availability; external email requires an outbox and verified receipt.',
+    'Never include secrets, .env files, credentials, private keys, real customer data or invented production prices/availability. Do not execute migrations or contact real providers.',
+    'Only output backend, schema, migration, server-service and test files. Do not overwrite frontend pages, styles, browser scripts, package manifests or unrelated files.',
+    'Existing project paths: ' + existingPaths.join(', '),
+    failures.length ? 'Fix these missing source contracts: ' + failures.join(' | ') : '',
+    'Original user brief:\n' + String(originalPrompt || '').slice(0, 80000),
+    'Architecture contract:\n' + JSON.stringify(contract),
+  ].filter(Boolean).join('\\n\\n');
+}
+
 export async function runWebsiteGeneration(options = {}) {
   const {
     env,
@@ -444,6 +561,8 @@ export async function runWebsiteGeneration(options = {}) {
     initialQuotaInputText = '',
     buildMultiPage = buildStudioMultiPage,
     repairSinglePage = validateOrRepairSinglePageBuild,
+    fullStackArchitecture = null,
+    originalPrompt = '',
   } = options;
   if (typeof callModel !== 'function') throw new TypeError('Website generation requires a model caller.');
 
@@ -481,5 +600,50 @@ export async function runWebsiteGeneration(options = {}) {
   }
 
   if (!result) throw new Error('Website generation returned no result.');
-  return { result, multiPageBuild, quotaInputText, quotaOutputText };
+
+  let fullStackSourceEvidence = null;
+  if (shouldBuild && !scopedEdit && fullStackArchitecture &&
+      fullStackArchitecture.capabilities && fullStackArchitecture.capabilities.backend === true) {
+    let failures = [];
+    let generatedFiles = {};
+    let backendResponse = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const sourcePrompt = buildBackendSourcePrompt(
+        fullStackArchitecture, originalPrompt || multiPageOptions.prompt || modelOptions.taskPrompt || '',
+        Object.keys(result.files || {}), failures
+      );
+      quotaInputText += (quotaInputText ? '\n\n' : '') + sourcePrompt;
+      backendResponse = await callModel(env, {
+        ...modelOptions,
+        taskPrompt: sourcePrompt,
+        system: [String(modelOptions.system || ''), 'Generate complete backend source code and output only the requested JSON files object. Never simulate database writes, identity verification or provider success.'].filter(Boolean).join('\n\n'),
+        responseFormat: 'json',
+      });
+      quotaOutputText += (quotaOutputText ? '\n\n' : '') + String(backendResponse && backendResponse.text || '');
+      generatedFiles = parseBackendFiles(backendResponse);
+      fullStackSourceEvidence = auditBackendFiles(generatedFiles, fullStackArchitecture);
+      if (fullStackSourceEvidence.status === 'source-evidence-present-runtime-unverified') break;
+      failures = fullStackSourceEvidence.missing.length
+        ? fullStackSourceEvidence.missing
+        : ['No valid backend files object was returned.'];
+    }
+    if (!Object.keys(generatedFiles).length ||
+        fullStackSourceEvidence.status !== 'source-evidence-present-runtime-unverified') {
+      const error = new Error('Full-stack source generation did not satisfy the required route, authorization, schema and relationship contracts.');
+      error.code = 'WEBSTUDIO_FULLSTACK_SOURCE_INCOMPLETE';
+      error.fullStackSourceEvidence = fullStackSourceEvidence;
+      error.partialUsage = backendResponse && backendResponse.usage || null;
+      throw error;
+    }
+    result = {
+      ...result,
+      files: { ...(result.files || {}), ...generatedFiles },
+      fullStackSourceEvidence,
+      fullStackGeneration: {
+        status: 'source-generated-runtime-unverified',
+        filesGenerated: Object.keys(generatedFiles).length,
+      },
+    };
+  }
+  return { result, multiPageBuild, quotaInputText, quotaOutputText, fullStackSourceEvidence };
 }
