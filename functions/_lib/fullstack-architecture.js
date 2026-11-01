@@ -105,7 +105,10 @@ function buildDataModels(capabilities) {
       persistence: 'required-when-feature-is-enabled',
     });
   };
-  if (capabilities.authentication) push('UserAccount', 'Identity and account lifecycle; credentials remain with the configured auth provider.', ['id', 'providerSubject', 'email', 'emailNormalized', 'status'], 'identity');
+  if (capabilities.authentication) {
+    push('UserAccount', 'Identity and account lifecycle; credentials remain with the configured auth provider.', ['id', 'providerSubject', 'email', 'emailNormalized', 'status'], 'identity');
+    push('Session', 'Server-controlled session lifecycle with hashed opaque tokens, CSRF binding, expiry, rotation and revocation.', ['id', 'userId', 'tokenHash', 'csrfTokenHash', 'createdAt', 'expiresAt', 'rotatedFrom', 'revokedAt', 'lastSeenAt'], 'identity');
+  }
   if (capabilities.authorization) push('RoleAssignment', 'Server-enforced workspace, resource and action permissions.', ['id', 'principalId', 'role', 'scope', 'grantedAt'], 'authorization');
   if (capabilities.contact) push('ContactSubmission', 'Validated enquiry with an auditable delivery state.', ['id', 'name', 'replyTo', 'message', 'status', 'createdAt'], 'personal-data');
   if (capabilities.forms) {
@@ -145,6 +148,7 @@ function buildDataIntegrityContracts(capabilities) {
       optional,
     });
   };
+  if (capabilities.authentication) addRelation('Session', 'UserAccount', 'many-to-one', 'Every session belongs to one verified provider identity and can be revoked independently.', 'userId');
   if (capabilities.authentication && capabilities.authorization) addRelation('RoleAssignment', 'UserAccount', 'many-to-one', 'Every role grant belongs to a verified principal.', 'principalId');
   if (capabilities.booking) {
     addRelation('Booking', 'BookableResource', 'many-to-one', 'A booking reserves one resource or service.', 'resourceId');
@@ -198,11 +202,20 @@ function buildDataIntegrityContracts(capabilities) {
     { id: 'form-data-minimization', appliesTo: 'FormDefinition, FormSubmission', rule: 'Collect declared fields only, redact logs and enforce retention/deletion policy.' },
   );
 
+  if (capabilities.authentication) constraints.push(
+    { id: 'session-token-hashing', appliesTo: 'Session', rule: 'Store only cryptographic hashes of opaque session and CSRF tokens; never persist raw bearer tokens.' },
+    { id: 'session-expiry-and-revocation', appliesTo: 'Session', rule: 'Enforce absolute and idle expiry, rotate tokens on sensitive transitions, revoke on logout/password or identity-provider events, and reject revoked sessions immediately.' },
+    { id: 'session-csrf-binding', appliesTo: 'Session', rule: 'Bind CSRF tokens to the authenticated session and require origin/CSRF validation for cookie-authenticated state-changing requests.' },
+  );
+
   const indexes = [];
   const addIndex = (entity, fields, unique = false, purpose = '') => indexes.push({ entity, fields, unique, purpose });
   if (capabilities.authentication) {
     addIndex('UserAccount', ['providerSubject'], true, 'Resolve a verified identity uniquely.');
     addIndex('UserAccount', ['emailNormalized'], true, 'Prevent account identity ambiguity where the identity provider requires unique email.');
+    addIndex('Session', ['tokenHash'], true, 'Resolve opaque session cookies without storing raw bearer tokens.');
+    addIndex('Session', ['userId', 'expiresAt'], false, 'List and expire a user’s active sessions efficiently.');
+    addIndex('Session', ['revokedAt', 'expiresAt'], false, 'Find expired or revoked sessions for bounded cleanup.');
   }
   if (capabilities.authorization) addIndex('RoleAssignment', ['principalId', 'role', 'scope'], true, 'Prevent duplicate role grants.');
   if (capabilities.booking) {
@@ -263,10 +276,10 @@ function buildApiContracts(capabilities) {
     add('PATCH', '/api/bookings/:bookingId/reschedule', 'booking', capabilities.authentication ? 'owner-or-authorized-staff' : 'signed-scoped-booking-management-token', 'Recheck availability and atomically acquire the new slot before releasing the old slot; preserve the existing booking if the move conflicts.', ['model-booking'], { sideEffect: 'atomic-reschedule-with-compensation' });
   }
   if (capabilities.authentication) {
-    add('POST', '/api/auth/session', 'authentication', 'public-with-credential-provider', 'Create a session only after provider-backed identity verification.', ['model-useraccount'], { sideEffect: 'rotate-session-and-csrf-state' });
+    add('POST', '/api/auth/session', 'authentication', 'public-with-credential-provider', 'Create a session only after provider-backed identity verification; persist only hashed opaque session/CSRF tokens and revoke any rotated predecessor.', ['model-useraccount', 'model-session'], { sideEffect: 'rotate-session-and-csrf-state' });
     add('GET', '/api/account/profile', 'authentication', 'authenticated', 'Read the current verified principal profile; derive identity from the session, never a client UID.', ['model-useraccount']);
     add('PATCH', '/api/account/profile', 'authentication', 'authenticated-owner-only', 'Update only allowlisted profile fields for the current authenticated principal.', ['model-useraccount']);
-    add('DELETE', '/api/auth/session', 'authentication', 'authenticated', 'Revoke the current session and clear session cookies.', ['model-useraccount']);
+    add('DELETE', '/api/auth/session', 'authentication', 'authenticated', 'Revoke the current session and clear session cookies.', ['model-useraccount', 'model-session']);
   }
   if (capabilities.commerce) {
     add('GET', '/api/products', 'commerce', 'public-read', 'Read catalog items from the configured authoritative source.', ['model-product'], { cachePolicy: 'source-aware' });
