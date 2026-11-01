@@ -1,0 +1,56 @@
+name: OVYX Stage 5 Isolated Backend Runtime
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/ovyx-generated-backend-runtime-eval.mjs'
+      - 'scripts/ovyx-generated-backend-runtime-eval.test.mjs'
+      - 'functions/_lib/autonomous-qa.js'
+      - 'functions/_lib/website-engine.js'
+      - 'package.json'
+      - '.github/workflows/ovyx-stage5-backend-runtime.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/ovyx-generated-backend-runtime-eval.mjs'
+      - 'scripts/ovyx-generated-backend-runtime-eval.test.mjs'
+      - 'functions/_lib/autonomous-qa.js'
+      - 'functions/_lib/website-engine.js'
+      - 'package.json'
+      - '.github/workflows/ovyx-stage5-backend-runtime.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-pages-d1-runtime:
+    name: Disposable Pages Functions and D1 runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install pinned repository dependencies
+        run: npm install --ignore-scripts
+      - name: Pull the isolated runtime image before entering the no-network sandbox
+        run: docker pull node:22-bookworm-slim
+      - name: Execute generated backend fixture in a no-egress container
+        env:
+          OVYX_QA_NETWORK_ISOLATION: docker-none
+        run: |
+          docker run --rm \
+            --network none \
+            --read-only \
+            --tmpfs /tmp:rw,nosuid,nodev,size=2g,mode=1777 \
+            --shm-size=256m \
+            --memory=3g \
+            --cpus=2 \
+            --pids-limit=128 \
+            --cap-drop=ALL \
+            --security-opt=no-new-privileges \
+            --volume "$PWD:/workspace:ro" \
+            --workdir /workspace \
+            --env OVYX_QA_NETWORK_ISOLATION=docker-none \
+            node:22-bookworm-slim \
+            node scripts/ovyx-generated-backend-runtime-eval.test.mjs
