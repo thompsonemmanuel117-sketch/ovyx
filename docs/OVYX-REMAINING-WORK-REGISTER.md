@@ -7,8 +7,6 @@
 
 The separate seven-phase Website Engine upgrade is tracked in `docs/OVYX-MAXIMUM-WEBSITE-ENGINE.md`. Phase 1 foundation PR #359 was merged to `main` as `ed990654cea6b5b75291aec94c9de5050839237e`. Its first post-merge verification on 2026-10-31 failed across eight workflows because of two defects: a missing object brace in `functions/_lib/ovyx-project-knowledge.js` blocked Cloudflare Functions bundling, and `website-engine.js` flattened line breaks before prompt-contract extraction, collapsing the 180-item test to one requirement. Phase 1 closeout fixes are on PR #361. The 180-requirement regression also exposed a compact-serializer fallback that dropped `mustHave` and `conversionPrinciples`; the fallback now retains both as bounded lists. Verify PR #361's exact-head Actions/Pages checks before calling Phase 1 complete. PR #360 is the separate Phase 2 track and must not be merged as part of Phase 1 closeout. Preserve Cloudflare Workers AI routing, App Studio, Firebase state, quotas and existing production boundaries. Source implementation, CI, provider preflight, real generation and external delivery remain separate evidence levels.
 
-PR #360 is the separate Phase 2 track on `feat/ovyx-fullstack-website-engine-phase-2`; its architecture/source-generation acceptance matrix is in `docs/OVYX-FULLSTACK-WEBSITE-ENGINE.md`. The current branch contains the cross-layer planner and an audited backend-source generation pass, but database provisioning, migration execution, real auth/provider verification, generated-framework builds, complete regression/browser checks and the final merge remain open.
-
 ## AI migration stages
 
 | Stage | Status | Evidence / exit requirement |
@@ -79,3 +77,7 @@ These are ongoing release gates, not optional cleanups:
 - Stage 4 benchmark protocol PR #248: merged at `81101827b7e0d6b4d0260a574bce332e4175bdb7`; protocol prepared only—no empirical model scores or device results are claimed.
 - Live acceptance configuration and gates: `docs/OVYX-LIVE-ACCEPTANCE-SETUP.md`.
 - On merge SHA `d48d7d6a70efb1a9f54fd155b5cc7d64ab5c232e`, post-merge Agent Verify, Settings Regression Browser Tests, Owner Controls, Cloudflare Diagnostics, Web Studio browser quality, and Assistant Workspace Browser Tests all completed successfully. The separate Live Website Generation and Acceptance Evidence run `40086196880` failed at provider-only preflight with the categories recorded above; full website generation and browser/integration probes were not run.
+
+## Phase 2 full-stack website engine
+
+PR #360 is the separate Phase 2 track on `feat/ovyx-fullstack-website-engine-phase-2`; its architecture/source-generation acceptance matrix is in `docs/OVYX-FULLSTACK-WEBSITE-ENGINE.md`. The current branch contains the cross-layer planner and an audited backend-source generation pass, but database provisioning, migration execution, real auth/provider verification, generated-framework builds, complete regression/browser checks and the final merge remain open.
