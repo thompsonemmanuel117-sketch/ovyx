@@ -78,6 +78,7 @@ assert.match(route, /PATCH_VERIFY_FAILED/, 'Writes must be checked by reading th
 assert.doesNotMatch(route, /functions\/api\/ai\/assistant\.js/, 'The workspace tool route must stay separate from Web Studio build logic.');
 
 assert.match(route, /MAX_BACKUP_SOURCE_BYTES/, 'Oversized source files must not be written without a safe backup.');
+assert.match(route, /dependencyImpact/, 'Patch and restore previews must report source dependency impact before approval.');
 assert.match(route, /MAX_PROJECT_DOCUMENT_BYTES/, 'Project writes must be bounded before reaching Firestore.');
 assert.match(client, /fetch\('\/api\/ai\/workspace-tools'/, 'The native assistant must call its dedicated tools endpoint.');
 assert.match(client, /window\.confirm\(message\)/, 'Source changes must require explicit human confirmation.');
@@ -104,8 +105,6 @@ assert.match(client, /Approval needed/, 'The context indicator must show approva
 assert.match(client, /Workspace details ready/, 'The context indicator must distinguish fallback context from a full scan.');
 assert.match(nativeAi, /Never state that an action succeeded unless the relevant UI\/tool returned success/i, 'The assistant must not claim unverified actions succeeded.');
 
-console.log('OVYX workspace tool tests passed.');
-
 const dependencyImpact = buildWorkspaceFileImpact({
   ovyxGraph: { files: {
     'index.html': { type: 'text/html', content: '<script type="module" src="./src/main.js"></script>' },
@@ -120,3 +119,5 @@ assert.equal(dependencyImpact.totalAffected, 3);
 assert.equal(dependencyImpact.evidence, 'static-source-dependency-analysis');
 assert.ok(!JSON.stringify(dependencyImpact).includes('export const header'));
 assert.equal(buildWorkspaceFileImpact({}, 'missing.js').status, 'no-project-files');
+
+console.log('OVYX workspace tool tests passed.');
