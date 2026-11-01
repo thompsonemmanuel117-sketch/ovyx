@@ -59,6 +59,17 @@ The generated-site Playwright evaluator now reads `ovyx-qa-plan.json`, runs boun
 - Limit repair attempts (initially one repair pass per failed build), bound tokens/files/source context, preserve the original artifact and record every accepted/rejected change.
 - If the app requires credentials or external resources that are not configured, report the exact test as blocked/unverified rather than fabricating success.
 
+## Additional quality upgrades to include before declaring Stage 5 complete
+
+- **Visual regression:** retain before/after screenshots and compare layout regions at mobile, tablet and desktop sizes. Ignore only explicitly approved dynamic regions; never hide a genuine layout regression.
+- **Accessibility automation:** run axe-style rules plus keyboard-only navigation, focus order, modal focus trapping, labels, contrast and reduced-motion checks. Keep automated findings separate from human accessibility review.
+- **Security regression suite:** exercise unauthenticated access, cross-tenant reads/writes, role escalation, CSRF, unsafe redirects, injection/XSS sinks, upload validation and rate-limit behavior using synthetic identities and disposable data.
+- **Database lifecycle tests:** apply migrations to a fresh disposable database, test constraints/relationships, CRUD, transaction rollback, concurrency and tenant isolation, then destroy the database. Use framework/provider-specific adapters; never point QA at production.
+- **Journey coverage map:** map every critical user requirement to one or more tests and show uncovered requirements explicitly. A green test suite with missing requirement coverage is not a full pass.
+- **Failure classification:** distinguish product defects from unavailable credentials, provider outages, flaky infrastructure, unsupported frameworks and human-review tasks. Retry only transient infrastructure failures with a strict budget.
+- **Repair diff and audit trail:** show the exact before/after file diff, tests that justified each change, repair attempt count and rollback reason. Preserve the original artifact until the candidate passes.
+- **Release confidence gate:** block publish when required tests fail or are unrun; permit an owner-approved exception only with a recorded reason, scope and expiry.
+
 ## Completion definition
 
 Stage 5 is complete only when a generated full-stack application can be built, have its requirement-derived browser and backend journeys executed in an isolated environment, receive a bounded repair for detected defects, and pass the same tests again—or return an honest, evidence-backed failure report. The complete cycle must be covered by automated regression tests and integrated into the actual Web Studio build/project lifecycle. A standalone test script or a passing static audit alone is not Stage 5 completion.
