@@ -487,7 +487,7 @@ function parseBackendFiles(response) {
       const fileContent = typeof value === 'string' ? value : value && (value.content || value.text || value.code);
       const allowedRoot = [
         'functions/', 'api/', 'app/api/', 'src/app/api/', 'pages/api/', 'src/pages/api/',
-        'prisma/', 'migrations/', 'db/', 'database/', 'server/', 'src/server/',
+        'prisma/', 'migrations/', 'drizzle/', 'db/', 'database/', 'server/', 'src/server/',
         'src/lib/server/', 'src/routes/', 'app/routes/', 'server/api/', 'server/routes/', 'tests/', 'test/', '__tests__/',
       ].some(prefix => filePath.startsWith(prefix));
       const allowedExtension = [
@@ -597,6 +597,18 @@ function auditBackendFiles(files, architecture) {
     return lower.includes('schema') || lower.includes('migration') || lower.includes('prisma') || lower.includes('drizzle') || lower.includes('database') || lower.includes('index');
   });
   const schema = schemaFiles.map(entry => entry[1]).join('\n').toLowerCase();
+  const databaseIntegration = (architecture.integrations || []).find(item => item.capability === 'database');
+  const databaseProvider = String(databaseIntegration && databaseIntegration.provider || 'not-selected-by-architecture-planner');
+  const documentDatabase = /firebase|firestore/i.test(databaseProvider);
+  const migrationFiles = entries.filter(([filePath]) => {
+    const lower = filePath.toLowerCase();
+    return lower.startsWith('migrations/') || lower.startsWith('drizzle/') || lower.includes('/migrations/') ||
+      lower.startsWith('prisma/migrations/');
+  });
+  const migrationEvidence = (architecture.dataModels || []).length === 0 ||
+    (documentDatabase
+      ? schemaFiles.some(([filePath]) => filePath.toLowerCase().includes('firestore') || filePath.toLowerCase().includes('schema'))
+      : migrationFiles.length > 0);
   const models = (architecture.dataModels || []).map(model => {
     const name = String(model.name || '');
     const snake = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
@@ -663,6 +675,7 @@ function auditBackendFiles(files, architecture) {
     if (!route.authOk) missing.push('Missing authorization/signature evidence: ' + route.path);
   });
   models.filter(model => !model.present).forEach(model => missing.push('Missing database schema model: ' + model.name));
+  if (!migrationEvidence) missing.push(documentDatabase ? 'Missing Firestore collection/index schema artifact.' : 'Missing versioned database migration artifact.');
   relations.filter(relation => !relation.present).forEach(relation => missing.push('Missing database relationship field: ' + relation.field));
   indexes.filter(index => !index.present).forEach(index => missing.push('Missing database index: ' + index.entity + '(' + index.fields.join(', ') + ')'));
   workflows.filter(workflow => !workflow.statesPresent || !workflow.transitionPresent).forEach(workflow =>
@@ -674,6 +687,7 @@ function auditBackendFiles(files, architecture) {
     routeMethodCount: routes.filter(route => route.methodOk).length,
     authorizationEvidenceCount: routes.filter(route => route.authOk).length,
     modelCount: models.length, modelSchemaEvidenceCount: models.filter(model => model.present).length,
+    databaseProvider, migrationEvidence, migrationFileCount: migrationFiles.length,
     relationshipCount: relations.length, relationshipEvidenceCount: relations.filter(relation => relation.present).length,
     indexCount: indexes.length, indexEvidenceCount: indexes.filter(index => index.present).length,
     workflowCount: workflows.length, workflowEvidenceCount: workflows.filter(workflow => workflow.statesPresent && workflow.transitionPresent).length,
