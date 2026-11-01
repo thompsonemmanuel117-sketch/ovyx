@@ -57,7 +57,7 @@
     return candidates.find(function (candidate) { return candidate && typeof candidate.getIdToken === 'function'; }) || null;
   }
   function backendRuntimeSourceFiles(files) {
-    var allowedRoot = new Set(['wrangler.jsonc', 'wrangler.json', 'package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'ovyx-qa-plan.json', '_routes.json', '_headers']);
+    var allowedRoot = new Set(['wrangler.jsonc', 'wrangler.json', 'package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'ovyx-qa-plan.json', '_routes.json', '_headers', 'tsconfig.json', 'vite.config.js', 'vite.config.ts']);
     return Object.keys(files || {}).map(function (rawPath) {
       var path = normalizePath(rawPath);
       if (!path || !(allowedRoot.has(path) || /^(?:functions|migrations|src|lib|api|server)\//i.test(path))) return null;
