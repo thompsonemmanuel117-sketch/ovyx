@@ -296,6 +296,7 @@ assert.equal(stage4.capabilities.payments, true);
 assert.equal(stage4.capabilities.notifications, true);
 assert.equal(stage4.capabilities.dashboards, true);
 assert.equal(stage4.capabilities.integrations, true);
+assert.equal(stage4.capabilities.email, true, 'Transactional order emails must be detected from the requested workflow.');
 assert.ok(stage4.dataModels.some(model => model.name === 'CustomerSubscription'));
 assert.ok(stage4.dataModels.some(model => model.name === 'SubscriptionPlan'));
 assert.ok(stage4.dataModels.some(model => model.name === 'SubscriptionInvoice'));
