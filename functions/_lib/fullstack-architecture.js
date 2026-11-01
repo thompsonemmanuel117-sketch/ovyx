@@ -135,10 +135,15 @@ function buildDataModels(capabilities) {
     push('InventoryMovement', 'Auditable stock reservation, release, receipt and adjustment ledger.', ['id', 'productId', 'quantityDelta', 'reason', 'referenceType', 'referenceId', 'actorId', 'createdAt']);
     push('Cart', 'User or session cart with server-recomputed prices and inventory validation.', ['id', 'ownerId', 'sessionKeyHash', 'currency', 'updatedAt']);
     push('CartItem', 'A selected product and quantity; client prices are never authoritative.', ['id', 'cartId', 'productId', 'quantity', 'addedAt']);
-    push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'taxAmount', 'totalAmount', 'status', 'createdAt'], 'financial');
-    push('OrderLine', 'Immutable purchase-time snapshot of product identity, name, quantity and unit amount.', ['id', 'orderId', 'productId', 'productNameSnapshot', 'quantity', 'unitAmount', 'lineAmount', 'currency'], 'financial');
+    push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'discountAmount', 'taxAmount', 'shippingAmount', 'totalAmount', 'status', 'fulfillmentStatus', 'inventoryReservationExpiresAt', 'trackingReference', 'fulfilledAt', 'createdAt', 'updatedAt'], 'financial');
+    push('OrderLine', 'Immutable purchase-time snapshot of product identity, SKU, name, quantity, tax and unit amount.', ['id', 'orderId', 'productId', 'skuSnapshot', 'productNameSnapshot', 'quantity', 'unitAmount', 'discountAmount', 'taxAmount', 'lineAmount', 'currency'], 'financial');
+    push('Promotion', 'Server-owned discount rule with usage limits and active date window.', ['id', 'codeNormalized', 'discountType', 'discountValue', 'currency', 'startsAt', 'endsAt', 'usageLimit', 'usageCount', 'perCustomerLimit', 'status']);
+    push('Shipment', 'Order fulfillment and carrier tracking lifecycle.', ['id', 'orderId', 'carrier', 'trackingNumber', 'trackingUrl', 'status', 'shippedAt', 'deliveredAt', 'createdAt']);
   }
-  if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', ...(capabilities.subscriptions ? ['subscriptionId'] : []), 'billableReference', 'provider', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
+  if (capabilities.payments) {
+    push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', ...(capabilities.subscriptions ? ['subscriptionId'] : []), 'billableReference', 'provider', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
+    push('Refund', 'Provider-reconciled partial or full refund against a captured payment.', ['id', 'paymentAttemptId', 'orderId', 'amount', 'currency', 'reason', 'status', 'providerRefundReference', 'idempotencyKey', 'requestedAt', 'completedAt'], 'financial');
+  }
   if (capabilities.subscriptions) {
     push('SubscriptionPlan', 'Server-owned recurring offer with immutable price and billing interval.', ['id', 'name', 'priceAmount', 'currency', 'billingInterval', 'trialDays', 'status']);
     push('CustomerSubscription', 'Provider-reconciled customer entitlement and recurring billing lifecycle.', ['id', 'ownerId', 'planId', 'provider', 'providerCustomerRef', 'providerSubscriptionRef', 'status', 'currentPeriodStart', 'currentPeriodEnd', 'cancelAtPeriodEnd', 'trialEndAt', 'idempotencyKey', 'createdAt', 'updatedAt'], 'financial');
@@ -180,9 +185,15 @@ function buildDataIntegrityContracts(capabilities) {
     addRelation('OrderLine', 'Order', 'many-to-one', 'Each immutable order line belongs to one order.', 'orderId');
     addRelation('OrderLine', 'Product', 'many-to-one', 'Each order line references its catalog source and preserves a purchase-time snapshot.', 'productId');
     addRelation('InventoryMovement', 'Product', 'many-to-one', 'Every stock change is attributed to one catalog product.', 'productId');
+    addRelation('Promotion', 'Order', 'many-to-one', 'Promotion usage is reconciled against an order.', 'id', true, 'promotion-reference');
+    addRelation('Shipment', 'Order', 'many-to-one', 'Every shipment fulfills one order.', 'orderId');
     if (capabilities.authentication) addRelation('Order', 'UserAccount', 'many-to-one', 'The order belongs to the verified principal.', 'ownerId', true);
   }
-  if (capabilities.payments && capabilities.commerce) addRelation('PaymentAttempt', 'Order', 'many-to-one', 'Payment attempts reconcile against an order.', 'orderId');
+  if (capabilities.payments && capabilities.commerce) {
+    addRelation('PaymentAttempt', 'Order', 'many-to-one', 'Payment attempts reconcile against an order.', 'orderId');
+    addRelation('Refund', 'PaymentAttempt', 'many-to-one', 'Every refund references the captured payment it compensates.', 'paymentAttemptId');
+    addRelation('Refund', 'Order', 'many-to-one', 'Every commerce refund is reconciled against its order.', 'orderId', true);
+  }
   if (capabilities.subscriptions) {
     addRelation('CustomerSubscription', 'SubscriptionPlan', 'many-to-one', 'Every subscription uses a server-owned recurring plan.', 'planId');
     addRelation('SubscriptionInvoice', 'CustomerSubscription', 'many-to-one', 'Every recurring invoice belongs to one subscription.', 'subscriptionId');
@@ -284,8 +295,14 @@ function buildDataIntegrityContracts(capabilities) {
     addIndex('Order', ['ownerId', 'createdAt'], false, 'List an owner’s order history efficiently.');
     addIndex('OrderLine', ['orderId'], false, 'Load order details with bounded queries.');
     addIndex('InventoryMovement', ['productId', 'createdAt'], false, 'Audit stock movement and reconcile inventory changes.');
+    addIndex('Promotion', ['codeNormalized', 'status'], true, 'Resolve active promotion codes without ambiguity.');
+    addIndex('Shipment', ['orderId', 'createdAt'], false, 'List shipment history for one order.');
   }
-  if (capabilities.payments) addIndex('PaymentAttempt', ['provider', 'providerReference'], true, 'Prevent duplicate provider payment references.');
+  if (capabilities.payments) {
+    addIndex('PaymentAttempt', ['provider', 'providerReference'], true, 'Prevent duplicate provider payment references.');
+    addIndex('Refund', ['paymentAttemptId', 'idempotencyKey'], true, 'Prevent duplicate refund requests against one captured payment.');
+    addIndex('Refund', ['providerRefundReference'], true, 'Deduplicate provider refund receipts.');
+  }
   if (capabilities.subscriptions) {
     addIndex('CustomerSubscription', ['ownerId', 'status', 'currentPeriodEnd'], false, 'Resolve a customer’s current entitlement and upcoming renewal.');
     addIndex('CustomerSubscription', ['provider', 'providerSubscriptionRef'], true, 'Prevent duplicate provider subscription references.');
