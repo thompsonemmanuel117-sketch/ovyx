@@ -1,0 +1,168 @@
+import assert from 'node:assert/strict';
+import {
+  buildAutonomousRepairPrompt,
+  createAutonomousQaReport,
+  runAutonomousRepairCycle,
+  selectAutonomousRepairTargets,
+  validateAutonomousRepairCandidate,
+} from '../functions/_lib/autonomous-qa.js';
+
+const requiredChannels = ['static', 'browser', 'backend', 'journeys'];
+const allPassed = requiredChannels.map(channel => ({ channel, status: 'passed', testsRun: 3, findings: [] }));
+
+const missing = createAutonomousQaReport({
+  requiredChannels,
+  evidence: [{ channel: 'static', status: 'passed', testsRun: 4 }],
+});
+assert.equal(missing.status, 'incomplete', 'Missing browser/backend/journey evidence must never be treated as a pass.');
+assert.equal(missing.summary.notRunChannels, 3);
+
+const zeroRun = createAutonomousQaReport({
+  requiredChannels: ['browser'],
+  evidence: [{ channel: 'browser', status: 'passed', testsRun: 0 }],
+});
+assert.equal(zeroRun.status, 'incomplete', 'A claimed pass with zero executed tests must be downgraded.');
+
+const passed = createAutonomousQaReport({ requiredChannels, evidence: allPassed });
+assert.equal(passed.status, 'passed');
+assert.equal(passed.summary.testsRun, 12);
+
+const falsePass = createAutonomousQaReport({
+  requiredChannels: ['browser'],
+  evidence: [{
+    channel: 'browser', status: 'passed', testsRun: 2,
+    findings: [{ severity: 'blocker', code: 'BUTTON_DEAD', message: 'The primary button did not navigate.', file: 'index.html' }],
+  }],
+});
+assert.equal(falsePass.status, 'needs-attention', 'A blocker finding must override a channel pass claim.');
+
+const blocked = createAutonomousQaReport({
+  requiredChannels: ['backend'],
+  evidence: [{ channel: 'backend', status: 'blocked', testsRun: 0, blockedReason: 'Disposable database binding unavailable.' }],
+});
+assert.equal(blocked.status, 'blocked');
+assert.equal(blocked.channels[0].blockedReason, 'Disposable database binding unavailable.');
+
+const files = {
+  'index.html': '<!doctype html><html><body><button id="buy">Buy</button></body></html>',
+  'src/checkout.js': 'export function checkout(){ return false; }',
+  'src/theme.css': 'body { color: black; }',
+  '.env': 'API_KEY=secret-value-must-not-be-read',
+  'migrations/0001.sql': 'DROP TABLE customers;',
+  'package.json': '{ "scripts": { "build": "vite build" } }',
+  'src/credentials.json': '{ "private_key": "not-for-repair" }',
+  'src/secret.js': 'const token = "sk_live_12345678901234567890";',
+};
+
+const findings = [
+  { channel: 'browser', severity: 'blocker', code: 'BUTTON_NOOP', message: 'Buy button did not change route or state.', file: 'index.html' },
+  { channel: 'browser', severity: 'blocker', code: 'BUTTON_NOOP', message: 'Checkout handler returned without a result.', file: 'src/checkout.js' },
+  { channel: 'static', severity: 'warning', code: 'THEME', message: 'Theme needs refinement.', file: 'src/theme.css' },
+  { channel: 'backend', severity: 'blocker', code: 'MIGRATION', message: 'Migration must be reviewed manually.', file: 'migrations/0001.sql' },
+  { channel: 'security', severity: 'blocker', code: 'SECRET', message: 'Secret file must never be sent to repair.', file: '.env' },
+  { channel: 'security', severity: 'blocker', code: 'SECRET', message: 'Credential-shaped source must not be sent.', file: 'src/secret.js' },
+  { channel: 'security', severity: 'blocker', code: 'TRAVERSAL', message: 'Traversal is rejected.', file: '../outside.js' },
+];
+
+const targets = selectAutonomousRepairTargets(files, findings);
+assert.deepEqual(targets.map(item => item.path), ['index.html', 'src/checkout.js', 'src/theme.css']);
+assert.ok(targets.every(item => !item.path.includes('..')));
+const prompt = buildAutonomousRepairPrompt({ originalBrief: 'Build a working checkout.', findings, targets });
+assert.match(prompt, /EXACT REPAIR ALLOWLIST/);
+assert.match(prompt, /src\/checkout\.js/);
+assert.doesNotMatch(prompt, /API_KEY=secret-value/);
+assert.doesNotMatch(prompt, /sk_live_12345678901234567890/);
+
+const validCandidate = validateAutonomousRepairCandidate({
+  originalFiles: files,
+  targets,
+  repairOutput: JSON.stringify({ files: {
+    'src/checkout.js': 'export function checkout(){ return { ok: true }; }',
+  } }),
+});
+assert.equal(validCandidate.ok, true);
+assert.deepEqual(validCandidate.changedPaths, ['src/checkout.js']);
+assert.equal(validCandidate.files['index.html'], files['index.html'], 'Untargeted files must remain byte-for-byte unchanged.');
+
+for (const [repairOutput, reason] of [
+  ['not-json', 'invalid-json'],
+  [JSON.stringify({ files: { '../outside.js': 'export const ok = true;' } }), 'repair-path-not-allowlisted'],
+  [JSON.stringify({ files: { 'src/checkout.js': 'const api_key = "abcdefghijklmnop123456";' } }), 'secret-shaped-repair-content'],
+  [JSON.stringify({ files: { 'src/checkout.js': '' } }), 'repair-content-invalid'],
+  [JSON.stringify({ files: { 'src/checkout.js': files['src/checkout.js'] } }), 'repair-made-no-changes'],
+]) {
+  const result = validateAutonomousRepairCandidate({ originalFiles: files, targets, repairOutput });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, reason);
+}
+
+const initialEvidence = [
+  { channel: 'static', status: 'passed', testsRun: 5 },
+  { channel: 'browser', status: 'failed', testsRun: 8, findings: [
+    { severity: 'blocker', code: 'BUTTON_NOOP', message: 'Buy button did not navigate.', file: 'index.html' },
+  ] },
+  { channel: 'backend', status: 'passed', testsRun: 4 },
+  { channel: 'journeys', status: 'failed', testsRun: 2, findings: [
+    { severity: 'blocker', code: 'CHECKOUT_FAILED', message: 'Checkout journey did not reach confirmation.', file: 'src/checkout.js' },
+  ] },
+];
+
+let repairCalls = 0;
+let verifyCalls = 0;
+const repaired = await runAutonomousRepairCycle({
+  files,
+  originalBrief: 'Build a working product checkout.',
+  requiredChannels,
+  initialEvidence,
+  repair: async request => {
+    repairCalls += 1;
+    assert.match(request.prompt, /CHECKOUT_FAILED/);
+    return { files: { 'src/checkout.js': 'export function checkout(){ return { ok: true, status: "confirmed" }; }' } };
+  },
+  verify: async ({ files: candidate }) => {
+    verifyCalls += 1;
+    assert.match(candidate['src/checkout.js'], /confirmed/);
+    return allPassed;
+  },
+});
+assert.equal(repairCalls, 1, 'The repair loop must be bounded to one attempt.');
+assert.equal(verifyCalls, 1, 'The same verification suite must run after repair.');
+assert.equal(repaired.repair.status, 'repaired-and-passed');
+assert.equal(repaired.report.status, 'passed');
+assert.deepEqual(repaired.repair.changedPaths, ['src/checkout.js']);
+
+let rejectedRepairCalls = 0;
+const rejected = await runAutonomousRepairCycle({
+  files,
+  originalBrief: 'Build a working product checkout.',
+  requiredChannels,
+  initialEvidence,
+  repair: async () => {
+    rejectedRepairCalls += 1;
+    return { files: { 'src/checkout.js': 'export function checkout(){ return { ok: true }; }' } };
+  },
+  verify: async () => [
+    { channel: 'static', status: 'passed', testsRun: 5 },
+    { channel: 'browser', status: 'failed', testsRun: 8, findings: [
+      { severity: 'blocker', code: 'NEW_OVERFLOW', message: 'A new horizontal overflow was introduced.', file: 'index.html' },
+    ] },
+    { channel: 'backend', status: 'passed', testsRun: 4 },
+    { channel: 'journeys', status: 'failed', testsRun: 2, findings: [
+      { severity: 'blocker', code: 'CHECKOUT_FAILED', message: 'Checkout journey did not reach confirmation.', file: 'src/checkout.js' },
+    ] },
+  ],
+});
+assert.equal(rejectedRepairCalls, 1);
+assert.equal(rejected.repair.status, 'rejected', 'A repair that introduces a new finding must be rolled back.');
+assert.equal(rejected.repair.reason, 'repair-introduced-new-findings');
+assert.equal(rejected.files['src/checkout.js'], files['src/checkout.js'], 'Rejected candidates must not replace the original project files.');
+
+const unavailable = await runAutonomousRepairCycle({
+  files,
+  requiredChannels,
+  initialEvidence,
+});
+assert.equal(unavailable.repair.status, 'unavailable');
+assert.equal(unavailable.files['src/checkout.js'], files['src/checkout.js']);
+
+console.log('OVYX autonomous QA report, safe target selection, bounded repair and regression rejection tests passed.');
