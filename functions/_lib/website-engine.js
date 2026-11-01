@@ -73,8 +73,9 @@ function pagePlan(contract) {
  * maintaining route-specific versions of those decisions.
  */
 export function buildWebsiteEnginePlan(prompt, context = {}) {
-  // Preserve line boundaries for requirement extraction; the experience brief
-  // can use a normalized copy, but the contract must see the original clauses.
+  // Keep a line-preserving source brief for requirement extraction. The local
+  // display/planning cleaner intentionally flattens whitespace, but the prompt
+  // contract uses line boundaries to retain distinct user requirements.
   const sourceBrief = String(prompt ?? '').replace(/\u0000/g, '').trim();
   const brief = clean(sourceBrief, 80000);
   const safeContext = context && typeof context === 'object' && !Array.isArray(context) ? context : {};
@@ -300,8 +301,8 @@ function serializeWebsiteEngineModelPlan(plan) {
     mission: clean(plan.designArchitecture?.mission, 120),
     direction: clean(plan.designArchitecture?.direction, 120),
     mustHave: compactPlanList(plan.designArchitecture?.mustHave, 6, 96),
-    conversionPrinciples: compactPlanList(plan.designArchitecture?.conversionPrinciples, 6, 96),
     experiencePrinciples: compactPlanList(plan.designArchitecture?.experiencePrinciples, 6, 96),
+    conversionPrinciples: compactPlanList(plan.designArchitecture?.conversionPrinciples, 6, 96),
     antiTemplateRules: compactPlanList(plan.designArchitecture?.antiTemplateRules, 6, 96),
   };
   minimal.interactionArchitecture = {
