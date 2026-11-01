@@ -304,3 +304,18 @@ assert.equal(scopedRepairCalls, 0);
 
 await assert.rejects(() => runWebsiteGeneration({ shouldBuild: true }), /requires a model caller/);
 console.log('OVYX unified website engine tests passed.');
+
+
+const filePlan = buildWebsiteEnginePlan('Update the existing site header and preserve every other route.', {
+  files: {
+    'index.html': '<script type="module" src="./src/main.js"></script>',
+    'src/main.js': "import './header.js';",
+    'src/header.js': 'export const header = true;',
+  },
+  changedPaths: ['src/header.js'],
+});
+assert.equal(filePlan.fileArchitecture.status, 'analyzed');
+assert.equal(filePlan.fileArchitecture.fileCount, 3);
+assert.deepEqual(filePlan.fileArchitecture.impactAnalysis.impactedPaths, ['index.html', 'src/main.js']);
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('fileArchitecture'));
+assert.equal(websiteEngineClientSummary(filePlan).fileArchitecture.dependencyCount, 2);
