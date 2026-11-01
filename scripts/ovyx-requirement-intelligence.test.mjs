@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { buildRequirementIntelligence } from '../functions/_lib/requirement-intelligence.js';
+import { buildWebsiteEnginePlan, buildWebsiteEngineInstructions } from '../functions/_lib/website-engine.js';
 
 const contract = {
   requirementManifestComplete: true,
@@ -74,3 +75,29 @@ assert.equal(nuanceLedger.requirements[5].polarity, 'prohibited', 'A negation la
 assert.equal(nuanceLedger.requirements[6].polarity, 'prohibited', 'Explicit no-feature constraints must be recognized even when they do not start the clause.');
 assert.ok(nuanceLedger.conflicts.some(item => item.requirementIds.includes('R003') && item.requirementIds.includes('R004')),
   'Near-identical positive and prohibited requirements must be surfaced even when their wording differs.');
+
+
+// Stage 1 integration: ensure the model-facing website plan receives a
+// compact, per-requirement semantic signal for required, prohibited and
+// preferred instructions, including criticality and traceability status.
+const understandingPlan = buildWebsiteEnginePlan([
+  'Build a customer portal for small business owners.',
+  'Must include customer login and order history.',
+  'Do not include third-party tracking scripts.',
+  'A minimal visual direction is preferred.',
+].join('\n'));
+const modelInstructions = buildWebsiteEngineInstructions(understandingPlan);
+assert.match(modelInstructions, /"requirementSignals":\[/,
+  'The generation model must receive classified signals for the brief requirements.');
+assert.match(modelInstructions, /"requirementSignals":\[[^\]]*"\+C:icq:[MU]"/,
+  'Critical identity and commerce requirements must be marked as required.');
+assert.match(modelInstructions, /"requirementSignals":\[[^\]]*"!H:xq:[MU]"/,
+  'Explicit third-party tracking exclusions must be marked as prohibited.');
+assert.match(modelInstructions, /"requirementSignals":\[[^\]]*"~N:v:[MU]"/,
+  'Design preferences must not be promoted to mandatory requirements.');
+assert.match(modelInstructions, /Polarity \+ means required, ! means prohibited and must remain excluded, ~ means preference/i,
+  'The model must receive the meaning of each requirement signal.');
+assert.match(modelInstructions, /These are deterministic signals, not a substitute for reading the complete brief/i,
+  'The complete original brief must remain authoritative.');
+
+console.log('OVYX Stage 1 model-facing requirement understanding tests passed.');
