@@ -243,7 +243,10 @@ function normalizeQaPlan(metadata) {
   const plan = metadata && metadata.qaPlan && typeof metadata.qaPlan === 'object' ? metadata.qaPlan : {};
   const journeys = Array.isArray(plan.journeys) ? plan.journeys.slice(0, 12) : [];
   const apiChecks = Array.isArray(plan.apiChecks) ? plan.apiChecks.slice(0, 20) : [];
+  const backendChecks = Array.isArray(plan.backendChecks) ? plan.backendChecks.slice(0, 24) : [];
   return {
+    backendRequired: plan.backendRequired === true,
+    backendChecks: backendChecks.map((check, index) => ({ id: String(check?.id || 'backend-check-' + (index + 1)).slice(0, 80) })),
     journeys: journeys.map((journey, index) => ({
       id: String(journey?.id || 'journey-' + (index + 1)).slice(0, 80),
       name: String(journey?.name || 'User journey ' + (index + 1)).slice(0, 120),
@@ -588,10 +591,12 @@ async function main() {
       const journeyPlanMissing=qaPlan.journeys.length===0;
       const failedJourneys=journeyResults.filter(item=>item.status!=='passed');
       const failedApiChecks=apiCheckResults.filter(item=>item.status!=='passed');
+      const backendPlanInvalid=qaPlan.backendRequired&&qaPlan.backendChecks.length===0;
       const failures=checks.filter(c=>c.navigationError||c.metrics?.horizontalOverflow||c.metrics?.brokenImages?.length||c.metrics?.copyIssues?.length||c.metrics?.deadLinks?.length||c.metrics?.unlabeledControls?.length||c.pageErrors.length||c.consoleErrors.length||c.failedRequests.length||c.blockedExternalRequests.length||c.internalLinkChecks.some(link=>['invalid-url','missing-fragment-target','local-route-http-error','local-route-request-failed'].includes(link.status))||c.buttonInteractions?.results?.some(item=>['no-observable-state-change','click-failed','interaction-test-error'].includes(item.status))||c.formInteractions.some(f=>f.classification!=='qa-only-local-form-post-and-success-ui-verified'));
       if(journeyPlanMissing)failures.push({page:'site-level',reason:'No requirement-derived browser journey was supplied in ovyx-qa-plan.json.'});
       if(failedJourneys.length)failures.push({page:'site-level',reason:'One or more requirement-derived user journeys failed.',journeys:failedJourneys.map(item=>item.id)});
       if(failedApiChecks.length)failures.push({page:'site-level',reason:'One or more declared read-only API contract checks failed.',checks:failedApiChecks.map(item=>item.id)});
+      if(backendPlanInvalid)failures.push({page:'site-level',reason:'This full-stack project declared backendRequired but supplied no executable backendChecks.'});
       if(qaFormMissing)failures.push({page:'site-level',reason:'Required QA-only enquiry form did not submit to the isolated test receiver.'});
       if(publicEnquiryFailure)failures.push({page:'site-level',reason:'Owner-approved public enquiry form did not return an explicit delivery receipt.'});
       results.push({
@@ -603,6 +608,8 @@ async function main() {
         journeyPlanMissing,declaredJourneys:journeyResults.length,passedJourneys:journeyResults.filter(item=>item.status==='passed').length,failedJourneys,journeyResults,
         declaredApiChecks:apiCheckResults.length,passedApiChecks:apiCheckResults.filter(item=>item.status==='passed').length,failedApiChecks,apiCheckResults,
         apiProbeMode:'static-artifact-host-read-only',
+        backendRequired:qaPlan.backendRequired,declaredBackendChecks:qaPlan.backendChecks.length,
+        backendRuntime:{status:qaPlan.backendRequired?'blocked':'not-required',testsRun:0,reason:qaPlan.backendRequired?'A separate outbound-network-disabled Cloudflare Pages/D1 runtime evaluation is required.':'The generated QA plan declares no backend runtime requirement.'},
         publicEnquiryEndpointConfigured:Boolean(PUBLIC_ENQUIRY),publicEnquiryFormObserved,publicEnquiryDeliveryConfirmed,
         publicEnquiryStatus:publicEnquiryChecks.some(item=>item.status==='endpoint-reported-delivery-confirmed')?'endpoint-reported-delivery-confirmed':publicEnquiryFormObserved?'public-form-submitted-without-confirmed-delivery':PUBLIC_ENQUIRY?'configured-public-form-not-observed':'not-configured-or-not-opted-in',
         publicEnquiryChecks,realEnquiryDeliveryConfirmed:publicEnquiryDeliveryConfirmed,
@@ -624,6 +631,7 @@ async function main() {
     schemaVersion:2,generatedAt:new Date().toISOString(),
     status:results.some(r=>r.status==='needs-attention')?'needs-attention':'browser-evaluated',
     sitesFound:sites.length,evaluatedSites:results.length,viewportWidths:VIEWPORTS.map(v=>v.width),results,
+    backendRuntime:{status:results.some(site=>site.backendRequired)?'blocked':'not-required',requiredSites:results.filter(site=>site.backendRequired).length,passedSites:0,testsRun:0},
     verifiedClaims:{
       realListingsConfirmed:false,
       realEnquiryDeliveryConfirmed:PUBLIC_ENQUIRY&&ENQUIRY_TEST_RECIPIENT&&results.length>0&&results.every(site=>site.publicEnquiryDeliveryConfirmed===true),
