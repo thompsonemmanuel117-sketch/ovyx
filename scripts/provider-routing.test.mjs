@@ -7,6 +7,11 @@ import {
   withCloudflareAIOnly,
 } from '../functions/_lib/cloudflare-routing.js';
 
+const liveWorkflow = await readFile(new URL('../.github/workflows/ovyx-webstudio-live-generation.yml', import.meta.url), 'utf8');
+const providerInput = liveWorkflow.match(/\\n      provider:[\\s\\S]*?(?=\\n  push:)/)?.[0] || '';
+assert.match(providerInput, /cloudflare-workers-ai/);
+assert.doesNotMatch(providerInput, /automatic|gemini|claude|deepseek|openai/i, 'The trusted live-generation workflow must not expose unsupported AI providers.');
+
 const binding = { run() {} };
 const secure = withCloudflareAIOnly({
   AI: binding,
