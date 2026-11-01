@@ -19,9 +19,11 @@ export function auditExperienceQuality(files={},siteMap={}){
  if(!/<html\b[^>]*\blang\s*=/i.test(h))add('DOCUMENT_LANGUAGE_MISSING',file,'warning','No document language.');
  if(!/<h1\b/i.test(h))add('PRIMARY_HEADING_MISSING',file,'warning','No h1 heading.');
  if(!/<main\b/i.test(h))add('MAIN_LANDMARK_MISSING',file,'warning','No main landmark.');
+ const headingLevels=[...h.matchAll(/<h([1-6])\b/gi)].map(x=>Number(x[1]));
+ for(let i=1;i<headingLevels.length;i++)if(headingLevels[i]>headingLevels[i-1]+1){add('HEADING_LEVEL_SKIPPED',file,'warning','Heading hierarchy skips from h'+headingLevels[i-1]+' to h'+headingLevels[i]+'.');break;}
  for(const m of h.matchAll(/<img\b[^>]*>/gi)){if(!/\balt\s*=/i.test(m[0]))add('IMAGE_ALT_ATTRIBUTE_MISSING',file,'warning','Image has no alt attribute.');if(!/\b(?:width|height)\s*=/i.test(m[0]))add('IMAGE_DIMENSIONS_UNDECLARED',file,'info','Image has no intrinsic dimensions.');}
  for(const m of h.matchAll(/<button\b[^>]*>[\s\S]*?<\/button\s*>/gi))if(!m[0].replace(/<[^>]*>/g,'').trim()&&!a(m[0],'aria-label')&&!a(m[0],'aria-labelledby'))add('BUTTON_NAME_MISSING',file,'warning','Button has no detectable accessible name.');
- for(const m of h.matchAll(/<a\b[^>]*>/gi))if(!a(m[0],'href')||a(m[0],'href')==='#')add('ANCHOR_DESTINATION_MISSING',file,'warning','Anchor has no meaningful destination.');
+ for(const m of h.matchAll(/<a\b[^>]*>[\s\S]*?<\/a\s*>/gi)){const tag=m[0],label=tag.replace(/<[^>]*>/g,'').trim();if(!a(tag,'href')||a(tag,'href')==='#')add('ANCHOR_DESTINATION_MISSING',file,'warning','Anchor has no meaningful destination.');if(!label&&!a(tag,'aria-label')&&!a(tag,'aria-labelledby'))add('ANCHOR_NAME_MISSING',file,'warning','A link has no detectable accessible name.');}
  for(const m of h.matchAll(/<(?:input|select|textarea)\b[^>]*>/gi)){const t=m[0],type=a(t,'type').toLowerCase();if(/^<input\b/i.test(t)&&['hidden','submit','button','reset'].includes(type))continue;if(!a(t,'aria-label')&&!a(t,'aria-labelledby')&&!a(t,'id'))add('FORM_CONTROL_NAME_UNDETECTABLE',file,'warning','Form control has no detectable accessible-name or label target.');}
  }
  if(!entries.some(([p])=>/^robots\.txt$/i.test(p)))add('ROBOTS_POLICY_NOT_INCLUDED','robots.txt','info','No root robots.txt file is included; confirm the indexing policy before publishing.');
