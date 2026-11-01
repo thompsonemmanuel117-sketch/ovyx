@@ -133,6 +133,48 @@
       return a.path.localeCompare(b.path);
     });
   }
+  function readProjectQaPlan(files) {
+    var planPath = Object.keys(files || {}).find(function (key) {
+      return normalizePath(key).toLowerCase() === 'ovyx-qa-plan.json';
+    });
+    if (!planPath) return { status: 'missing', journeys: [], apiChecks: [] };
+    try {
+      var parsed = JSON.parse(fileText(files[planPath]));
+      if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.journeys) || !Array.isArray(parsed.apiChecks)) {
+        return { status: 'invalid', journeys: [], apiChecks: [] };
+      }
+      var allowed = new Set(['click', 'fill', 'check', 'uncheck', 'select', 'expectText', 'expectVisible', 'expectHidden', 'expectUrl', 'expectValue']);
+      var journeys = parsed.journeys.slice(0, 12).map(function (journey, index) {
+        var startRoute = text(journey && journey.startRoute).trim();
+        if (!startRoute || startRoute.charAt(0) !== '/' || startRoute.indexOf('//') === 0 || startRoute.indexOf('\\') >= 0 || /(?:^|\/)\.\.?(?:\/|$)/.test(startRoute)) startRoute = '';
+        return {
+          id: trim(journey && journey.id || 'journey-' + (index + 1), 80),
+          name: trim(journey && journey.name || 'User journey ' + (index + 1), 120),
+          startRoute: startRoute ? normalizeRoute(startRoute) : '',
+          steps: (Array.isArray(journey && journey.steps) ? journey.steps : []).slice(0, 30).map(function (step) {
+            return {
+              action: text(step && step.action),
+              selector: trim(step && step.selector, 180),
+              route: trim(step && step.route, 220),
+              text: trim(step && step.text, 300),
+              value: typeof (step && step.value) === 'string' ? step.value.slice(0, 500) : '',
+            };
+          }).filter(function (step) { return allowed.has(step.action); })
+        };
+      });
+      return { status: journeys.length ? 'ready' : 'empty', journeys: journeys, apiChecks: parsed.apiChecks.slice(0, 20) };
+    } catch (_) {
+      return { status: 'invalid', journeys: [], apiChecks: [] };
+    }
+  }
+  function journeysForPage(plan, page) {
+    if (!plan || !Array.isArray(plan.journeys)) return [];
+    var route = normalizeRoute(page && page.route || '/');
+    return plan.journeys.filter(function (journey) {
+      return journey.startRoute && normalizeRoute(journey.startRoute) === route && journey.steps.length > 0;
+    }).slice(0, 4);
+  }
+
   function recommendationForFinding(item) {
     var title = text(item && item.title).toLowerCase();
     var group = text(item && item.group).toLowerCase();
