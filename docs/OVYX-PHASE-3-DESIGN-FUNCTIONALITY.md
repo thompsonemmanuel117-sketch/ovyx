@@ -43,6 +43,11 @@
 - Added `scripts/ovyx-experience-quality.test.mjs` to the complete `npm test` chain.
 - Expanded design-system and visual-asset responsive targets from five to thirteen widths: 320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440 and 1920 px.
 
+## Additional component dependency coverage
+
+- Extended the existing bounded website file graph with a static route-to-component usage map. It identifies exported uppercase component symbols, traces their module dependencies from HTML/framework page entrypoints, reports unreferenced component candidates and exposes affected routes from `analyzeWebsiteFileImpact()`.
+- Added regression fixtures proving a shared component change identifies the page that imports it. This remains static import evidence; dynamic imports and implicit framework registries are explicitly outside the guarantee.
+
 ## Additional browser coverage
 
 - Added `scripts/ovyx-webstudio-cross-browser.smoke.mjs`, a generated-site fixture suite that checks responsive overflow at all thirteen viewport widths plus a real disclosure interaction and keyboard probe in Chromium, Firefox and WebKit.
