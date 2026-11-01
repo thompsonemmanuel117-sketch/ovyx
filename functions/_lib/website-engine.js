@@ -661,6 +661,15 @@ function auditBackendFiles(files, architecture) {
     };
   });
   const allGeneratedSource = entries.map(entry => entry[1]).join('\n').toLowerCase();
+  const testFiles = entries.filter(([filePath]) =>
+    filePath.startsWith('tests/') || filePath.startsWith('test/') || filePath.startsWith('__tests__/')
+  );
+  const generatedTestSource = testFiles.map(entry => entry[1]).join('\n').toLowerCase();
+  const testEvidence = testFiles.length > 0 &&
+    /\btest\s*\(|\bit\s*\(|\bdescribe\s*\(|\bassert\./i.test(generatedTestSource) &&
+    /authorization|permission|owner|role|rate.?limit/i.test(generatedTestSource) &&
+    /idempotency/i.test(generatedTestSource) &&
+    /transition|state.?machine/i.test(generatedTestSource);
   const workflows = (architecture.stateMachines || []).map(machine => {
     const entity = String(machine.entity || '').toLowerCase();
     const states = Array.isArray(machine.states) ? machine.states.map(state => String(state).toLowerCase()) : [];
@@ -681,6 +690,7 @@ function auditBackendFiles(files, architecture) {
   workflows.filter(workflow => !workflow.statesPresent || !workflow.transitionPresent).forEach(workflow =>
     missing.push('Missing business workflow implementation evidence: ' + workflow.entity)
   );
+  if (!testEvidence) missing.push('Missing safe generated backend regression tests for authorization, idempotency and workflow transitions.');
   return {
     status: missing.length ? 'incomplete-source-generation' : 'source-evidence-present-runtime-unverified',
     routeCount: routes.length, routeSourceCount: routes.filter(route => route.file).length,
@@ -691,7 +701,7 @@ function auditBackendFiles(files, architecture) {
     relationshipCount: relations.length, relationshipEvidenceCount: relations.filter(relation => relation.present).length,
     indexCount: indexes.length, indexEvidenceCount: indexes.filter(index => index.present).length,
     workflowCount: workflows.length, workflowEvidenceCount: workflows.filter(workflow => workflow.statesPresent && workflow.transitionPresent).length,
-    workflowEvidence: workflows,
+    workflowEvidence: workflows, generatedTestFileCount: testFiles.length, generatedTestEvidence: testEvidence,
     runtimeBehaviorVerified: false, databasePersistenceVerified: false, integrationDeliveryVerified: false,
     missing: missing.slice(0, 40), routeEvidence: routes,
   };
