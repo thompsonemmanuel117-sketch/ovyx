@@ -408,6 +408,8 @@ function buildIntegrationContracts(capabilities, context) {
     ['payments', capabilities.payments], ['database', capabilities.database],
     ['authentication', capabilities.authentication], ['email', capabilities.email],
     ['booking', capabilities.booking], ['storage', capabilities.fileStorage],
+    ['subscriptions', capabilities.subscriptions], ['notifications', capabilities.notifications],
+    ['integrations', capabilities.integrations], ['automation', capabilities.automation],
   ].filter(([, requested]) => requested);
   const roots = [context && context.connections, context && context.activeConnections,
     context && context.integrations, context && context.connectionStatus, context && context.connectedServices];
@@ -422,6 +424,8 @@ function buildIntegrationContracts(capabilities, context) {
     payments: /payment|paystack|flutterwave|stripe|paypal/i, database: /database|firestore|firebase|d1|postgres|mysql|supabase/i,
     authentication: /auth|identity|firebase|supabase|clerk/i, email: /email|mail|resend|sendgrid|postmark|smtp/i,
     booking: /booking|reservation|calendar|scheduling/i, storage: /storage|r2|firebase|s3|supabase/i,
+    subscriptions: /subscription|recurring|membership|billing/i, notifications: /notification|push|alert|messaging/i,
+    integrations: /integration|webhook|api|external|third.party/i, automation: /automation|workflow|scheduler|cron/i,
   };
   return requests.map(([capability]) => {
     const matchingConnections = connectionRecords.filter(item => {
@@ -459,6 +463,10 @@ function buildSecurityArchitecture(capabilities) {
   if (capabilities.authentication) controls.push(['session-security', 'Use provider-verified identities, secure session lifecycle, rotation, expiry, CSRF protection where cookie-authenticated and safe logout.']);
   if (capabilities.authorization) controls.push(['object-level-authorization', 'Check resource ownership and scope on every read/write; role labels alone never grant cross-tenant access.']);
   if (capabilities.payments) controls.push(['payment-integrity', 'Recompute amounts server-side; verify signatures, replay windows and provider references; reconcile idempotently before fulfillment.']);
+  if (capabilities.subscriptions) controls.push(['subscription-entitlement-integrity', 'Grant paid access only from verified provider lifecycle events; reconcile renewals, grace periods, cancellations, refunds and chargebacks against server-owned plan rules.']);
+  if (capabilities.notifications) controls.push(['notification-privacy', 'Authorize every notification read/update by recipient ownership; redact payloads and separate queued, delivered and read states.']);
+  if (capabilities.integrations) controls.push(['integration-boundary', 'Validate webhook signatures, scope credentials by tenant/environment, prevent SSRF and replay, and redact provider payloads and secrets.']);
+  if (capabilities.automation) controls.push(['automation-safety', 'Use scoped service identities, idempotent run keys, bounded execution time, retry budgets and human approval for high-impact actions.']);
   if (capabilities.booking) controls.push(['booking-integrity', 'Recheck authoritative availability at commit time and prevent overlapping reservations transactionally or through provider locking.']);
   if (capabilities.forms) controls.push(['form-submission-integrity', 'Use versioned server-owned schemas, abuse throttles, idempotency, applicable consent, personal-data redaction and retention/deletion controls.']);
   if (capabilities.fileStorage) controls.push(['upload-isolation', 'Validate MIME by content, enforce per-file/project limits, randomize storage keys and scan files before public distribution.']);
@@ -480,6 +488,12 @@ function buildTestPlan(capabilities) {
   if (capabilities.forms) tests.push({ id: 'form-schema-validation', type: 'contract-and-security', scope: 'forms', assertion: 'Unknown fields, stale schemas, missing required values, forged owner/status fields, duplicate requests and abuse thresholds are handled safely.' });
   if (capabilities.email) tests.push({ id: 'delivery-receipt', type: 'external-sandbox', scope: 'email', assertion: 'Controlled QA message is accepted and provider delivery receipt is reconciled.', requiresExplicitOwnerApproval: true });
   if (capabilities.booking) tests.push({ id: 'booking-conflicts', type: 'integration', scope: 'booking', assertion: 'Concurrent reservations cannot claim the same unavailable slot.' });
+  if (capabilities.commerce) tests.push({ id: 'commerce-journey', type: 'browser-and-integration', scope: 'catalog-cart-order-inventory', assertion: 'A customer can browse, mutate a persistent cart, receive a server-calculated quote, complete the configured checkout path and see an owner-scoped order; stock reservation and release remain correct under retries and concurrency.' });
+  if (capabilities.subscriptions) tests.push({ id: 'subscription-lifecycle', type: 'integration-and-security', scope: 'subscriptions', assertion: 'Plan checkout, activation, renewal, failed payment, grace period, cancellation, resume, refund and entitlement changes reconcile only from authoritative provider events.', requiresExplicitOwnerApproval: true });
+  if (capabilities.notifications) tests.push({ id: 'notification-journey', type: 'browser-and-integration', scope: 'notifications', assertion: 'Owner-scoped notifications are created from committed business events, can be read idempotently and distinguish queued, accepted, delivered and read states.' });
+  if (capabilities.dashboards) tests.push({ id: 'dashboard-data-integrity', type: 'browser-and-integration', scope: 'dashboards', assertion: 'Dashboard KPIs match tenant-scoped persisted source records, respect role permissions, timezone and date filters, and do not leak other tenants’ data.' });
+  if (capabilities.integrations) tests.push({ id: 'integration-contracts', type: 'sandbox-and-security', scope: 'integrations', assertion: 'Each requested adapter validates configuration, authenticates webhook events, handles timeout/rate-limit/retry/replay cases and records redacted health evidence.', requiresExplicitOwnerApproval: true });
+  if (capabilities.automation) tests.push({ id: 'automation-recovery', type: 'integration', scope: 'automation', assertion: 'Scheduled/event-triggered jobs are idempotent, bounded, observable and recover through retry and dead-letter handling.' });
   return tests.map(test => ({ ...test, status: 'planned-not-executed', evidence: null }));
 }
 
