@@ -54,6 +54,9 @@ const storedAssetModel = uploadArchitecture.dataModels.find(model => model.name 
 assert.ok(storedAssetModel.fields.includes('scanStatus'));
 assert.ok(storedAssetModel.fields.includes('idempotencyKey'));
 assert.ok(uploadArchitecture.dataIntegrity.constraints.some(item => item.id === 'asset-publication-gate'));
+assert.ok(uploadArchitecture.apiContracts.some(route => route.method === 'GET' && route.path === '/api/assets'));
+assert.ok(uploadArchitecture.apiContracts.some(route => route.method === 'DELETE' && route.path === '/api/assets/:assetId' && /idempotent/i.test(route.purpose)));
+
 assert.ok(uploadArchitecture.dataIntegrity.constraints.some(item => item.id === 'asset-content-integrity'));
 assert.ok(uploadArchitecture.dataIntegrity.indexes.some(item => item.entity === 'StoredAsset' && item.fields.includes('ownerId')));
 assert.ok(uploadArchitecture.stateMachines.some(machine =>
@@ -66,6 +69,10 @@ const bookingModel = bookingArchitecture.dataModels.find(model => model.name ===
 assert.ok(bookingModel.fields.includes('idempotencyKey'));
 assert.ok(bookingModel.fields.includes('holdExpiresAt'));
 assert.ok(bookingArchitecture.dataIntegrity.constraints.some(item => item.id === 'booking-idempotency'));
+assert.ok(bookingArchitecture.apiContracts.some(route => route.method === 'GET' && route.path === '/api/bookings' && /pagination/i.test(route.purpose)));
+assert.ok(bookingArchitecture.apiContracts.some(route => route.method === 'PATCH' && route.path === '/api/bookings/:bookingId/reschedule' && /atomically acquire/i.test(route.purpose)));
+assert.ok(bookingArchitecture.apiContracts.some(route => route.path === '/api/bookings/:bookingId/cancel' && route.idempotency === 'required-for-retryable-side-effects'));
+
 assert.ok(bookingArchitecture.dataIntegrity.constraints.some(item => item.id === 'booking-hold-expiry'));
 assert.ok(bookingArchitecture.dataIntegrity.indexes.some(item => item.entity === 'Booking' && item.unique && item.fields.includes('idempotencyKey')));
 assert.ok(bookingArchitecture.dataIntegrity.indexes.some(item => item.entity === 'Booking' && item.fields.includes('holdExpiresAt')));
