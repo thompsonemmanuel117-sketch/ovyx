@@ -21,12 +21,13 @@ assert.ok(staticPass.testsRun >= 10);
 const staticFailure = evaluateGeneratedWebsiteFiles({
   'index.html': '<html><body><h1>TODO</h1><a href="/missing.html">Broken</a><script src="app.js"></script></body></html>',
   'app.js': 'eval("alert(1)")',
-  'ovyx-qa-plan.json': JSON.stringify({ version: 1, journeys: [], apiChecks: [{ method: 'POST', route: '/api/charge' }] }),
+  'ovyx-qa-plan.json': JSON.stringify({ version: 1, journeys: [{ id: 'unsafe', steps: [{ action: 'goto', route: 'https://example.com' }] }], apiChecks: [{ method: 'POST', route: '/api/charge' }] }),
 });
 assert.equal(staticFailure.status, 'failed');
 assert.ok(staticFailure.findings.some(item => item.code === 'HTML_ENTRY_MISSING' || item.code === 'TITLE_MISSING'));
 assert.ok(staticFailure.findings.some(item => item.code === 'DYNAMIC_CODE_EXECUTION'));
 assert.ok(staticFailure.findings.some(item => item.code === 'QA_PLAN_MUTATING_API_PROBE'));
+assert.ok(staticFailure.findings.some(item => item.code === 'QA_PLAN_ACTION_UNSUPPORTED'));
 
 const requiredChannels = ['static', 'browser', 'backend', 'journeys'];
 const allPassed = requiredChannels.map(channel => ({ channel, status: 'passed', testsRun: 12, findings: [] }));
