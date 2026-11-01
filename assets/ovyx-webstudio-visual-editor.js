@@ -391,7 +391,6 @@
         var enabled = this.__ovyxVisualDragEnabled;
         var result = originalMenu.apply(this, arguments);
         window.setTimeout(function () { setDragMode(enabled); }, 120);
-        toast(enabled ? 'Visual drag mode enabled. Drag a highlighted section or component to reorder it.' : 'Visual drag mode paused.', 'info');
         return result;
       }
       return originalMenu.apply(this, arguments);
