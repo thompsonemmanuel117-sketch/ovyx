@@ -328,7 +328,8 @@ if (!fs.existsSync(fullStackArchitecturePath) || !fs.existsSync(fullStackArchite
   const fullStackTest = fs.readFileSync(fullStackArchitectureTestPath, 'utf8');
   const packageJson = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
   if (
-    !websiteEngine.includes('buildFullStackArchitecture(brief, promptContract, safeContext, pages)') ||
+    !websiteEngine.includes('buildPromptContract(sourceBrief)') ||
+    !websiteEngine.includes('buildFullStackArchitecture(sourceBrief, promptContract, safeContext, pages)') ||
     !websiteEngine.includes('fullStackArchitectureModelContract(plan.fullStackArchitecture)') ||
     !websiteEngine.includes('fullStackArchitectureClientSummary(plan.fullStackArchitecture)') ||
     !websiteEngine.includes('OVYX FULL-STACK ARCHITECTURE CONTRACT — ONE COHERENT APPLICATION') ||
