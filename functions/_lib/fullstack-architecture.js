@@ -181,6 +181,8 @@ function buildDataIntegrityContracts(capabilities) {
     { id: 'booking-idempotency', appliesTo: 'Booking', rule: 'Scope a unique idempotency key to the customer or anonymous session and resource so retries cannot create duplicate reservations.' },
     { id: 'booking-duration-policy', appliesTo: 'Booking', rule: 'Validate resource-specific duration, lead time, business hours, buffers and capacity on the server before acquiring a slot.' },
     { id: 'booking-confirmation-authority', appliesTo: 'Booking', rule: 'A booking becomes confirmed only after the authoritative resource/provider confirms the reservation; pending holds remain visibly pending.' },
+  );
+  if (capabilities.fileStorage) constraints.push(
     { id: 'asset-publication-gate', appliesTo: 'StoredAsset', rule: 'Only scanned, policy-approved assets may become available; quarantined, rejected and deleted objects must never be served by public routes.' },
     { id: 'asset-content-integrity', appliesTo: 'StoredAsset', rule: 'Verify actual file signature, byte count and checksum server-side; client-declared MIME type and size are advisory only.' },
     { id: 'asset-deletion-consistency', appliesTo: 'StoredAsset', rule: 'Delete or tombstone metadata and object storage through an idempotent cleanup workflow; never leave a public stale object reference.' },
