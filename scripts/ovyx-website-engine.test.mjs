@@ -320,7 +320,7 @@ assert.deepEqual(filePlan.fileArchitecture.impactAnalysis.impactedPaths, ['src/m
 assert.ok(buildWebsiteEngineInstructions(filePlan).includes('fileArchitecture'));
 assert.equal(websiteEngineClientSummary(filePlan).fileArchitecture.dependencyCount, 2);
 
-const conflictedPlan = buildWebsiteEnginePlan('Include a customer login and account dashboard.\\nDo not include a customer login and account dashboard.');
+const conflictedPlan = buildWebsiteEnginePlan('Include a customer login and account dashboard.\nDo not include a customer login and account dashboard.');
 assert.equal(conflictedPlan.requirementIntelligence.counts.total, conflictedPlan.requirementManifest.total);
 assert.equal(conflictedPlan.requirementIntelligence.conflicts.length, 1);
 assert.ok(buildWebsiteEngineInstructions(conflictedPlan).includes('Conflicting instructions remain unresolved'));
