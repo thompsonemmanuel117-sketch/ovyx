@@ -195,7 +195,24 @@ const roleAccessBrief = 'Build a staff portal with login, user roles and resourc
 const roleAccess = buildFullStackArchitecture(roleAccessBrief, buildPromptContract(roleAccessBrief));
 assert.equal(roleAccess.capabilities.authentication, true);
 assert.equal(roleAccess.capabilities.authorization, true);
+
 assert.ok(roleAccess.dataModels.some(model => model.name === 'RoleAssignment'));
+
+const multiTenantBrief = 'Build a multi-tenant SaaS platform with multiple organizations, team workspaces, separate customer data, workspace members, invitations and role-based permissions.';
+const multiTenant = buildFullStackArchitecture(multiTenantBrief, buildPromptContract(multiTenantBrief));
+assert.equal(multiTenant.capabilities.multiTenant, true, 'Explicit multi-tenant and organization workspace requirements must activate tenant isolation.');
+assert.ok(multiTenant.dataModels.some(model => model.name === 'Tenant'));
+assert.ok(multiTenant.dataModels.some(model => model.name === 'TenantMembership'));
+assert.ok(multiTenant.dataIntegrity.relationships.some(item => item.from === 'model-tenantmembership' && item.to === 'model-tenant'));
+assert.ok(multiTenant.dataIntegrity.constraints.some(item => item.id === 'tenant-scope-required'));
+assert.ok(multiTenant.dataIntegrity.constraints.some(item => item.id === 'tenant-boundary-deny'));
+assert.ok(multiTenant.dataIntegrity.indexes.some(item => item.entity === 'TenantMembership' && item.unique && item.fields.includes('tenantId') && item.fields.includes('principalId')));
+assert.ok(multiTenant.apiContracts.some(route => route.method === 'POST' && route.path === '/api/tenants' && /atomically/i.test(route.purpose)));
+assert.ok(multiTenant.apiContracts.some(route => route.path === '/api/tenants/:tenantId/invitations'));
+assert.ok(multiTenant.apiContracts.some(route => route.method === 'PATCH' && route.path === '/api/tenants/:tenantId/members/:memberId'));
+assert.ok(multiTenant.apiContracts.every(route => route.modelIds.every(id => multiTenant.dataModels.some(model => model.id === id))));
+assert.equal(multiTenant.graphIntegrity.valid, true, 'Tenant API/model relationships must remain connected in the architecture graph.');
+
 
 
 const publicUploadBrief = 'Build a full-stack public media submission site with image uploads, moderation and a database, but no user login.';
