@@ -3,6 +3,7 @@ import {
   buildFullStackArchitecture,
   buildFullStackArchitectureInstructions,
   fullStackArchitectureClientSummary,
+  fullStackArchitectureModelContract,
   validateFullStackArchitectureGraph,
 } from '../functions/_lib/fullstack-architecture.js';
 import { buildPromptContract } from '../functions/_lib/prompt-contract.js';
