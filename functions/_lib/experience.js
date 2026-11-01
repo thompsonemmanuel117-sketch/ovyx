@@ -130,16 +130,16 @@ function inferAudience(prompt, context, profile) {
 
   const q = clean(prompt);
   const patterns = [
-    /\\b(?:designed|built|made|created|intended)\\s+for\\s+([^.;,\\n]{3,140})/i,
-    /\\b(?:aimed at|targeting|serving)\\s+([^.;,\\n]{3,140})/i,
-    /\\bfor\\s+((?:independent musicians|music producers|small business owners|business owners|local businesses|people|users|customers|visitors|students|teachers|developers|designers|creators|artists|musicians|members|clients|patients|employees|founders|professionals|families|parents|children|travellers|travelers|tourists|buyers|sellers|tenants|landlords|homeowners|teams|staff|attendees|guests|residents|citizens|donors|volunteers|researchers|investors|applicants|job seekers|subscribers|administrators|admins|makers|coaches|athletes)\\b[^.;,\\n]{0,110})/i,
-    /\\b(?:target audience|audience|users?|customers?|visitors?)\\s+(?:is|are|include|includes|will be|:)\\s*([^.;,\\n]{3,140})/i,
+    /\b(?:designed|built|made|created|intended)\s+for\s+([^.;,\n]{3,140})/i,
+    /\b(?:aimed at|targeting|serving)\s+([^.;,\n]{3,140})/i,
+    /\bfor\s+((?:independent musicians|music producers|small business owners|business owners|local businesses|people|users|customers|visitors|students|teachers|developers|designers|creators|artists|musicians|members|clients|patients|employees|founders|professionals|families|parents|children|travellers|travelers|tourists|buyers|sellers|tenants|landlords|homeowners|teams|staff|attendees|guests|residents|citizens|donors|volunteers|researchers|investors|applicants|job seekers|subscribers|administrators|admins|makers|coaches|athletes)\b[^.;,\n]{0,110})/i,
+    /\b(?:target audience|audience|users?|customers?|visitors?)\s+(?:is|are|include|includes|will be|:)\s*([^.;,\n]{3,140})/i,
   ];
   for (const pattern of patterns) {
     const match = pattern.exec(q);
     if (!match) continue;
     const value = clean(match[1])
-      .replace(/\\b(?:to|so that|who|which|that|so they can)\\b[\\s\\S]*$/i, '')
+      .replace(/\b(?:to|so that|who|which|that|so they can)\b[\s\S]*$/i, '')
       .replace(/[.!?;,:]+$/, '')
       .trim()
       .slice(0, 180);
