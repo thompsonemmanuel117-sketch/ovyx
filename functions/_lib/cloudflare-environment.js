@@ -13,6 +13,11 @@ const AI_PROVIDER_SECRET_NAMES = new Set([
 ]);
 
 const RESERVED_PREFIXES = ['FIREBASE_', 'CLOUDFLARE_', 'GITHUB_', 'OVYX_'];
+const AI_PROVIDER_PREFIXES = ['GEMINI_', 'GOOGLE_AI_', 'ANTHROPIC_', 'CLAUDE_', 'DEEPSEEK_', 'OPENAI_', 'GROQ_', 'OPENROUTER_'];
+
+function isAiProviderSecretName(name) {
+  return AI_PROVIDER_SECRET_NAMES.has(name) || AI_PROVIDER_PREFIXES.some(prefix => name.startsWith(prefix));
+}
 
 export const INTEGRATION_ADAPTERS = Object.freeze({
   email: Object.freeze({
@@ -104,7 +109,7 @@ export function getCloudflareEnvironmentInventory(env) {
   });
 
   const unrecognizedCredentialNames = names.filter(name => {
-    if (knownNames.has(name) || AI_PROVIDER_SECRET_NAMES.has(name)) return false;
+    if (knownNames.has(name) || isAiProviderSecretName(name)) return false;
     if (RESERVED_PREFIXES.some(prefix => name.startsWith(prefix))) return false;
     return /(?:API_KEY|API_TOKEN|ACCESS_TOKEN|SECRET_KEY|CLIENT_SECRET|AUTH_TOKEN)$/.test(name);
   });
@@ -114,7 +119,7 @@ export function getCloudflareEnvironmentInventory(env) {
     discoveredBindingCount: names.length,
     integrations,
     unrecognizedCredentialNames,
-    excludedAiProviderNames: [...AI_PROVIDER_SECRET_NAMES].filter(name => names.includes(name)).sort(),
+    excludedAiProviderNames: names.filter(isAiProviderSecretName),
     secretValuesExposed: false,
   });
 }
