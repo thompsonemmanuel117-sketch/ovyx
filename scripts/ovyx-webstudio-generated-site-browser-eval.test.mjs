@@ -38,7 +38,7 @@ await fs.writeFile(path.join(site, 'ovyx-qa-plan.json'), JSON.stringify({
 }, null, 2));
 await fs.mkdir(badSite, { recursive: true });
 await fs.writeFile(path.join(badSite, 'index.html'), '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Placeholder copy fixture</title></head><body><main><h1>Meet the team</h1><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p></main></body></html>');
-await fs.writeFile(path.join(badSite, 'ovyx-qa-plan.json'), JSON.stringify({ version: 1, journeys: [], apiChecks: [{ id: 'secret-query', name: 'Unsafe token query', route: '/?token=do-not-report-this', method: 'GET', expectedStatus: 200 }] }));
+await fs.writeFile(path.join(badSite, 'ovyx-qa-plan.json'), JSON.stringify({ version: 1, journeys: [], apiChecks: [{ id: 'secret-query', name: 'Unsafe token query', route: '/?token=do-not-report-this', method: 'GET', expectedStatus: 200 }, { id: 'secret-fragment', name: 'OAuth fragment is stripped', route: '/#access_token=do-not-report-this', method: 'GET', expectedStatus: 200 }] }));
 
 const script = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'ovyx-webstudio-generated-site-browser-eval.mjs');
 const run = spawnSync(process.execPath, [script, path.join(root, 'sites'), out], { encoding: 'utf8', timeout: 60000 });
@@ -71,6 +71,8 @@ assert.equal(bad.status, 'needs-attention', 'Placeholder copy must be a reported
 assert.equal(bad.journeyPlanMissing, true, 'A generated website without a requirement-derived journey must not pass browser QA.');
 assert.equal(bad.failedApiChecks[0]?.status, 'blocked', 'Sensitive query-string API probes must be blocked.');
 assert.equal(bad.failedApiChecks[0]?.route, '', 'Sensitive query values must not be copied into QA evidence.');
+assert.ok(bad.apiCheckResults.some(item => item.id === 'secret-fragment' && item.route === '/'), 'OAuth fragment values must be stripped before making route probes.');
+assert.ok(bad.apiCheckResults.every(item => !String(item.route).includes('do-not-report-this')), 'QA reports must not retain query or fragment secrets.');
 assert.equal(bad.pages.length, 5, 'The placeholder page should be inspected at all five widths.');
 for (const page of good.pages) {
   await fs.access(path.join(out, 'fixture-real-estate', page.screenshot));
