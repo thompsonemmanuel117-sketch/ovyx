@@ -154,7 +154,7 @@ export async function onRequestPost(context) {
     });
     let response;
     try {
-      response = await target.fetch(request, { redirect: 'error', signal: AbortSignal.timeout(230_000) });
+      response = await target.fetch(request, { redirect: 'error', signal: AbortSignal.timeout(330_000) });
     } catch {
       return jsonResponse({
         channel: 'backend',
