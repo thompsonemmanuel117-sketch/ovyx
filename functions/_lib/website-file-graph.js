@@ -83,6 +83,7 @@ export function buildWebsiteFileGraph(input, options = {}) {
   const known = new Set(files.keys());
   const edges = [];
   const missingReferences = [];
+  const edgeKeys = new Set();
   const reverse = new Map([...known].map(path => [path, new Set()]));
   for (const [from, source] of files) {
     for (const reference of collectReferences(from, source)) {
@@ -92,7 +93,8 @@ export function buildWebsiteFileGraph(input, options = {}) {
         continue;
       }
       const key = from + '->' + target + ':' + reference.kind;
-      if (edges.some(edge => edge.id === key)) continue;
+      if (edgeKeys.has(key)) continue;
+      edgeKeys.add(key);
       edges.push({ id: key, from, to: target, kind: reference.kind });
       reverse.get(target)?.add(from);
     }
