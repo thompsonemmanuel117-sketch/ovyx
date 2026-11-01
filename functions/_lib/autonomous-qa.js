@@ -370,7 +370,7 @@ export function evaluateGeneratedWebsiteFiles(rawFiles = {}) {
       if (!plan || plan.version !== 1 || !Array.isArray(plan.journeys) || !Array.isArray(plan.apiChecks)) {
         add('warning', 'QA_PLAN_SCHEMA_INVALID', 'The generated QA plan must contain version 1, journeys and apiChecks arrays.', 'ovyx-qa-plan.json');
       } else {
-        const allowedActions = new Set(['goto', 'click', 'fill', 'check', 'uncheck', 'select', 'expectText', 'expectVisible', 'expectHidden', 'expectUrl', 'expectValue']);
+        const allowedActions = new Set(['click', 'fill', 'check', 'uncheck', 'select', 'expectText', 'expectVisible', 'expectHidden', 'expectUrl', 'expectValue']);
         for (const journey of plan.journeys.slice(0, 12)) {
           for (const step of (Array.isArray(journey?.steps) ? journey.steps : []).slice(0, 30)) {
             testsRun += 1;
