@@ -245,7 +245,7 @@ function normalizeQaPlan(metadata) {
   const apiChecks = Array.isArray(plan.apiChecks) ? plan.apiChecks.slice(0, 20) : [];
   const backendChecks = Array.isArray(plan.backendChecks) ? plan.backendChecks.slice(0, 24) : [];
   return {
-    backendRequired: plan.backendRequired === true,
+    backendRequired: plan.backendRequired !== false,
     backendChecks: backendChecks.map((check, index) => ({ id: String(check?.id || 'backend-check-' + (index + 1)).slice(0, 80) })),
     journeys: journeys.map((journey, index) => ({
       id: String(journey?.id || 'journey-' + (index + 1)).slice(0, 80),
