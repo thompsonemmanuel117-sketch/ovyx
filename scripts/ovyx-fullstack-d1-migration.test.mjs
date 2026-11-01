@@ -60,13 +60,6 @@ try {
   assert.match(tables, /contact_submissions/);
   assert.match(tables, /delivery_records/);
 
-  const foreignKeys = wrangler(
-    'd1', 'execute', databaseName, '--local', '--command',
-    'PRAGMA foreign_key_check;',
-    '--config', configPath,
-  );
-  assert.doesNotMatch(foreignKeys, /foreign key constraint failed/i);
-
   wrangler(
     'd1', 'execute', databaseName, '--local', '--command',
     "INSERT INTO contact_submissions (id, name, reply_to, message, status, created_at) VALUES ('contact-1', 'Name', 'email@example.com', 'Message', 'received', '2026-10-31T00:00:00Z');",
@@ -77,6 +70,25 @@ try {
     "INSERT INTO delivery_records (id, source_id, idempotency_key, status, created_at) VALUES ('d1', 'contact-1', 'same-key', 'queued', '2026-10-31T00:00:00Z');",
     '--config', configPath,
   );
+
+  let rejectedMissingParent = false;
+  try {
+    wrangler(
+      'd1', 'execute', databaseName, '--local', '--command',
+      "INSERT INTO delivery_records (id, source_id, idempotency_key, status, created_at) VALUES ('d-missing', 'missing-contact', 'other-key', 'queued', '2026-10-31T00:00:00Z');",
+      '--config', configPath,
+    );
+  } catch {
+    rejectedMissingParent = true;
+  }
+  assert.equal(rejectedMissingParent, true, 'The database must reject orphaned delivery records.');
+
+  const foreignKeys = wrangler(
+    'd1', 'execute', databaseName, '--local', '--command',
+    'PRAGMA foreign_key_check;',
+    '--config', configPath,
+  );
+  assert.doesNotMatch(foreignKeys, /delivery_records|contact_submissions/);
 
   let duplicateKeyRejected = false;
   try {
