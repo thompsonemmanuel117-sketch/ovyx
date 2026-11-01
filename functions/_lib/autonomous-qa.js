@@ -369,6 +369,9 @@ export function evaluateGeneratedWebsiteFiles(rawFiles = {}) {
       const plan = JSON.parse(qaPlan);
       if (!plan || plan.version !== 1 || !Array.isArray(plan.journeys) || !Array.isArray(plan.apiChecks)) {
         add('warning', 'QA_PLAN_SCHEMA_INVALID', 'The generated QA plan must contain version 1, journeys and apiChecks arrays.', 'ovyx-qa-plan.json');
+      } else if (plan.journeys.length > 12 || plan.apiChecks.length > 20 ||
+          plan.journeys.some(journey => Array.isArray(journey?.steps) && journey.steps.length > 30)) {
+        add('blocker', 'QA_PLAN_LIMIT_EXCEEDED', 'The generated QA plan exceeds the supported journey, step or API probe limits.', 'ovyx-qa-plan.json');
       } else {
         const allowedActions = new Set(['click', 'fill', 'check', 'uncheck', 'select', 'expectText', 'expectVisible', 'expectHidden', 'expectUrl', 'expectValue']);
         for (const journey of plan.journeys.slice(0, 12)) {
