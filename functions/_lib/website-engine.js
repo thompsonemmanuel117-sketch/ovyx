@@ -742,6 +742,25 @@ export async function runWebsiteGeneration(options = {}) {
         filesGenerated: Object.keys(generatedFiles).length,
       },
     };
+
+    if (!multiPageBuild) {
+      const frontendHtml = typeof result.html === 'string' ? result.html
+        : typeof result.content === 'string' ? result.content
+          : typeof result.text === 'string' ? result.text : '';
+      if (result.files && typeof result.files === 'object' && Object.keys(result.files).length) {
+        multiPageBuild = true;
+      } else if (/<(?:!doctype\\s+html|html\\b)/i.test(frontendHtml)) {
+        result = { ...result, files: { 'index.html': frontendHtml } };
+        multiPageBuild = true;
+      } else {
+        const error = new Error('Full-stack generation produced backend source but no exportable frontend project file.');
+        error.code = 'WEBSTUDIO_FULLSTACK_FRONTEND_FILE_MISSING';
+        error.partialUsage = result.rawUsage || null;
+        error.quotaInputText = quotaInputText;
+        error.quotaOutputText = quotaOutputText;
+        throw error;
+      }
+    }
   }
   return { result, multiPageBuild, quotaInputText, quotaOutputText, fullStackSourceEvidence };
 }
