@@ -36,6 +36,7 @@ function connectedFor(context, kind) {
     auth: /firebase|supabase|auth|identity|clerk|auth0/i,
     database: /firebase|supabase|database|firestore|d1|postgres|mysql/i,
     booking: /booking|reservation|calendar|scheduling/i,
+    storage: /storage|cloudflare\s*r2|firebase\s*storage|s3|supabase\s*storage/i,
   };
   return flatten(roots).some(item => {
     if (!item || typeof item !== 'object') return false;
@@ -46,7 +47,7 @@ function connectedFor(context, kind) {
   });
 }
 
-function integrationRequirements(contract, context) {
+function integrationRequirements(contract, context, capabilities = {}) {
   const signals = contract.contactSignals || {};
   const requested = [
     ['payments', signals.payments],
@@ -54,6 +55,7 @@ function integrationRequirements(contract, context) {
     ['auth', signals.authentication],
     ['database', signals.backendData],
     ['booking', signals.bookings],
+    ['storage', capabilities.fileStorage],
   ];
   return requested.filter(([, needed]) => needed).map(([kind]) => ({
     capability: kind,
@@ -111,8 +113,9 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
     /\b(?:multi[- ]?page|multiple pages|several pages|\d+ pages)\b/i.test(brief);
   const signals = promptContract.contactSignals || {};
   const workflowCapabilities = [
-    ['forms', signals.contactForm || signals.emailDelivery],
+    ['forms', signals.contactForm || signals.emailDelivery || fullStackArchitecture.capabilities.forms],
     ['booking', signals.bookings],
+    ['file-storage', fullStackArchitecture.capabilities.fileStorage],
     ['commerce', signals.shoppingCart || signals.addToCart || signals.payments],
     ['authentication', signals.authentication],
     ['persistent-data', signals.backendData],
@@ -166,7 +169,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
       interactionConcepts: experience.architecture?.interactionConcepts || [],
       motionChoreography: experience.architecture?.motionChoreography || [],
     },
-    integrations: integrationRequirements(promptContract, safeContext),
+    integrations: integrationRequirements(promptContract, safeContext, fullStackArchitecture.capabilities),
     fullStackArchitecture,
     requirementIntelligence,
     fileArchitecture,
