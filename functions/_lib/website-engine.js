@@ -518,12 +518,12 @@ function auditBackendFiles(files, architecture) {
       code.includes('export const ' + (method === 'GET' ? 'loader' : 'action')) ||
       code.includes('function ' + method) ||
       code.includes('function ' + pascal) ||
-      (lowerFile.includes('/server/api/') && code.includes('defineEventHandler')) ||
+      (lowerFile.startsWith('server/api/') && code.includes('defineEventHandler')) ||
       code.toLowerCase().includes('router.' + method.toLowerCase() + '(') ||
       code.toLowerCase().includes('app.' + method.toLowerCase() + '(') ||
       (lowerFile.includes('/+server.') && code.includes('export const ' + method)) ||
       (lowerFile.includes('/routes/api.') && code.includes(method === 'GET' ? 'loader' : 'action')) ||
-      (lowerFile.includes('/server/api/') && lowerFile.includes('.' + method.toLowerCase() + '.') && code.includes('defineEventHandler'))
+      (lowerFile.startsWith('server/api/') && lowerFile.includes('.' + method.toLowerCase() + '.') && code.includes('defineEventHandler'))
     );
     const policy = String(route.authPolicy || '').toLowerCase();
     const publicRoute = policy.startsWith('public');
