@@ -1111,7 +1111,7 @@
       startedAt: new Date().toISOString(),
       finishedAt: null,
       checks: [],
-      browser: { total: 0, completed: 0, pagesTested: 0, pagesAvailable: 0, widths: WIDTHS.slice(), interactions: { candidates: 0, tested: 0, responded: 0, skipped: 0, pagesProbed: 0, noOp: [] }, forms: { candidates: 0, tested: 0, invalidRejected: 0, invalidAccepted: [], noNativeValidation: [], skipped: 0 }, accessibility: { contrastSamples: 0, contrastSkipped: 0, lowContrast: [], focusControls: 0, noFocusIndicator: [], focusObscured: [], authoredFocusStyles: 0, pagesChecked: 0 }, performance: { samples: 0, totalInitialRenderMs: 0, maxInitialRenderMs: 0, maxDomNodes: 0, maxImages: 0, maxScripts: 0, maxStylesheets: 0 } },
+      browser: { total: 0, completed: 0, pagesTested: 0, pagesAvailable: 0, widths: WIDTHS.slice(), interactions: { candidates: 0, tested: 0, responded: 0, skipped: 0, pagesProbed: 0, noOp: [] }, forms: { candidates: 0, tested: 0, invalidRejected: 0, invalidAccepted: [], noNativeValidation: [], skipped: 0 }, journeys: { total: 0, passed: 0, failed: 0, skipped: 0, results: [] }, accessibility: { contrastSamples: 0, contrastSkipped: 0, lowContrast: [], focusControls: 0, noFocusIndicator: [], focusObscured: [], authoredFocusStyles: 0, pagesChecked: 0 }, performance: { samples: 0, totalInitialRenderMs: 0, maxInitialRenderMs: 0, maxDomNodes: 0, maxImages: 0, maxScripts: 0, maxStylesheets: 0 } },
       notes: []
     };
     currentReport = report;
@@ -1121,6 +1121,7 @@
     var graph = getGraph(studio || {});
     var files = graph && graph.files || {};
     var pages = collectPages(studio || {}, files);
+    var qaPlan = readProjectQaPlan(files);
     var existingTests = null;
 
     stageStatus('source', 'running', 'Running Web Studio source checks.');
@@ -1177,7 +1178,8 @@
         progressFraction(runNumber, report.browser.total + 4);
         stageStatus('browser', 'running', 'Browser check ' + (p + 1) + '/' + routePlan.length + ' · ' + page.path + ' · ' + width + 'px viewport.');
           var result;
-          try { result = await runViewport(page, files, width, runNumber); }
+          var pageJourneys = width === 390 ? journeysForPage(qaPlan, page) : [];
+          try { result = await runViewport(page, files, width, runNumber, pageJourneys); }
           catch (error) { result = { timeout: true, result: null, notes: [] }; }
           report.browser.completed += 1;
           (result.notes || []).forEach(function (note) { if (sandboxNotes.indexOf(note) < 0) sandboxNotes.push(note); });
@@ -1216,9 +1218,43 @@
                 if (interactionAudit.noOp.indexOf(finding) < 0) interactionAudit.noOp.push(finding);
               });
             }
+            if (width === 390 && browserResult.journeys) {
+              var journeyAudit = report.browser.journeys;
+              var journeyResult = browserResult.journeys;
+              journeyAudit.total += Number(journeyResult.total || 0);
+              journeyAudit.passed += Number(journeyResult.passed || 0);
+              journeyAudit.failed += Number(journeyResult.failed || 0);
+              journeyAudit.skipped += Number(journeyResult.skipped || 0);
+              (journeyResult.results || []).forEach(function (item) {
+                journeyAudit.results.push({
+                  id: trim(item.id, 80),
+                  name: trim(item.name, 120),
+                  route: page.route,
+                  status: text(item.status),
+                  steps: (item.steps || []).slice(0, 30).map(function (step) {
+                    return { index: Number(step.index || 0), action: trim(step.action, 40), status: text(step.status), detail: trim(step.detail, 180) };
+                  })
+                });
+              });
+            }
             if (width === 390 && browserResult.forms) {
               var formResult = browserResult.forms;
-              var formAudit = report.browser.forms;
+              var journeyAudit = report.browser.journeys;
+      if (qaPlan.status !== 'ready' || !journeyAudit.total) {
+        addCheck(report, 'Coverage', 'Requirement-derived user journeys', 'warn',
+          qaPlan.status === 'missing'
+            ? 'No ovyx-qa-plan.json was found. The page matrix and safe-control smoke test ran, but requirement-derived user journeys were not executed.'
+            : qaPlan.status === 'invalid' || qaPlan.status === 'empty'
+              ? 'The generated QA plan is invalid or contains no executable journeys. Critical user journeys remain unverified.'
+              : 'No declared user journey matched a generated page route. Check each journey startRoute against the actual project routes.');
+      } else {
+        addCheck(report, 'Browser testing', 'Requirement-derived user journeys',
+          journeyAudit.failed ? 'fail' : journeyAudit.skipped ? 'warn' : 'pass',
+          journeyAudit.passed + ' of ' + journeyAudit.total + ' declared user journey/journeys passed in the isolated preview. ' +
+          journeyAudit.failed + ' failed and ' + journeyAudit.skipped + ' were skipped. No real form submissions, payments, bookings or external service actions were performed.' +
+          (journeyAudit.failed ? '\n' + journeyAudit.results.filter(function (item) { return item.status === 'failed'; }).slice(0, 8).map(function (item) { return item.name + ': ' + item.steps.filter(function (step) { return step.status === 'failed'; }).map(function (step) { return step.action + ' — ' + step.detail; }).join('; '); }).join('\n') : ''));
+      }
+      var formAudit = report.browser.forms;
               ['candidates', 'tested', 'invalidRejected', 'skipped'].forEach(function (key) {
                 formAudit[key] += Math.max(0, Number(formResult[key]) || 0);
               });
@@ -1374,7 +1410,7 @@
         startedAt: new Date().toISOString(),
         finishedAt: null,
         checks: [],
-        browser: { total: 0, completed: 0, pagesTested: 0, pagesAvailable: 0, widths: WIDTHS.slice(), interactions: { candidates: 0, tested: 0, responded: 0, skipped: 0, pagesProbed: 0, noOp: [] }, forms: { candidates: 0, tested: 0, invalidRejected: 0, invalidAccepted: [], noNativeValidation: [], skipped: 0 }, accessibility: { contrastSamples: 0, contrastSkipped: 0, lowContrast: [], focusControls: 0, noFocusIndicator: [], authoredFocusStyles: 0, pagesChecked: 0 }, performance: { samples: 0, totalInitialRenderMs: 0, maxInitialRenderMs: 0, maxDomNodes: 0, maxImages: 0, maxScripts: 0, maxStylesheets: 0 } },
+        browser: { total: 0, completed: 0, pagesTested: 0, pagesAvailable: 0, widths: WIDTHS.slice(), interactions: { candidates: 0, tested: 0, responded: 0, skipped: 0, pagesProbed: 0, noOp: [] }, forms: { candidates: 0, tested: 0, invalidRejected: 0, invalidAccepted: [], noNativeValidation: [], skipped: 0 }, journeys: { total: 0, passed: 0, failed: 0, skipped: 0, results: [] }, accessibility: { contrastSamples: 0, contrastSkipped: 0, lowContrast: [], focusControls: 0, noFocusIndicator: [], authoredFocusStyles: 0, pagesChecked: 0 }, performance: { samples: 0, totalInitialRenderMs: 0, maxInitialRenderMs: 0, maxDomNodes: 0, maxImages: 0, maxScripts: 0, maxStylesheets: 0 } },
         notes: []
       };
     }
