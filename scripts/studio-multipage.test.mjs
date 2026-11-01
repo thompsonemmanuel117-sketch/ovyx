@@ -1072,3 +1072,11 @@ const duplicateRouteAudit = auditWebsiteIntegrity({
 assert.equal(duplicateRouteAudit.routeCollisionCount, 1);
 assert.equal(duplicateRouteAudit.findings.some(item => item.code === 'DUPLICATE_PAGE_ROUTE'), true);
 assert.match(duplicateRouteAudit.summary, /duplicate page route/i);
+
+const caseSensitiveRoutes = auditWebsiteIntegrity({}, {
+  pages: [
+    { title: 'Uppercase About', path: 'About.html', url: '/About' },
+    { title: 'Lowercase About', path: 'about.html', url: '/about' },
+  ],
+});
+assert.equal(caseSensitiveRoutes.routeCollisionCount, 0, 'Distinct case-sensitive routes must not be reported as duplicate URLs.');
