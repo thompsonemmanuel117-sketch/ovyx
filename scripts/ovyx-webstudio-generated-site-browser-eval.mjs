@@ -236,7 +236,7 @@ function safeQaRoute(value) {
     const url = new URL(route, 'http://127.0.0.1');
     if (url.origin !== 'http://127.0.0.1' ||
         [...url.searchParams.keys()].some(key => /(?:api[-_]?key|token|secret|auth|signature|credential|password)/i.test(key))) return '';
-    return url.pathname + url.hash;
+    return url.pathname;
   } catch { return ''; }
 }
 function normalizeQaPlan(metadata) {
