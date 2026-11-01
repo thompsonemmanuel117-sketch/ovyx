@@ -199,7 +199,7 @@ const backendBuild = await runWebsiteGeneration({
     return {
       text: JSON.stringify({
         files: {
-          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const result = await context.env.DB.prepare(\"INSERT INTO contact_submissions\").run(); return Response.json({ ok: true, result }); }',
+          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const values = validateRequest(await context.request.json()); const result = await context.env.DB.prepare(\"INSERT INTO contact_submissions\").bind(values.name, values.replyTo, values.message).run(); return Response.json({ ok: true, result }); }',
           'db/schema.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'migrations/0001_initial.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'server/workflows/contact-submission.js': workflowSource,
