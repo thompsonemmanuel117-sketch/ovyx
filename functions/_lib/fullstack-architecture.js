@@ -276,14 +276,18 @@ function buildIntegrationContracts(capabilities, context) {
     booking: /booking|reservation|calendar|scheduling/i, storage: /storage|r2|firebase|s3|supabase/i,
   };
   return requests.map(([capability]) => {
-    const connectedInContext = connectionRecords.some(item => {
+    const matchingConnections = connectionRecords.filter(item => {
       if (!item || typeof item !== 'object') return false;
       const identity = clean(item.provider || item.name || item.id || item.type || item.service, 120);
       return (item.connected === true || item.status === 'connected' || item.state === 'connected' || item.isConnected === true) &&
         patterns[capability].test(identity);
     });
+    const connectedInContext = matchingConnections.length > 0;
+    const providerIdentity = matchingConnections.length
+      ? clean(matchingConnections[0].provider || matchingConnections[0].name || matchingConnections[0].id || matchingConnections[0].type || matchingConnections[0].service, 120)
+      : 'not-selected-by-architecture-planner';
     return {
-      capability, required: true, provider: 'not-selected-by-architecture-planner',
+      capability, required: true, provider: providerIdentity,
       connectionMetadata: connectedInContext ? 'connected-in-context-not-live-verified' : 'not-confirmed',
       credentialBoundary: 'server-only; values must never enter prompts, browser bundles, logs or exported source',
       verification: 'not-run', liveDeliveryOrTransaction: 'not-verified',
