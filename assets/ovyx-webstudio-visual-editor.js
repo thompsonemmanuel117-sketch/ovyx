@@ -374,6 +374,7 @@
     w.applyVisualEditorText = writeText;
     var originalRecordHistory = typeof w.recordHistory === 'function' ? w.recordHistory : null;
     if (originalRecordHistory) w.recordHistory = function () {
+      if (Array.isArray(this.historyStack) && Number.isInteger(this.historyPointer) && this.historyPointer < this.historyStack.length - 1) this.historyStack.splice(this.historyPointer + 1);
       var result = originalRecordHistory.apply(this, arguments);
       this.__ovyxHistoryAwaitingRender = true;
       return result;
