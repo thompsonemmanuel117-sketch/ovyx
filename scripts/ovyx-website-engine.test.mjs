@@ -161,7 +161,7 @@ const multiPage = await runWebsiteGeneration({
     multiPageCalls += 1;
     assert.equal(options.prompt, 'brief');
     assert.equal(typeof options.callModel, 'function');
-    return { text: 'built', files: { 'index.html': '<!doctype html>' }, quotaInputText: 'builder-input', quotaOutputText: 'builder-output' };
+    return { text: 'built', files: { 'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Built site</title></head><body><h1>Built</h1></body></html>' }, quotaInputText: 'builder-input', quotaOutputText: 'builder-output' };
   },
   repairSinglePage: async () => { repairCalls += 1; return null; },
 });
@@ -211,7 +211,7 @@ const backendBuild = await runWebsiteGeneration({
   },
   buildMultiPage: async () => ({
     text: 'frontend built',
-    files: { 'index.html': '<!doctype html><html><body>Contact</body></html>' },
+    files: { 'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Contact</title></head><body>Contact</body></html>' },
     rawUsage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 },
   }),
 });
@@ -235,7 +235,7 @@ assert.deepEqual(backendBuild.result.rawUsage, { prompt_tokens: 13, completion_t
 
 
 let singlePageBackendCalls = 0;
-const singlePageHtml = '<!doctype html><html><body>Single page contact</body></html>';
+const singlePageHtml = '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Single page contact</title></head><body>Single page contact</body></html>';
 const singlePageBackend = await runWebsiteGeneration({
   env: {},
   shouldBuild: true,
@@ -293,7 +293,7 @@ const secureBackendBuild = await runWebsiteGeneration({
       }),
     };
   },
-  buildMultiPage: async () => ({ text: 'frontend built', files: { 'index.html': '<!doctype html>' } }),
+  buildMultiPage: async () => ({ text: 'frontend built', files: { 'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Built site</title></head><body><h1>Built</h1></body></html>' } }),
 });
 assert.equal(secureBackendAttempts, 2, 'Credential-shaped generated source must be rejected and repaired once.');
 assert.equal(secureBackendBuild.fullStackSourceEvidence.status, 'source-evidence-present-runtime-unverified');
@@ -334,6 +334,34 @@ assert.equal(scopedBuildCalls, 0);
 assert.equal(scopedRepairCalls, 0);
 
 await assert.rejects(() => runWebsiteGeneration({ shouldBuild: true }), /requires a model caller/);
+
+const backendPlanBuild = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  originalPrompt: 'Build a full-stack contact app with persistent enquiries.',
+  modelOptions: { system: 'OVYX website generation system', maxTokens: 12000 },
+  callModel: async () => { throw new Error('A valid static/backend QA manifest must not require a repair call.'); },
+  buildMultiPage: async () => ({
+    text: 'Generated full-stack contact app.',
+    files: {
+      'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Contact app</title></head><body><h1>Contact app</h1></body></html>',
+      'ovyx-qa-plan.json': JSON.stringify({
+        version: 1,
+        backendRequired: true,
+        journeys: [{ id: 'contact-home', name: 'Contact app home', startRoute: '/', steps: [{ action: 'expectText', text: 'Contact app' }] }],
+        apiChecks: [],
+        backendChecks: [{ id: 'health', name: 'API health', method: 'GET', route: '/api/health', expectedStatus: 200 }],
+      }),
+    },
+  }),
+});
+assert.equal(backendPlanBuild.autonomousQa.backendPlan.required, true);
+assert.equal(backendPlanBuild.autonomousQa.backendPlan.declaredChecks, 1);
+assert.equal(backendPlanBuild.autonomousQa.backendPlan.runtimeStatus, 'blocked-no-generated-backend-runtime-adapter');
+assert.equal(backendPlanBuild.autonomousQa.channels.find(channel => channel.channel === 'backend').status, 'blocked',
+  'A generated backend must remain unverified until its own disposable runtime adapter executes the declared checks.');
+
+
 console.log('OVYX unified website engine tests passed.');
 
 
@@ -349,6 +377,9 @@ assert.equal(filePlan.fileArchitecture.status, 'analyzed');
 assert.equal(filePlan.fileArchitecture.fileCount, 3);
 assert.deepEqual(filePlan.fileArchitecture.impactAnalysis.impactedPaths, ['src/main.js', 'index.html']);
 assert.ok(buildWebsiteEngineInstructions(filePlan).includes('fileArchitecture'));
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('ovyx-qa-plan.json'));
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('expectVisible'));
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('GET or HEAD'));
 assert.equal(websiteEngineClientSummary(filePlan).fileArchitecture.dependencyCount, 2);
 
 const cyclicIntegrationContext = { connections: {} };
@@ -363,3 +394,36 @@ assert.equal(conflictedPlan.requirementIntelligence.counts.total, conflictedPlan
 assert.equal(conflictedPlan.requirementIntelligence.conflicts.length, 1);
 assert.ok(buildWebsiteEngineInstructions(conflictedPlan).includes('Conflicting instructions remain unresolved'));
 assert.equal(websiteEngineClientSummary(conflictedPlan).requirementIntelligence.counts.conflicts, 1);
+
+
+
+const autonomousBuild = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  originalPrompt: 'Build a working contact website with a visible contact panel.',
+  modelOptions: { system: 'OVYX website generation system', maxTokens: 12000 },
+  callModel: async (_env, options) => {
+    assert.equal(options.responseFormat, 'json');
+    assert.match(options.taskPrompt, /FAILED TEST EVIDENCE/);
+    return {
+      text: JSON.stringify({ files: {
+        'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Repaired contact site</title></head><body><h1>Contact</h1></body></html>',
+      } }),
+      usage: { prompt_tokens: 7, completion_tokens: 9, total_tokens: 16 },
+    };
+  },
+  buildMultiPage: async () => ({
+    text: 'Generated website with a missing title and doctype.',
+    files: { 'index.html': '<html><body><h1>Contact</h1></body></html>' },
+    rawUsage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 },
+  }),
+});
+assert.equal(autonomousBuild.autonomousQa.repair.status, 'repaired-and-passed');
+assert.equal(autonomousBuild.autonomousQa.channels.find(channel => channel.channel === 'static').status, 'passed');
+assert.equal(autonomousBuild.autonomousQa.channels.find(channel => channel.channel === 'browser').status, 'blocked');
+assert.equal(autonomousBuild.result.files['index.html'].includes('<title>Repaired contact site</title>'), true);
+assert.deepEqual(autonomousBuild.result.rawUsage, { prompt_tokens: 10, completion_tokens: 13, total_tokens: 23 },
+  'The bounded QA repair model call must be included in generation quota usage.');
+assert.equal(autonomousBuild.autonomousQa.status, 'blocked',
+  'A generated site must not be reported fully passed until its real browser and journey evidence has run.');
+

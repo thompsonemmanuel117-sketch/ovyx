@@ -5,6 +5,7 @@ import { validateOrRepairSinglePageBuild } from './studio-singlepage.js';
 import { buildFullStackArchitecture, fullStackArchitectureClientSummary, fullStackArchitectureModelContract } from './fullstack-architecture.js';
 import { buildWebsiteFileGraph, analyzeWebsiteFileImpact } from './website-file-graph.js';
 import { buildRequirementIntelligence } from './requirement-intelligence.js';
+import { createAutonomousQaReport, evaluateGeneratedWebsiteFiles, runAutonomousRepairCycle } from './autonomous-qa.js';
 
 const clean = (value, max = 240) => String(value == null ? '' : value)
   .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -599,6 +600,10 @@ export function buildWebsiteEngineInstructions(plan) {
     'REQUIREMENT SIGNAL LEGEND: requirementSignals is positionally aligned with requirementManifest.requirements; entry N describes the requirement at index N. Each compact entry is [polarity][priority]:[category letters]:[mapping]. Polarity + means required, ! means prohibited and must remain excluded, ~ means preference. Priority C is critical, H is high, N is normal. Mapping M means linked to architecture nodes; U means still unmapped. Category letters: s=security, i=identity, d=data, c=commerce, x=integration, r=routes, u=interaction, v=design, t=content, w=responsive, a=accessibility, p=performance, o=SEO, m=assets, l=localization, q=explicit constraints, g=general. These are deterministic signals, not a substitute for reading the complete brief.',
     ...fullStackRules,
     ...requirementRules.map(rule => 'REQUIREMENT RECONCILIATION: ' + rule),
+    'AUTONOMOUS QA PLAN OUTPUT: For a new website build, add a root file named ovyx-qa-plan.json with strict JSON {"version":1,"backendRequired":true|false,"journeys":[...],"apiChecks":[...],"backendChecks":[...]}. Set backendRequired true whenever the requested architecture includes server routes, authentication, persistent data, bookings, commerce, subscriptions or other backend features; otherwise set false. Derive journeys from the original brief and the actual implemented UI. Include at least one executable journey for every website (for a simple brochure site, verify its primary page and navigation/CTA). Each journey has id, name, startRoute and ordered steps. Limit the manifest to 12 journeys total, no more than 4 journeys per route, and no more than 30 steps per journey. Supported step actions are click {selector}, fill {selector,value}, check {selector}, uncheck {selector}, select {selector,value}, expectText {selector?,text}, expectVisible {selector}, expectHidden {selector}, expectUrl {route}, and expectValue {selector,value}. Create a separate journey for each page route rather than using a cross-page goto step. Use stable, unique data-testid selectors for important controls. Assert observable outcomes and resulting UI state after each action, not merely that a click occurred. Include the primary navigation, main call-to-action, form validation/success state, and every explicitly requested critical user journey that can be safely exercised without real credentials or financial side effects.',
+    'For supported Cloudflare Pages Functions + D1 projects, add backendChecks for important real API workflows. Each check has id, name, method, /api/ route, sourceFile (the exact existing functions/ source file implementing that route), expectedStatus, optional synthetic body, optional identity (anonymous/synthetic-owner-a/synthetic-owner-b), and optional expect {jsonPath, equals or contains}. GET/HEAD checks are read-only. POST/PUT/PATCH/DELETE checks must declare sideEffect:"disposable-local-only" and use synthetic non-personal data. Never include credentials, personal data or real provider calls. These checks run only in an outbound-network-disabled disposable Pages/D1 runtime; unsupported bindings or framework targets must be reported blocked, never passed.\n' +
+    'For each safe unauthenticated API health/read contract, add an apiChecks entry with id, name, route, method GET or HEAD, expectedStatus, and optional jsonPath/expectedValue. Do not put credentials, tokens, personal data or secret query parameters in the plan. The runner permits only same-origin GET/HEAD probes; it will not submit real forms, create real orders, book real appointments, charge/refund payments, change subscriptions or send messages. Mark authenticated/destructive workflows as requiring an isolated synthetic-account backend fixture instead of inventing a passing browser-only test.',
+    'The QA plan is test intent, not evidence of success. Keep it synchronized with real routes and controls, and never add a fake API endpoint or success response solely to satisfy a test.',
     'Before returning files, internally reconcile every requirement and exclusion against the complete original brief and the actual output. If a real service is not connected and verified, provide an honest pending/UI-only boundary instead of a fake success path.',
   ].join('\n\n');
 }
@@ -1154,5 +1159,92 @@ export async function runWebsiteGeneration(options = {}) {
       }
     }
   }
-  return { result, multiPageBuild, quotaInputText, quotaOutputText, fullStackSourceEvidence };
+  if (shouldBuild && !scopedEdit) {
+    const existingFiles = result.files && typeof result.files === 'object' && !Array.isArray(result.files)
+      ? result.files : {};
+    const frontendHtml = typeof result.html === 'string' ? result.html
+      : typeof result.content === 'string' ? result.content
+        : typeof result.text === 'string' && /<(?:!doctype\s+html|html\b)/i.test(result.text) ? result.text : '';
+    if (!Object.keys(existingFiles).length || !Object.keys(existingFiles).some(file => /\.html?$/i.test(file))) {
+      result = { ...result, files: { ...existingFiles, ...(frontendHtml ? { 'index.html': frontendHtml } : {}) } };
+    }
+  }
+
+  let autonomousQa = null;
+  if (shouldBuild && !scopedEdit && result.files && typeof result.files === 'object' && !Array.isArray(result.files)) {
+    let backendRequired = fullStackArchitecture?.capabilities?.backend === true;
+    const initialStaticEvidence = evaluateGeneratedWebsiteFiles(result.files, { backendRequired });
+    const repairCycle = await runAutonomousRepairCycle({
+      files: result.files,
+      originalBrief: originalPrompt || multiPageOptions.prompt || modelOptions.taskPrompt || '',
+      requiredChannels: ['static'],
+      initialEvidence: [initialStaticEvidence],
+      repair: async ({ prompt }) => {
+        quotaInputText += (quotaInputText ? '\n\n' : '') + prompt;
+        const repairResponse = await callModel(env, {
+          ...modelOptions,
+          taskPrompt: prompt,
+          system: [
+            String(modelOptions.system || ''),
+            'You are performing one bounded OVYX generated-site QA repair. Return strict JSON with a files object containing complete replacements for only the exact allowlisted files. Do not claim verification or change unrelated files.',
+          ].filter(Boolean).join('\n\n'),
+          responseFormat: 'json',
+          maxTokens: Math.min(Number(modelOptions.maxTokens || 12000), 12000),
+        });
+        result = {
+          ...result,
+          rawUsage: mergeGenerationUsage(result.rawUsage, repairResponse && (repairResponse.usage || repairResponse.rawUsage)) || result.rawUsage || null,
+        };
+        quotaOutputText += (quotaOutputText ? '\n\n' : '') + String(repairResponse?.text || '');
+        return repairResponse?.text || '';
+      },
+      verify: async ({ files }) => [evaluateGeneratedWebsiteFiles(files, { backendRequired })],
+      limits: { maxFiles: 4, maxFileChars: 24000, maxContextChars: 48000 },
+    });
+    if (repairCycle.repair.status === 'repaired-and-passed' ||
+        repairCycle.repair.status === 'repaired-needs-attention') {
+      result = { ...result, files: repairCycle.files };
+    }
+    let declaredBackendChecks = 0;
+    try {
+      const qaPlanSource = result.files['ovyx-qa-plan.json'];
+      const qaPlanText = typeof qaPlanSource === 'string' ? qaPlanSource : typeof qaPlanSource?.content === 'string' ? qaPlanSource.content : '';
+      const qaPlan = qaPlanText ? JSON.parse(qaPlanText) : null;
+      backendRequired = backendRequired || qaPlan?.backendRequired === true;
+      declaredBackendChecks = Array.isArray(qaPlan?.backendChecks) ? qaPlan.backendChecks.length : 0;
+    } catch { /* The static QA channel already reports malformed manifests. */ }
+    const requiredChannels = backendRequired
+      ? ['static', 'browser', 'backend', 'journeys']
+      : ['static', 'browser', 'journeys'];
+    const evidence = [
+      repairCycle.report.channels.find(channel => channel.channel === 'static'),
+      {
+        channel: 'browser',
+        status: 'blocked',
+        testsRun: 0,
+        blockedReason: 'Chromium execution is performed by the isolated generated-site browser QA runner, not inside the Cloudflare generation request.',
+      },
+      ...(backendRequired ? [{
+        channel: 'backend',
+        status: 'blocked',
+        testsRun: 0,
+        blockedReason: 'The Cloudflare generation request cannot safely execute generated code at the edge. Supported Cloudflare Pages Functions + D1/local KV/R2 checks run in the trusted no-egress acceptance container; this per-build request remains blocked until that isolated runtime evidence is attached. Other frameworks and unsupported bindings remain blocked.',
+      }] : []),
+      {
+        channel: 'journeys',
+        status: 'blocked',
+        testsRun: 0,
+        blockedReason: 'Requirement-derived journeys are emitted in ovyx-qa-plan.json and must be executed by the isolated browser QA runner.',
+      },
+    ];
+    autonomousQa = {
+      ...createAutonomousQaReport({ requiredChannels, evidence }),
+      repair: repairCycle.repair,
+      repairBeforeReport: repairCycle.beforeReport || null,
+      sourceEvidence: fullStackSourceEvidence || null,
+      backendPlan: { required: backendRequired, declaredChecks: declaredBackendChecks, runtimeStatus: backendRequired ? 'blocked-no-generated-backend-runtime-adapter' : 'not-required' },
+    };
+    result = { ...result, autonomousQa };
+  }
+  return { result, multiPageBuild, quotaInputText, quotaOutputText, fullStackSourceEvidence, autonomousQa };
 }

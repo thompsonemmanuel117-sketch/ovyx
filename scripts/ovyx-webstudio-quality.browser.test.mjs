@@ -275,6 +275,29 @@ try {
   assert.equal(await brandingPage.locator('#qa-competing-favicon').getAttribute('href'), '/assets/ovyx-brand-mark.svg', 'Unrelated favicon must not be rewritten.');
 
   await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => {
+    window.WebStudio.graph.files['ovyx-qa-plan.json'] = {
+      type: 'application/json',
+      content: JSON.stringify({
+        version: 1,
+        backendRequired: false,
+        journeys: [{
+          id: 'home-disclosure',
+          name: 'Open and close the home details disclosure',
+          startRoute: '/',
+          steps: [
+            { action: 'click', selector: '#toggle-info' },
+            { action: 'expectVisible', selector: '#info' },
+            { action: 'expectText', selector: '#info', text: 'Helpful details appear here.' },
+            { action: 'click', selector: '#toggle-info' },
+            { action: 'expectHidden', selector: '#info' }
+          ]
+        }],
+        apiChecks: [],
+        backendChecks: []
+      })
+    };
+  });
   await page.addScriptTag({ path: runtimePath });
   await page.addScriptTag({ path: navigationPolishPath });
   // Exercise the actual production project-navigation controller from the
@@ -373,6 +396,15 @@ try {
   assert.ok(first.browser.forms.noNativeValidation.length >= 1, 'A form without detectable native constraints must be called out for manual review.');
   assert.ok(first.checks.some(item => item.title === 'Safe form validation smoke test' && item.status === 'info'),
     'The report must disclose when custom/native validation coverage is incomplete instead of marking all forms passed.');
+  assert.equal(first.browser.journeys.total, 1, 'The generated QA plan journey must run in the actual Web Studio preview sandbox.');
+  assert.equal(first.browser.journeys.passed, 1, 'The requirement-derived disclosure journey must pass all expected UI state assertions. Results: ' + JSON.stringify(first.browser.journeys.results));
+  assert.equal(first.browser.journeys.failed, 0);
+  assert.equal(first.browser.journeys.results[0].steps.length, 5);
+  assert.ok(first.checks.some(item => item.title === 'Requirement-derived user journeys' && item.status === 'pass'),
+    'The quality report must include explicit requirement-derived journey evidence.');
+  const firstJourneyChecks = first.checks.filter(item => item.title === 'Requirement-derived user journeys');
+  assert.equal(firstJourneyChecks.length, 1, 'Journey coverage must be summarized once, after all matching route probes have completed.');
+  assert.equal(firstJourneyChecks[0].status, 'pass', 'A successfully executed journey must not retain a premature zero-results warning.');
   assert.ok(first.browser.interactions.tested >= 1, 'The inspector must actually click at least one safe stateful control in the generated page sandbox.');
   assert.ok(first.browser.interactions.responded >= 1, 'The inspector must observe a state change from the working disclosure control.');
   assert.ok(first.browser.interactions.noOp.every(label => !/add to cart/i.test(label)), 'A front-end Add to Cart action that updates local cart state must not be reported as a no-op.');
@@ -400,8 +432,9 @@ assert.ok(await page.locator('.ovyx-ws-quality-recommendation strong').filter({ 
   await page.waitForFunction(() => window.__copiedQualitySummary.includes('OVYX WEB STUDIO — CLIENT QA SUMMARY'));
   const copiedSummary = await page.evaluate(() => window.__copiedQualitySummary);
   assert.ok(copiedSummary.includes('Project: Quality test site'), 'The client summary must identify the inspected project.');
-  assert.ok(copiedSummary.includes('Live sign-in, data persistence, email, booking, payments'), 'The client summary must state live integration limits.');
+  assert.ok(copiedSummary.includes('generated backend functions, database migrations/CRUD, data persistence, email, booking, payments'), 'The client summary must state live integration limits.');
   assert.ok(copiedSummary.includes('not production load time or Core Web Vitals'), 'The client summary must not misrepresent sandbox metrics as production performance.');
+  assert.ok(copiedSummary.includes('Requirement-derived user journeys: 1/1 passed'), 'The client handoff must summarize executed requirement-derived journeys.');
   const downloadPromise = page.waitForEvent('download');
   await page.locator('[data-quality-export]').click();
   const reportDownload = await downloadPromise;
@@ -413,6 +446,8 @@ assert.ok(await page.locator('.ovyx-ws-quality-recommendation strong').filter({ 
   assert.equal(exportedReport.projectName, 'Quality test site', 'The exported report must include the client-facing project label.');
 assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendation === 'string' && item.recommendation.length > 0), 'The exported report must preserve a suggested improvement for every check.');
   assert.equal(exportedReport.inspection.browser.pagesAvailable, 3, 'The exported report must summarize tested route coverage.');
+  assert.equal(exportedReport.inspection.browser.journeys.total, 1, 'The exported QA report must retain the journey count.');
+  assert.equal(exportedReport.inspection.browser.journeys.passed, 1, 'The exported QA report must retain passed journey evidence.');
   assert.equal(exportedReport.privacy.sourceFileContentsIncluded, false, 'The client handoff must not bundle project source files.');
   assert.ok(exportedReport.limitations.some(item => item.includes('Core Web Vitals')), 'The exported report must carry explicit verification limits.');
   assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 0, 'A scan alone must not spend an AI repair attempt.');
@@ -421,9 +456,19 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   await page.locator('[data-quality-repair]').click();
   await page.waitForFunction(() => window.__qualityRepairCalls.length === 1 && window.OVYXWebStudioQuality.getReport()?.checks.some(item => item.group === 'Automatic repair'), null, { timeout: 120000 });
   const finalReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
+  const repairDiagnostics = await page.evaluate(() => ({
+    repairCalls: window.__qualityRepairCalls.map(call => ({ repair: call.repair, promptHasFinding: call.prompt.includes('Horizontal overflow') })),
+    about: window.WebStudio.graph.files['src/pages/About.html']?.content || '',
+    qaPlan: window.WebStudio.graph.files['ovyx-qa-plan.json']?.content || null,
+    journeys: window.OVYXWebStudioQuality.getReport()?.browser?.journeys || null,
+    projectPages: window.KernelState.activeProject.pages.map(page => ({ route: page.route, file: page.__ovyxFile }))
+  }));
   assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 1, 'Only one bounded repair pass should be sent.');
   assert.ok((await page.evaluate(() => window.__qualityRepairCalls[0].prompt)).includes('OVYX QUALITY INSPECTOR REPAIR'), 'The repair must use a targeted evidence-based prompt.');
-  assert.ok(finalReport.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'pass'), 'The repaired project must be tested again and pass the same overflow check.');
+  const repairedJourneyChecks = finalReport.checks.filter(item => item.title === 'Requirement-derived user journeys');
+  assert.equal(repairedJourneyChecks.length, 1, 'The repair re-check must emit one completed journey summary.');
+  assert.equal(repairedJourneyChecks[0].status, 'pass', 'The repair re-check must not be blocked by a stale journey warning.');
+  assert.ok(finalReport.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'pass'), 'The repaired project must be tested again and pass the same overflow check. Findings: ' + JSON.stringify(finalReport.checks.filter(item => item.status === 'fail' || item.status === 'warn')) + ' Diagnostics: ' + JSON.stringify({ repairCalls: repairDiagnostics.repairCalls, aboutStyleFixed: repairDiagnostics.about.includes('width:100%;max-width:100%'), aboutStyleStillBroken: repairDiagnostics.about.includes('width:1100px;max-width:none'), qaPlanPresent: !!repairDiagnostics.qaPlan, journeys: repairDiagnostics.journeys, projectPages: repairDiagnostics.projectPages }));
   assert.ok(finalReport.checks.some(item => item.group === 'Automatic repair' && item.status === 'pass'), 'The inspector must record a successful re-verification only after the observed score improves.');
   assert.ok((await page.evaluate(() => window.__qualityToasts.some(item => item.kind === 'success'))), 'The UI may announce success only after the verified re-check.');
   assert.ok(pageErrors.length === 0, 'The inspector must not create host-page errors: ' + pageErrors.join('; '));

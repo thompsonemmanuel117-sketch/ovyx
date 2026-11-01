@@ -4,6 +4,7 @@ import { buildExperienceBrief } from '../../_lib/experience.js';
 import { WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { getProductionIntegrationState } from '../../_lib/integration-state.js';
 import { isCloudflareFreeAllowanceExhausted } from '../../_lib/cloudflare-free-ai.js';
+import { buildAutonomousRepairPrompt, selectAutonomousRepairTargets, validateAutonomousRepairCandidate } from '../../_lib/autonomous-qa.js';
 
 const EXPECTED_ISSUER = 'https://token.actions.githubusercontent.com';
 const EXPECTED_AUDIENCE = 'ovyx-live-site-evaluation';
@@ -12,7 +13,7 @@ const EXPECTED_REPOSITORY_ID = '1333698814';
 const EXPECTED_OWNER = 'thompsonemmanuel117-sketch';
 const EXPECTED_WORKFLOW = EXPECTED_REPOSITORY + '/.github/workflows/ovyx-webstudio-live-generation.yml@refs/heads/main';
 const JWKS_URL = 'https://token.actions.githubusercontent.com/.well-known/jwks';
-const MAX_BODY_BYTES = 24_000;
+const MAX_BODY_BYTES = 220_000;
 const MAX_TOKEN_LENGTH = 12_000;
 const MAX_TOKEN_LIFETIME_SECONDS = 15 * 60;
 const QA_ENDPOINT = '/.well-known/ovyx-qa-enquiry';
@@ -68,6 +69,10 @@ const QA_CONTRACT = [
   '6. Provide semantic HTML, market-matched language metadata, title, meta description, viewport, accessible contrast, visible keyboard focus, responsive design and prefers-reduced-motion support.',
   '7. Browser JavaScript must run directly in a real browser: use window.document, never import or instantiate jsdom/JSDOM, Node modules, require, process, or server-only APIs. A shared script must guard optional page-specific elements before attaching event listeners.',
   '8. Each requested HTML file must contain exactly one complete document, use unescaped valid HTML attributes, and match its requested page title and route. Never append another document or a model/JSON wrapper to the file.',
+  '9. Include a root ovyx-qa-plan.json with strict JSON {version:1,backendRequired:boolean,journeys:[],apiChecks:[],backendChecks:[]}. Include at least one route-specific user journey for every requested page, using stable data-testid selectors and expected text/visibility assertions. Limit to 12 journeys, 4 per route, 30 steps each.',
+  '10. Set backendRequired:false and backendChecks:[] for a genuinely static site. If the brief requires APIs, authentication, persistent data, bookings, commerce or subscriptions, set backendRequired:true and provide safe backendChecks. Each backend check must include id, name, method, /api/ route, sourceFile (exact functions/ file implementing that route), expectedStatus, and optional expect assertions. Mutating checks must set sideEffect:"disposable-local-only" and use synthetic data only.',
+  '11. Never include credentials, personal data, external provider actions, payment settlement, live email delivery or real bookings in backendChecks. The acceptance runner executes supported Cloudflare Pages Functions with fresh local D1 and local KV/R2 inside an outbound-network-disabled container; unsupported bindings/frameworks must remain blocked, not marked passed.',
+
 ].join('\n');
 
 function decodeBase64Url(value) {
@@ -260,6 +265,14 @@ export function chooseProvider(env, requested) {
   return ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai'].some(configured)
     ? 'automatic'
     : null;
+}
+function safeBackendRepairPath(value) {
+  const filePath = String(value || '').trim().replace(/\\/g, '/');
+  if (!filePath.startsWith('functions/') || filePath.length > 240 ||
+      filePath.split('/').some(part => !part || part === '.' || part === '..') ||
+      /(?:^|\/)(?:secrets?|credentials?|private[-_]?keys?)(?:\/|\.|$)/i.test(filePath) ||
+      !/\.(?:m?js|ts)$/i.test(filePath)) return '';
+  return filePath;
 }
 function safePath(value) {
   const path = String(value || '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
@@ -487,6 +500,90 @@ export function safeLiveGenerationOutputDiagnostics(error) {
   };
 }
 
+export async function performBackendRuntimeRepair(payload, env, options = {}) {
+  const caseItem = CASES[String(payload?.caseId || '')];
+  if (!caseItem) return { ok: false, reason: 'case-not-allowlisted' };
+  const provider = chooseProvider(env, payload.provider || 'automatic');
+  if (!provider) return { ok: false, reason: 'ai-provider-not-configured' };
+  const model = String(payload.model || '').trim();
+  if (model.length > 120 || (model && !/^[A-Za-z0-9@._:/-]+$/.test(model))) {
+    return { ok: false, reason: 'model-id-invalid' };
+  }
+  if (!payload.files || typeof payload.files !== 'object' || Array.isArray(payload.files)) {
+    return { ok: false, reason: 'repair-files-required' };
+  }
+  const entries = Object.entries(payload.files);
+  if (!entries.length || entries.length > 6) return { ok: false, reason: 'repair-file-count-invalid' };
+  const files = {};
+  let totalChars = 0;
+  for (const [rawPath, content] of entries) {
+    const filePath = safeBackendRepairPath(rawPath);
+    if (!filePath || !filePath.startsWith('functions/') || !/\.(?:m?js|ts)$/i.test(filePath) ||
+        typeof content !== 'string' || !content.trim() || content.length > 24_000) {
+      return { ok: false, reason: 'repair-file-invalid' };
+    }
+    totalChars += content.length;
+    if (totalChars > 100_000) return { ok: false, reason: 'repair-context-too-large' };
+    files[filePath] = content;
+  }
+  if (!Array.isArray(payload.findings) || !payload.findings.length || payload.findings.length > 20) {
+    return { ok: false, reason: 'backend-failure-evidence-required' };
+  }
+  const findings = [];
+  for (const finding of payload.findings) {
+    const file = safeBackendRepairPath(finding?.file || '');
+    if (!file || !Object.hasOwn(files, file) || finding?.code !== 'BACKEND_CHECK_FAILED') {
+      return { ok: false, reason: 'backend-finding-not-mapped-to-supplied-source' };
+    }
+    findings.push({
+      channel: 'backend',
+      severity: 'blocker',
+      code: 'BACKEND_CHECK_FAILED',
+      message: String(finding.message || '').slice(0, 300),
+      file,
+    });
+  }
+  const targets = selectAutonomousRepairTargets(files, findings, {
+    maxFiles: 6, maxFileChars: 24_000, maxContextChars: 60_000,
+  });
+  if (!targets.length) return { ok: false, reason: 'no-safe-backend-repair-targets' };
+  const prompt = buildAutonomousRepairPrompt({
+    originalBrief: caseItem.prompt,
+    findings,
+    targets,
+  });
+  if (!prompt) return { ok: false, reason: 'repair-prompt-empty' };
+  try {
+    const repairResponse = await (options.callModel || callModel)(env, {
+      provider,
+      model: model || undefined,
+      taskPrompt: prompt,
+      system: 'You are performing one bounded OVYX backend runtime repair for a trusted acceptance artifact. Return strict JSON with complete replacements for only the exact allowlisted function files. Never add dependencies, change migrations, introduce credentials, bypass authentication, or call external services. The candidate will be rebuilt and rerun through the exact same backend tests.',
+      responseFormat: 'json',
+      maxTokens: 9000,
+    });
+    const candidate = validateAutonomousRepairCandidate({
+      originalFiles: files,
+      targets,
+      repairOutput: repairResponse?.text || '',
+    });
+    if (!candidate.ok) return { ok: false, reason: candidate.reason };
+    const changedFiles = Object.fromEntries(candidate.changedPaths.map(file => [file, candidate.files[file]]));
+    return {
+      ok: true,
+      operation: 'repair-backend',
+      provider: String(repairResponse?.provider || provider).slice(0, 40),
+      model: String(repairResponse?.model || model || '').slice(0, 120) || null,
+      attempts: 1,
+      changedPaths: candidate.changedPaths,
+      files: changedFiles,
+      verificationRequired: 'Rebuild the disposable backend and rerun the same checks before accepting this candidate.',
+    };
+  } catch (error) {
+    return { ok: false, reason: safeLiveGenerationFailureDetail(error) };
+  }
+}
+
 export async function handleLiveGenerationRequest(request, env, options = {}) {
   if (request.method !== 'POST') {
     return Response.json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, { status: 405, headers: { Allow: 'POST', 'Cache-Control': 'no-store' } });
@@ -522,11 +619,14 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   const operation = String(payload?.operation || 'generate-site').trim().toLowerCase();
   const isProviderPreflight = operation === 'provider-preflight';
   const isBudgetStatus = operation === 'budget-status';
+  const isBackendRepair = operation === 'repair-backend';
   const allowedKeys = isBudgetStatus
     ? new Set(['operation'])
     : isProviderPreflight
       ? new Set(['operation', 'provider', 'model'])
-      : new Set(['caseId', 'provider', 'model', 'publicSettings', 'profile']);
+      : isBackendRepair
+        ? new Set(['operation', 'caseId', 'provider', 'model', 'files', 'findings'])
+        : new Set(['caseId', 'provider', 'model', 'publicSettings', 'profile']);
   const requestedProvider = String(payload?.provider || 'automatic').trim().toLowerCase();
   const isBudgetedStage4Smoke = payload?.profile === 'stage4-budgeted-smoke' &&
     payload?.caseId === 'nigeria-baby-products' &&
@@ -542,7 +642,9 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
         ? false
         : isProviderPreflight
           ? (!allowedPreflightProviders.has(requestedProvider) || Object.hasOwn(payload, 'caseId'))
-          : (operation !== 'generate-site' || !Object.hasOwn(CASES, String(payload.caseId || '')) || !profileIsAllowed))) {
+          : isBackendRepair
+            ? (!Object.hasOwn(CASES, String(payload.caseId || '')) || !allowedPreflightProviders.has(requestedProvider))
+            : (operation !== 'generate-site' || !Object.hasOwn(CASES, String(payload.caseId || '')) || !profileIsAllowed))) {
     return Response.json({ ok: false, error: 'EVALUATION_CASE_NOT_ALLOWED' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
   if (isBudgetStatus) {
@@ -575,6 +677,13 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
         providerReadinessVerified: false,
       }, { status: 503, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
     }
+  }
+  if (isBackendRepair) {
+    const repaired = await performBackendRuntimeRepair(payload, env, options);
+    return Response.json(repaired, {
+      status: repaired.ok ? 200 : repaired.reason === 'ai-provider-not-configured' ? 503 : 422,
+      headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+    });
   }
   const caseItem = isProviderPreflight ? null : CASES[payload.caseId];
   const buildCaseItem = isBudgetedStage4Smoke ? {

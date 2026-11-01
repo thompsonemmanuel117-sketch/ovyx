@@ -751,6 +751,7 @@ async function main() {
     evaluationMode: SITE_SMOKE ? 'stage4-budgeted-single-site-smoke' : 'full-acceptance',
     fullStage4Acceptance: false,
     generatedAt: new Date().toISOString(),
+    cloudflareOrigin: origin,
     sites,
     realSitesGenerated: sites.length,
     skippedCases: caseSelection.skippedCases,

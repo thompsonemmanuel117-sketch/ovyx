@@ -9,6 +9,11 @@ const multiPage = await readFile(new URL('../functions/_lib/studio-multipage.js'
 const evaluationRunner = await readFile(new URL('./ovyx-webstudio-evaluation-runner.mjs', import.meta.url), 'utf8');
 const acceptanceAudit = await readFile(new URL('./ovyx-webstudio-acceptance-audit.mjs', import.meta.url), 'utf8');
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+const backendRuntime = await readFile(new URL('./ovyx-generated-backend-runtime-eval.mjs', import.meta.url), 'utf8');
+const autonomousQa = await readFile(new URL('../functions/_lib/autonomous-qa.js', import.meta.url), 'utf8');
+const backendWorkflow = await readFile(new URL('../.github/workflows/ovyx-stage5-backend-runtime.yml', import.meta.url), 'utf8');
+const backendRepairRoute = await readFile(new URL('../functions/api/internal/live-generation-eval.js', import.meta.url), 'utf8');
+const backendRepairClient = await readFile(new URL('./ovyx-cloudflare-backend-repair-client.mjs', import.meta.url), 'utf8');
 
 // The preview inspector must run the complete source as valid JavaScript and
 // keep executable project files inside the existing isolated iframe contract.
@@ -18,6 +23,34 @@ assert.match(runtime, /connect-src 'none'; form-action 'none'/,
   'Sandboxed browser previews must not submit forms or make network connections.');
 assert.match(runtime, /function safeSandboxPayload\(page, files, token\)/);
 assert.match(runtime, /function auditSources\(report, pages, files, project\)/);
+assert.match(runtime, /function readProjectQaPlan\(files\)/);
+assert.match(runtime, /function journeysForPage\(plan, page\)/);
+assert.match(runtime, /async function probeJourneys\(\)/);
+assert.match(runtime, /Requirement-derived user journeys/);
+assert.match(runtime, /journeys\.failed/);
+assert.match(runtime, /unmatchedJourneys/);
+assert.match(runtime, /normalizeJourneyRoute/);
+assert.match(runtime, /FRAME_TIMEOUT_MS = 15000/);
+assert.match(runtime, /The in-browser preview is intentionally network-isolated/);
+assert.match(runtime, /ovyx-qa-plan\.json/);
+assert.match(runtime, /backendRequired/);
+assert.match(runtime, /backendChecks/);
+assert.match(runtime, /disposable-backend API check/);
+assert.match(autonomousQa, /QA_BACKEND_PLAN_INVALID/);
+assert.match(autonomousQa, /QA_BACKEND_CHECK_UNSAFE/);
+assert.match(backendRuntime, /OVYX_QA_NETWORK_ISOLATION !== 'docker-none'/);
+assert.match(backendRuntime, /isLoopbackOnlyNetworkNamespace/);
+assert.match(backendRuntime, /pages', 'dev'/);
+assert.match(backendRuntime, /--persist-to/);
+assert.match(backendWorkflow, /--network none/);
+assert.match(backendWorkflow, /--cap-drop=ALL/);
+assert.match(backendWorkflow, /--read-only/);
+assert.match(backendRepairRoute, /operation === 'repair-backend'/);
+assert.match(backendRepairRoute, /performBackendRuntimeRepair/);
+assert.match(backendRepairRoute, /verifyGithubOidcToken\(match\[1\], options\)/);
+assert.match(backendRepairClient, /--restore/);
+assert.match(backendRepairClient, /changedPaths/);
+assert.match(backendRuntime, /third-party-package-import-requires-pinned-isolated-dependency-adapter/);
 assert.match(runtime, /var routePlan = \[\]/);
 assert.match(runtime, /WIDTHS = \[320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920\]/);
 assert.match(runtime, /function rejectBuildForQuality\(studio, snapshot, reason\)/);

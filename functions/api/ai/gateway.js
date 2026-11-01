@@ -410,6 +410,7 @@ export async function onRequestPost(context) {
     }
 
     if (result.fullStackGeneration) structuredFields.fullStackGeneration = result.fullStackGeneration;
+    if (result.autonomousQa) structuredFields.autonomousQa = result.autonomousQa;
     if (result.fullStackSourceEvidence) structuredFields.fullStackSourceEvidence = result.fullStackSourceEvidence;
 
     if (multiPageBuild) {

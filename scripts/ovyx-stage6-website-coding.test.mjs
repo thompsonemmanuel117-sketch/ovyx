@@ -41,7 +41,7 @@ assert.match(inspector, /var WIDTHS = \[320, 360, 375, 390, 430, 540, 640, 768, 
 assert.match(inspector, /setAttribute\('sandbox', 'allow-scripts'\)/);
 assert.match(inspector, /connect-src 'none'/);
 assert.match(inspector, /form-action 'none'/);
-assert.match(inspector, /function probeControls\(\)/);
+assert.match(inspector, /function probeControls\(/, 'The inspector must retain its safe interactive-control probe.');
 assert.match(inspector, /function auditAssetReference\(/);
 assert.match(inspector, /function performInspection\(/);
 assert.match(inspector, /window\.OVYXWebStudioQuality =/);
