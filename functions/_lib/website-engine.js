@@ -460,9 +460,7 @@ function serializeWebsiteEngineModelPlan(plan) {
   }
 
   const minimal = makeModelPlan(0);
-  minimal.requirementManifest.requirements = minimal.requirementManifest.requirements.slice(0, 100);
   minimal.requirementManifest.constraints = minimal.requirementManifest.constraints.slice(0, 10);
-  minimal.requirementIntelligence.requirementSignals = minimal.requirementIntelligence.requirementSignals.slice(0, 120);
   minimal.requirementIntelligence.unmappedRequirementIds = minimal.requirementIntelligence.unmappedRequirementIds.slice(0, 12);
   minimal.integrations = minimal.integrations.slice(0, 5);
   minimal.fileArchitecture = {
