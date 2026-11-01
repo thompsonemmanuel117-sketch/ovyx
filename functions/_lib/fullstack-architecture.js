@@ -130,7 +130,7 @@ function buildDataModels(capabilities) {
     push('Booking', 'Availability-backed reservation with timezone-aware start/end, atomic holds and idempotent lifecycle.', ['id', 'resourceId', 'customerId', 'startsAt', 'endsAt', 'timezone', 'status', 'idempotencyKey', 'holdExpiresAt', 'createdAt', 'updatedAt'], 'personal-data');
   }
   if (capabilities.commerce) {
-    push('Product', 'Catalog item and purchasable offer; price and availability come from an authoritative source.', ['id', 'name', 'sku', 'priceAmount', 'currency', 'status']);
+    push('Product', 'Catalog item and purchasable offer; price and availability come from an authoritative source.', ['id', 'name', 'sku', 'priceAmount', 'currency', 'stockOnHand', 'stockReserved', 'trackInventory', 'status']);
     push('Cart', 'User or session cart with server-recomputed prices and inventory validation.', ['id', 'ownerId', 'sessionKeyHash', 'currency', 'updatedAt']);
     push('CartItem', 'A selected product and quantity; client prices are never authoritative.', ['id', 'cartId', 'productId', 'quantity', 'addedAt']);
     push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'taxAmount', 'totalAmount', 'status', 'createdAt'], 'financial');
@@ -339,7 +339,18 @@ function buildApiContracts(capabilities) {
   }
   if (capabilities.commerce) {
     add('GET', '/api/products', 'commerce', 'public-read', 'Read catalog items from the configured authoritative source.', ['model-product'], { cachePolicy: 'source-aware' });
+    add('GET', '/api/cart', 'commerce', 'session-or-authenticated', 'Read only the current session or verified owner cart with server-authoritative product and stock data.', ['model-cart', 'model-cartitem', 'model-product']);
+    add('POST', '/api/cart/items', 'commerce', 'session-or-authenticated', 'Add an active product to the current cart after server-side quantity, price and inventory checks.', ['model-cart', 'model-cartitem', 'model-product'], { sideEffect: 'idempotent-cart-mutation' });
+    add('PATCH', '/api/cart/items/:itemId', 'commerce', 'session-or-authenticated-owner', 'Update only an owned cart line and revalidate quantity and available stock.', ['model-cart', 'model-cartitem', 'model-product']);
+    add('DELETE', '/api/cart/items/:itemId', 'commerce', 'session-or-authenticated-owner', 'Remove only an owned cart line from the active cart.', ['model-cart', 'model-cartitem']);
     add('POST', '/api/cart/quote', 'commerce', 'session-or-authenticated', 'Recalculate line items, discounts, tax and inventory on the server.', ['model-cart', 'model-cartitem', 'model-product', 'model-order']);
+    add('GET', '/api/orders', 'commerce', 'authenticated-owner-or-scoped-guest-session', 'List only the current customer’s orders with bounded pagination and immutable purchase snapshots.', ['model-order', 'model-orderline']);
+    add('GET', '/api/orders/:orderId', 'commerce', 'authenticated-owner-or-scoped-guest-session', 'Read an order only after owner or signed guest-session authorization.', ['model-order', 'model-orderline']);
+    if (capabilities.admin) {
+      add('GET', '/api/admin/orders', 'commerce', 'administrator-or-fulfillment-role', 'List orders for authorized staff with filters, pagination and audit-safe customer fields.', ['model-order', 'model-orderline']);
+      add('GET', '/api/admin/inventory', 'commerce', 'administrator-or-inventory-role', 'Read authoritative stock, reservations and low-stock alerts.', ['model-product']);
+      add('PATCH', '/api/admin/orders/:orderId', 'commerce', 'administrator-or-fulfillment-role', 'Apply only allowed fulfillment transitions and record an audit event.', ['model-order']);
+    }
     if (!capabilities.payments) {
       add('POST', '/api/orders', 'commerce', 'session-or-verified-customer', 'Create an order intent without representing it as paid; fulfillment waits for the configured business process.', ['model-cart', 'model-cartitem', 'model-order', 'model-orderline'], { sideEffect: 'order-intent-only' });
     }
