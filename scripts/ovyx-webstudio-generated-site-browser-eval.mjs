@@ -571,9 +571,11 @@ async function main() {
       const qaFormMissing=formResults.length===0;
       const noOpButtons=buttonResults.filter(item=>['no-observable-state-change','click-failed','interaction-test-error'].includes(item.status));
       const externalRequests=checks.flatMap(c=>c.blockedExternalRequests||[]);
+      const journeyPlanMissing=qaPlan.journeys.length===0;
       const failedJourneys=journeyResults.filter(item=>item.status!=='passed');
       const failedApiChecks=apiCheckResults.filter(item=>item.status!=='passed');
       const failures=checks.filter(c=>c.navigationError||c.metrics?.horizontalOverflow||c.metrics?.brokenImages?.length||c.metrics?.copyIssues?.length||c.metrics?.deadLinks?.length||c.metrics?.unlabeledControls?.length||c.pageErrors.length||c.consoleErrors.length||c.failedRequests.length||c.blockedExternalRequests.length||c.internalLinkChecks.some(link=>['invalid-url','missing-fragment-target','local-route-http-error','local-route-request-failed'].includes(link.status))||c.buttonInteractions?.results?.some(item=>['no-observable-state-change','click-failed','interaction-test-error'].includes(item.status))||c.formInteractions.some(f=>f.classification!=='qa-only-local-form-post-and-success-ui-verified'));
+      if(journeyPlanMissing)failures.push({page:'site-level',reason:'No requirement-derived browser journey was supplied in ovyx-qa-plan.json.'});
       if(failedJourneys.length)failures.push({page:'site-level',reason:'One or more requirement-derived user journeys failed.',journeys:failedJourneys.map(item=>item.id)});
       if(failedApiChecks.length)failures.push({page:'site-level',reason:'One or more declared read-only API contract checks failed.',checks:failedApiChecks.map(item=>item.id)});
       if(qaFormMissing)failures.push({page:'site-level',reason:'Required QA-only enquiry form did not submit to the isolated test receiver.'});
@@ -584,7 +586,7 @@ async function main() {
         viewportWidths:VIEWPORTS.map(v=>v.width),failingChecks:failures.length,
         formInteractionStatus:formResults.length?(formResults.every(f=>f.classification==='qa-only-local-form-post-and-success-ui-verified')?'qa-local-post-tested':'qa-form-test-has-findings'):'no-qa-form-submission-tested',
         qaLocalPosts:formResults.length,qaFormMissing,
-        declaredJourneys:journeyResults.length,passedJourneys:journeyResults.filter(item=>item.status==='passed').length,failedJourneys,journeyResults,
+        journeyPlanMissing,declaredJourneys:journeyResults.length,passedJourneys:journeyResults.filter(item=>item.status==='passed').length,failedJourneys,journeyResults,
         declaredApiChecks:apiCheckResults.length,passedApiChecks:apiCheckResults.filter(item=>item.status==='passed').length,failedApiChecks,apiCheckResults,
         publicEnquiryEndpointConfigured:Boolean(PUBLIC_ENQUIRY),publicEnquiryFormObserved,publicEnquiryDeliveryConfirmed,
         publicEnquiryStatus:publicEnquiryChecks.some(item=>item.status==='endpoint-reported-delivery-confirmed')?'endpoint-reported-delivery-confirmed':publicEnquiryFormObserved?'public-form-submitted-without-confirmed-delivery':PUBLIC_ENQUIRY?'configured-public-form-not-observed':'not-configured-or-not-opted-in',
