@@ -4,7 +4,15 @@ const a=(tag,n)=>{const m=s(tag).match(new RegExp('\\b'+n+'\\s*=\\s*(?:"([^"]*)"
 export function auditExperienceQuality(files={},siteMap={}){
  const entries=Object.entries(files||{}).filter(([p])=>/\\.html?$/i.test(p)||/\\.css$/i.test(p)), html=entries.filter(([p])=>/\.html?$/i.test(p)), css=entries.filter(([p])=>/\.css$/i.test(p)).map(([,v])=>s(v)).join('\n'), findings=[];
  const add=(code,file,severity,message)=>findings.push({code,file,severity,message});
+ const titleOwners=new Map(), descriptionOwners=new Map();
  for(const [file,raw] of html){const h=s(raw);
+ const titleText=(h.match(/<title[^>]*>([^<]*)/i)||[])[1]?.trim().toLowerCase();
+ if(titleText){if(titleOwners.has(titleText))add('DUPLICATE_PAGE_TITLE',file,'warning','Document title duplicates '+titleOwners.get(titleText)+'.');else titleOwners.set(titleText,file);}
+ const descriptionTag=[...h.matchAll(/<meta\b[^>]*>/gi)].map(x=>x[0]).find(x=>a(x,'name').toLowerCase()==='description');
+ const descriptionText=descriptionTag?a(descriptionTag,'content').toLowerCase():'';
+ if(descriptionText){if(descriptionOwners.has(descriptionText))add('DUPLICATE_META_DESCRIPTION',file,'warning','Meta description duplicates '+descriptionOwners.get(descriptionText)+'.');else descriptionOwners.set(descriptionText,file);}
+ if(!/og:title/i.test(h))add('OPEN_GRAPH_TITLE_MISSING',file,'info','No Open Graph title was detected.');
+ if(!/og:description/i.test(h))add('OPEN_GRAPH_DESCRIPTION_MISSING',file,'info','No Open Graph description was detected.');
  if(!/<title\b[^>]*>\s*[^<\s][\s\S]*?<\/title\s*>/i.test(h))add('PAGE_TITLE_MISSING',file,'warning','No non-empty document title.');
  if(!/<meta\b[^>]*name\s*=\s*["']description["'][^>]*content\s*=\s*["'][^"']+["']/i.test(h)&&!/<meta\b[^>]*content\s*=\s*["'][^"']+["'][^>]*name\s*=\s*["']description["']/i.test(h))add('META_DESCRIPTION_MISSING',file,'warning','No non-empty meta description.');
  if(!/<meta\b[^>]*name\s*=\s*["']viewport["']/i.test(h))add('VIEWPORT_META_MISSING',file,'warning','No viewport metadata.');
@@ -16,6 +24,8 @@ export function auditExperienceQuality(files={},siteMap={}){
  for(const m of h.matchAll(/<a\b[^>]*>/gi))if(!a(m[0],'href')||a(m[0],'href')==='#')add('ANCHOR_DESTINATION_MISSING',file,'warning','Anchor has no meaningful destination.');
  for(const m of h.matchAll(/<(?:input|select|textarea)\b[^>]*>/gi)){const t=m[0],type=a(t,'type').toLowerCase();if(/^<input\b/i.test(t)&&['hidden','submit','button','reset'].includes(type))continue;if(!a(t,'aria-label')&&!a(t,'aria-labelledby')&&!a(t,'id'))add('FORM_CONTROL_NAME_UNDETECTABLE',file,'warning','Form control has no detectable accessible-name or label target.');}
  }
+ if(!entries.some(([p])=>/^robots\.txt$/i.test(p)))add('ROBOTS_POLICY_NOT_INCLUDED','robots.txt','info','No root robots.txt file is included; confirm the indexing policy before publishing.');
+ if(!entries.some(([p])=>/^sitemap\.xml$/i.test(p)))add('SITEMAP_NOT_INCLUDED','sitemap.xml','info','No root sitemap.xml file is included; generate one for public multi-route sites where appropriate.');
  if(entries.some(([p])=>/\.css$/i.test(p))){if(!/@media\b/i.test(css))add('RESPONSIVE_MEDIA_RULES_NOT_DETECTED','stylesheets','warning','No media query; browser responsive review required.');if(!/prefers-reduced-motion\s*:\s*reduce/i.test(css))add('REDUCED_MOTION_RULE_NOT_DETECTED','stylesheets','warning','No reduced-motion rule.');if(!/:focus-visible\b/i.test(css))add('VISIBLE_FOCUS_RULE_NOT_DETECTED','stylesheets','warning','No focus-visible rule.');}
  const counts=findings.reduce((o,x)=>(o[x.severity]=(o[x.severity]||0)+1,o),{});
  return {status:findings.some(x=>x.severity==='warning')?'review-required':'source-checks-clear',scope:'static-source-only',checkedHtmlFiles:html.length,checkedCssFiles:entries.length-html.length,declaredRouteCount:Array.isArray(siteMap?.pages)?siteMap.pages.length:html.length,findings:findings.slice(0,150),totalFindings:findings.length,counts,evidence:{source:'checked',renderedVisuals:'not-verified',browserInteractions:'not-verified',responsiveRendering:'not-verified',wcagConformance:'not-verified',externalAssets:'not-verified',liveIntegrations:'not-verified',searchRankings:'not-verified'},summary:findings.length?findings.length+' source-level findings require review; browser and human verification remain separate.':'No findings from included source checks; this is not proof of rendered quality or conformance.'};
