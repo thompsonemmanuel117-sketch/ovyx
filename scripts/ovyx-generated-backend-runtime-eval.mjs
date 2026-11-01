@@ -69,7 +69,7 @@ export function validateBackendChecks(plan) {
     const id = clean(raw?.id, 80);
     const method = String(raw?.method || 'GET').toUpperCase();
     const route = String(raw?.route || '');
-    const sourceFile = String(raw?.sourceFile || '').replace(/\\\\/g, '/');
+    const sourceFile = String(raw?.sourceFile || '').replace(/\\/g, '/');
     const sourceFileSafe = sourceFile.startsWith('functions/') && !sourceFile.split('/').some(part => !part || part === '.' || part === '..') && /\\.(?:m?js|ts)$/i.test(sourceFile);
     const expectedStatus = Number(raw?.expectedStatus ?? 200);
     if (!id || ids.has(id) || !SAFE_METHODS.has(method) || !safeRoute(route) || !sourceFileSafe ||
