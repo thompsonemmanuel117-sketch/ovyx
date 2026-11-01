@@ -48,6 +48,17 @@ assert.match(buildWebsiteEngineInstructions(plan), /authorization-negative cases
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
 assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
 
+const linePreservingBrief = [
+  'Build a multi-page business website.',
+  'Keep the existing user accounts and secure sessions.',
+  'Persist enquiries and send them through the configured email integration.',
+].join('\n');
+assert.equal(
+  buildWebsiteEnginePlan(linePreservingBrief).requirementManifest.total,
+  3,
+  'The website engine must preserve separate line-delimited requirements when building its prompt contract.',
+);
+
 // Long accepted briefs must never be cut in the middle of the model-facing JSON.
 // The full brief remains in the task prompt; the bounded index preserves every
 // requirement ID and explicitly labels excerpts as non-authoritative summaries.
