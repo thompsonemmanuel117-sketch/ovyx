@@ -161,7 +161,7 @@ const multiPage = await runWebsiteGeneration({
     multiPageCalls += 1;
     assert.equal(options.prompt, 'brief');
     assert.equal(typeof options.callModel, 'function');
-    return { text: 'built', files: { 'index.html': '<!doctype html>' }, quotaInputText: 'builder-input', quotaOutputText: 'builder-output' };
+    return { text: 'built', files: { 'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Built site</title></head><body><h1>Built</h1></body></html>' }, quotaInputText: 'builder-input', quotaOutputText: 'builder-output' };
   },
   repairSinglePage: async () => { repairCalls += 1; return null; },
 });
@@ -211,7 +211,7 @@ const backendBuild = await runWebsiteGeneration({
   },
   buildMultiPage: async () => ({
     text: 'frontend built',
-    files: { 'index.html': '<!doctype html><html><body>Contact</body></html>' },
+    files: { 'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Contact</title></head><body>Contact</body></html>' },
     rawUsage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 },
   }),
 });
@@ -235,7 +235,7 @@ assert.deepEqual(backendBuild.result.rawUsage, { prompt_tokens: 13, completion_t
 
 
 let singlePageBackendCalls = 0;
-const singlePageHtml = '<!doctype html><html><body>Single page contact</body></html>';
+const singlePageHtml = '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Single page contact</title></head><body>Single page contact</body></html>';
 const singlePageBackend = await runWebsiteGeneration({
   env: {},
   shouldBuild: true,
@@ -293,7 +293,7 @@ const secureBackendBuild = await runWebsiteGeneration({
       }),
     };
   },
-  buildMultiPage: async () => ({ text: 'frontend built', files: { 'index.html': '<!doctype html>' } }),
+  buildMultiPage: async () => ({ text: 'frontend built', files: { 'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Built site</title></head><body><h1>Built</h1></body></html>' } }),
 });
 assert.equal(secureBackendAttempts, 2, 'Credential-shaped generated source must be rejected and repaired once.');
 assert.equal(secureBackendBuild.fullStackSourceEvidence.status, 'source-evidence-present-runtime-unverified');
