@@ -372,6 +372,8 @@ export function evaluateGeneratedWebsiteFiles(rawFiles = {}) {
       } else if (plan.journeys.length > 12 || plan.apiChecks.length > 20 ||
           plan.journeys.some(journey => Array.isArray(journey?.steps) && journey.steps.length > 30)) {
         add('blocker', 'QA_PLAN_LIMIT_EXCEEDED', 'The generated QA plan exceeds the supported journey, step or API probe limits.', 'ovyx-qa-plan.json');
+      } else if (!Array.isArray(plan.backendChecks) || plan.backendChecks.length > 24) {
+        add('blocker', 'QA_BACKEND_PLAN_INVALID', 'The generated QA plan must declare a bounded backendChecks array for isolated backend runtime testing.', 'ovyx-qa-plan.json');
       } else {
         const allowedActions = new Set(['click', 'fill', 'check', 'uncheck', 'select', 'expectText', 'expectVisible', 'expectHidden', 'expectUrl', 'expectValue']);
         for (const journey of plan.journeys.slice(0, 12)) {
@@ -385,6 +387,23 @@ export function evaluateGeneratedWebsiteFiles(rawFiles = {}) {
           if (!['GET', 'HEAD'].includes(String(check?.method || 'GET').toUpperCase())) {
             add('warning', 'QA_PLAN_MUTATING_API_PROBE', 'QA plan contains a non-read-only API probe; mutating requests require a dedicated isolated backend fixture.', 'ovyx-qa-plan.json');
           }
+        }
+        const backendIds = new Set();
+        for (const check of plan.backendChecks) {
+          testsRun += 1;
+          const method = String(check?.method || 'GET').toUpperCase();
+          const route = String(check?.route || '');
+          const routeSafe = route.startsWith('/api/') && !route.startsWith('//') &&
+            !/[?#\\\\\u0000-\u001f]/.test(route) && !route.split('/').some(part => part === '.' || part === '..');
+          const bodyText = check?.body === undefined ? '' : JSON.stringify(check.body);
+          const bodySafe = bodyText.length <= 4096 &&
+            !/"(?:password|passcode|secret|token|api[_-]?key|authorization|card|cvv|cvc|iban|bank[_-]?account|email|phone|address)"\\s*:/i.test(bodyText);
+          if (!check?.id || backendIds.has(String(check.id)) || !['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ||
+              !routeSafe || !bodySafe || (!['GET', 'HEAD'].includes(method) && check.sideEffect !== 'disposable-local-only') ||
+              (check.identity != null && !['anonymous', 'synthetic-owner-a', 'synthetic-owner-b'].includes(check.identity))) {
+            add('blocker', 'QA_BACKEND_CHECK_UNSAFE', 'A backend check is malformed, contains sensitive data, or does not explicitly restrict mutations to the disposable local database.', 'ovyx-qa-plan.json');
+          }
+          backendIds.add(String(check?.id || ''));
         }
       }
     } catch {
