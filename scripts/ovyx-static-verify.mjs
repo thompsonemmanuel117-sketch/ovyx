@@ -434,7 +434,8 @@ if (!fs.existsSync(promptContractPath) || !fs.existsSync(promptContractTestPath)
   const packageJson = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
   if (
     !promptGateway.includes('buildWebsiteEnginePlan') ||
-    !promptEngine.includes('buildPromptContract') ||
+    !promptEngine.includes('buildPromptContract(sourceBrief)') ||
+    !promptEngine.includes('const sourceBrief = String(prompt ??') ||
     !promptGateway.includes('buildWebsiteEngineReadiness') ||
     !promptAssistant.includes('buildWebsiteEngineReadiness') ||
     !promptEngine.includes('getWebStudioBuildClarification') ||
@@ -451,6 +452,8 @@ if (!fs.existsSync(promptContractPath) || !fs.existsSync(promptContractTestPath)
     !promptMultiPage.includes('verifyPromptContractOutput') ||
     !promptMultiPage.includes('promptContract.explicitPages') ||
     !promptContractTest.includes('CONTACT_FORM_MISSING') ||
+    !fs.readFileSync(path.join(root, 'scripts/ovyx-website-engine.test.mjs'), 'utf8').includes('line-delimited requirements') ||
+    !packageJson.includes('scripts/ovyx-website-engine.test.mjs') ||
     !packageJson.includes('scripts/prompt-contract.test.mjs')
   ) {
     errors.push('OVYX Web Studio: prompt fidelity, build-readiness handling, explicit-page recovery, or required regression coverage is incomplete.');
@@ -1026,7 +1029,7 @@ if (
     !evaluationCases.includes('missing-integration') ||
     !evaluationCases.includes('secret-exposure') ||
     !evaluationTest.includes('eleven site categories') ||
-    !qualityWorkflow.includes('npx playwright install --with-deps chromium') ||
+    !qualityWorkflow.includes('npx playwright install chromium --only-shell') ||
     !qualityWorkflow.includes('scripts/ovyx-webstudio-quality.browser.test.mjs')
   ) {
     errors.push('Web Studio quality inspector: actual responsive checks, isolated execution, snapshot-protected bounded repair, truthful build events, premium design rules, cache policy or browser-test wiring is incomplete.');
