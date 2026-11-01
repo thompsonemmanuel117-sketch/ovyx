@@ -6,6 +6,8 @@ The Web Studio Quality Inspector can now send a project's declared backend check
 
 Cloudflare Sandboxes/Containers are available on a Workers Paid plan. The runtime uses a Linux microVM with public Internet disabled by default. During dependency installation only, an outbound allowlist/proxy permits read-only package downloads from registry.npmjs.org; that route is removed before backend code is executed. No OVYX production database, API-provider credential, payment provider or external customer integration is passed into the sandbox.
 
+This adapter is pinned to Sandbox SDK 0.12.14 to use its documented outbound allowlist and lifecycle API. Cloudflare maintains SDK 0.x security fixes through 2026-12-31; schedule migration to the 1.0 Durable Object container API before that date.
+
 See the current Cloudflare Sandboxes overview: https://developers.cloudflare.com/sandbox/
 Outbound traffic controls: https://developers.cloudflare.com/sandbox/sdk/guides/outbound-traffic/
 
