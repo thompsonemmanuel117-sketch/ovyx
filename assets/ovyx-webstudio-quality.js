@@ -1227,7 +1227,7 @@
       }
       if (qaPlan.apiChecks && qaPlan.apiChecks.length) {
         addCheck(report, 'Integrations', 'Read-only backend API probes', 'info',
-          qaPlan.apiChecks.length + ' read-only API contract probe(s) are declared in the QA plan. The in-editor preview intentionally blocks all network connections, so these probes are not executed here; they require the isolated generated-site runtime evaluator. Database writes, auth-provider flows and external delivery remain unverified until a disposable backend adapter runs.');
+          qaPlan.apiChecks.length + ' read-only API contract probe(s) are declared in the QA plan. The in-editor preview intentionally blocks all network connections, so these probes are not executed here. The current generated-site browser evaluator can check static-host route responses, but it does not execute Cloudflare Functions, framework server routes or database bindings. Database writes, auth-provider flows and external delivery remain unverified until a disposable backend runtime adapter runs.');
       }
       var interactionAudit = report.browser.interactions;
               interactionAudit.pagesProbed += 1;
