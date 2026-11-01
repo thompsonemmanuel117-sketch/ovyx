@@ -1013,7 +1013,7 @@ if (
   const evaluationTest = fs.readFileSync(webStudioEvaluationTestPath, 'utf8');
   if (
     !quality.includes('OVYX WEB STUDIO QUALITY CONTRACT') ||
-    !quality.includes('WIDTHS = [320, 390, 768, 1024, 1440]') ||
+    !quality.includes('WIDTHS = [320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920]') ||
     !quality.includes("setAttribute('sandbox', 'allow-scripts')") ||
     !quality.includes("connect-src 'none'") ||
     !quality.includes("form-action 'none'") ||
