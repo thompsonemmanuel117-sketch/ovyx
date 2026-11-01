@@ -429,6 +429,7 @@ assert.ok(await page.locator('.ovyx-ws-quality-recommendation strong').filter({ 
   assert.ok(copiedSummary.includes('Project: Quality test site'), 'The client summary must identify the inspected project.');
   assert.ok(copiedSummary.includes('Live sign-in, data persistence, email, booking, payments'), 'The client summary must state live integration limits.');
   assert.ok(copiedSummary.includes('not production load time or Core Web Vitals'), 'The client summary must not misrepresent sandbox metrics as production performance.');
+  assert.ok(copiedSummary.includes('Requirement-derived user journeys: 1/1 passed'), 'The client handoff must summarize executed requirement-derived journeys.');
   const downloadPromise = page.waitForEvent('download');
   await page.locator('[data-quality-export]').click();
   const reportDownload = await downloadPromise;
@@ -440,6 +441,8 @@ assert.ok(await page.locator('.ovyx-ws-quality-recommendation strong').filter({ 
   assert.equal(exportedReport.projectName, 'Quality test site', 'The exported report must include the client-facing project label.');
 assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendation === 'string' && item.recommendation.length > 0), 'The exported report must preserve a suggested improvement for every check.');
   assert.equal(exportedReport.inspection.browser.pagesAvailable, 3, 'The exported report must summarize tested route coverage.');
+  assert.equal(exportedReport.inspection.browser.journeys.total, 1, 'The exported QA report must retain the journey count.');
+  assert.equal(exportedReport.inspection.browser.journeys.passed, 1, 'The exported QA report must retain passed journey evidence.');
   assert.equal(exportedReport.privacy.sourceFileContentsIncluded, false, 'The client handoff must not bundle project source files.');
   assert.ok(exportedReport.limitations.some(item => item.includes('Core Web Vitals')), 'The exported report must carry explicit verification limits.');
   assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 0, 'A scan alone must not spend an AI repair attempt.');
