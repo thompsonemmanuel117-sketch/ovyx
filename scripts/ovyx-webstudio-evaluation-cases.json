@@ -23,7 +23,7 @@
     "Rendered text on known solid backgrounds meets WCAG AA contrast targets, and keyboard-focusable controls have visible focus cues.",
     "Sandbox reports DOM size and initial document/inline-script processing as diagnostics without misrepresenting them as real-world Core Web Vitals.",
     "Visual assets are relevant, have deliberate crops and fallbacks, and are not fabricated or left broken.",
-    "Rendered screenshots at 320, 390, 768, 1024 and 1440 widths are saved for supplied generated-site artifacts.",
+    "Rendered screenshots at all thirteen required viewport widths from 320 through 1920 px are saved for supplied generated-site artifacts.",
     "Market locale, language, currency and time zone follow explicit brief/context; unspecified markets remain undecided.",
     "Real property search/matching uses available listing fields; demo inventory and unconfigured WhatsApp/backend integrations are labelled honestly.",
     "Reports separate source evidence, browser behavior, visual review, live integration verification and deployment verification.",
