@@ -382,14 +382,14 @@
     if (originalRecordHistory) w.recordHistory = function () {
       if (Array.isArray(this.historyStack) && Number.isInteger(this.historyPointer) && this.historyPointer < this.historyStack.length - 1) this.historyStack.splice(this.historyPointer + 1);
       var result = originalRecordHistory.apply(this, arguments);
-      this.__ovyxHistoryAwaitingRender = true;
+      this.__ovyxHistoryAwaitingSync = true;
       return result;
     };
-    var originalRender = typeof w.render === 'function' ? w.render : null;
-    if (originalRender) w.render = function () {
-      var result = originalRender.apply(this, arguments);
-      if (this.__ovyxHistoryAwaitingRender) {
-        this.__ovyxHistoryAwaitingRender = false;
+    var originalSyncGraph = typeof w.syncGraphToProject === 'function' ? w.syncGraphToProject : null;
+    if (originalSyncGraph) w.syncGraphToProject = function () {
+      var result = originalSyncGraph.apply(this, arguments);
+      if (this.__ovyxHistoryAwaitingSync) {
+        this.__ovyxHistoryAwaitingSync = false;
         var before = {};
         try { before = JSON.parse(this.historyStack[this.historyPointer] || '{}'); } catch (_) {}
         pushUndoState(this, before);
