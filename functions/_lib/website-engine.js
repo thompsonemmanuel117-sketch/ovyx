@@ -539,7 +539,6 @@ function serializeWebsiteEngineModelPlan(plan) {
       honestyRules: compactPlanList(fullStack.honestyRules, 8, 100),
     };
   }
-  if (plan.fullStackArchitecture) minimal.fullStackArchitecture = compactWebsiteFullStackContract(plan.fullStackArchitecture);
   const serialized = JSON.stringify(minimal);
   if (serialized.length > WEBSITE_ENGINE_PLAN_JSON_LIMIT) {
     throw new RangeError('The Website Engine plan exceeds its safe instruction budget.');
