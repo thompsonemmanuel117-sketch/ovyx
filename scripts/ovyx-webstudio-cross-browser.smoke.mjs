@@ -12,13 +12,13 @@ for(const engine of browsers){
  try{
   browser=await engine.launch({headless:true});
   const page=await browser.newPage();
-  page.on('pageerror',error=>failures.push(engine.name+' page error: '+error.message));
+  page.on('pageerror',error=>failures.push(engine.name()+' page error: '+error.message));
   await page.setContent(html,{waitUntil:'load'});
   for(const width of widths){
    await page.setViewportSize({width,height:900});
    const result=await page.evaluate(()=>({scroll:document.documentElement.scrollWidth,client:document.documentElement.clientWidth,main:!!document.querySelector('main'),heading:!!document.querySelector('h1')}));
-   assert.ok(result.main&&result.heading,engine.name+' missing semantic page structure');
-   assert.ok(result.scroll<=result.client+1,engine.name+' horizontal overflow at '+width+'px: '+result.scroll+' > '+result.client);
+   assert.ok(result.main&&result.heading,engine.name()+' missing semantic page structure');
+   assert.ok(result.scroll<=result.client+1,engine.name()+' horizontal overflow at '+width+'px: '+result.scroll+' > '+result.client);
   }
   await page.getByRole('button',{name:'Show details'}).click();
   await page.getByText('Details are available.').waitFor({state:'visible'});
@@ -26,8 +26,8 @@ for(const engine of browsers){
   await page.keyboard.press('Tab');
   const focus=await page.evaluate(()=>!!document.activeElement);
   assert.equal(focus,true);
-  console.log(engine.name+' passed '+widths.length+' viewport smoke checks and interaction/keyboard probes.');
- }catch(error){failures.push(engine.name+': '+error.message);}
+  console.log(engine.name()+' passed '+widths.length+' viewport smoke checks and interaction/keyboard probes.');
+ }catch(error){failures.push(engine.name()+': '+error.message);}
  finally{if(browser)await browser.close();}
 }
 assert.deepEqual(failures,[],'Cross-browser generated-site smoke failures');
