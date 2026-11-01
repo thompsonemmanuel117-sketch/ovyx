@@ -481,6 +481,9 @@ function parseBackendFiles(response) {
     }
     if (!files || typeof files !== 'object' || Array.isArray(files)) continue;
     const output = {};
+    let totalSourceBytes = 0;
+    const maxBackendFiles = 80;
+    const maxBackendSourceBytes = 900000;
     for (const [rawPath, value] of Object.entries(files)) {
       let filePath = String(rawPath || '').trim();
       while (filePath.startsWith('/')) filePath = filePath.slice(1);
@@ -502,12 +505,16 @@ function parseBackendFiles(response) {
         /AKIA[0-9A-Z]{16}/.test(fileContent) ||
         /Bearer\s+[A-Za-z0-9._-]{24,}/i.test(fileContent)
       );
+      const containsUnsafeExecution = typeof fileContent === 'string' &&
+        /\beval\s*\(|new\s+Function\s*\(|\bchild_process\b|\bexecSync\s*\(|\bspawn\s*\(/i.test(fileContent);
       if (!filePath || filePath.length > 300 || filePath.includes('..') || filePath.includes(String.fromCharCode(92)) ||
           lowerPath.includes('.env') || lowerPath.includes('secret') || lowerPath.includes('credential') ||
           lowerPath.includes('private-key') || lowerPath.includes('service-account') ||
           !allowedExtension || !allowedRoot || typeof fileContent !== 'string' ||
-          !fileContent.trim() || fileContent.length > 180000 || containsCredentialMaterial) continue;
+          !fileContent.trim() || fileContent.length > 180000 || containsCredentialMaterial || containsUnsafeExecution ||
+          Object.keys(output).length >= maxBackendFiles || totalSourceBytes + fileContent.length > maxBackendSourceBytes) continue;
       output[filePath] = fileContent;
+      totalSourceBytes += fileContent.length;
     }
     if (Object.keys(output).length) return output;
   }
