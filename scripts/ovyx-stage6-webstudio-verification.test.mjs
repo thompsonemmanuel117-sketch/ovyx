@@ -37,7 +37,7 @@ assert.match(runtime, /backendRequired/);
 assert.match(runtime, /backendChecks/);
 assert.match(runtime, /fetch\('\/api\/webstudio\/backend-runtime'/, 'Web Studio must call the isolated per-project backend runtime.');
 assert.match(runtime, /Disposable backend, database and authorization tests/);
-assert.match(runtime, /disposable-backend API check/);
+assert.match(runtime, /read-only API contract probe/);
 assert.match(autonomousQa, /QA_BACKEND_PLAN_INVALID/);
 assert.match(autonomousQa, /QA_BACKEND_CHECK_UNSAFE/);
 assert.match(backendRuntime, /networkMode === 'cloudflare-sandbox-no-egress'/);
