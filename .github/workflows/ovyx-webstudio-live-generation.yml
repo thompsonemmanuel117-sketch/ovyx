@@ -253,6 +253,7 @@ jobs:
                     echo "Backend repair failed verification; original generated source and failure evidence were restored."
                   fi
                 else
+                  node scripts/ovyx-cloudflare-backend-repair-client.mjs --restore --site-dir "$PWD/$project_dir" --backup-dir "$backup_dir" || true
                   rm -rf "$backup_dir"
                   runtime_failed=1
                   echo "No safe backend repair candidate was accepted for $site_name."
