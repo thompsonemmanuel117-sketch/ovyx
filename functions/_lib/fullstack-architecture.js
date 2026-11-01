@@ -52,7 +52,7 @@ function inferCapabilities(prompt, contract) {
   const commerce = signals.shoppingCart === true || signals.addToCart === true ||
     hasPositiveIntent(source, /\b(?:e-commerce|ecommerce|online store|sell products|product catalogue|product catalog|shopping cart|add to cart)\b/i);
   const payment = signals.payments === true ||
-    hasPositiveIntent(source, /\b(?:payment|paystack|flutterwave|stripe|paypal|checkout|pay now|subscription billing|recurring billing)\b/i);
+    hasPositiveIntent(source, /\b(?:payment|paystack|flutterwave|stripe|paypal|checkout|pay now|paid subscriptions?|paid memberships?|subscription billing|recurring billing)\b/i);
   const auth = signals.authentication === true || admin || subscriptions || notifications || dashboards ||
     hasPositiveIntent(source, /\b(?:member portal|sign in|sign up|login|authentication|user account|customer account|staff accounts?)\b/i);
   const authorization = admin ||
@@ -64,7 +64,8 @@ function inferCapabilities(prompt, contract) {
   const forms = signals.forms === true || hasPositiveIntent(source, /\b(?:application forms?|registration forms?|feedback forms?|survey forms?|intake forms?|custom forms?|multi[- ]step forms?|form builder|form submissions?)\b/i);
   const newsletter = signals.newsletter === true ||
     hasPositiveIntent(source, /\b(?:newsletter|mailing list|email updates|subscribe for updates)\b/i);
-  const subscriptions = hasPositiveIntent(source, /\b(?:subscriptions?|recurring billing|membership plans?|paid memberships?|subscription management|manage subscriptions?)\b/i) && !newsletter;
+  const subscriptions = hasPositiveIntent(source, /\b(?:paid subscriptions?|recurring billing|membership plans?|paid memberships?|subscription management|manage subscriptions?)\b/i) ||
+    (hasPositiveIntent(source, /\b(?:subscriptions?|memberships?)\b/i) && !newsletter);
   const notifications = hasPositiveIntent(source, /\b(?:notifications?|alerts?|reminders?|order updates|booking confirmations?)\b/i);
   const dashboards = admin || hasPositiveIntent(source, /\b(?:dashboard|analytics|reports?|reporting|business metrics)\b/i);
   const integrations = hasPositiveIntent(source, /\b(?:integrations?|connect to|third[- ]party services?|external services?|sync with|webhook integrations?)\b/i);
@@ -144,8 +145,8 @@ function buildDataModels(capabilities) {
     push('SubscriptionInvoice', 'Immutable invoice record reconciled against a provider payment attempt.', ['id', 'subscriptionId', 'amount', 'currency', 'status', 'dueAt', 'paidAt', 'paymentAttemptId'], 'financial');
   }
   if (capabilities.notifications) push('Notification', 'Owner-scoped in-app notification with explicit read and delivery state.', ['id', 'ownerId', 'channel', 'templateKey', 'payload', 'status', 'readAt', 'sentAt', 'idempotencyKey', 'createdAt'], 'personal-data');
-  if (capabilities.integrations) push('IntegrationEvent', 'Deduplicated, redacted inbound/outbound integration event ledger.', ['id', ...(capabilities.authentication ? ['ownerId'] : []), 'provider', 'externalEventId', 'eventType', 'status', 'idempotencyKey', 'receivedAt', 'processedAt', 'redactedError'], 'security-audit');
-  if (capabilities.automation) push('AutomationRun', 'Auditable scheduled or event-triggered business workflow execution.', ['id', ...(capabilities.authentication ? ['ownerId'] : []), 'workflowKey', 'triggerType', 'triggerRef', 'status', 'idempotencyKey', 'attemptCount', 'startedAt', 'completedAt', 'redactedError'], 'business-data');
+  if (capabilities.integrations) push('IntegrationEvent', 'Deduplicated, redacted inbound/outbound integration event ledger.', ['id', 'tenantId', ...(capabilities.authentication ? ['ownerId'] : []), 'provider', 'externalEventId', 'eventType', 'status', 'idempotencyKey', 'receivedAt', 'processedAt', 'redactedError'], 'security-audit');
+  if (capabilities.automation) push('AutomationRun', 'Auditable scheduled or event-triggered business workflow execution.', ['id', 'tenantId', ...(capabilities.authentication ? ['ownerId'] : []), 'workflowKey', 'triggerType', 'triggerRef', 'status', 'idempotencyKey', 'attemptCount', 'startedAt', 'completedAt', 'redactedError'], 'business-data');
   if (capabilities.email) push('DeliveryRecord', 'Outbox/delivery state with retry and provider receipt; not a claim of delivery.', ['id', 'recipientRef', 'sourceType', 'sourceId', 'templateKey', 'idempotencyKey', 'status', 'attemptCount', 'nextAttemptAt', 'providerReceipt'], 'personal-data');
   if (capabilities.newsletter) push('NewsletterSubscription', 'Permission-aware subscription state with consent evidence and secure unsubscribe lifecycle.', ['id', 'listId', 'userId', 'email', 'emailNormalized', 'status', 'consentAt', 'confirmationTokenHash', 'createdAt'], 'personal-data');
   if (capabilities.fileStorage) push('StoredAsset', 'Owner-scoped metadata for quarantined objects with verified content, scan and publication lifecycle.', ['id', 'ownerId', 'storageKey', 'contentType', 'byteSize', 'checksum', 'uploadState', 'scanStatus', 'visibility', 'idempotencyKey', 'createdAt', 'updatedAt', 'deletedAt'], 'private-file');
