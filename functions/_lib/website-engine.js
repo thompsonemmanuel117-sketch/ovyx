@@ -563,14 +563,30 @@ function auditBackendFiles(files, architecture) {
     const abuseDetected = !abuseExpected || /enforceRateLimit|checkRateLimit|rateLimiter|rateLimitRequest|verifyTurnstile|verifyCaptcha|throttleRequest/i.test(code);
     const consentExpected = policy.includes('consent');
     const consentDetected = !consentExpected || /consent|doubleOptIn|confirmedAt/i.test(code);
-    const authorizationDetected = publicRoute ? abuseDetected && consentDetected : (
-      policy.includes('provider-signature')
-        ? /verifyWebhookSignature|verifySignature|constructEvent/i.test(code)
-        : policy.includes('administrator') || policy.includes('role') || policy.includes('permission')
-          ? /requireAdmin|requireRole|authorize|assertPermission/i.test(code)
-          : /requireAuth|assertAuthenticated|getAuthenticatedUser|verifySession/i.test(code)
-    );
-    return { id: route.id, method, path: route.path, file: file || null, methodOk, authOk: authorizationDetected };
+    const credentialExpected = policy.includes('credential-provider');
+    const credentialDetected = !credentialExpected || /verifyCredentials|verifyPassword|verifyIdToken|identityToken|credentialProvider|providerSubject/i.test(code);
+    const ownerScopeExpected = policy.includes('owner') || policy.includes('resource-scope') || policy.includes('object-level') || policy.includes('tenant');
+    const ownerScopeDetected = !ownerScopeExpected || /assertOwner|assertResourceOwner|requireOwner|verifyOwnership|tenantId|ownerId|resourceOwner|scopeToUser/i.test(code);
+    let authorizationDetected;
+    if (policy.includes('provider-signature')) {
+      const signature = /verifyWebhookSignature|verifySignature|constructEvent/i.test(code);
+      const replay = /eventId|event\.id|idempotencyKey|replay|processedEvent|webhookEvent/i.test(code);
+      authorizationDetected = signature && replay;
+    } else if (policy.includes('signed-unsubscribe-token')) {
+      authorizationDetected = /verifyUnsubscribeToken|validateUnsubscribeToken|verifySignature|tokenHash/i.test(code);
+    } else if (publicRoute) {
+      authorizationDetected = abuseDetected && consentDetected && credentialDetected;
+    } else {
+      const authenticated = /requireAuth|assertAuthenticated|getAuthenticatedUser|verifySession|verifyIdToken/i.test(code);
+      const elevated = !(/administrator|role|permission/.test(policy)) ||
+        /requireAdmin|requireRole|authorize|assertPermission/i.test(code);
+      authorizationDetected = authenticated && elevated && ownerScopeDetected;
+    }
+    return {
+      id: route.id, method, path: route.path, file: file || null, methodOk,
+      authOk: authorizationDetected, ownerScopeExpected, ownerScopeDetected,
+      abuseExpected, abuseDetected, consentExpected, consentDetected,
+    };
   });
   const schemaFiles = entries.filter(([filePath]) => {
     const lower = filePath.toLowerCase();
