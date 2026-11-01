@@ -64,12 +64,25 @@
   }
   function serialize(doc) { return '<!doctype html>\n' + doc.documentElement.outerHTML; }
   function snapshot(w) { return typeof w.snapshotGraph === 'function' ? w.snapshotGraph() : JSON.parse(JSON.stringify(w.graph || {})); }
+  function pushUndoState(w, before) {
+    var stack = Array.isArray(w.historyStack) ? w.historyStack : (w.historyStack = []);
+    var pointer = Number.isInteger(w.historyPointer) ? w.historyPointer : stack.length - 1;
+    if (pointer >= 0 && pointer < stack.length - 1) stack.splice(pointer + 1);
+    var previous = JSON.stringify(before || {});
+    var current = JSON.stringify(w.graph || {});
+    if (!stack.length) stack.push(previous);
+    else if (stack[stack.length - 1] !== previous) stack.push(previous);
+    if (stack[stack.length - 1] !== current) stack.push(current);
+    while (stack.length > 50) stack.shift();
+    w.historyPointer = stack.length - 1;
+  }
   function commit(w, context, doc, label, before) {
     var record = w.graph.files[context.file];
     record.content = serialize(doc);
     record.previousContent = context.source;
     record.dirty = true;
     w.syncGraphToProject && w.syncGraphToProject();
+    pushUndoState(w, before);
     if (typeof w.commitHistory === 'function') w.commitHistory(label, before, snapshot(w));
     else if (typeof w.recordHistory === 'function') w.recordHistory();
     if (typeof w.renderPreview === 'function') w.renderPreview();
