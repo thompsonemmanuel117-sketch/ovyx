@@ -6,10 +6,10 @@ const contract = {
   omittedRequirementClauseCount: 0,
   allBriefClauses: [
     'R001: Include a customer login and account dashboard.',
-    'R002: Do not include a customer login on the public website.',
+    'R002: Do not include a customer login and account dashboard.',
     'R003: Persist customer records in the database.',
     'R004: Keep the layout responsive on mobile and desktop.',
-    'R005: Use a premium editorial visual direction.',
+    'R005: A premium editorial visual direction is preferred.',
   ],
 };
 const architecture = {
