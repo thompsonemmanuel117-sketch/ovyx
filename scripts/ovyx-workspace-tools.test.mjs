@@ -118,7 +118,8 @@ assert.deepEqual(dependencyImpact.impactedPaths, ['src/main.js', 'index.html']);
 assert.equal(dependencyImpact.totalAffected, 3);
 assert.equal(dependencyImpact.evidence, 'static-source-dependency-analysis');
 assert.ok(!JSON.stringify(dependencyImpact).includes('export const header'));
-assert.equal(buildWorkspaceFileImpact({}, 'missing.js').status, 'no-project-files');
+assert.equal(buildWorkspaceFileImpact({}, 'missing.js').status, 'bounded-partial');
+assert.equal(buildWorkspaceFileImpact({}, 'missing.js').changedFileUnmapped, true);
 const manyWorkspaceFiles = Object.fromEntries(Array.from({ length: 505 }, (_, index) => [
   'src/file-' + String(index).padStart(3, '0') + '.js',
   { type: 'text/javascript', content: 'export const value' + index + ' = ' + index + ';' },
