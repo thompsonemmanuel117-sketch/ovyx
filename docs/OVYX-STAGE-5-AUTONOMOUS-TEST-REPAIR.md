@@ -33,16 +33,22 @@ These are useful foundations, but they do not yet form one general autonomous te
 ## Implementation sequence
 
 - [x] Audit existing static evaluator, Chromium evaluator, bounded generation repair, Stage 4 D1 runtime fixture and trusted live-generation workflow.
-- [ ] Add a normalized autonomous-QA report contract that combines evidence without promoting missing checks to passes.
-- [ ] Generate test plans from trusted website requirements and architecture contracts.
+- [x] Add a normalized autonomous-QA report contract that combines evidence without promoting missing checks to passes.
+- [x] Instruct the Website Engine to generate a bounded `ovyx-qa-plan.json` manifest from the original requirements and actual routes/controls.
 - [ ] Add isolated generated-backend runtime execution for supported deployment targets and disposable databases.
-- [ ] Add requirement-aware browser journeys with explicit expected outcomes and state assertions.
+- [x] Add requirement-aware browser journeys with explicit expected outcomes and state assertions, loaded from the generated `ovyx-qa-plan.json` manifest. Safe same-origin GET/HEAD API probes are supported.
 - [ ] Add one bounded browser/runtime-feedback repair attempt through the existing guarded AI provider and file-safety boundaries.
 - [ ] Re-run the same tests after repair; reject regressions and retain before/after evidence.
-- [ ] Integrate the verified QA cycle into Web Studio generation and project revision workflows.
+- [ ] Integrate browser/backend runtime evidence and post-repair verification into the full Web Studio preview/project revision lifecycle. The generation response now includes static QA/repair evidence and explicitly blocked runtime channels.
 - [ ] Add CI fixtures for clean, broken, security-sensitive and backend-connected generated apps.
 - [ ] Run full repository tests, static validation, production build, browser/device checks and live acceptance where credentials and approvals exist.
 - [ ] Merge Stage 5 into `main` only after all required automated checks pass and all external/human-only limitations are explicitly recorded.
+
+## Current implementation update (PR #374)
+
+The Stage 5 foundation now runs inside the shared Website Engine used by both authenticated Web Studio generation entry points. Every fresh non-scoped build with a file map receives deterministic static checks. Blocker findings may trigger one bounded model repair pass; only exact allowlisted complete source-file replacements can be accepted, and the static checks are rerun before the candidate replaces the in-memory generated files. Repair model usage is included in normal generation quota accounting. The API response returns an `autonomousQa` report. Browser, backend runtime and journey channels remain explicitly blocked until their isolated adapters have run; source audits and the generated-backend fixture are not mislabeled as real generated-app runtime evidence.
+
+The generated-site Playwright evaluator now reads `ovyx-qa-plan.json`, runs bounded requirement-derived browser journeys with state assertions, and executes same-origin GET/HEAD API contract probes. It continues to block outbound requests by default and never submits destructive or financial actions. The browser evaluator test fixture verifies a multi-step contact-panel journey and read-only API probes at the local generated-site server.
 
 ## Safety and execution limits
 
