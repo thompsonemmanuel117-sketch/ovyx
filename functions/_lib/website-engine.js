@@ -470,11 +470,18 @@ function parseBackendFiles(response) {
         '.graphql', '.gql', '.yaml', '.yml', '.toml', '.json',
       ].some(extension => filePath.toLowerCase().endsWith(extension));
       const lowerPath = filePath.toLowerCase();
+      const containsCredentialMaterial = typeof fileContent === 'string' && (
+        /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i.test(fileContent) ||
+        /sk_(?:live|test)_[A-Za-z0-9]{12,}/.test(fileContent) ||
+        /AIza[0-9A-Za-z_-]{30,}/.test(fileContent) ||
+        /AKIA[0-9A-Z]{16}/.test(fileContent) ||
+        /Bearer\\s+[A-Za-z0-9._-]{24,}/i.test(fileContent)
+      );
       if (!filePath || filePath.length > 300 || filePath.includes('..') || filePath.includes(String.fromCharCode(92)) ||
           lowerPath.includes('.env') || lowerPath.includes('secret') || lowerPath.includes('credential') ||
           lowerPath.includes('private-key') || lowerPath.includes('service-account') ||
           !allowedExtension || !allowedRoot || typeof fileContent !== 'string' ||
-          !fileContent.trim() || fileContent.length > 180000) continue;
+          !fileContent.trim() || fileContent.length > 180000 || containsCredentialMaterial) continue;
       output[filePath] = fileContent;
     }
     if (Object.keys(output).length) return output;
