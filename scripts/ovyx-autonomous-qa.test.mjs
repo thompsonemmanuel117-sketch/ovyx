@@ -12,7 +12,7 @@ import {
 const staticPass = evaluateGeneratedWebsiteFiles({
   'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Working site</title></head><body><a href="/about.html">About</a><button type="button">Open menu</button></body></html>',
   'about.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>About</title></head><body><h1>About us</h1></body></html>',
-  'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: false, journeys: [{ id: 'nav', steps: [{ action: 'click', selector: '[data-testid="about"]' }] }], apiChecks: [{ method: 'GET', route: '/api/health' }], backendChecks: [], backendChecks: [] }),
+  'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: false, journeys: [{ id: 'nav', steps: [{ action: 'click', selector: '[data-testid="about"]' }] }], apiChecks: [{ method: 'GET', route: '/api/health' }], backendChecks: [] }),
 });
 assert.equal(staticPass.channel, 'static');
 assert.equal(staticPass.status, 'passed');
