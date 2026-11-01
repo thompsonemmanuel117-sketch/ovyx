@@ -60,7 +60,7 @@
     var allowedRoot = new Set(['wrangler.jsonc', 'wrangler.json', 'package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'ovyx-qa-plan.json', '_routes.json', '_headers']);
     return Object.keys(files || {}).map(function (rawPath) {
       var path = normalizePath(rawPath);
-      if (!path || !(allowedRoot.has(path) || /^(?:functions|migrations)\//i.test(path))) return null;
+      if (!path || !(allowedRoot.has(path) || /^(?:functions|migrations|src|lib|api|server)\//i.test(path))) return null;
       var content = fileText(files[rawPath]);
       return typeof content === 'string' && content.length ? { path: path, content: content } : null;
     }).filter(Boolean);
