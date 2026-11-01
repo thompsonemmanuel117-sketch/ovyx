@@ -35,7 +35,7 @@ The generated-website engine already has a deterministic full-stack architecture
 | Booking | Generated architecture contracts for availability, bookings, cancellation and conflict prevention | Availability must be rechecked at commit; use transactional uniqueness/provider locks and timezone-aware UTC storage |
 | External integrations | Encrypted universal connections, GitHub OAuth and global integration switch | Server-only credentials, adapter boundaries, bounded retries, verified receipts and explicit live-connection evidence |
 
-- Add a persistent server-side `Session` model for generated authentication flows, with hashed opaque session/CSRF tokens, expiry, rotation/revocation rules, owner relationships and bounded cleanup indexes.
+- Add a persistent server-side `Session` model for generated authentication flows, with hashed opaque session/CSRF tokens, expiry, rotation/revocation rules, owner relationships and bounded cleanup indexes. Registration and account recovery API contracts use the selected identity provider, abuse controls, email verification and account-enumeration-resistant responses.
 
 ## Evidence rules
 
