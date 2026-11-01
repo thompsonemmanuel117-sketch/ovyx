@@ -10,7 +10,7 @@
     'font-size': 'length', 'border-radius': 'length', padding: 'length',
     margin: 'length', gap: 'length', width: 'length', 'max-width': 'length',
     'min-height': 'length', 'line-height': 'line', 'letter-spacing': 'length',
-    'font-weight': 'weight', display: 'display', 'flex-direction': 'direction',
+    'font-weight': 'weight', 'background-image': 'image', display: 'display', 'flex-direction': 'direction',
     'align-items': 'align', 'justify-content': 'justify', 'text-align': 'alignText',
     'font-family': 'font', 'box-shadow': 'shadow', opacity: 'opacity'
   };
@@ -81,6 +81,7 @@
     var kind = ALLOWED[property];
     var value = clean(raw, 120);
     if (!kind) return null;
+    if (kind === 'image') return /^url\("(?:https:\/\/[^"\\\r\n]+|\/(?!\/)[^"\\\r\n]*|\.\.?\/[^"\\\r\n]*)"\)$/i.test(value) ? value : null;
     if (kind === 'color') return /^(#[0-9a-f]{3,8}|transparent|currentColor)$/i.test(value) ? value : null;
     if (kind === 'length') return /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|%|rem|em|vw|vh)?$/i.test(value) ? value : null;
     if (kind === 'line') return /^(?:\d+(?:\.\d+)?|\.\d+)(?:px|em|rem)?$/i.test(value) ? value : null;
@@ -162,6 +163,7 @@
       var before = snapshot(w);
       if (position === 'after') to.parentElement.insertBefore(from, to.nextSibling);
       else to.parentElement.insertBefore(from, to);
+      if (w.selectedElement) w.selectedElement.selector = selectorFor(from);
       commit(w, context, doc, 'Visual component reorder', before);
       return true;
     } catch (error) { toast(error && error.message || 'Component could not be moved.', 'error'); return false; }
@@ -228,6 +230,11 @@
     var font = field(panel, 'Font family', 'font-family', 'select', CHOICES.font.map(function (v) { return { value: v, label: v.split(',')[0] }; }));
     var weight = field(panel, 'Weight', 'font-weight', 'select', [300,400,500,600,700,800,900].map(function (v) { return { value: String(v), label: String(v) }; }));
     var align = field(panel, 'Text align', 'text-align', 'select', CHOICES.alignText.map(function (v) { return { value: v, label: v }; }));
+    field(panel, 'Border color', 'border-color', 'color');
+    field(panel, 'Align items', 'align-items', 'select', CHOICES.align.map(function (v) { return { value: v, label: v }; }));
+    field(panel, 'Line height', 'line-height', 'number');
+    field(panel, 'Letter spacing', 'letter-spacing', 'number');
+    field(panel, 'Opacity', 'opacity', 'select', ['0.25','0.5','0.75','0.9','1'].map(function (v) { return { value: v, label: v }; }));
     var display = field(panel, 'Display', 'display', 'select', CHOICES.display.map(function (v) { return { value: v, label: v }; }));
     var direction = field(panel, 'Flex direction', 'flex-direction', 'select', CHOICES.direction.map(function (v) { return { value: v, label: v }; }));
     var justify = field(panel, 'Justify', 'justify-content', 'select', CHOICES.justify.map(function (v) { return { value: v, label: v.replace('space-','') }; }));
@@ -294,7 +301,7 @@
             var context = sourceContext(w), doc = parseDocument(context.source), el = resolveElement(doc, context.info);
             if (!el) throw new Error('Select an element again before applying an image.');
             if (el.tagName.toLowerCase() === 'img') writeAttribute('src', url);
-            else writeStyle('background-image', 'url("' + String(url).replace(/["\\\n\r]/g, '') + '")');
+            else writeStyle('background-image', 'url(' + JSON.stringify(String(url)) + ')');
             list.remove();
           } catch (error) { toast(error && error.message || 'Image could not be applied.', 'error'); }
         });
