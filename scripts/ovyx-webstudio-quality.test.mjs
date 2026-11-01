@@ -55,7 +55,7 @@ assert.ok(projectBranding.includes('function patchProjectGraph(context, href, pa
 
 for (const token of [
   'OVYX WEB STUDIO QUALITY CONTRACT',
-  "WIDTHS = [320, 390, 768, 1024, 1440]",
+  "WIDTHS = [320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920]",
   "setAttribute('sandbox', 'allow-scripts')",
   "connect-src 'none'",
   "form-action 'none'",
