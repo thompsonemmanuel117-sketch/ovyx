@@ -27,7 +27,7 @@ function clean(value, limit = 240) {
 function isLoopbackOnlyNetworkNamespace() {
   const interfaces = Object.values(networkInterfaces()).flat().filter(Boolean);
   return interfaces.length > 0 && interfaces.every(item =>
-    item.internal === true || item.address === '::1' || /^127\\./.test(String(item.address || ''))
+    item.internal === true || item.address === '::1' || /^127\./.test(String(item.address || ''))
   );
 }
 
