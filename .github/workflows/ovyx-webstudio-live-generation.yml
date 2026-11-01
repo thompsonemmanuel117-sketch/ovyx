@@ -182,6 +182,15 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p artifacts/webstudio-evaluation-report/backend
+          required_count=0
+          while IFS= read -r plan_file; do
+            required="$(node --input-type=module -e "import fs from 'node:fs';const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));process.stdout.write(p.backendRequired===true?'true':'false')" "$plan_file")"
+            if [ "$required" = "true" ]; then required_count=$((required_count + 1)); fi
+          done < <(find artifacts/webstudio-generated-sites -type f -name ovyx-qa-plan.json -not -path '*/node_modules/*' | sort)
+          if [ "$required_count" -eq 0 ]; then
+            echo "No generated site in this acceptance run requires a backend runtime."
+            exit 0
+          fi
           docker pull node:22-bookworm-slim
           runtime_failed=0
           while IFS= read -r plan_file; do
