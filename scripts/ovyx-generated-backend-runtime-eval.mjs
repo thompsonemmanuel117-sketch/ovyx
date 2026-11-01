@@ -282,7 +282,7 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
       for (const entry of entries) {
         if (!entry.isFile() || !/^\d+_[a-z0-9_-]+\.sql$/i.test(entry.name)) continue;
         const file = path.join(migrationRoot, entry.name);
-        const info = await stat(file);
+        const info = await lstat(file);
         if (info.size > MAX_MIGRATION_BYTES) throw new Error('migration-size-limit');
         const sql = await readFile(file, 'utf8');
         if (/\b(?:ATTACH\s+DATABASE|DETACH\s+DATABASE|LOAD_EXTENSION|VACUUM\s+INTO)\b/i.test(sql)) throw new Error('unsafe-migration-statement-blocked');
