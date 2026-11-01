@@ -51,6 +51,8 @@ on:
       - 'functions/api/payments/paystack-webhook.js'
       - 'functions/_lib/fullstack-architecture.js'
       - 'scripts/ovyx-fullstack-architecture.test.mjs'
+      - 'functions/_lib/website-engine.js'
+      - 'scripts/ovyx-website-engine.test.mjs'
       - 'docs/OVYX-PHASE-4-FULL-STACK-CAPABILITIES.md'
       - 'scripts/ovyx-payment-webhook-safety.test.mjs'
       - 'scripts/ovyx-webstudio-quality.test.mjs'
@@ -93,6 +95,8 @@ on:
       - 'functions/api/payments/paystack-webhook.js'
       - 'functions/_lib/fullstack-architecture.js'
       - 'scripts/ovyx-fullstack-architecture.test.mjs'
+      - 'functions/_lib/website-engine.js'
+      - 'scripts/ovyx-website-engine.test.mjs'
       - 'docs/OVYX-PHASE-4-FULL-STACK-CAPABILITIES.md'
       - 'scripts/ovyx-payment-webhook-safety.test.mjs'
       - 'functions/api/ai/assistant.js'
@@ -126,6 +130,8 @@ jobs:
         run: node scripts/ovyx-payment-webhook-safety.test.mjs
       - name: Test full-stack architecture contracts
         run: node scripts/ovyx-fullstack-architecture.test.mjs
+      - name: Test full-stack website generation and integration planning
+        run: node scripts/ovyx-website-engine.test.mjs
       - name: Run static validation
         run: npm run validate
       - name: Run production build validation
