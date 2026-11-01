@@ -3,6 +3,9 @@ on:
     branches:
       - main
     paths:
+      - 'functions/_lib/website-file-graph.js'
+      - 'scripts/ovyx-website-file-graph.test.mjs'
+      - 'scripts/ovyx-webstudio-cross-browser.smoke.mjs'
       - 'functions/_lib/design-system-contract.js'
       - 'functions/_lib/experience-quality.js'
       - 'functions/_lib/experience.js'
@@ -51,6 +54,9 @@ on:
     branches:
       - main
     paths:
+      - 'functions/_lib/website-file-graph.js'
+      - 'scripts/ovyx-website-file-graph.test.mjs'
+      - 'scripts/ovyx-webstudio-cross-browser.smoke.mjs'
       - 'functions/_lib/design-system-contract.js'
       - 'functions/_lib/experience-quality.js'
       - 'functions/_lib/experience.js'
