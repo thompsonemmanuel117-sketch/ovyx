@@ -219,8 +219,10 @@ export function buildWorkspaceFileImpact(project, changedPath) {
   const impact = analyzeWebsiteFileImpact(graph, [changedPath]);
   const impactedPaths = impact.impactedPaths.slice(0, 40);
   const truncated = inventory.inventoryTruncated || graph.limits.truncated || impact.impactedPaths.length > impactedPaths.length;
+  const changedFileUnmapped = impact.unknownChangedPaths.length > 0;
+  const coverageIncomplete = truncated || changedFileUnmapped;
   return {
-    status: truncated ? 'bounded-partial' : graph.status,
+    status: coverageIncomplete ? 'bounded-partial' : graph.status,
     evidence: 'static-source-dependency-analysis',
     filesAnalyzed: graph.nodes.length,
     dependencyCount: graph.edges.length,
@@ -230,8 +232,10 @@ export function buildWorkspaceFileImpact(project, changedPath) {
     totalAffected: impact.totalAffected,
     maxDependencyDepth: impact.maxDependencyDepth,
     unknownChangedPaths: impact.unknownChangedPaths,
+    changedFileUnmapped,
     truncated,
-    reviewRequired: impactedPaths.length > 0 || truncated,
+    coverageIncomplete,
+    reviewRequired: impactedPaths.length > 0 || coverageIncomplete,
     limitations: 'Static source references only. Runtime-generated imports, framework aliases, reflection and conditional loading may not be fully represented.',
   };
 }
