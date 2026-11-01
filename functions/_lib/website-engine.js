@@ -1229,7 +1229,7 @@ export async function runWebsiteGeneration(options = {}) {
         channel: 'backend',
         status: 'blocked',
         testsRun: 0,
-        blockedReason: 'Generated backend source has been audited, but a disposable framework runtime and synthetic provider/auth fixtures are required to execute its real database workflows.',
+        blockedReason: 'The Cloudflare generation request cannot safely execute generated code at the edge. Supported Cloudflare Pages Functions + D1/local KV/R2 checks run in the trusted no-egress acceptance container; this per-build request remains blocked until that isolated runtime evidence is attached. Other frameworks and unsupported bindings remain blocked.',
       }] : []),
       {
         channel: 'journeys',
