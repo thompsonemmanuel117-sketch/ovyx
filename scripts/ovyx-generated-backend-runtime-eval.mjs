@@ -69,8 +69,10 @@ export function validateBackendChecks(plan) {
     const id = clean(raw?.id, 80);
     const method = String(raw?.method || 'GET').toUpperCase();
     const route = String(raw?.route || '');
+    const sourceFile = String(raw?.sourceFile || '').replace(/\\\\/g, '/');
+    const sourceFileSafe = sourceFile.startsWith('functions/') && !sourceFile.split('/').some(part => !part || part === '.' || part === '..') && /\\.(?:m?js|ts)$/i.test(sourceFile);
     const expectedStatus = Number(raw?.expectedStatus ?? 200);
-    if (!id || ids.has(id) || !SAFE_METHODS.has(method) || !safeRoute(route) ||
+    if (!id || ids.has(id) || !SAFE_METHODS.has(method) || !safeRoute(route) || !sourceFileSafe ||
         !Number.isInteger(expectedStatus) || expectedStatus < 100 || expectedStatus > 599) {
       return { ok: false, reason: 'backend-check-schema-invalid', checks: [] };
     }
@@ -110,7 +112,7 @@ export function validateBackendChecks(plan) {
       return { ok: false, reason: 'backend-check-expected-value-invalid', checks: [] };
     }
     checks.push({
-      id, name: clean(raw.name || id, 120), method, route, expectedStatus,
+      id, name: clean(raw.name || id, 120), method, route, sourceFile, expectedStatus,
       headers, body, identity: raw.identity || 'anonymous',
       expectJsonPath: expect.jsonPath || '', expectedValue: expect.equals,
       expectContains: typeof expect.contains === 'string' ? expect.contains.slice(0, 240) : '',
@@ -289,9 +291,9 @@ async function executeChecks(origin, checks, testSecret) {
       if (response.status !== check.expectedStatus) failure = 'http-status-mismatch';
       else if (check.expectJsonPath && jsonPath(parsed, check.expectJsonPath) !== check.expectedValue) failure = 'json-assertion-mismatch';
       else if (check.expectContains && !text.includes(check.expectContains)) failure = 'response-text-assertion-mismatch';
-      results.push({ id: check.id, name: check.name, status: failure ? 'failed' : 'passed', httpStatus: response.status, failure });
+      results.push({ id: check.id, name: check.name, sourceFile: check.sourceFile, status: failure ? 'failed' : 'passed', httpStatus: response.status, failure });
     } catch (error) {
-      results.push({ id: check.id, name: check.name, status: 'failed', httpStatus: 0, failure: clean(error?.message || error, 180) });
+      results.push({ id: check.id, name: check.name, sourceFile: check.sourceFile, status: 'failed', httpStatus: 0, failure: clean(error?.message || error, 180) });
     }
   }
   return results;
@@ -411,7 +413,7 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
     report.testsRun = report.checks.length;
     const failed = report.checks.filter(check => check.status !== 'passed');
     report.status = failed.length ? 'failed' : 'passed';
-    for (const item of failed) report.findings.push({ severity: 'blocker', code: 'BACKEND_CHECK_FAILED', message: item.id + ': ' + item.failure });
+    for (const item of failed) report.findings.push({ severity: 'blocker', code: 'BACKEND_CHECK_FAILED', message: item.id + ': ' + item.failure, file: item.sourceFile });
     if (report.status === 'passed') report.findings.push({ severity: 'info', code: 'BACKEND_RUNTIME_PASSED', message: report.testsRun + ' backend checks passed against disposable local Pages/D1 runtime.' });
   } catch (error) {
     report.status = 'blocked';
