@@ -218,6 +218,155 @@ async function exerciseButtons(page, baseUrl, route) {
   await page.goto(baseUrl + route, { waitUntil: 'domcontentloaded', timeout: 7000 }).catch(() => {});
   return { tested: output.filter(item => !String(item.status).startsWith('skipped')).length, skipped: output.filter(item => String(item.status).startsWith('skipped')).length, results: output };
 }
+function safeQaRoute(value) {
+  const route = String(value || '').trim();
+  if (!route || route.length > 300 || !route.startsWith('/') || route.startsWith('//') ||
+      route.includes('\\') || /(?:^|\/)\.\.?(?:\/|$)/.test(route) ||
+      /[\u0000-\u001f]/.test(route)) return '';
+  try {
+    const url = new URL(route, 'http://127.0.0.1');
+    if (url.origin !== 'http://127.0.0.1' ||
+        [...url.searchParams.keys()].some(key => /(?:api[-_]?key|token|secret|auth|signature|credential|password)/i.test(key))) return '';
+    return url.pathname + url.search + url.hash;
+  } catch { return ''; }
+}
+function normalizeQaPlan(metadata) {
+  const plan = metadata && metadata.qaPlan && typeof metadata.qaPlan === 'object' ? metadata.qaPlan : {};
+  const journeys = Array.isArray(plan.journeys) ? plan.journeys.slice(0, 12) : [];
+  const apiChecks = Array.isArray(plan.apiChecks) ? plan.apiChecks.slice(0, 20) : [];
+  return {
+    journeys: journeys.map((journey, index) => ({
+      id: String(journey?.id || 'journey-' + (index + 1)).slice(0, 80),
+      name: String(journey?.name || 'User journey ' + (index + 1)).slice(0, 120),
+      startRoute: safeQaRoute(journey?.startRoute || '/'),
+      steps: Array.isArray(journey?.steps) ? journey.steps.slice(0, 30) : [],
+    })),
+    apiChecks: apiChecks.map((check, index) => ({
+      id: String(check?.id || 'api-check-' + (index + 1)).slice(0, 80),
+      name: String(check?.name || 'API check ' + (index + 1)).slice(0, 120),
+      route: safeQaRoute(check?.route || ''),
+      method: String(check?.method || 'GET').toUpperCase(),
+      expectedStatus: Number.isInteger(check?.expectedStatus) ? check.expectedStatus : 200,
+      jsonPath: String(check?.jsonPath || '').slice(0, 120),
+      expectedValue: check?.expectedValue,
+    })),
+  };
+}
+async function runDeclaredJourneys(page, baseUrl, rawJourneys) {
+  const results = [];
+  for (const journey of (Array.isArray(rawJourneys) ? rawJourneys : []).slice(0, 12)) {
+    const result = { id: journey.id, name: journey.name, status: 'passed', steps: [] };
+    if (!journey.startRoute || !Array.isArray(journey.steps) || !journey.steps.length) {
+      result.status = 'blocked';
+      result.reason = 'journey-route-or-steps-invalid';
+      results.push(result);
+      continue;
+    }
+    try {
+      await page.goto(baseUrl + journey.startRoute, { waitUntil: 'domcontentloaded', timeout: 10000 });
+      for (const [index, step] of journey.steps.entries()) {
+        const action = String(step?.action || '').toLowerCase();
+        const selector = String(step?.selector || '').trim().slice(0, 240);
+        let status = 'passed';
+        let detail = '';
+        if (action === 'goto') {
+          const route = safeQaRoute(step.route);
+          if (!route) throw new Error('unsafe-or-invalid-route');
+          await page.goto(baseUrl + route, { waitUntil: 'domcontentloaded', timeout: 10000 });
+        } else if (['click', 'fill', 'check', 'uncheck', 'select'].includes(action)) {
+          if (!selector || /:has-text|:text|xpath=|^\s*\/\//i.test(selector)) throw new Error('selector-not-allowed');
+          const locator = page.locator(selector).first();
+          await locator.waitFor({ state: 'visible', timeout: 3000 });
+          if (action === 'click') {
+            const info = await locator.evaluate(el => ({
+              tag: el.tagName.toLowerCase(),
+              type: String(el.getAttribute('type') || '').toLowerCase(),
+              href: el.getAttribute('href') || '',
+              disabled: !!el.disabled,
+            }));
+            if (info.disabled || info.type === 'submit' || info.type === 'reset' ||
+                info.tag === 'form' || (info.tag === 'a' && !safeQaRoute(info.href))) {
+              throw new Error('unsafe-click-target');
+            }
+            await locator.click({ timeout: 3000 });
+          } else if (action === 'fill') {
+            if (typeof step.value !== 'string' || step.value.length > 500) throw new Error('fill-value-invalid');
+            await locator.fill(step.value, { timeout: 3000 });
+          } else if (action === 'check') await locator.check({ timeout: 3000 });
+          else if (action === 'uncheck') await locator.uncheck({ timeout: 3000 });
+          else {
+            const value = String(step.value ?? '').slice(0, 120);
+            await locator.selectOption(value, { timeout: 3000 });
+          }
+        } else if (action === 'expecttext') {
+          const target = selector ? page.locator(selector).first() : page.locator('body');
+          const text = String(step.text || '').slice(0, 300);
+          if (!text) throw new Error('expected-text-required');
+          const actual = await target.innerText({ timeout: 3000 });
+          if (!actual.includes(text)) { status = 'failed'; detail = 'expected-text-not-found'; }
+        } else if (action === 'expectvisible' || action === 'expecthidden') {
+          if (!selector) throw new Error('expected-selector-required');
+          const visible = await page.locator(selector).first().isVisible().catch(() => false);
+          if (action === 'expectvisible' ? !visible : visible) { status = 'failed'; detail = action + '-assertion-failed'; }
+        } else if (action === 'expecturl') {
+          const expected = safeQaRoute(step.route);
+          const actual = new URL(page.url()).pathname;
+          if (!expected || actual !== new URL(expected, baseUrl).pathname) { status = 'failed'; detail = 'expected-route-not-reached'; }
+        } else if (action === 'expectvalue') {
+          if (!selector) throw new Error('expected-selector-required');
+          const actual = await page.locator(selector).first().inputValue({ timeout: 3000 });
+          if (actual !== String(step.value ?? '')) { status = 'failed'; detail = 'expected-value-mismatch'; }
+        } else {
+          throw new Error('unsupported-journey-action');
+        }
+        result.steps.push({ index, action, status, detail });
+        if (status === 'failed') { result.status = 'failed'; break; }
+      }
+    } catch (error) {
+      result.status = 'failed';
+      result.reason = String(error?.message || error).slice(0, 180);
+      if (result.steps.length < journey.steps.length) {
+        result.steps.push({ index: result.steps.length, action: String(journey.steps[result.steps.length]?.action || 'unknown').slice(0, 40), status: 'failed', detail: result.reason });
+      }
+    }
+    results.push(result);
+  }
+  return results;
+}
+async function runDeclaredApiChecks(page, baseUrl, checks) {
+  const results = [];
+  for (const check of (Array.isArray(checks) ? checks : []).slice(0, 20)) {
+    const method = String(check.method || 'GET').toUpperCase();
+    const result = { id: check.id, name: check.name, method, route: check.route, status: 'blocked' };
+    if (!check.route || !['GET', 'HEAD'].includes(method) ||
+        !Number.isInteger(check.expectedStatus) || check.expectedStatus < 200 || check.expectedStatus > 399) {
+      result.reason = 'only-safe-get-head-probes-are-allowed';
+      results.push(result);
+      continue;
+    }
+    try {
+      const response = await page.request.fetch(baseUrl + check.route, { method, timeout: 7000, maxRedirects: 0 });
+      result.httpStatus = response.status();
+      result.status = response.status() === check.expectedStatus ? 'passed' : 'failed';
+      if (result.status === 'failed') result.reason = 'unexpected-http-status';
+      if (result.status === 'passed' && check.jsonPath) {
+        let body = null;
+        try { body = await response.json(); } catch {}
+        const actual = String(check.jsonPath).split('.').filter(Boolean).reduce((value, key) => value && typeof value === 'object' ? value[key] : undefined, body);
+        if (actual !== check.expectedValue) {
+          result.status = 'failed';
+          result.reason = 'json-contract-mismatch';
+        }
+      }
+    } catch (error) {
+      result.status = 'failed';
+      result.reason = String(error?.message || error).slice(0, 180);
+    }
+    results.push(result);
+  }
+  return results;
+}
+
 export function assessPublicEnquiryReceipt(httpStatus,data){
   const body=data&&typeof data==='object'?data:{};
   const nested=body.data&&typeof body.data==='object'?body.data:{};
@@ -345,7 +494,7 @@ async function main() {
     for(const site of sites){
       const root=path.resolve(ROOT,site.name);const files=await walk(root);const html=files.filter(f=>/\.html?$/i.test(f)).sort();
       if(!html.length){results.push({site:site.name,status:'needs-attention',reason:'No HTML entry pages found.'});continue;}
-      const metadata=await loadSiteMetadata(root);const {server,port}=await serve(root,metadata);const output=path.join(OUT,site.name);await fs.mkdir(output,{recursive:true});const checks=[];
+      const metadata=await loadSiteMetadata(root);const qaPlan=normalizeQaPlan(metadata);const {server,port}=await serve(root,metadata);const output=path.join(OUT,site.name);await fs.mkdir(output,{recursive:true});const checks=[];let journeyResults=[];let apiCheckResults=[];
       try{
         for(const relative of html.slice(0,12)){
           const routeEntry=(metadata.siteMap?.pages||[]).find(p=>String(p.path||'').replace(/^\/+/, '')===relative);
@@ -393,6 +542,8 @@ async function main() {
               ?await exercisePublicEnquiryForms(page)
               :{status:PUBLIC_ENQUIRY&&ENQUIRY_TEST_RECIPIENT?'public-enquiry-form-not-on-this-route':'not-configured-or-not-opted-in',requestObserved:false,endpointAcceptedTestPayload:false,explicitDeliveryReceipt:false,realEnquiryDeliveryConfirmed:false};
             const formInteractions=vp.width===390?await exerciseQAForms(page):[];
+            if(vp.width===390&&qaPlan.journeys.length)journeyResults=await runDeclaredJourneys(page,baseOrigin,qaPlan.journeys);
+            if(vp.width===390&&qaPlan.apiChecks.length)apiCheckResults=await runDeclaredApiChecks(page,baseOrigin,qaPlan.apiChecks);
             const interactionScreenshot=vp.width===390?relative.replace(/[^a-z0-9_-]+/gi,'_')+'__mobile-390__post-interactions.png':null;
             if(interactionScreenshot)await page.screenshot({path:path.join(output,interactionScreenshot),fullPage:true,animations:'disabled',timeout:12000}).catch(()=>{});
             checks.push({page:relative,route,viewport:vp.name,metrics,pageErrors:errors,consoleErrors,failedRequests,blockedExternalRequests,navigationError,internalLinkChecks,buttonInteractions,publicEnquiryInteractions,formInteractions,screenshot,interactionScreenshot});
@@ -409,7 +560,11 @@ async function main() {
       const qaFormMissing=formResults.length===0;
       const noOpButtons=buttonResults.filter(item=>['no-observable-state-change','click-failed','interaction-test-error'].includes(item.status));
       const externalRequests=checks.flatMap(c=>c.blockedExternalRequests||[]);
+      const failedJourneys=journeyResults.filter(item=>item.status!=='passed');
+      const failedApiChecks=apiCheckResults.filter(item=>item.status!=='passed');
       const failures=checks.filter(c=>c.navigationError||c.metrics?.horizontalOverflow||c.metrics?.brokenImages?.length||c.metrics?.copyIssues?.length||c.metrics?.deadLinks?.length||c.metrics?.unlabeledControls?.length||c.pageErrors.length||c.consoleErrors.length||c.failedRequests.length||c.blockedExternalRequests.length||c.internalLinkChecks.some(link=>['invalid-url','missing-fragment-target','local-route-http-error','local-route-request-failed'].includes(link.status))||c.buttonInteractions?.results?.some(item=>['no-observable-state-change','click-failed','interaction-test-error'].includes(item.status))||c.formInteractions.some(f=>f.classification!=='qa-only-local-form-post-and-success-ui-verified'));
+      if(failedJourneys.length)failures.push({page:'site-level',reason:'One or more requirement-derived user journeys failed.',journeys:failedJourneys.map(item=>item.id)});
+      if(failedApiChecks.length)failures.push({page:'site-level',reason:'One or more declared read-only API contract checks failed.',checks:failedApiChecks.map(item=>item.id)});
       if(qaFormMissing)failures.push({page:'site-level',reason:'Required QA-only enquiry form did not submit to the isolated test receiver.'});
       if(publicEnquiryFailure)failures.push({page:'site-level',reason:'Owner-approved public enquiry form did not return an explicit delivery receipt.'});
       results.push({
@@ -418,6 +573,8 @@ async function main() {
         viewportWidths:VIEWPORTS.map(v=>v.width),failingChecks:failures.length,
         formInteractionStatus:formResults.length?(formResults.every(f=>f.classification==='qa-only-local-form-post-and-success-ui-verified')?'qa-local-post-tested':'qa-form-test-has-findings'):'no-qa-form-submission-tested',
         qaLocalPosts:formResults.length,qaFormMissing,
+        declaredJourneys:journeyResults.length,passedJourneys:journeyResults.filter(item=>item.status==='passed').length,failedJourneys,journeyResults,
+        declaredApiChecks:apiCheckResults.length,passedApiChecks:apiCheckResults.filter(item=>item.status==='passed').length,failedApiChecks,apiCheckResults,
         publicEnquiryEndpointConfigured:Boolean(PUBLIC_ENQUIRY),publicEnquiryFormObserved,publicEnquiryDeliveryConfirmed,
         publicEnquiryStatus:publicEnquiryChecks.some(item=>item.status==='endpoint-reported-delivery-confirmed')?'endpoint-reported-delivery-confirmed':publicEnquiryFormObserved?'public-form-submitted-without-confirmed-delivery':PUBLIC_ENQUIRY?'configured-public-form-not-observed':'not-configured-or-not-opted-in',
         publicEnquiryChecks,realEnquiryDeliveryConfirmed:publicEnquiryDeliveryConfirmed,
