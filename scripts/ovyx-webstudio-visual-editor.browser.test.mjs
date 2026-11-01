@@ -23,6 +23,8 @@ try {
       entryFile() { return 'index.html'; },
       snapshotGraph() { return JSON.parse(JSON.stringify(this.graph)); },
       syncGraphToProject() { project.ovyxGraph = JSON.parse(JSON.stringify(this.graph)); },
+      recordHistory() { this.ensureProjectGraph(); this.historyStack.push(JSON.stringify(this.graph)); if (this.historyStack.length > 50) this.historyStack.shift(); this.historyPointer = this.historyStack.length - 1; },
+      render() { this.renderPreview(); },
       commitHistory(label, before, after) { project.lastHistory = { label, before, after }; },
       buildPreviewDocument() { return this.graph.files['index.html'].content; },
       renderPreview() { document.getElementById('ws-canvas-iframe').srcdoc = this.buildPreviewDocument(); },
@@ -78,6 +80,20 @@ try {
     return Array.from(doc.querySelector('main').children).map(node => node.getAttribute('data-ov-node'));
   });
   assert.deepEqual(order, ['feature-1', 'hero-1'], 'Visual component movement must persist to the shared project source.');
+
+  await page.evaluate(() => {
+    const w = window.WebStudio;
+    w.recordHistory();
+    w.graph.files['index.html'].content = w.graph.files['index.html'].content.replace('Feature copy', 'Section history fixture');
+    w.render();
+  });
+  assert.match(await page.evaluate(() => window.WebStudio.graph.files['index.html'].content), /Section history fixture/);
+  await page.evaluate(() => window.WebStudio.undo());
+  assert.doesNotMatch(await page.evaluate(() => window.WebStudio.graph.files['index.html'].content), /Section history fixture/,
+    'The existing section-management history entry must be reversible.');
+  await page.evaluate(() => window.WebStudio.redo());
+  assert.match(await page.evaluate(() => window.WebStudio.graph.files['index.html'].content), /Section history fixture/,
+    'The existing section-management history entry must be redoable.');
 
   await page.evaluate(() => window.WebStudio.handlePreviewMenu('visual'));
   await page.waitForTimeout(180);
