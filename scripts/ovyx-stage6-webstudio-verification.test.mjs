@@ -37,6 +37,7 @@ assert.match(runtime, /disposable-backend API check/);
 assert.match(autonomousQa, /QA_BACKEND_PLAN_INVALID/);
 assert.match(autonomousQa, /QA_BACKEND_CHECK_UNSAFE/);
 assert.match(backendRuntime, /OVYX_QA_NETWORK_ISOLATION !== 'docker-none'/);
+assert.match(backendRuntime, /isLoopbackOnlyNetworkNamespace/);
 assert.match(backendRuntime, /pages', 'dev'/);
 assert.match(backendRuntime, /--persist-to/);
 assert.match(backendWorkflow, /--network none/);
