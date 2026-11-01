@@ -153,6 +153,6 @@ jobs:
         # Keep this independent recovery probe on successful/other-failure runs,
         # but don't delay the focused composer regression report when its own
         # browser assertions fail.
-        if: always() && steps.pulse-composer.outcome != 'failure'
+        if: always() && steps.pulse-composer.outcome == 'success'
         run: node scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs
 # Regression coverage: sidebar inline-SVG full-draw state, brand-mark favicon fallback, and project/app favicon isolation.
