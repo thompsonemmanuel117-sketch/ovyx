@@ -348,7 +348,7 @@ async function runDeclaredApiChecks(page, baseUrl, checks) {
     const method = String(check.method || 'GET').toUpperCase();
     const result = { id: check.id, name: check.name, method, route: check.route, status: 'blocked' };
     if (!check.route || !['GET', 'HEAD'].includes(method) ||
-        !Number.isInteger(check.expectedStatus) || check.expectedStatus < 200 || check.expectedStatus > 399) {
+        !Number.isInteger(check.expectedStatus) || !((check.expectedStatus >= 200 && check.expectedStatus <= 399) || [401, 403].includes(check.expectedStatus))) {
       result.reason = 'only-safe-get-head-probes-are-allowed';
       results.push(result);
       continue;
