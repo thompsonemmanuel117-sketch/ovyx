@@ -402,6 +402,9 @@ try {
   assert.equal(first.browser.journeys.results[0].steps.length, 5);
   assert.ok(first.checks.some(item => item.title === 'Requirement-derived user journeys' && item.status === 'pass'),
     'The quality report must include explicit requirement-derived journey evidence.');
+  const firstJourneyChecks = first.checks.filter(item => item.title === 'Requirement-derived user journeys');
+  assert.equal(firstJourneyChecks.length, 1, 'Journey coverage must be summarized once, after all matching route probes have completed.');
+  assert.equal(firstJourneyChecks[0].status, 'pass', 'A successfully executed journey must not retain a premature zero-results warning.');
   assert.ok(first.browser.interactions.tested >= 1, 'The inspector must actually click at least one safe stateful control in the generated page sandbox.');
   assert.ok(first.browser.interactions.responded >= 1, 'The inspector must observe a state change from the working disclosure control.');
   assert.ok(first.browser.interactions.noOp.every(label => !/add to cart/i.test(label)), 'A front-end Add to Cart action that updates local cart state must not be reported as a no-op.');
@@ -462,6 +465,9 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   }));
   assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 1, 'Only one bounded repair pass should be sent.');
   assert.ok((await page.evaluate(() => window.__qualityRepairCalls[0].prompt)).includes('OVYX QUALITY INSPECTOR REPAIR'), 'The repair must use a targeted evidence-based prompt.');
+  const repairedJourneyChecks = finalReport.checks.filter(item => item.title === 'Requirement-derived user journeys');
+  assert.equal(repairedJourneyChecks.length, 1, 'The repair re-check must emit one completed journey summary.');
+  assert.equal(repairedJourneyChecks[0].status, 'pass', 'The repair re-check must not be blocked by a stale journey warning.');
   assert.ok(finalReport.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'pass'), 'The repaired project must be tested again and pass the same overflow check. Findings: ' + JSON.stringify(finalReport.checks.filter(item => item.status === 'fail' || item.status === 'warn')) + ' Diagnostics: ' + JSON.stringify({ repairCalls: repairDiagnostics.repairCalls, aboutStyleFixed: repairDiagnostics.about.includes('width:100%;max-width:100%'), aboutStyleStillBroken: repairDiagnostics.about.includes('width:1100px;max-width:none'), qaPlanPresent: !!repairDiagnostics.qaPlan, journeys: repairDiagnostics.journeys, projectPages: repairDiagnostics.projectPages }));
   assert.ok(finalReport.checks.some(item => item.group === 'Automatic repair' && item.status === 'pass'), 'The inspector must record a successful re-verification only after the observed score improves.');
   assert.ok((await page.evaluate(() => window.__qualityToasts.some(item => item.kind === 'success'))), 'The UI may announce success only after the verified re-check.');
