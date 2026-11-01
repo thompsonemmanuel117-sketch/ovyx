@@ -195,6 +195,10 @@ assert.equal(backendBuild.fullStackSourceEvidence.runtimeBehaviorVerified, false
 assert.equal(backendBuild.fullStackSourceEvidence.databasePersistenceVerified, false);
 assert.equal(backendBuild.fullStackSourceEvidence.workflowEvidenceCount, backendArchitecture.stateMachines.length);
 assert.equal(backendBuild.fullStackSourceEvidence.generatedTestEvidence, true);
+assert.equal(backendBuild.fullStackSourceEvidence.migrationEvidence, true);
+assert.equal(backendBuild.fullStackSourceEvidence.databaseProvider, 'not-selected-by-architecture-planner');
+assert.equal(backendBuild.fullStackSourceEvidence.indexEvidenceCount, backendArchitecture.dataIntegrity.indexes.length);
+assert.equal(backendBuild.fullStackSourceEvidence.relationshipEvidenceCount, backendArchitecture.dataIntegrity.relationships.length);
 assert.deepEqual(backendBuild.result.rawUsage, { prompt_tokens: 13, completion_tokens: 24, total_tokens: 37 }, 'Backend model usage must be added to frontend generation usage before quota settlement.');
 
 
