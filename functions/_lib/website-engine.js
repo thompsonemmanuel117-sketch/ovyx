@@ -853,7 +853,7 @@ export async function runWebsiteGeneration(options = {}) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const sourcePrompt = buildBackendSourcePrompt(
         fullStackArchitecture, originalPrompt || multiPageOptions.prompt || modelOptions.taskPrompt || '',
-        Object.keys(result.files || {}), failures
+        [...new Set(Object.keys(multiPageOptions.files || {}).concat(Object.keys(result.files || {})))], failures
       );
       quotaInputText += (quotaInputText ? '\n\n' : '') + sourcePrompt;
       backendResponse = await callModel(env, {
