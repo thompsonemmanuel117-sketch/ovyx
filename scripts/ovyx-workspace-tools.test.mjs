@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
+  buildWorkspaceFileImpact,
   diagnoseProject,
   searchProjectSource,
   validateOvyxSourcePath,
@@ -104,3 +105,18 @@ assert.match(client, /Workspace details ready/, 'The context indicator must dist
 assert.match(nativeAi, /Never state that an action succeeded unless the relevant UI\/tool returned success/i, 'The assistant must not claim unverified actions succeeded.');
 
 console.log('OVYX workspace tool tests passed.');
+
+const dependencyImpact = buildWorkspaceFileImpact({
+  ovyxGraph: { files: {
+    'index.html': { type: 'text/html', content: '<script type="module" src="./src/main.js"></script>' },
+    'src/main.js': { type: 'text/javascript', content: "import './header.js';" },
+    'src/header.js': { type: 'text/javascript', content: 'export const header = true;' },
+  } },
+}, 'src/header.js');
+assert.equal(dependencyImpact.status, 'analyzed');
+assert.equal(dependencyImpact.filesAnalyzed, 3);
+assert.deepEqual(dependencyImpact.impactedPaths, ['src/main.js', 'index.html']);
+assert.equal(dependencyImpact.totalAffected, 3);
+assert.equal(dependencyImpact.evidence, 'static-source-dependency-analysis');
+assert.ok(!JSON.stringify(dependencyImpact).includes('export const header'));
+assert.equal(buildWorkspaceFileImpact({}, 'missing.js').status, 'no-project-files');
