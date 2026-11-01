@@ -253,6 +253,26 @@ function serializeWebsiteEngineModelPlan(plan) {
   const requirements = Array.isArray(plan.requirementManifest?.requirements)
     ? plan.requirementManifest.requirements
     : [];
+  // The model receives a compact classification for every requirement, not
+  // just excerpts. This makes hard exclusions, critical needs and unmapped
+  // clauses visible even when the full brief is too large for a long excerpt.
+  const categoryCodes = {
+    security: 'sec', identity: 'auth', data: 'data', commerce: 'commerce',
+    integration: 'int', routes: 'route', interaction: 'ux', design: 'design',
+    content: 'content', responsive: 'responsive', accessibility: 'a11y',
+    performance: 'perf', seo: 'seo', assets: 'media', localization: 'i18n',
+    constraints: 'constraint', general: 'general',
+  };
+  const requirementSignals = (plan.requirementIntelligence?.requirements || [])
+    .slice(0, 180)
+    .map(item => [
+      clean(item.id, 8),
+      item.polarity === 'prohibited' ? '!' : item.polarity === 'required' ? '+' : '~',
+      item.priority === 'critical' ? 'C' : item.priority === 'high' ? 'H' : 'N',
+      (Array.isArray(item.categories) ? item.categories : [])
+        .map(category => categoryCodes[category] || 'general').join(',').slice(0, 48),
+      item.mappingStatus === 'mapped' ? 'M' : 'U',
+    ]);
   const makeModelPlan = excerptChars => {
     const manifest = plan.requirementManifest || {};
     const design = plan.designArchitecture || {};
@@ -318,6 +338,8 @@ function serializeWebsiteEngineModelPlan(plan) {
       })),
       requirementIntelligence: {
         status: clean(plan.requirementIntelligence?.status, 48),
+        // [requirementId, polarity (+ required / ! prohibited / ~ preference), priority (C/H/N), category codes, mapping (M/U)]
+        requirementSignals,
         counts: compactPlanValue(plan.requirementIntelligence?.counts),
         conflicts: compactPlanList((plan.requirementIntelligence?.conflicts || []).map(item => item.requirementIds.join(' / ') + ': ' + item.sharedIntent), 8, 180),
         unmappedRequirementIds: compactPlanList(plan.requirementIntelligence?.unmappedRequirementIds, 30, 12),
@@ -450,6 +472,7 @@ export function buildWebsiteEngineInstructions(plan) {
   return [
     'OVYX UNIFIED WEBSITE ENGINE — AUTHORITATIVE PRE-GENERATION PLAN',
     'The complete original user brief is supplied separately as the task prompt and remains authoritative. The JSON below is a bounded architecture plan and requirement index; its clause excerpts never replace the original brief.',
+    'REQUIREMENT SIGNAL LEGEND: each requirementSignals entry is [ID, polarity, priority, categories, mapping]. Polarity + means required, ! means prohibited and must remain excluded, ~ means preference. Priority C is critical, H is high, N is normal. Mapping M means linked to architecture nodes; U means still unmapped. Category codes: sec=security, auth=identity, data=data, commerce=commerce, int=integration, route=routes, ux=interaction, design=design, content=content, responsive=responsive, a11y=accessibility, perf=performance, seo=SEO, media=assets, i18n=localization, constraint=explicit constraints, general=uncategorized. These are deterministic signals, not a substitute for reading the complete brief.',
     serializedPlan,
     ...fullStackRules,
     ...requirementRules.map(rule => 'REQUIREMENT RECONCILIATION: ' + rule),
