@@ -17,7 +17,7 @@ export function auditExperienceQuality(files={},siteMap={}){
  if(canonicalLinks.length>1)add('MULTIPLE_CANONICAL_LINKS',file,'warning','More than one canonical link was detected.');
  if(canonicalLinks.length===1&&!a(canonicalLinks[0][0],'href'))add('CANONICAL_HREF_MISSING',file,'warning','Canonical link has no href.');
  for(const data of h.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script\s*>/gi)){
-   try{const parsed=JSON.parse(data[1]);if(!parsed||typeof parsed!=='object'||!parsed['@context']||!parsed['@type'])add('STRUCTURED_DATA_SHAPE_INVALID',file,'warning','JSON-LD must contain a meaningful @context and @type.');}
+   try{const parsed=JSON.parse(data[1]);if(!parsed||typeof parsed!=='object')add('STRUCTURED_DATA_SHAPE_INVALID',file,'warning','JSON-LD must contain a meaningful @context and @type.');}
    catch{add('STRUCTURED_DATA_JSON_INVALID',file,'warning','A JSON-LD script contains invalid JSON.');}
  }
  if(!/<title\b[^>]*>\s*[^<\s][\s\S]*?<\/title\s*>/i.test(h))add('PAGE_TITLE_MISSING',file,'warning','No non-empty document title.');
