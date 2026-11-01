@@ -71,13 +71,19 @@ async function getOidcToken() {
   if (!response.ok || !token || token.length > 12_000) throw new Error('GitHub did not issue the expected short-lived OIDC token.');
   return token;
 }
-async function restoreBackup(siteDir, backupDir) {
-  const entries = await fs.readdir(backupDir, { recursive: true });
+async function restoreBackup(siteDir, backupDir, relative = '') {
+  const directory = path.join(backupDir, relative);
+  const entries = await fs.readdir(directory, { withFileTypes: true });
   for (const entry of entries) {
-    const relative = String(entry).split(path.sep).join('/');
-    if (!relative || relative === 'original-report.json') continue;
-    const source = path.join(backupDir, relative);
-    const target = path.join(siteDir, relative);
+    const child = path.posix.join(relative.split(path.sep).join('/'), entry.name);
+    if (!relative && entry.name === 'original-report.json') continue;
+    if (entry.isDirectory()) {
+      await restoreBackup(siteDir, backupDir, child);
+      continue;
+    }
+    if (!entry.isFile()) continue;
+    const source = path.join(backupDir, child);
+    const target = path.join(siteDir, child);
     const bytes = await fs.readFile(source);
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, bytes);
@@ -106,7 +112,9 @@ async function main() {
   }
   const liveReport = JSON.parse(await fs.readFile(path.resolve('artifacts/webstudio-generated-sites/live-generation-report.json'), 'utf8'));
   const origin = new URL(String(liveReport.cloudflareOrigin || ''));
-  if (origin.protocol !== 'https:' || !origin.hostname.toLowerCase().endsWith('.pages.dev') ||
+  const expectedProject = required('CLOUDFLARE_PAGES_PROJECT').toLowerCase();
+  const host = origin.hostname.toLowerCase();
+  if (origin.protocol !== 'https:' || !(host === expectedProject + '.pages.dev' || host.endsWith('.' + expectedProject + '.pages.dev')) ||
       origin.username || origin.password || origin.port || origin.search || origin.hash) {
     throw new Error('The exact trusted Cloudflare Pages deployment origin is missing or invalid.');
   }
