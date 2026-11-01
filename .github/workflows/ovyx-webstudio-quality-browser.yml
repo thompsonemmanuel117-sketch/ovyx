@@ -57,6 +57,7 @@ on:
       - 'scripts/ovyx-payment-webhook-safety.test.mjs'
       - 'scripts/ovyx-webstudio-quality.test.mjs'
       - 'scripts/ovyx-webstudio-quality.browser.test.mjs'
+      - 'scripts/ovyx-stage6-website-coding.test.mjs'
       - '.github/workflows/ovyx-webstudio-quality-browser.yml'
   pull_request:
     branches:
@@ -102,6 +103,7 @@ on:
       - 'functions/api/ai/assistant.js'
       - 'scripts/ovyx-webstudio-quality.test.mjs'
       - 'scripts/ovyx-webstudio-quality.browser.test.mjs'
+      - 'scripts/ovyx-stage6-website-coding.test.mjs'
       - '.github/workflows/ovyx-webstudio-quality-browser.yml'
   workflow_dispatch:
 
