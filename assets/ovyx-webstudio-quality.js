@@ -210,6 +210,9 @@
     if (title.indexOf('client-side secret exposure') >= 0) {
       return 'Remove any real secret from browser-delivered files, rotate it if it was exposed, and move privileged access behind an authorized server-side integration. Do not replace the exposed value with another client-side secret.';
     }
+    if (title.indexOf('requirement-derived user journeys') >= 0) {
+      return 'Add or correct the root ovyx-qa-plan.json manifest. Derive separate journeys for the actual generated page routes, use stable data-testid selectors, keep actions limited to safe UI interactions, and add explicit expected text/visibility/value/route assertions after each action. Do not remove a requirement or weaken an assertion to make the test pass.';
+    }
     if (title.indexOf('safe interactive behavior smoke test') >= 0 || title.indexOf('interactive controls') >= 0) {
       return 'Use the reported control labels to identify the affected component, wire its intended action to a real state change or destination, and provide visible feedback. Do not automatically trigger payment, deletion, booking, account or submission actions during a smoke test.';
     }
