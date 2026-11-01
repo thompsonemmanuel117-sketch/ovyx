@@ -301,10 +301,13 @@ assert.ok(stage4.dataModels.some(model => model.name === 'SubscriptionInvoice'))
 assert.ok(stage4.dataModels.some(model => model.name === 'Notification'));
 assert.ok(stage4.dataModels.some(model => model.name === 'IntegrationEvent'));
 assert.ok(stage4.dataModels.some(model => model.name === 'InventoryMovement'));
-for (const route of ['/api/cart','/api/cart/items','/api/orders','/api/admin/inventory','/api/admin/products','/api/admin/inventory/adjustments','/api/subscription-plans','/api/subscriptions/checkout','/api/subscriptions/:subscriptionId/cancel','/api/subscriptions/:subscriptionId/invoices','/api/notifications','/api/dashboard/summary','/api/admin/dashboard/metrics','/api/admin/integrations/health','/api/webhooks/:provider']) {
+assert.ok(stage4.dataModels.some(model => model.name === 'Promotion'));
+assert.ok(stage4.dataModels.some(model => model.name === 'Shipment'));
+assert.ok(stage4.dataModels.some(model => model.name === 'Refund'));
+for (const route of ['/api/cart','/api/cart/items','/api/orders','/api/orders/:orderId/shipments','/api/promotions/validate','/api/admin/inventory','/api/admin/products','/api/admin/inventory/adjustments','/api/admin/promotions','/api/admin/orders/:orderId/shipments','/api/subscription-plans','/api/subscriptions/checkout','/api/subscriptions/:subscriptionId/cancel','/api/subscriptions/:subscriptionId/invoices','/api/notifications','/api/dashboard/summary','/api/admin/dashboard/metrics','/api/payments','/api/payments/:paymentId/refunds','/api/admin/integrations/health','/api/webhooks/:provider']) {
   assert.ok(stage4.apiContracts.some(item => item.path === route), 'Stage 4 must declare ' + route);
 }
-for (const entity of ['Order','PaymentAttempt','CustomerSubscription','Notification','IntegrationEvent']) {
+for (const entity of ['Order','PaymentAttempt','Refund','Shipment','CustomerSubscription','Notification','IntegrationEvent']) {
   assert.ok(stage4.stateMachines.some(machine => machine.entity === entity), 'Stage 4 must define the ' + entity + ' lifecycle.');
 }
 assert.ok(stage4.testPlan.some(item => item.id === 'commerce-journey'));
