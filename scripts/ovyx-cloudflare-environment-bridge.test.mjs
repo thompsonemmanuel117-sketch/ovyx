@@ -11,6 +11,8 @@ const env = {
   PROPERTY_DATA_API_TOKEN: 'SENTINEL_UNKNOWN_SECRET_DO_NOT_LEAK',
   GEMINI_API_KEY: 'SENTINEL_GEMINI_SECRET_DO_NOT_LEAK',
   OPENAI_API_KEY: 'SENTINEL_OPENAI_SECRET_DO_NOT_LEAK',
+  ANTHROPIC_API_KEY: 'SENTINEL_ANTHROPIC_SECRET_DO_NOT_LEAK',
+  DEEPSEEK_API_TOKEN: 'SENTINEL_DEEPSEEK_SECRET_DO_NOT_LEAK',
   AI: { run() {} },
   DB: { prepare() {} },
   EMPTY_API_KEY: '',
@@ -23,7 +25,7 @@ assert.equal(report.discoveredBindingCount, Object.keys(env).length);
 assert.equal(report.integrations.find(item => item.id === 'email').providers.find(item => item.id === 'resend').configured, true);
 assert.equal(report.integrations.find(item => item.id === 'payments').providers.find(item => item.id === 'stripe').configured, true);
 assert.deepEqual(report.unrecognizedCredentialNames, ['PROPERTY_DATA_API_TOKEN']);
-assert.deepEqual(report.excludedAiProviderNames, ['GEMINI_API_KEY', 'OPENAI_API_KEY']);
+assert.deepEqual(report.excludedAiProviderNames, ['ANTHROPIC_API_KEY', 'DEEPSEEK_API_TOKEN', 'GEMINI_API_KEY', 'OPENAI_API_KEY']);
 
 const serialized = JSON.stringify(report);
 for (const secret of [
@@ -33,6 +35,8 @@ for (const secret of [
   'SENTINEL_UNKNOWN_SECRET_DO_NOT_LEAK',
   'SENTINEL_GEMINI_SECRET_DO_NOT_LEAK',
   'SENTINEL_OPENAI_SECRET_DO_NOT_LEAK',
+  'SENTINEL_ANTHROPIC_SECRET_DO_NOT_LEAK',
+  'SENTINEL_DEEPSEEK_SECRET_DO_NOT_LEAK',
 ]) assert.equal(serialized.includes(secret), false);
 
 assert.equal(resolveIntegrationCredential(env, 'email', 'resend').key, 'RESEND_API_KEY');
