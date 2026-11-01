@@ -176,6 +176,77 @@ jobs:
           OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: ${{ steps.generate.outputs.external_enquiry_authorized }}
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: node scripts/ovyx-webstudio-generated-site-browser-eval.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser
+      - name: Run generated backend checks in an outbound-network-disabled Pages/D1 container
+        id: backend
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') || contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]'))))
+        continue-on-error: true
+        run: |
+          mkdir -p artifacts/webstudio-evaluation-report/backend
+          docker pull node:22-bookworm-slim
+          runtime_failed=0
+          while IFS= read -r plan_file; do
+            project_dir="$(dirname "$plan_file")"
+            required="$(node --input-type=module -e "import fs from 'node:fs';const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));process.stdout.write(p.backendRequired===true?'true':'false')" "$plan_file")"
+            if [ "$required" != "true" ]; then
+              continue
+            fi
+            site_name="$(basename "$project_dir")"
+            report_name="$(printf '%s' "$site_name" | sed 's/[^A-Za-z0-9_-]/-/g')"
+            if ! docker run --rm \
+              --network none \
+              --read-only \
+              --tmpfs /tmp:rw,nosuid,nodev,size=2g,mode=1777 \
+              --shm-size=256m \
+              --memory=3g \
+              --cpus=2 \
+              --pids-limit=128 \
+              --cap-drop=ALL \
+              --security-opt=no-new-privileges \
+              --volume "$PWD:/workspace:ro" \
+              --volume "$PWD/artifacts/webstudio-evaluation-report/backend:/reports:rw" \
+              --workdir /workspace \
+              --env OVYX_QA_NETWORK_ISOLATION=docker-none \
+              node:22-bookworm-slim \
+              node scripts/ovyx-generated-backend-runtime-eval.mjs \
+                --root "/workspace/$project_dir" \
+                --out "/reports/$report_name.json"; then
+              runtime_failed=1
+            fi
+          done < <(find artifacts/webstudio-generated-sites -type f -name ovyx-qa-plan.json -not -path '*/node_modules/*' | sort)
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs/promises';
+          const reportPath = 'artifacts/webstudio-evaluation-report/browser/browser-report.json';
+          const backendDir = 'artifacts/webstudio-evaluation-report/backend';
+          let browser = {};
+          try { browser = JSON.parse(await fs.readFile(reportPath, 'utf8')); } catch {}
+          const required = (browser.results || []).filter(site => site.backendRequired === true);
+          const files = await fs.readdir(backendDir).catch(() => []);
+          let passedSites = 0;
+          let totalTests = 0;
+          for (const site of required) {
+            const safeName = String(site.site || '').replace(/[^A-Za-z0-9_-]/g, '-');
+            let evidence = null;
+            try { evidence = JSON.parse(await fs.readFile(backendDir + '/' + safeName + '.json', 'utf8')); } catch {}
+            if (evidence) {
+              site.backendRuntime = { status: evidence.status, testsRun: evidence.testsRun || 0, checks: evidence.checks || [], findings: evidence.findings || [] };
+              totalTests += evidence.testsRun || 0;
+              if (evidence.status === 'passed' && evidence.testsRun > 0) passedSites += 1;
+            } else {
+              site.backendRuntime = { status: 'blocked', testsRun: 0, reason: 'isolated-backend-runtime-report-missing' };
+            }
+          }
+          browser.backendRuntime = {
+            status: required.length === 0 ? 'not-required' : passedSites === required.length ? 'passed' : 'blocked',
+            requiredSites: required.length,
+            passedSites,
+            testsRun: totalTests,
+          };
+          await fs.writeFile(reportPath, JSON.stringify(browser, null, 2) + '\n');
+          console.log(JSON.stringify(browser.backendRuntime, null, 2));
+          NODE
+          if [ "$runtime_failed" -ne 0 ]; then
+            exit 1
+          fi
       - name: Evaluate configured real listing and enquiry services
         if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') || contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]'))))
         id: integration
@@ -204,6 +275,7 @@ jobs:
         env:
           GENERATION_OUTCOME: ${{ steps.generate.outcome }}
           BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+          BACKEND_OUTCOME: ${{ steps.backend.outcome }}
           AUDIT_OUTCOME: ${{ steps.audit.outcome }}
           INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
           LISTINGS_SOURCE_URL: ${{ steps.generate.outputs.listings_url }}
@@ -229,6 +301,8 @@ jobs:
           let integration = {};
           try { integration = JSON.parse(await fs.readFile('artifacts/webstudio-evaluation-report/integration-report.json', 'utf8')); } catch {}
           if (browser.status !== 'browser-evaluated' || !browser.evaluatedSites) failures.push(['browser report', browser.status || 'missing']);
+          if (process.env.BACKEND_OUTCOME !== 'success') failures.push(['isolated generated backend runtime', process.env.BACKEND_OUTCOME || 'not-run']);
+          if (!['passed', 'not-required'].includes(browser.backendRuntime?.status)) failures.push(['backend runtime evidence', browser.backendRuntime?.status || 'missing']);
           if (!audit.sitesFound || audit.status === 'not-run-no-generated-sites' || audit.sites?.some(site => site.status === 'needs-attention')) failures.push(['acceptance report', audit.status || 'missing or has blockers']);
           if (!process.env.LISTINGS_SOURCE_URL) failures.push(['real property listings', 'blocked-no-authoritative-public-listing-feed-configured']);
           else if (!process.env.LISTINGS_PUBLIC_URL) failures.push(['public generated-site listing feed', 'blocked-no-public-browser-safe-listing-endpoint-configured']);
@@ -260,6 +334,7 @@ jobs:
         env:
           GENERATION_OUTCOME: ${{ steps.generate.outcome }}
           BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+          BACKEND_OUTCOME: ${{ steps.backend.outcome }}
           AUDIT_OUTCOME: ${{ steps.audit.outcome }}
         run: |
           node --input-type=module <<'NODE'
@@ -281,6 +356,8 @@ jobs:
           if (process.env.BROWSER_OUTCOME !== 'success' || browser.status !== 'browser-evaluated' || browserSiteCount !== 1) {
             failures.push(['isolated Chromium browser evaluation', browser.status || process.env.BROWSER_OUTCOME || 'missing']);
           }
+          if (process.env.BACKEND_OUTCOME !== 'success') failures.push(['isolated generated backend runtime', process.env.BACKEND_OUTCOME || 'not-run']);
+          if (!['passed', 'not-required'].includes(browser.backendRuntime?.status)) failures.push(['backend runtime evidence', browser.backendRuntime?.status || 'missing']);
           if (process.env.AUDIT_OUTCOME !== 'success' || !audit.sitesFound || audit.status === 'not-run-no-generated-sites' || audit.sites?.some(site => site.status === 'needs-attention')) {
             failures.push(['single-site acceptance audit', audit.status || process.env.AUDIT_OUTCOME || 'missing or has blockers']);
           }
