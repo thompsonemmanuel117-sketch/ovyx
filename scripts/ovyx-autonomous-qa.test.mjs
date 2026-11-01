@@ -39,6 +39,12 @@ const missingBackendPlan = evaluateGeneratedWebsiteFiles({
 });
 assert.ok(missingBackendPlan.findings.some(item => item.code === 'QA_BACKEND_PLAN_INVALID'),
   'A plan without backendChecks must not silently pass the backend-plan contract.');
+const architectureRequiresBackend = evaluateGeneratedWebsiteFiles({
+  'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Architecture gate</title></head><body><h1>Architecture gate</h1></body></html>',
+  'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: false, journeys: [{ id: 'home', startRoute: '/', steps: [{ action: 'expectText', text: 'Architecture gate' }] }], apiChecks: [], backendChecks: [] }),
+}, { backendRequired: true });
+assert.ok(architectureRequiresBackend.findings.some(item => item.code === 'QA_BACKEND_REQUIRED_FLAG_MISSING'),
+  'A generated model must not evade backend tests by declaring a frontend-only QA plan when the trusted architecture requires a backend.');
 const unsafeBackendPlan = evaluateGeneratedWebsiteFiles({
   'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Unsafe backend plan</title></head><body><h1>Unsafe backend plan</h1></body></html>',
   'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: true, journeys: [{ id: 'home', startRoute: '/', steps: [{ action: 'expectText', text: 'Unsafe backend plan' }] }], apiChecks: [], backendChecks: [{ id: 'charge', method: 'POST', route: '/api/payments/charge', body: { amount: 5000 }, sideEffect: 'external-provider' }] }),
