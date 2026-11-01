@@ -33,3 +33,17 @@ const oversized = buildWebsiteFileGraph({ 'huge.js': 'z'.repeat(240_001) });
 assert.equal(oversized.status, 'bounded-partial');
 assert.equal(oversized.limits.truncated, true);
 console.log('OVYX website file graph tests passed.');
+
+const edgeBounded = buildWebsiteFileGraph({
+  'src/a.js': "import './b.js'; import './c.js';",
+  'src/b.js': 'export const b = true;',
+  'src/c.js': 'export const c = true;',
+}, { maxEdges: 1 });
+assert.equal(edgeBounded.edges.length, 1);
+assert.equal(edgeBounded.limits.edgesTruncated, true);
+assert.equal(edgeBounded.status, 'bounded-partial');
+const missingBounded = buildWebsiteFileGraph({
+  'src/a.js': "import './missing-a.js'; import './missing-b.js';",
+}, { maxMissingReferences: 1 });
+assert.equal(missingBounded.missingReferences.length, 1);
+assert.equal(missingBounded.limits.missingReferencesTruncated, true);
