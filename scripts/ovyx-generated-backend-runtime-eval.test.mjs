@@ -82,10 +82,10 @@ if (process.env.OVYX_QA_NETWORK_ISOLATION === 'docker-none') {
       journeys: [],
       apiChecks: [],
       backendChecks: [
-        { id: 'anonymous-denied', method:sourceFile: 'functions/api/records.js',  'GET', route: '/api/records', expectedStatus: 401 },
-        { id: 'create-owner-a', method:sourceFile: 'functions/api/records.js',  'POST', route: '/api/records', expectedStatus: 201, sideEffect: 'disposable-local-only', identity: 'synthetic-owner-a', body: { name: 'Synthetic project' }, expect: { jsonPath: 'data.name', equals: 'Synthetic project' } },
-        { id: 'owner-a-sees-record', method:sourceFile: 'functions/api/records.js',  'GET', route: '/api/records', expectedStatus: 200, identity: 'synthetic-owner-a', expect: { jsonPath: 'data.0.name', equals: 'Synthetic project' } },
-        { id: 'owner-b-is-isolated', method:sourceFile: 'functions/api/records.js',  'GET', route: '/api/records', expectedStatus: 200, identity: 'synthetic-owner-b', expect: { jsonPath: 'data.length', equals: 0 } },
+        { id: 'anonymous-denied', method: 'GET', sourceFile: 'functions/api/records.js', route: '/api/records', expectedStatus: 401 },
+        { id: 'create-owner-a', method: 'POST', sourceFile: 'functions/api/records.js', route: '/api/records', expectedStatus: 201, sideEffect: 'disposable-local-only', identity: 'synthetic-owner-a', body: { name: 'Synthetic project' }, expect: { jsonPath: 'data.name', equals: 'Synthetic project' } },
+        { id: 'owner-a-sees-record', method: 'GET', sourceFile: 'functions/api/records.js', route: '/api/records', expectedStatus: 200, identity: 'synthetic-owner-a', expect: { jsonPath: 'data.0.name', equals: 'Synthetic project' } },
+        { id: 'owner-b-is-isolated', method: 'GET', sourceFile: 'functions/api/records.js', route: '/api/records', expectedStatus: 200, identity: 'synthetic-owner-b', expect: { jsonPath: 'data.length', equals: 0 } },
       ],
     }));
     const report = await runCloudflarePagesBackendRuntime({ root, sourceRoot: process.cwd() });
