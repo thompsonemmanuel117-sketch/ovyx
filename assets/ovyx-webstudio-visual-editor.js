@@ -441,6 +441,6 @@
     window.addEventListener('ovyx:project-loaded', function () { window.setTimeout(function () { install(studio()); }, 80); });
     window.addEventListener('ovyx:project-activated', function () { window.setTimeout(function () { install(studio()); }, 80); });
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
+  if (document.readyState === 'loading' || document.readyState === 'interactive') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
   window.OVYXVisualEditor = { version: '1.0.0', applyStyle: writeStyle, applyAttribute: writeAttribute, applyText: writeText, move: moveNode, refresh: renderInspector };
 })();
