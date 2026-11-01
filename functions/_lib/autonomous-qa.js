@@ -283,7 +283,7 @@ export function evaluateGeneratedWebsiteFiles(rawFiles = {}) {
     channel: 'static', severity, code, message: redactSensitiveText(message, 500), file: safeSourcePath(file),
   });
   for (const [rawPath, rawContent] of entries) {
-    const normalizedRawPath = String(rawPath || '').replace(/\\/g, '/').replace(/^\\/+/, '');
+    const normalizedRawPath = String(rawPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
     const file = normalizedRawPath === 'ovyx-qa-plan.json' ? normalizedRawPath : safeSourcePath(normalizedRawPath);
     if (!file || typeof rawContent !== 'string') continue;
     const bytes = new TextEncoder().encode(rawContent).byteLength;
