@@ -4,6 +4,7 @@ import { enforceSameOrigin, errorResponse, jsonResponse, readJson } from '../_li
 const MAX_BODY_BYTES = 2_200_000;
 const MAX_FILES = 140;
 const MAX_FILE_BYTES = 280_000;
+const MAX_LOCKFILE_BYTES = 1_600_000;
 const ROOT_FILES = new Set([
   'wrangler.jsonc', 'wrangler.json', 'package.json', 'package-lock.json',
   'npm-shrinkwrap.json', 'ovyx-qa-plan.json', '_routes.json', '_headers', 'tsconfig.json', 'vite.config.js', 'vite.config.ts',
@@ -45,7 +46,8 @@ function validateFiles(rawFiles) {
       throw Object.assign(new Error('The backend runtime rejected an unsafe or duplicate project file path.'), { status: 400, code: 'BACKEND_RUNTIME_FILE_INVALID' });
     }
     const bytes = new TextEncoder().encode(item.content);
-    if (bytes.byteLength > MAX_FILE_BYTES) {
+    const fileLimit = path === 'package-lock.json' || path === 'npm-shrinkwrap.json' ? MAX_LOCKFILE_BYTES : MAX_FILE_BYTES;
+    if (bytes.byteLength > fileLimit) {
       throw Object.assign(new Error('A project file exceeds the isolated runtime size limit.'), { status: 413, code: 'BACKEND_RUNTIME_FILE_TOO_LARGE' });
     }
     if (SECRET_PATTERNS.some(pattern => pattern.test(item.content))) {
