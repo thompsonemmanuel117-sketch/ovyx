@@ -20,6 +20,13 @@ on:
     branches: [main]
     paths:
       - 'scripts/ovyx-generated-backend-runtime-eval.mjs'
+      - 'backend-runtime/**'
+      - 'functions/api/webstudio/backend-runtime.js'
+      - 'functions/api/_middleware.js'
+      - 'assets/ovyx-webstudio-quality.js'
+      - 'scripts/ovyx-backend-runtime-bridge.test.mjs'
+      - 'docs/OVYX-BACKEND-RUNTIME-SETUP.md'
+      - '.github/workflows/ovyx-backend-runtime-deploy.yml'
       - 'scripts/ovyx-generated-backend-runtime-eval.test.mjs'
       - 'functions/_lib/autonomous-qa.js'
       - 'functions/_lib/website-engine.js'
