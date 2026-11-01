@@ -316,6 +316,12 @@ assert.ok(stage4.security.controls.some(item => item.id === 'subscription-entitl
 assert.ok(stage4.security.controls.some(item => item.id === 'notification-privacy'));
 assert.equal(stage4.graphIntegrity.valid, true);
 assert.ok(stage4.apiContracts.every(route => route.modelIds.every(id => stage4.dataModels.some(model => model.id === id))));
+const stage4BackendContract = fullStackArchitectureModelContract(stage4);
+assert.ok(stage4BackendContract.apiContracts.length >= stage4.apiContracts.length, 'Backend generation must receive every Stage 4 API route rather than a truncated prefix.');
+assert.ok(stage4BackendContract.dataModels.some(model => model.name === 'CustomerSubscription'));
+assert.ok(stage4BackendContract.dataModels.some(model => model.name === 'Notification'));
+assert.ok(stage4BackendContract.dataModels.some(model => model.name === 'IntegrationEvent'));
+assert.ok(stage4BackendContract.stateMachines.some(machine => machine.entity === 'CustomerSubscription'));
 const freeMembershipBrief = 'Build a free community membership website with member accounts and a member dashboard, no paid plans.';
 const freeMembership = buildFullStackArchitecture(freeMembershipBrief, buildPromptContract(freeMembershipBrief));
 assert.equal(freeMembership.capabilities.subscriptions, true);
