@@ -502,8 +502,10 @@ function auditBackendFiles(files, architecture) {
       code.includes('onRequest' + pascal) ||
       code.includes('export const ' + method) ||
       code.includes('export async function ' + method) ||
+      code.includes('export const ' + (method === 'GET' ? 'loader' : 'action')) ||
       code.includes('function ' + method) ||
       code.includes('function ' + pascal) ||
+      (lowerFile.includes('/server/api/') && code.includes('defineEventHandler')) ||
       code.toLowerCase().includes('router.' + method.toLowerCase() + '(') ||
       code.toLowerCase().includes('app.' + method.toLowerCase() + '(') ||
       (lowerFile.includes('/+server.') && code.includes('export const ' + method)) ||
