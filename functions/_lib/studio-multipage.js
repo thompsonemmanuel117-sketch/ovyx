@@ -984,6 +984,7 @@ function projectPages(project, siteMap) {
         primaryAction: page.primaryAction || '',
         sections: Array.isArray(page.sections) ? page.sections : [],
         visualDirection: page.visualDirection || '',
+        motionChoreography: Array.isArray(page.motionChoreography) ? page.motionChoreography : [],
         interactionRequirements: Array.isArray(page.interactionRequirements) ? page.interactionRequirements : [],
         dataRequirements: Array.isArray(page.dataRequirements) ? page.dataRequirements : [],
         components: Array.isArray(page.components) ? page.components : [],
