@@ -222,18 +222,29 @@ export async function runAutonomousRepairCycle(options = {}) {
   const after = createAutonomousQaReport({ requiredChannels, evidence: afterEvidence });
   const beforeKeys = new Set(before.findings.map(failureKey));
   const newFailures = after.findings.filter(finding => !beforeKeys.has(failureKey(finding)));
+  const beforeChannels = new Map(before.channels.map(channel => [channel.channel, channel]));
+  const channelRegressions = after.channels.filter(channel => {
+    const previous = beforeChannels.get(channel.channel);
+    if (!previous) return false;
+    return (previous.status === 'passed' && channel.status !== 'passed') ||
+      channel.testsRun < previous.testsRun ||
+      (previous.status === 'failed' && ['blocked', 'not-run'].includes(channel.status));
+  });
   const improved = after.summary.blockers < before.summary.blockers ||
     after.findings.length < before.findings.length ||
     after.status === 'passed';
-  if (newFailures.length || !improved) {
+  if (newFailures.length || channelRegressions.length || !improved) {
     return {
       ...unchanged,
       repair: {
         status: 'rejected',
         attempts: 1,
         changedPaths: [],
-        reason: newFailures.length ? 'repair-introduced-new-findings' : 'repair-did-not-improve-evidence',
+        reason: newFailures.length ? 'repair-introduced-new-findings'
+          : channelRegressions.length ? 'repair-reduced-or-blocked-test-coverage'
+            : 'repair-did-not-improve-evidence',
         newFindingCount: newFailures.length,
+        regressedChannels: channelRegressions.map(channel => channel.channel),
       },
       afterReport: after,
     };
