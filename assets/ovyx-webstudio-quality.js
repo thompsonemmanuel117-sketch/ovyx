@@ -880,6 +880,7 @@
           viewportChecksPlanned: Number(browser.total || 0),
           viewportChecksCompleted: Number(browser.completed || 0),
           widthsCssPixels: Array.isArray(browser.widths) ? browser.widths.slice() : [],
+          journeys: { total: Number(browser.journeys && browser.journeys.total || 0), passed: Number(browser.journeys && browser.journeys.passed || 0), failed: Number(browser.journeys && browser.journeys.failed || 0), skipped: Number(browser.journeys && browser.journeys.skipped || 0), results: (browser.journeys && Array.isArray(browser.journeys.results) ? browser.journeys.results : []).slice(0, 24) },
           routeCoverage: coverage ? trim(coverage.detail, 1200) : 'No completed responsive browser coverage statement was available.',
           safeControlSampling: {
             eligibleControls: Number(browser.interactions && browser.interactions.candidates || 0),
@@ -908,7 +909,7 @@
       },
       limitations: [
         'This report contains evidence from source checks and isolated browser smoke tests only.',
-        'Real sign-in, database writes, email delivery, booking, payments and authenticated API behavior remain unverified unless separately tested against the actual service in a safe test environment.',
+        'Real sign-in, database writes, generated backend functions, migrations, email delivery, booking, payments and authenticated API behavior remain unverified unless separately tested against the actual service in a disposable safe runtime.',
         'Sandbox render measurements are diagnostics, not real-network load times or production Core Web Vitals.',
         'Automated contrast and interaction checks are partial smoke checks, not full WCAG certification or exhaustive interaction testing.'
       ]
@@ -930,7 +931,8 @@
       'Result: ' + statusLabel,
       'Checks: ' + counts.pass + ' passed · ' + counts.warn + ' warnings · ' + counts.fail + ' failed · ' + counts.info + ' informational',
       'Responsive browser coverage: ' + browser.pagesTested + '/' + browser.pagesAvailable + ' route(s), ' + browser.viewportChecksCompleted + '/' + browser.viewportChecksPlanned + ' viewport checks completed.',
-      'Safe control smoke test: ' + Number(browser.safeControlSampling && browser.safeControlSampling.controlsTested || 0) + ' of ' + Number(browser.safeControlSampling && browser.safeControlSampling.eligibleControls || 0) + ' eligible controls tested across ' + Number(browser.safeControlSampling && browser.safeControlSampling.mobileRoutesProbed || 0) + ' mobile route probes; ' + Number(browser.safeControlSampling && browser.safeControlSampling.controlsSkippedByCap || 0) + ' skipped by the per-route safety cap.'
+      'Safe control smoke test: ' + Number(browser.safeControlSampling && browser.safeControlSampling.controlsTested || 0) + ' of ' + Number(browser.safeControlSampling && browser.safeControlSampling.eligibleControls || 0) + ' eligible controls tested across ' + Number(browser.safeControlSampling && browser.safeControlSampling.mobileRoutesProbed || 0) + ' mobile route probes; ' + Number(browser.safeControlSampling && browser.safeControlSampling.controlsSkippedByCap || 0) + ' skipped by the per-route safety cap.',
+      'Requirement-derived user journeys: ' + Number(browser.journeys && browser.journeys.passed || 0) + '/' + Number(browser.journeys && browser.journeys.total || 0) + ' passed; ' + Number(browser.journeys && browser.journeys.failed || 0) + ' failed; ' + Number(browser.journeys && browser.journeys.skipped || 0) + ' skipped.'
     ];
     if (browser.routeCoverage) lines.push('Coverage plan: ' + browser.routeCoverage);
     var priorities = (report.checks || []).filter(function (item) {
@@ -949,7 +951,7 @@
       '',
       'Verification limits',
       '• Browser checks are isolated smoke tests; route coverage is adaptive, not every route at every width.',
-      '• Live sign-in, data persistence, email, booking, payments and authenticated APIs are not verified by this report.',
+      '• Live sign-in, generated backend functions, database migrations/CRUD, data persistence, email, booking, payments and authenticated APIs are not verified by this browser sandbox.',
       '• Sandbox timings are not production load time or Core Web Vitals.',
       '• This report is evidence for review, not a guarantee of business outcomes or a full accessibility/security certification.'
     );
