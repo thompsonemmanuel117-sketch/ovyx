@@ -78,6 +78,19 @@ export function buildDesignSystemContract(prompt = '', context = {}) {
         ...(requestsBooking ? ['Booking flows must distinguish availability, selection, pending confirmation, confirmed booking and failure; never imply a slot is reserved before provider confirmation.'] : []),
         ...(requestsIdentity ? ['Identity flows must distinguish signed-out, authenticating, authenticated, expired and denied states; enforce permissions server-side.'] : []),
       ],
+      requirementTraceability: [
+        'Map each requested control to its owning route, component, intended action, state transition, visible feedback and recovery behavior.',
+        'Prioritize the primary user journey and every explicitly requested interaction; do not substitute random control sampling for requirement coverage.',
+        'For each critical journey, record the precondition, safe test action, expected observable result, cleanup/reset and evidence artifact.',
+        'Test safe navigation, disclosure, tab, filter, sort, search and local state controls in isolation; use fixtures for destructive or external side effects.',
+        'Never submit real payments, bookings, messages, emails, identity changes or destructive operations during routine browser QA.',
+        'Mark a control unverified when its behavior cannot be safely exercised; never infer success from clickability alone.',
+      ],
+      evidenceContract: {
+        fields: ['requirementId', 'route', 'component', 'control', 'action', 'expectedState', 'observedState', 'result', 'evidenceRef'],
+        allowedResults: ['passed', 'failed', 'skipped', 'blocked', 'not-verified'],
+        rule: 'A journey passes only when its expected observable state is verified; screenshots and source patterns alone do not prove interaction success.',
+      },
     },
     responsiveSystem: {
       viewports: [
