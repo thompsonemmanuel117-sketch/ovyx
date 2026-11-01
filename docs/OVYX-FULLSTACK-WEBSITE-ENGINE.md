@@ -78,7 +78,109 @@ The shared Website Engine now appends explicit implementation rules after the bo
 The report separates missing route/method/auth/schema/relationship source evidence from evidence that is merely present in source. Even when all source evidence exists, the report explicitly keeps runtime behavior, database persistence, integration delivery and deployment unverified. It also audits declared SQL, Prisma and Drizzle index source declarations, while leaving query performance and live integrity unverified. Login/session authentication is modeled separately from role/permission authorization; public upload flows without accounts are explicitly quarantined and only published assets may be publicly resolved. Architecture metadata is accepted only when it has the expected engine identifier, stays within a bounded size and passes secret-pattern screening; it is not copied into the public client response.
 
 
-### Important current boundary
+### Full-stack source-generation stage added
+
+The shared `runWebsiteGeneration` lifecycle now performs a separate backend-source generation pass after a full-stack website build when the trusted architecture marks backend capability as requested. Both the authenticated Assistant and Gateway pass the server-derived architecture object into this stage; client-provided architecture is not used as the authority.
+
+The backend pass asks the existing guarded model route to return complete source files for the declared API contracts, domain models, database schema/migrations, relationships, constraints, indexes, authorization boundaries, workflow services and safe tests. It preserves detected project paths/frameworks and uses Cloudflare Pages Functions with D1-compatible migrations only as the no-existing-framework target. It does not introduce a new AI provider route.
+
+Returned files are constrained to backend/server/schema/migration/test locations, bounded in size, and filtered against traversal and secret-bearing paths. A bounded source audit checks each planned API route's handler file and method, authorization/signature evidence, declared model schema and relationship fields. One targeted repair generation is attempted when source evidence is incomplete. If the second pass still misses required contracts, the full-stack build fails rather than silently presenting a frontend-only site as complete.
+
+Successful output is explicitly labelled `source-generated-runtime-unverified`. This is real generated source, not database provisioning: the pass does not create Cloudflare D1 resources, configure bindings or credentials, run migrations, prove database persistence, establish external provider delivery, or certify a production deployment. Those remain separate release and acceptance gates.
+
+
+This is an architecture and code-generation contract. It does **not** provision a database, create provider credentials, run migrations, prove endpoint behavior or certify generated applications. The route/model/provider records are plans until generated source is inspected and the actual tests pass.
+
+## Engineering roadmap
+
+### A. Close the architecture-to-source gap
+- Add route-to-file and schema-to-model evidence for supported framework layouts: Cloudflare Pages Functions, Next.js App Router/Pages Router, Vite/Node, Remix, SvelteKit, Nuxt and other supported frameworks.
+- Check that every requested API contract has a matching implementation or an explicit server-action equivalent.
+- Check that UI calls the exact route contract and that API request/response shapes agree with the shared domain schema.
+- Keep unresolved or unassessable requirements visible. Do not let a generic page reference count as proof of a backend feature.
+
+### B. Domain data engine
+- Derive entities, relations, required/optional fields, unique constraints, indexes and ownership from the user brief.
+- Generate versioned migrations and safe rollback scripts for supported databases.
+- Support additive expand/migrate/contract changes; detect breaking schema changes before editing files.
+- Generate CRUD repositories/services, query pagination, validation and transaction boundaries from one schema source.
+- Use server-side integer minor-unit money plus an explicit ISO currency; store time in UTC with IANA timezone context.
+- Generate fixture and seed data only when clearly marked as test/demo data. Never invent production customer, inventory, price or availability records.
+
+### C. Identity and permissions engine
+- Keep identity verification distinct from authorization.
+- Generate protected route middleware, role policies, tenant/resource ownership checks and permission tests.
+- Prevent client-supplied user IDs, role names, ownership fields or hidden UI controls from granting access.
+- Verify sign-up/sign-in/session expiry/logout/recovery against the selected identity service.
+- Include cross-tenant negative tests for every protected data boundary.
+
+### D. Business workflow and integration engine
+- Generate explicit state machines for orders, payments, bookings, subscriptions, enquiries and delivery.
+- Use server-side provider adapters, signature validation, idempotency, replay protection, bounded retries and reconciliation.
+- For payment: calculate amount/currency on the server, verify provider references and webhook signatures, and only fulfill after authoritative confirmation.
+- For booking: query authoritative availability and re-check at commit time to prevent double booking.
+- For email: persist an outbox event and reconcile an actual provider receipt; HTTP 200 alone is not delivery proof.
+- For uploads: authorize ownership, sniff content, enforce size/quota, randomize object keys and keep private files private.
+- Expose connection setup, reachability, last successful check and live delivery as separate dashboard states.
+
+### E. Verification compiler
+- Convert every requirement ID into executable test intent where technically possible.
+- Generate unit, schema, API contract, integration, browser journey, authorization-negative, concurrency, failure-recovery and deployment smoke tests.
+- Run test journeys through the actual frontend, server, database and provider sandbox; assert persistent outcome, not just button clicks or response text.
+- Mark third-party tests blocked/skipped when credentials or explicit approval are missing; never silently replace them with mocks and report success.
+- Measure real Core Web Vitals and record browser/device/network conditions separately from static source scores.
+- Expand browser coverage, visual regression baselines and supported Firefox/WebKit checks.
+
+### F. Build, packaging and deployment
+- Produce a reproducible complete project with server/runtime config, migrations, lockfile, environment-variable template, tests, setup guide and API/schema documentation.
+- Install dependencies and run the actual framework production build in an isolated environment.
+- Detect unsupported runtime bindings and secrets before deployment.
+- Separate development, preview and production resources, domains, credentials and callback URLs.
+- Deploy preview first; run route and user-journey smoke tests; then allow an owner-authorized production release.
+- Keep the last known-good build and test rollback of code and data independently.
+
+### G. Self-healing and long-term project intelligence
+- Compare architecture graph before and after every edit; show impacted pages, routes, schemas, providers and tests before applying broad changes.
+- Prefer targeted repairs and regenerate only affected files while preserving unrelated work.
+- Re-run all impacted contract and browser tests after repair.
+- Add build traces with stage timing, model/runtime identifiers, file changes, test results, retries and repair summaries while redacting prompts and private data.
+- Provide a developer handover pack: architecture map, API reference, ER diagram, migrations, environment setup, integration checklist, test instructions and known limitations.
+
+## Additional differentiators worth building
+
+1. **Requirement-to-runtime traceability:** every brief requirement maps to source files, API/schema contracts, browser steps and a final evidence record.
+2. **Architecture impact simulator:** before an edit, show downstream pages/routes/models/integrations/tests that could change.
+3. **Business workflow simulator:** replay order, booking, subscription and delivery state transitions locally with deterministic fixtures.
+4. **Data-integrity sentinel:** detect orphan records, impossible state transitions, duplicate payment events, booking overlaps and broken foreign-key assumptions.
+5. **Integration contract sandbox:** test provider payloads, signatures, retry scenarios and error mappings without creating real transactions.
+6. **Tenant isolation tester:** generate adversarial cross-account and wrong-role requests automatically.
+7. **Deployment drift detector:** compare expected bindings, environment variables, migrations and runtime config with the deployed revision without exposing their values.
+8. **Visual-plus-functional acceptance:** keep design, accessibility, responsiveness, behavior, data, security and deployment scores separate so a beautiful but broken site cannot pass.
+9. **Operational readiness pack:** health probes, log correlation, alert thresholds, retry/dead-letter queue visibility, backup/restore drills and rollback procedures.
+10. **Project portability:** export a complete source project with no OVYX runtime dependency unless the user explicitly chooses an OVYX-managed service.
+
+## Phase 2 acceptance checklist
+
+Phase 2 must not be closed until all of the following are evidenced on the exact revision:
+
+- [ ] Unified architecture compiler is wired into Assistant and Gateway only for Web Studio; App Studio remains unchanged.
+- [ ] Requirement IDs and complete original brief survive bounded prompt serialization.
+- [ ] Every full-stack API contract maps to implementation source or an explicit unresolved reason.
+- [ ] The artifact evaluator reports missing route, method, authorization, schema and relationship source evidence against the exact architecture manifest, while keeping runtime verification separate.
+- [ ] Every API contract maps to existing data models and server authorization policy.
+- [ ] Frontend components call the matching backend contracts with typed request/response/error states.
+- [ ] Database schemas, constraints, migrations and rollback behavior are validated in an isolated test database.
+- [ ] Authentication and object-level permissions pass positive and negative tests.
+- [ ] Payment, email, booking and storage use real sandbox/controlled-service evidence where requested.
+- [ ] No real side effect runs without explicit owner approval.
+- [ ] Requirement-derived browser journeys verify persisted outcomes at all target viewports.
+- [ ] Security, dependency, accessibility and performance checks are independently recorded.
+- [ ] Supported framework projects install, build, extract and smoke-test successfully.
+- [ ] Preview deployment passes and the production handoff clearly lists any remaining owner configuration.
+- [ ] Existing OVYX routes, quota controls, project data, App Studio and browser navigation regressions remain green.
+
+**Release vocabulary:** architecture planned ≠ source implemented ≠ build passed ≠ browser tested ≠ integration delivered ≠ production ready. Reports must keep these states separate.
+
 
 This is an architecture and code-generation contract. It does **not** provision a database, create provider credentials, run migrations, prove endpoint behavior or certify generated applications. The route/model/provider records are plans until generated source is inspected and the actual tests pass.
 
