@@ -26,6 +26,8 @@ assert.ok(plan.requirementManifest.total >= 4);
 assert.ok(plan.requirementManifest.constraints.some(item => /do not invent/i.test(item)));
 assert.ok(plan.interactionArchitecture.capabilities.includes('booking'));
 assert.ok(plan.interactionArchitecture.capabilities.includes('forms'));
+assert.ok(plan.interactionArchitecture.capabilities.includes('file-storage') === false,
+  'Existing hotel brief does not request user-managed file storage.');
 assert.ok(plan.integrations.some(item => item.capability === 'email' && item.connection === 'connected-in-context'));
 assert.ok(plan.integrations.some(item => item.capability === 'booking' && item.connection === 'not-confirmed'));
 assert.ok(plan.qualityGates.length > 0);
@@ -47,6 +49,18 @@ assert.match(buildWebsiteEngineInstructions(plan), /workflow state machines/i);
 assert.match(buildWebsiteEngineInstructions(plan), /authorization-negative cases/i);
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
 assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
+const uploadPlan = buildWebsiteEnginePlan(
+  'Build a full-stack client portal with secure image and document uploads stored in Cloudflare R2.',
+  { connections: [{ provider: 'Cloudflare R2', connected: true }] },
+);
+assert.ok(uploadPlan.fullStackArchitecture.capabilities.fileStorage,
+  'File uploads must be recognized as a first-class full-stack capability.');
+assert.ok(uploadPlan.fullStackArchitecture.dataModels.some(model => model.name === 'StoredAsset'));
+assert.ok(uploadPlan.fullStackArchitecture.apiContracts.some(route => route.path === '/api/assets'));
+assert.ok(uploadPlan.interactionArchitecture.capabilities.includes('file-storage'));
+assert.ok(uploadPlan.integrations.some(item => item.capability === 'storage' && item.connection === 'connected-in-context'));
+assert.match(buildWebsiteEngineInstructions(uploadPlan), /upload-isolation/);
+
 
 const linePreservingBrief = [
   'Build a multi-page business website.',
