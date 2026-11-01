@@ -28,7 +28,6 @@ on:
       - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
       - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
       - 'scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs'
-      - 'scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs'
       - 'scripts/ovyx-app-shell-favicon.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-webstudio-cancel-safety.js'
@@ -103,6 +102,12 @@ jobs:
       - name: Install project dependencies
         run: npm install --ignore-scripts
 
+      - name: Run full repository tests
+        run: npm test
+      - name: Run static validation
+        run: npm run validate
+      - name: Run production build validation
+        run: npm run build
       - name: Install browser test dependency
         run: npm install --ignore-scripts --no-save playwright@^1.55.0
 
