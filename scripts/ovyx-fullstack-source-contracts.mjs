@@ -16,10 +16,276 @@ function routePathSegments(routePath) {
     .map(segment => segment.startsWith(':') ? '[' + segment.slice(1) + ']' : segment);
 }
 
-function routeCandidates(routePath) {
+function routeCandidates(routePath, method = 'GET') {
   const parts = routePathSegments(routePath);
   const suffix = parts.join('/');
   if (!suffix) return [];
+  const remixSuffix = parts.map(part => part.startsWith('[') ? '
+
+function methodEvidence(source, method) {
+  const verb = String(method || 'GET').toUpperCase();
+  const pascal = verb.charAt(0) + verb.slice(1).toLowerCase();
+  const patterns = [
+    new RegExp('\\bonRequest' + pascal + '\\b'),
+    new RegExp('\\bexport\\s+(?:async\\s+)?function\\s+' + verb + '\\b'),
+    new RegExp('\\bexport\\s+(?:const|let|var)\\s+' + verb + '\\b'),
+    new RegExp('\\bexport\\s+(?:const|let|var)\\s+' + (verb === 'GET' ? 'loader' : 'action') + '\\b'),
+    new RegExp('\\bdefineEventHandler\\s*\\('),
+    new RegExp('\\b(?:router|app|server)\\s*\\.\\s*' + verb.toLowerCase() + '\\s*\\('),
+    new RegExp('\\bmethod\\s*:\\s*["\\x27]' + verb + '["\\x27]', 'i'),
+  ];
+  return patterns.some(pattern => pattern.test(String(source || '')));
+}
+
+function routeHandlerSource(route, files, pathMap) {
+  const candidates = routeCandidates(route.path, route.method);
+  for (const candidate of candidates) {
+    const exact = pathMap.get(candidate.toLowerCase());
+    if (exact && typeof files[exact] === 'string') {
+      return { file: exact, source: files[exact], match: 'framework-route-file' };
+    }
+  }
+  const literal = String(route.path || '');
+  const dynamicPathPattern = new RegExp(
+    '^' + escapeRegExp(literal).replace(/:\w+/g, '[^/]+') + '$'
+  );
+  for (const [file, source] of Object.entries(files)) {
+    if (!TEXT_SOURCE.test(file)) continue;
+    const text = String(source || '');
+    const pathSignals = literal.length > 4 && (
+      text.includes(literal) ||
+      Array.from(text.matchAll(/["\x27]([^"\x27]{5,240})["\x27]/g))
+        .some(match => dynamicPathPattern.test(match[1]))
+    );
+    if (pathSignals && methodEvidence(source, route.method)) {
+      return { file, source, match: 'central-router-path-and-method-source' };
+    }
+  }
+  return null;
+}
+
+function authorizationEvidence(source, policy) {
+  const value = String(policy || '').toLowerCase();
+  const text = String(source || '');
+  if (value.includes('provider-signature')) {
+    const signature = /(?:verify|validate|construct|check).{0,40}(?:signature|webhook)|(?:signature|hmac).{0,40}(?:verify|validate|secret)|webhooksecret|constructevent/i.test(text);
+    const replay = /eventId|event\.id|idempotencyKey|replay|processedEvent|webhookEvent/i.test(text);
+    return signature && replay;
+  }
+  if (value.includes('signed-unsubscribe-token')) {
+    return /(?:verify|validate|decode).{0,40}(?:unsubscribe|token)|unsubscribe.{0,40}(?:token|signature)|tokenHash|verifySignature/i.test(text);
+  }
+  if (value.includes('public-with-credential-provider')) {
+    return /signInWith|verifyPassword|verifyCredentials|credentialProvider|verifyIdToken|identityToken|providerSubject/i.test(text);
+  }
+  if (value.startsWith('public')) return true;
+  const authentication = /assertAuthenticated|requireAuth|verifyIdToken|verifySession|context\.data\??\.user|request\.auth|authUser|session\??\.user|verifyJWT|verifyJwt|requireUser/i.test(text);
+  const elevated = /requireAdmin|requireRole|hasRole|authorize|permission|ownerId|tenantId|resourceOwner|role\s*===?|role\s*:/i.test(text);
+  if (/administrator|role-and-resource|owner-or|owner-only|resource-scope|object-level/.test(value)) return authentication && elevated;
+  if (value.includes('verified-customer-or-server-authorized-billable-reference')) {
+    return authentication || /authorizeBillableReference|verifyBillableReference|serverAuthorizedInvoice/i.test(text);
+  }
+  return authentication;
+}
+
+function schemaDeclarationEvidence(model, files) {
+  const name = String(model && model.name || '').trim();
+  if (!name) return null;
+  const escaped = escapeRegExp(name);
+  const snake = name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+  const plural = snake.endsWith('s') ? snake : snake + 's';
+  const patterns = [
+    new RegExp('\\bmodel\\s+' + escaped + '\\s*\\{', 'i'),
+    new RegExp('\\b(?:const|let|var)\\s+' + escaped + '(?:Schema|Model|Definition)\\b', 'i'),
+    new RegExp('\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["\\x27]?' + escapeRegExp(snake) + '["\\x27]?(?=\\s|\\(|;|$)', 'i'),
+    new RegExp('\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["\\x27]?' + escaped + '["\\x27]?(?=\\s|\\(|;|$)', 'i'),
+    new RegExp('\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["\\x27]?' + escapeRegExp(plural) + '["\\x27]?(?=\\s|\\(|;|$)', 'i'),
+    new RegExp('\\b(?:pgTable|sqliteTable|mysqlTable)\\s*\\(\\s*["\\x27]' + escapeRegExp(plural) + '["\\x27]', 'i'),
+  ];
+  for (const [file, source] of Object.entries(files)) {
+    if (!TEXT_SOURCE.test(file)) continue;
+    const text = String(source || '');
+    const mongooseDeclaration = new RegExp('\\bmodel\\s*\\(\\s*["\\x27]' + escaped + '["\\x27]', 'i').test(text) && /\bnew\s+Schema\s*\(/i.test(text);
+    if (patterns.some(pattern => pattern.test(text)) || mongooseDeclaration) return file;
+  }
+  return null;
+}
+
+function indexDeclarationEvidence(index, files) {
+  const entity = String(index && index.entity || '').trim();
+  const fields = Array.isArray(index && index.fields) ? index.fields.map(value => String(value)) : [];
+  if (!entity || !fields.length) return null;
+  const snake = entity.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+  const tableNames = [...new Set([snake, snake.endsWith('s') ? snake : snake + 's'])];
+  const fieldPattern = fields.map(field => new RegExp('\\b' + escapeRegExp(field) + '\\b', 'i'));
+  const allFields = text => fieldPattern.every(pattern => pattern.test(text));
+  for (const [file, source] of Object.entries(files)) {
+    if (!TEXT_SOURCE.test(file)) continue;
+    const text = String(source || '');
+    const prisma = new RegExp('\\bmodel\\s+' + escapeRegExp(entity) + '\\s*\\{([\\s\\S]*?)\\}', 'i').exec(text);
+    if (prisma) {
+      const declarations = prisma[1].split(/\r?\n/).filter(line => /@@(?:index|unique)/i.test(line));
+      if (declarations.some(line => allFields(line) && (index.unique ? /@@unique/i.test(line) : /@@index/i.test(line)))) return file;
+    }
+    const sql = new RegExp('\\bCREATE\\s+' + (index.unique ? 'UNIQUE\\s+' : '') +
+      'INDEX\\b[\\s\\S]{0,240}?\\bON\\s+["\\x27]?(?:\\w+\\.)?(' +
+      tableNames.map(escapeRegExp).join('|') + ')["\\x27]?\\s*\\(([^)]*)\\)', 'i').exec(text);
+    if (sql && allFields(sql[2])) return file;
+    const drizzleDeclarations = Array.from(text.matchAll(/\b(?:uniqueIndex|index)\s*\([^)]*\)\s*\.on\s*\(([^)]*)\)/gi));
+    if (drizzleDeclarations.some(match => allFields(match[1]) && (index.unique ? /\buniqueIndex\s*\(/i.test(match[0]) : /\bindex\s*\(/i.test(match[0])))) return file;
+    const mongooseIndex = /\bschema\.index\s*\(\s*\{([^}]*)\}/gi;
+    for (const match of text.matchAll(mongooseIndex)) {
+      if (allFields(match[1]) && (!index.unique || /unique\s*:\s*true/i.test(text))) return file;
+    }
+  }
+  return null;
+}
+
+function relationshipEvidence(relationship, files) {
+  const from = String(relationship.from || '').replace(/^model-/, '');
+  const to = String(relationship.to || '').replace(/^model-/, '');
+  const fromName = from.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+  const toName = to.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+  const fromPattern = new RegExp('\\b' + escapeRegExp(from) + '\\b', 'i');
+  const toPattern = new RegExp('\\b' + escapeRegExp(to) + '\\b', 'i');
+  const fromHuman = new RegExp('\\b' + escapeRegExp(fromName) + '\\b', 'i');
+  const toHuman = new RegExp('\\b' + escapeRegExp(toName) + '\\b', 'i');
+  for (const [file, source] of Object.entries(files)) {
+    if (!TEXT_SOURCE.test(file)) continue;
+    const text = String(source || '');
+    const namesTogether = (fromPattern.test(text) || fromHuman.test(text)) &&
+      (toPattern.test(text) || toHuman.test(text));
+    const fieldPattern = relationship.foreignKeyField
+      ? new RegExp('\\b' + escapeRegExp(relationship.foreignKeyField) + '\\b', 'i')
+      : null;
+    const fromPrisma = new RegExp('\\bmodel\\s+' + escapeRegExp(fromName.replace(/\s/g, '')) + '\\s*\\{([\\s\\S]*?)\\}', 'i').exec(text);
+    const toPrisma = new RegExp('\\bmodel\\s+' + escapeRegExp(toName.replace(/\s/g, '')) + '\\s*\\{([\\s\\S]*?)\\}', 'i').exec(text);
+    const prismaRelation = Boolean(fromPrisma && toPrisma && fieldPattern &&
+      fieldPattern.test(fromPrisma[1]) &&
+      new RegExp('\\b' + escapeRegExp(toName.replace(/\s/g, '')) + '\\b').test(fromPrisma[1]) &&
+      /@relation\s*\([^)]*fields\s*:/i.test(fromPrisma[1]) &&
+      /references\s*:/i.test(fromPrisma[1]));
+    const relationSignal = /(?:references|foreign\s+key|relation|connect|belongsTo|hasMany|hasOne|@relation|references\s*:)/i.test(text);
+    if (relationship.kind === 'polymorphic-reference') {
+      if (fieldPattern && fieldPattern.test(text) && /sourceType|targetType|entityType/i.test(text)) return file;
+    } else if (prismaRelation || (namesTogether && fieldPattern && fieldPattern.test(text) && relationSignal)) {
+      return file;
+    }
+  }
+  return null;
+}
+
+export function evaluateFullStackSourceContracts(rawFiles, architecture) {
+  const files = {};
+  for (const [rawPath, rawContent] of Object.entries(rawFiles || {})) {
+    const file = normalizePath(rawPath);
+    const content = typeof rawContent === 'string'
+      ? rawContent
+      : rawContent && typeof rawContent.content === 'string' ? rawContent.content : '';
+    if (file && content) files[file] = content;
+  }
+  const pathMap = new Map(Object.keys(files).map(file => [file.toLowerCase(), file]));
+  const routes = Array.isArray(architecture && architecture.apiContracts) ? architecture.apiContracts : [];
+  const models = Array.isArray(architecture && architecture.dataModels) ? architecture.dataModels : [];
+  const relationships = Array.isArray(architecture && architecture.dataIntegrity && architecture.dataIntegrity.relationships)
+    ? architecture.dataIntegrity.relationships : [];
+
+  const routeEvidence = routes.map(route => {
+    const handler = routeHandlerSource(route, files, pathMap);
+    const source = handler && handler.source || '';
+    const methodDetected = Boolean(handler && methodEvidence(source, route.method));
+    const policy = String(route.authPolicy || '').toLowerCase();
+    const authorizationExpected = !policy.startsWith('public') || policy.includes('credential-provider');
+    const authorizationDetected = !authorizationExpected || Boolean(handler && authorizationEvidence(source, route.authPolicy));
+    return {
+      routeId: route.id,
+      method: route.method,
+      path: route.path,
+      authPolicy: route.authPolicy,
+      sourceFile: handler && handler.file || null,
+      sourceMatch: handler && handler.match || 'not-found',
+      methodDetected,
+      authorizationExpected,
+      authorizationDetected,
+      runtimeBehaviorVerified: false,
+      status: !handler ? 'missing-route-source'
+        : !methodDetected ? 'http-method-source-not-detected'
+          : !authorizationDetected ? 'authorization-source-not-detected'
+            : 'source-evidence-present-behavior-unverified',
+    };
+  });
+  const modelEvidence = models.map(model => {
+    const sourceFile = schemaDeclarationEvidence(model, files);
+    return {
+      modelId: model.id,
+      model: model.name,
+      sourceFile,
+      status: sourceFile ? 'schema-source-evidence-present-behavior-unverified' : 'missing-schema-source',
+      runtimePersistenceVerified: false,
+    };
+  });
+  const indexContracts = Array.isArray(architecture && architecture.dataIntegrity && architecture.dataIntegrity.indexes)
+    ? architecture.dataIntegrity.indexes : [];
+  const indexEvidence = indexContracts.map(index => {
+    const sourceFile = indexDeclarationEvidence(index, files);
+    return {
+      entity: index.entity,
+      fields: index.fields,
+      unique: index.unique === true,
+      sourceFile,
+      status: sourceFile ? 'index-source-evidence-present-behavior-unverified' : 'missing-index-source',
+      queryPerformanceVerified: false,
+    };
+  });
+  const relationEvidence = relationships.map(relationship => {
+    const sourceFile = relationshipEvidence(relationship, files);
+    return {
+      relationshipId: relationship.id,
+      from: relationship.from,
+      to: relationship.to,
+      sourceFile,
+      status: sourceFile ? 'relationship-source-evidence-present-behavior-unverified' : 'missing-relationship-source',
+      referentialIntegrityVerified: false,
+    };
+  });
+  const missingRouteSourceCount = routeEvidence.filter(item => item.status === 'missing-route-source').length;
+  const missingMethodEvidenceCount = routeEvidence.filter(item => item.status === 'http-method-source-not-detected').length;
+  const missingAuthorizationEvidenceCount = routeEvidence.filter(item => item.status === 'authorization-source-not-detected').length;
+  const missingSchemaSourceCount = modelEvidence.filter(item => item.status === 'missing-schema-source').length;
+  const missingRelationshipSourceCount = relationEvidence.filter(item => item.status === 'missing-relationship-source').length;
+  const missingIndexSourceCount = indexEvidence.filter(item => item.status === 'missing-index-source').length;
+  const hasContracts = routeEvidence.length + modelEvidence.length + relationEvidence.length + indexEvidence.length > 0;
+  const complete = hasContracts && missingRouteSourceCount + missingMethodEvidenceCount + missingAuthorizationEvidenceCount +
+    missingSchemaSourceCount + missingRelationshipSourceCount + missingIndexSourceCount === 0;
+  return {
+    status: !hasContracts ? 'no-backend-contracts-requested' : complete ? 'source-evidence-present-runtime-unverified' : 'missing-full-stack-source-evidence',
+    requestedRouteCount: routeEvidence.length,
+    routeSourceEvidenceCount: routeEvidence.filter(item => item.sourceFile).length,
+    modelCount: modelEvidence.length,
+    modelSchemaEvidenceCount: modelEvidence.filter(item => item.sourceFile).length,
+    relationshipCount: relationEvidence.length,
+    relationshipSourceEvidenceCount: relationEvidence.filter(item => item.sourceFile).length,
+    indexCount: indexEvidence.length,
+    indexSourceEvidenceCount: indexEvidence.filter(item => item.sourceFile).length,
+    missingIndexSourceCount,
+    missingRouteSourceCount,
+    missingMethodEvidenceCount,
+    missingAuthorizationEvidenceCount,
+    missingSchemaSourceCount,
+    missingRelationshipSourceCount,
+    routeEvidence,
+    modelEvidence,
+    relationEvidence,
+    indexEvidence,
+    runtimeBehaviorVerified: false,
+    databasePersistenceVerified: false,
+    integrationDeliveryVerified: false,
+    deploymentVerified: false,
+    note: 'This audit detects bounded source declarations only. It does not execute routes, migrations, authorization, database writes, provider delivery or browser journeys.',
+  };
+}
+ + part.slice(1, -1) : part).join('.');
+  const verb = String(method || 'GET').toLowerCase();
   const candidates = [];
   for (const ext of SOURCE_EXTENSIONS) {
     candidates.push(
@@ -31,6 +297,11 @@ function routeCandidates(routePath) {
       'src/pages/api/' + suffix + ext,
       'app/api/' + suffix + '/route' + ext,
       'src/app/api/' + suffix + '/route' + ext,
+      'src/routes/api/' + suffix + '/+server' + ext,
+      'server/api/' + suffix + '.' + verb + ext,
+      'server/api/' + suffix + ext,
+      'app/routes/api.' + remixSuffix + ext,
+      'server/routes/' + suffix + ext,
     );
   }
   return candidates.map(normalizePath);
