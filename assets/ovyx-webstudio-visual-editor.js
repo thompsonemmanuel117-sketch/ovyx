@@ -372,6 +372,23 @@
     w.applyVisualEditorStyle = writeStyle;
     w.applyVisualEditorAttribute = writeAttribute;
     w.applyVisualEditorText = writeText;
+    var originalRecordHistory = typeof w.recordHistory === 'function' ? w.recordHistory : null;
+    if (originalRecordHistory) w.recordHistory = function () {
+      var result = originalRecordHistory.apply(this, arguments);
+      this.__ovyxHistoryAwaitingRender = true;
+      return result;
+    };
+    var originalRender = typeof w.render === 'function' ? w.render : null;
+    if (originalRender) w.render = function () {
+      var result = originalRender.apply(this, arguments);
+      if (this.__ovyxHistoryAwaitingRender) {
+        this.__ovyxHistoryAwaitingRender = false;
+        var before = {};
+        try { before = JSON.parse(this.historyStack[this.historyPointer] || '{}'); } catch (_) {}
+        pushUndoState(this, before);
+      }
+      return result;
+    };
     var originalSelect = typeof w.selectPreviewElement === 'function' ? w.selectPreviewElement : null;
     if (originalSelect) w.selectPreviewElement = function (info) { var result = originalSelect.apply(this, arguments); window.requestAnimationFrame(function () { renderInspector(); renderInspectorWithUpload(); }); return result; };
     var originalBuild = typeof w.buildPreviewDocument === 'function' ? w.buildPreviewDocument : null;
