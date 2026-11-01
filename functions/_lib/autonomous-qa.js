@@ -375,7 +375,7 @@ export function evaluateGeneratedWebsiteFiles(rawFiles = {}, options = {}) {
       } else if (plan.journeys.length > 12 || plan.apiChecks.length > 20 ||
           plan.journeys.some(journey => Array.isArray(journey?.steps) && journey.steps.length > 30)) {
         add('blocker', 'QA_PLAN_LIMIT_EXCEEDED', 'The generated QA plan exceeds the supported journey, step or API probe limits.', 'ovyx-qa-plan.json');
-      } else if (typeof plan.backendRequired !== 'boolean' || !Array.isArray(plan.backendChecks) || plan.backendChecks.length > 24 || (plan.backendRequired && plan.backendChecks.length === 0)) {
+      } else if (typeof plan.backendRequired !== 'boolean' || !Array.isArray(plan.backendChecks) || plan.backendChecks.length > 24 || (plan.backendRequired && plan.backendChecks.length === 0) || (!plan.backendRequired && plan.backendChecks.length > 0)) {
         add('blocker', 'QA_BACKEND_PLAN_INVALID', 'The generated QA plan must declare a bounded backendChecks array for isolated backend runtime testing.', 'ovyx-qa-plan.json');
       } else {
         const allowedActions = new Set(['click', 'fill', 'check', 'uncheck', 'select', 'expectText', 'expectVisible', 'expectHidden', 'expectUrl', 'expectValue']);
