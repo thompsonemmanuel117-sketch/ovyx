@@ -1482,7 +1482,7 @@
     report.finishedAt = new Date().toISOString();
     report.status = reportStatus(report);
     report.counts = countIssues(report);
-    stageStatus('truth', 'done', 'Report assembled from completed source and browser checks.');
+    stageStatus('truth', 'done', 'Report assembled from completed source, browser and backend runtime checks.');
     progressFraction(report.browser.completed + 5, report.browser.total + 5);
     currentReport = report;
     renderFindings(report);
