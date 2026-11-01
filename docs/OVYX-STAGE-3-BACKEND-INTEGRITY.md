@@ -45,7 +45,7 @@ Never promote one level to another based only on source files, mocks, saved conn
 The repository now includes `scripts/ovyx-generated-backend-runtime.test.mjs`, which writes a disposable Cloudflare Pages Functions project and a local D1 database into a temporary directory, applies its migration, starts the generated API under Wrangler's local Pages runtime, and exercises it over HTTP.
 
 The test verifies:
-- unauthenticated requests are rejected;
+- test JWTs are signature-checked and validated for issuer, audience and expiry; forged and expired tokens are rejected;\n- unauthenticated requests are rejected;
 - invalid request bodies are rejected;
 - a valid create operation persists in D1 and can be read back;
 - separate owners cannot list, read, update or delete another owner's records;
@@ -53,7 +53,7 @@ The test verifies:
 - deletion is reflected in subsequent reads;\n- private R2 uploads verify content signatures, remain owner-scoped and stay quarantined until approval;\n- two concurrent overlapping booking requests cannot both reserve the same resource/time window;\n- invalid booking time windows are rejected;
 - the disposable project and local runtime process are cleaned up after the test.
 
-This is runtime evidence for the tested Cloudflare Pages + D1 fixture, not proof that every arbitrary AI-generated backend or every external provider integration works. The harness uses isolated test identities and disposable data; it does not touch OVYX production customer data or run live payments/emails.
+This is runtime evidence for the tested Cloudflare Pages + D1 fixture, not proof that every arbitrary AI-generated backend or every external provider integration works. The harness uses a local test-only JWT issuer/secret and disposable data; it does not validate a real customer identity-provider account, touch OVYX production customer data or run live payments/emails.
 
 The new test is included in `npm test` and therefore in the repository verification workflow.
 
