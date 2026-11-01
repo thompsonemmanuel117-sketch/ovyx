@@ -302,7 +302,18 @@ async function runDeclaredJourneys(page, baseUrl, rawJourneys) {
             }
             await locator.click({ timeout: 3000 });
           } else if (action === 'fill') {
-            if (typeof step.value !== 'string' || step.value.length > 500) throw new Error('fill-value-invalid');
+            const info = await locator.evaluate(el => ({
+              tag: el.tagName.toLowerCase(),
+              type: String(el.getAttribute('type') || '').toLowerCase(),
+              name: String(el.getAttribute('name') || ''),
+              autocomplete: String(el.getAttribute('autocomplete') || ''),
+              disabled: !!el.disabled,
+              readOnly: !!el.readOnly,
+            }));
+            if (!['input', 'textarea'].includes(info.tag) || info.disabled || info.readOnly ||
+                ['password', 'file', 'hidden', 'submit', 'reset', 'button'].includes(info.type) ||
+                /(?:password|card|cvc|cvv|secret|token|bank|iban|account)/i.test(info.name + ' ' + info.autocomplete) ||
+                typeof step.value !== 'string' || step.value.length > 500) throw new Error('unsafe-or-invalid-fill-target');
             await locator.fill(step.value, { timeout: 3000 });
           } else if (action === 'check') await locator.check({ timeout: 3000 });
           else if (action === 'uncheck') await locator.uncheck({ timeout: 3000 });
