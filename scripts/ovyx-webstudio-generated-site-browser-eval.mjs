@@ -542,8 +542,8 @@ async function main() {
               ?await exercisePublicEnquiryForms(page)
               :{status:PUBLIC_ENQUIRY&&ENQUIRY_TEST_RECIPIENT?'public-enquiry-form-not-on-this-route':'not-configured-or-not-opted-in',requestObserved:false,endpointAcceptedTestPayload:false,explicitDeliveryReceipt:false,realEnquiryDeliveryConfirmed:false};
             const formInteractions=vp.width===390?await exerciseQAForms(page):[];
-            if(vp.width===390&&qaPlan.journeys.length)journeyResults=await runDeclaredJourneys(page,baseOrigin,qaPlan.journeys);
-            if(vp.width===390&&qaPlan.apiChecks.length)apiCheckResults=await runDeclaredApiChecks(page,baseOrigin,qaPlan.apiChecks);
+            if(vp.width===390&&relative===html[0]&&qaPlan.journeys.length)journeyResults=await runDeclaredJourneys(page,baseOrigin,qaPlan.journeys);
+            if(vp.width===390&&relative===html[0]&&qaPlan.apiChecks.length)apiCheckResults=await runDeclaredApiChecks(page,baseOrigin,qaPlan.apiChecks);
             const interactionScreenshot=vp.width===390?relative.replace(/[^a-z0-9_-]+/gi,'_')+'__mobile-390__post-interactions.png':null;
             if(interactionScreenshot)await page.screenshot({path:path.join(output,interactionScreenshot),fullPage:true,animations:'disabled',timeout:12000}).catch(()=>{});
             checks.push({page:relative,route,viewport:vp.name,metrics,pageErrors:errors,consoleErrors,failedRequests,blockedExternalRequests,navigationError,internalLinkChecks,buttonInteractions,publicEnquiryInteractions,formInteractions,screenshot,interactionScreenshot});
