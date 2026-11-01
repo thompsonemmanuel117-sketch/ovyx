@@ -564,6 +564,7 @@
     if (detectedButtons) {
       addCheck(report, 'Forms and interactions', 'Interactive controls', 'info', detectedButtons + ' interactive control(s) found. Their labels were reviewed; potentially destructive, payment, booking, and account actions are not triggered automatically.');
     }
+    addCheck(report, 'Backend runtime', 'Database persistence and authorization', 'info', 'The in-browser preview is intentionally network-isolated. This inspection does not execute generated D1/KV/R2 bindings, database migrations, CRUD transactions or cross-tenant authorization. Those workflows require a disposable backend runtime adapter; no production database or external provider is contacted.');
     addCheck(report, 'Coverage', 'Source audit coverage', 'pass', 'Page structure and controls were reviewed across ' + pages.length + ' website page(s), including ' + checkedIds + ' page elements.');
   }
   function safeSandboxPayload(page, files, token) {
@@ -1224,6 +1225,10 @@
           journeyAudit.failed + ' failed and ' + journeyAudit.skipped + ' were skipped. No real form submissions, payments, bookings or external service actions were performed.' +
           (journeyAudit.failed ? '\n' + journeyAudit.results.filter(function (item) { return item.status === 'failed'; }).slice(0, 8).map(function (item) { return item.name + ': ' + item.steps.filter(function (step) { return step.status === 'failed'; }).map(function (step) { return step.action + ' — ' + step.detail; }).join('; '); }).join('\n') : ''));
       }
+      if (qaPlan.apiChecks && qaPlan.apiChecks.length) {
+        addCheck(report, 'Integrations', 'Read-only backend API probes', 'info',
+          qaPlan.apiChecks.length + ' read-only API contract probe(s) are declared in the QA plan. The in-editor preview intentionally blocks all network connections, so these probes are not executed here; they require the isolated generated-site runtime evaluator. Database writes, auth-provider flows and external delivery remain unverified until a disposable backend adapter runs.');
+      }
       var interactionAudit = report.browser.interactions;
               interactionAudit.pagesProbed += 1;
               interactionAudit.candidates += Number(browserResult.interactions.candidates || 0);
@@ -1699,6 +1704,8 @@
             '- Make navigation and requested controls behave meaningfully. Give forms real validation, loading, success and error states; never fake delivery, payment, booking or authentication when the integration is not configured.\n' +
             '- Do not invent contact details, prices, testimonials, certifications, business facts, API credentials or connected-service status. Keep missing integrations clearly unverified.\n' +
             '- Use generated project files as the source of truth. The existing test and preview gate must be able to inspect the result; do not claim browser tests ran unless they did.\n' +
+            '- Include a root ovyx-qa-plan.json file using strict JSON {version:1,journeys:[...],apiChecks:[...]}. Derive at least one executable journey for each critical route from the original requirements. Each journey has id, name, startRoute and ordered steps using only click, fill, check, uncheck, select, expectText, expectVisible, expectHidden, expectUrl and expectValue. Use stable data-testid selectors; split cross-page flows into separate journeys per route. Assert the expected result after each action.\n' +
+            '- apiChecks may declare only safe same-origin GET/HEAD probes. Never put secrets or personal data in the plan. The in-editor browser sandbox blocks network and form submission; do not claim database persistence, form delivery, payment, booking or external provider behavior has been tested by the preview sandbox.\n' +
             '- Return complete valid file contents or supported structured edits for the requested task; do not silently drop requested routes or working features.';
         }
         if (isBuild) {
