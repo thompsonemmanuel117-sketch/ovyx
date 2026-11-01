@@ -49,6 +49,9 @@ on:
       - 'functions/_middleware.js'
       - 'functions/api/payments/opay-webhook.js'
       - 'functions/api/payments/paystack-webhook.js'
+      - 'functions/_lib/fullstack-architecture.js'
+      - 'scripts/ovyx-fullstack-architecture.test.mjs'
+      - 'docs/OVYX-PHASE-4-FULL-STACK-CAPABILITIES.md'
       - 'scripts/ovyx-payment-webhook-safety.test.mjs'
       - 'scripts/ovyx-webstudio-quality.test.mjs'
       - 'scripts/ovyx-webstudio-quality.browser.test.mjs'
@@ -88,6 +91,9 @@ on:
       - 'functions/_middleware.js'
       - 'functions/api/payments/opay-webhook.js'
       - 'functions/api/payments/paystack-webhook.js'
+      - 'functions/_lib/fullstack-architecture.js'
+      - 'scripts/ovyx-fullstack-architecture.test.mjs'
+      - 'docs/OVYX-PHASE-4-FULL-STACK-CAPABILITIES.md'
       - 'scripts/ovyx-payment-webhook-safety.test.mjs'
       - 'functions/api/ai/assistant.js'
       - 'scripts/ovyx-webstudio-quality.test.mjs'
@@ -118,6 +124,8 @@ jobs:
         run: npm test
       - name: Test payment webhook idempotency and signature safety
         run: node scripts/ovyx-payment-webhook-safety.test.mjs
+      - name: Test full-stack architecture contracts
+        run: node scripts/ovyx-fullstack-architecture.test.mjs
       - name: Run static validation
         run: npm run validate
       - name: Run production build validation
