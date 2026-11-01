@@ -73,16 +73,15 @@ function pagePlan(contract) {
  * maintaining route-specific versions of those decisions.
  */
 export function buildWebsiteEnginePlan(prompt, context = {}) {
-  const brief = String(prompt ?? '')
-    .replace(/\u0000/g, '')
-    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ')
-    .trim()
-    .slice(0, 80000);
+  // Preserve line boundaries for requirement extraction; the experience brief
+  // can use a normalized copy, but the contract must see the original clauses.
+  const sourceBrief = String(prompt ?? '').replace(/\u0000/g, '').trim().slice(0, 80000);
+  const brief = clean(sourceBrief, 80000);
   const safeContext = context && typeof context === 'object' && !Array.isArray(context) ? context : {};
-  const promptContract = buildPromptContract(brief);
+  const promptContract = buildPromptContract(sourceBrief);
   const experience = buildExperienceBrief(brief, safeContext);
   const pages = pagePlan(promptContract);
-  const fullStackArchitecture = buildFullStackArchitecture(brief, promptContract, safeContext, pages);
+  const fullStackArchitecture = buildFullStackArchitecture(sourceBrief, promptContract, safeContext, pages);
   const explicitMultiPage = pages.length > 1 ||
     /\b(?:multi[- ]?page|multiple pages|several pages|\d+ pages)\b/i.test(brief);
   const signals = promptContract.contactSignals || {};
