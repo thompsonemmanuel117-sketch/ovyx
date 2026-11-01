@@ -3,10 +3,18 @@
   "purpose": "Repeatable evaluation inputs for OVYX Web Studio. These are fixtures, not claims that a live AI provider has generated or passed all scenarios.",
   "requiredResponsiveWidths": [
     320,
+    360,
+    375,
     390,
+    430,
+    540,
+    640,
     768,
+    820,
     1024,
-    1440
+    1280,
+    1440,
+    1920
   ],
   "acceptanceCriteria": [
     "Distinctive visual direction suited to the specific business instead of a generic reused template",
