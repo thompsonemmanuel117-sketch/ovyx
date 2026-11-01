@@ -90,10 +90,10 @@ export async function onRequestPost(context) {
     const payload = await readJson(context.request, MAX_BODY_BYTES);
     const projectId = String(payload.projectId || '').trim().slice(0, 160);
     const plan = payload.qaPlan;
-    if (!projectId) return errorResponse('A Web Studio project ID is required.', 400, 'PROJECT_ID_REQUIRED');
+    if (!projectId) return errorResponse(400, 'PROJECT_ID_REQUIRED', 'A Web Studio project ID is required.');
     if (!plan || plan.version !== 1 || plan.backendRequired !== true ||
         !Array.isArray(plan.backendChecks) || plan.backendChecks.length < 1 || plan.backendChecks.length > 24) {
-      return errorResponse('This project has no valid backend runtime test plan.', 422, 'BACKEND_QA_PLAN_INVALID');
+      return errorResponse(422, 'BACKEND_QA_PLAN_INVALID', 'This project has no valid backend runtime test plan.');
     }
     const files = validateFiles(payload.files);
     const target = resolveRuntimeTarget(context.env);
