@@ -48,7 +48,7 @@ function inferCapabilities(prompt, contract) {
   const source = String(prompt || '');
   const signals = contract && contract.contactSignals || {};
   const explicitFullStack = hasPositiveIntent(source, /\b(?:full[- ]stack|backend[- ]enabled|server[- ]backed application)\b/i);
-  const admin = hasPositiveIntent(source, /\b(?:admin dashboard|administrator|back office|staff dashboard|manage users|manage orders|manage bookings)\b/i);
+  const admin = hasPositiveIntent(source, /\b(?:admin dashboards?|administrator|back office|staff dashboards?|manage users|manage orders|manage bookings)\b/i);
   const commerce = signals.shoppingCart === true || signals.addToCart === true ||
     hasPositiveIntent(source, /\b(?:e-commerce|ecommerce|online store|sell products|product catalogue|product catalog|shopping cart|add to cart)\b/i);
   const payment = signals.payments === true ||
