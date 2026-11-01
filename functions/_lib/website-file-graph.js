@@ -150,7 +150,7 @@ export function buildWebsiteFileGraph(input, options = {}) {
     for (const match of source.matchAll(/\bexport\s+(?:const|let|var)\s+([A-Z][A-Za-z0-9_$]*)\s*=/g)) names.add(match[1]);
     if (names.size) componentCandidates.set(path, [...names].sort());
   }
-  const routeEntrypoints = [...files.keys()].filter(path => /\.html?$/i.test(path) || /(?:^|\/)(?:page|index)\.(?:tsx?|jsx?)$/i.test(path));
+  const routeEntrypoints = [...files.keys()].filter(path => /\.html?$/i.test(path) || /(?:^|\/)pages\/.+\.(?:tsx?|jsx?)$/i.test(path));
   const outgoing = new Map();
   for (const edge of edges) {
     if (!outgoing.has(edge.from)) outgoing.set(edge.from, []);
