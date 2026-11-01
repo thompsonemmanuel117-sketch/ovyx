@@ -128,3 +128,8 @@ After the merged source-level repairs, run the documented live workflow in its s
 - **Production ready:** all requirements relevant to the release passed, no hard blockers remain, and human review required by the workflow is recorded.
 
 A queued job is not a pass. A green fixture is not a live delivery. A generated file is not a successful build. A successful provider preflight is not a successful website build. A successful deploy API response is not proof that the deployed user journey works.
+
+
+## AI inference boundary
+
+OVYX production AI inference is Cloudflare Workers AI only. Browser-local inference prototypes are not part of the supported product and must not be exposed, bundled, linked, or used as a fallback. Missing Cloudflare AI configuration or quota exhaustion must fail safely without switching to a browser-local model or another external provider.
