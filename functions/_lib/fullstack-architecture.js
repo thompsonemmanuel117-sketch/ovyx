@@ -64,6 +64,11 @@ function inferCapabilities(prompt, contract) {
   const forms = signals.forms === true || hasPositiveIntent(source, /\b(?:application forms?|registration forms?|feedback forms?|survey forms?|intake forms?|custom forms?|multi[- ]step forms?|form builder|form submissions?)\b/i);
   const newsletter = signals.newsletter === true ||
     hasPositiveIntent(source, /\b(?:newsletter|mailing list|email updates|subscribe for updates)\b/i);
+  const subscriptions = hasPositiveIntent(source, /\b(?:subscriptions?|recurring billing|membership plans?|paid memberships?|subscription management|manage subscriptions?)\b/i) && !newsletter;
+  const notifications = hasPositiveIntent(source, /\b(?:notifications?|alerts?|reminders?|order updates|booking confirmations?)\b/i);
+  const dashboards = admin || hasPositiveIntent(source, /\b(?:dashboard|analytics|reports?|reporting|business metrics)\b/i);
+  const integrations = hasPositiveIntent(source, /\b(?:integrations?|connect to|third[- ]party services?|external services?|sync with|webhook integrations?)\b/i);
+  const automation = hasPositiveIntent(source, /\b(?:automations?|automated workflows?|workflow automation|scheduled reports?|recurring jobs?)\b/i);
   const email = signals.emailDelivery === true || newsletter ||
     hasPositiveIntent(source, /\b(?:email delivery|send\b.{0,80}\bemails?\b|emails?\b.{0,80}\b(?:send|deliver|dispatch)|email notification|transactional email)\b/i);
   const fileStorage = hasPositiveIntent(source, /\b(?:file uploads?|image uploads?|document uploads?|media library|file storage|user uploads?|user[- ]uploaded|uploaded by users|users?\s+to\s+upload)\b/i) ||
@@ -88,6 +93,11 @@ function inferCapabilities(prompt, contract) {
     forms,
     email,
     newsletter,
+    subscriptions,
+    notifications,
+    dashboards,
+    integrations,
+    automation,
     booking,
     fileStorage,
     admin,
