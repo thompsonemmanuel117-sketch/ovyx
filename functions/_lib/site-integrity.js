@@ -67,12 +67,17 @@ function fileIndex(files) {
   return byLower;
 }
 
+function routeCollisionSignature(value) {
+  return normalizeRoute(value)
+    .replace(/\\[\\[?\\.\\.\\.[^\\]]+\\]\\]?|\\[[^\\]]+\\]|:[A-Za-z0-9_]+|\\*/g, ':param');
+}
+
 function routeCollisionGroups(siteMap) {
   const groups = new Map();
   for (const page of Array.isArray(siteMap && siteMap.pages) ? siteMap.pages : []) {
     const path = cleanPath(page && page.path);
     if (!path) continue;
-    const route = normalizeRoute(page.url || '/');
+    const route = routeCollisionSignature(page.url || '/');
     const group = groups.get(route) || [];
     if (!group.some(item => item.path === path)) {
       group.push({ path, url: page.url || '/', title: String(page.title || page.name || path).slice(0, 120) });
