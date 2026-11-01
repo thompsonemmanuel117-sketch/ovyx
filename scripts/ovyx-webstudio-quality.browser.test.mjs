@@ -499,11 +499,11 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   await page.locator('[data-quality-run]').click();
   await page.waitForFunction(() => {
     const report = window.OVYXWebStudioQuality?.getReport();
-    return report?.finishedAt && report.browser.pagesAvailable === 18 && report.browser.total === 45 && report.browser.completed === 45;
+    return report?.finishedAt && report.browser.pagesAvailable === 18 && report.browser.total === 69 && report.browser.completed === 69;
   }, null, { timeout: 120000 });
   const largeReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
   assert.equal(largeReport.browser.pagesTested, 18, 'All routes, including routes after the former 12-route cap, must be browser-tested.');
-  assert.equal(largeReport.browser.total, 45, 'Three core routes receive five viewport checks each; fifteen additional routes receive mobile and desktop checks.');
+  assert.equal(largeReport.browser.total, 69, 'Three core routes receive thirteen viewport checks each; fifteen additional routes receive mobile and desktop checks.');
   assert.equal(largeReport.browser.interactions.candidates, 11, 'The inspector must discover the home disclosure, front-end Add to Cart action, and nine safe details controls.');
   assert.equal(largeReport.browser.interactions.tested, 10, 'The per-route sampling limit should test both home controls and eight controls from the large route.');
   assert.equal(largeReport.browser.interactions.responded, 10, 'The disclosure, local cart action, and safe details controls must show observable state changes.');
