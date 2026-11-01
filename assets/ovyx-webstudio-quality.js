@@ -1216,13 +1216,20 @@
                 if (accessibilityAudit.focusObscured.indexOf(entry) < 0) accessibilityAudit.focusObscured.push(entry);
               });
               var journeyAudit = report.browser.journeys;
-      if (qaPlan.status !== 'ready' || !journeyAudit.total) {
-        addCheck(report, 'Browser testing', 'Requirement-derived user journeys', 'warn',
+      var availableJourneyRoutes = new Set(pages.map(function (page) { return normalizeRoute(page.route || '/'); }));
+      var unmatchedJourneys = qaPlan.journeys.filter(function (journey) {
+        return !journey.startRoute || !journey.steps.length || !availableJourneyRoutes.has(normalizeRoute(journey.startRoute));
+      });
+      if (qaPlan.status !== 'ready' || !journeyAudit.total || unmatchedJourneys.length) {
+        var journeyCoverageStatus = unmatchedJourneys.length ? 'fail' : 'warn';
+        addCheck(report, 'Browser testing', 'Requirement-derived user journeys', journeyCoverageStatus,
           qaPlan.status === 'missing'
             ? 'No ovyx-qa-plan.json was found. The page matrix and safe-control smoke test ran, but requirement-derived user journeys were not executed.'
             : qaPlan.status === 'invalid' || qaPlan.status === 'empty'
               ? 'The generated QA plan is invalid or contains no executable journeys. Critical user journeys remain unverified.'
-              : 'No declared user journey matched a generated page route. Check each journey startRoute against the actual project routes.');
+              : (!journeyAudit.total
+                ? 'No declared user journey matched a generated page route. Check each journey startRoute against the actual project routes.'
+                : 'Some declared journeys do not match a generated page route or contain no executable steps: ' + unmatchedJourneys.slice(0, 8).map(function (journey) { return journey.name; }).join(', ')));
       } else {
         addCheck(report, 'Browser testing', 'Requirement-derived user journeys',
           journeyAudit.failed ? 'fail' : journeyAudit.skipped ? 'warn' : 'pass',
