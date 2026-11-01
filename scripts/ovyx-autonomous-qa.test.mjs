@@ -47,7 +47,7 @@ assert.ok(architectureRequiresBackend.findings.some(item => item.code === 'QA_BA
   'A generated model must not evade backend tests by declaring a frontend-only QA plan when the trusted architecture requires a backend.');
 const unsafeBackendPlan = evaluateGeneratedWebsiteFiles({
   'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Unsafe backend plan</title></head><body><h1>Unsafe backend plan</h1></body></html>',
-  'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: true, journeys: [{ id: 'home', startRoute: '/', steps: [{ action: 'expectText', text: 'Unsafe backend plan' }] }], apiChecks: [], backendChecks: [{ id: 'charge', method: 'POST', route: '/api/payments/charge', body: { amount: 5000 }, sideEffect: 'external-provider' }] }),
+  'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: true, journeys: [{ id: 'home', startRoute: '/', steps: [{ action: 'expectText', text: 'Unsafe backend plan' }] }], apiChecks: [], backendChecks: [{ id: 'charge', method: 'POST', route: '/api/payments/charge', sourceFile: 'functions/api/payments.js', body: { amount: 5000 }, sideEffect: 'external-provider' }] }),
 });
 assert.ok(unsafeBackendPlan.findings.some(item => item.code === 'QA_BACKEND_CHECK_UNSAFE'),
   'Mutating backend checks must be explicitly restricted to disposable local side effects.');
