@@ -381,6 +381,8 @@ try {
   assert.ok(first.checks.some(item => item.title === 'Rendered text contrast sample' && item.status === 'pass'), 'The accessible fixture must pass the rendered contrast audit.');
   assert.ok(first.browser.accessibility.focusControls > 0, 'The mobile browser pass must inspect keyboard-focusable controls.');
   assert.ok(first.checks.some(item => item.title === 'Visible keyboard focus indicators' && item.status === 'pass'), 'The accessible fixture must report visible focus cues.');
+  assert.ok(Array.isArray(first.browser.accessibility.focusObscured), 'The browser inspector must return a focus-obscuration evidence list.');
+  assert.ok(first.checks.some(item => item.title === 'Keyboard focus is not obscured' && item.status === 'pass'), 'The accessible fixture must confirm sampled focus targets are not covered by another element.');
   assert.ok(first.browser.performance.samples > 0, 'The browser matrix must collect isolated render and DOM metrics.');
   assert.ok(first.browser.performance.maxDomNodes > 0, 'The diagnostic must count rendered DOM nodes.');
   assert.ok(first.checks.some(item => item.title === 'Page loading performance' && item.status === 'pass'), 'The small fixture must pass the inspector\'s current isolated render and DOM budget check.');
