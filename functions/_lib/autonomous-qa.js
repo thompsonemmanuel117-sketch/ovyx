@@ -31,7 +31,7 @@ function safeSourcePath(value) {
       path.split('/').some(part => !part || part === '.' || part === '..') ||
       /^(?:node_modules|dist|build|coverage|\.git|\.wrangler|\.vercel|\.env)(?:\/|$)/i.test(path) ||
       /(?:^|\/)(?:secrets?|credentials?|private[-_]?keys?)(?:\/|\.|$)/i.test(path) ||
-      !SOURCE_EXTENSION.test(path)) return '';
+      (!SOURCE_EXTENSION.test(path) && path !== 'ovyx-qa-plan.json')) return '';
   return path;
 }
 
