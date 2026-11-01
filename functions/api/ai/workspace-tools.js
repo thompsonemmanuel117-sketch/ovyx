@@ -651,7 +651,6 @@ async function handleTool(env, identity, body) {
       fail('This file contains secret-like values. OVYX will not restore it automatically.', 403, 'SOURCE_CONTAINS_SECRET');
     }
     const diff = lineDiff(slot.current, restoreContent);
-    const dependencyImpact = buildWorkspaceFileImpact(found.project, filePath);
     return {
       operation,
       projectId: found.id,
@@ -687,6 +686,7 @@ async function handleTool(env, identity, body) {
     const slot = locateFile(found.project, filePath);
     if (!slot) fail('The saved recovery version refers to a file that no longer exists. No change was made.', 404, 'SOURCE_FILE_NOT_FOUND');
     const restoreContent = String(backup.originalContent ?? '');
+    const dependencyImpact = buildWorkspaceFileImpact(found.project, filePath);
     if (!restoreContent.trim()) fail('The saved recovery version is empty or incomplete. No change was made.', 422, 'REVISION_CONTENT_UNAVAILABLE');
     if (restoreContent.length > MAX_BACKUP_SOURCE_BYTES || slot.current.length > MAX_BACKUP_SOURCE_BYTES) {
       fail('This recovery version is too large for a safe automatic restore.', 413, 'SOURCE_TOO_LARGE_FOR_BACKUP');
