@@ -1172,7 +1172,8 @@ export async function runWebsiteGeneration(options = {}) {
 
   let autonomousQa = null;
   if (shouldBuild && !scopedEdit && result.files && typeof result.files === 'object' && !Array.isArray(result.files)) {
-    const initialStaticEvidence = evaluateGeneratedWebsiteFiles(result.files);
+    const backendRequired = fullStackArchitecture?.capabilities?.backend === true;
+    const initialStaticEvidence = evaluateGeneratedWebsiteFiles(result.files, { backendRequired });
     const repairCycle = await runAutonomousRepairCycle({
       files: result.files,
       originalBrief: originalPrompt || multiPageOptions.prompt || modelOptions.taskPrompt || '',
@@ -1197,7 +1198,7 @@ export async function runWebsiteGeneration(options = {}) {
         quotaOutputText += (quotaOutputText ? '\n\n' : '') + String(repairResponse?.text || '');
         return repairResponse?.text || '';
       },
-      verify: async ({ files }) => [evaluateGeneratedWebsiteFiles(files)],
+      verify: async ({ files }) => [evaluateGeneratedWebsiteFiles(files, { backendRequired })],
       limits: { maxFiles: 4, maxFileChars: 24000, maxContextChars: 48000 },
     });
     if (repairCycle.repair.status === 'repaired-and-passed' ||
