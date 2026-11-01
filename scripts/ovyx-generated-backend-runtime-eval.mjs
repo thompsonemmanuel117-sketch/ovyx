@@ -41,10 +41,13 @@ function containsSensitivePayload(value) {
 }
 
 export function validateBackendChecks(plan) {
-  if (!plan || plan.version !== 1 || !Array.isArray(plan.backendChecks)) {
+  if (!plan || plan.version !== 1 || typeof plan.backendRequired !== 'boolean' || !Array.isArray(plan.backendChecks)) {
     return { ok: false, reason: 'backend-check-plan-missing-or-invalid', checks: [] };
   }
-  if (plan.backendChecks.length < 1 || plan.backendChecks.length > MAX_CHECKS) {
+  if (!plan.backendRequired && plan.backendChecks.length === 0) {
+    return { ok: true, notRequired: true, reason: '', checks: [] };
+  }
+  if (!plan.backendRequired || plan.backendChecks.length < 1 || plan.backendChecks.length > MAX_CHECKS) {
     return { ok: false, reason: 'backend-check-count-out-of-range', checks: [] };
   }
   const ids = new Set();
@@ -269,6 +272,11 @@ export async function runCloudflarePagesBackendRuntime(options = {}) {
     const plan = JSON.parse(await readFile(path.join(projectRoot, 'ovyx-qa-plan.json'), 'utf8'));
     const validated = validateBackendChecks(plan);
     if (!validated.ok) throw new Error(validated.reason);
+    if (validated.notRequired) {
+      report.status = 'not-required';
+      report.findings.push({ severity: 'info', code: 'BACKEND_NOT_REQUIRED', message: 'The generated QA plan explicitly declares no backend runtime requirement.' });
+      return report;
+    }
     const sourceFiles = await walkSafe(projectRoot);
     if (sourceFiles.length > 500 || sourceFiles.reduce((sum, file) => sum + file.bytes, 0) > 20 * 1024 * 1024) throw new Error('generated-artifact-size-limit');
     if (!sourceFiles.some(file => file.relative.startsWith('functions/'))) throw new Error('cloudflare-pages-functions-not-found');
