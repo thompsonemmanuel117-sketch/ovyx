@@ -16,7 +16,7 @@ for (const token of [
   'ovyxVisualDragMode', 'ovyxVisualMove', 'data-ovyx-responsive-state',
   '@media (max-width: 600px)', '@media (min-width: 601px) and (max-width: 1024px)',
   'snapshotGraph', 'commitHistory', 'syncGraphToProject', 'renderPreview',
-  'OVYXAssetStore', 'openSections', 'w.undo', 'w.redo',
+  'OVYXAssetStore', 'requireAssetAccess', 'openSections', 'w.undo', 'w.redo',
   'Only secure or project-local image URLs can be applied.',
   'Components can only be reordered within the same parent.',
   'nested elements. Use Open Code or Ask OVYX'
