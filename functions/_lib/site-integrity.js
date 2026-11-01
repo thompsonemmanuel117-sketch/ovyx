@@ -43,7 +43,7 @@ function normalizeRoute(value) {
   route = route.replace(/\/{2,}/g, '/');
   if (/\/index\.html?$/i.test(route)) route = route.replace(/index\.html?$/i, '');
   if (!route.endsWith('/') && !/\.[a-z0-9]{1,12}$/i.test(route)) route += '/';
-  return route.toLowerCase();
+  return route;
 }
 
 function resolveLocalFile(fromFile, reference) {
