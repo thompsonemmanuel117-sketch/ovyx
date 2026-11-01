@@ -2,7 +2,7 @@
 
 **Roadmap stage:** 5 of 10  
 **Product goal:** OVYX must inspect the actual website/application it has generated, execute meaningful browser and backend tests, repair failures safely, and repeat verification before reporting completion.  
-**Status:** In progress — existing evaluation and bounded generation-repair foundations audited; end-to-end browser-feedback repair loop is not yet implemented.
+**Status:** In progress — static generation-time repair and in-editor requirement-derived browser journey repair are integrated; per-generated-backend runtime verification and its repair/retest adapter remain outstanding.
 
 ## Important naming distinction
 
@@ -25,7 +25,7 @@ These are useful foundations, but they do not yet form one general autonomous te
 2. **Requirement-derived tests:** turn the original brief and trusted architecture manifest into concrete page, control, form, API, database and end-to-end journey tests. Keep planned, executed, passed, failed and blocked states distinct.
 3. **Real generated-app runtime:** run supported generated server routes and database migrations against isolated disposable test resources. Static-file hosting alone must not be described as backend testing.
 4. **Meaningful browser journeys:** test expected outcomes and resulting state, not merely whether a click changed the DOM. Cover navigation, forms, authentication/authorization boundaries, commerce/booking/subscription flows where the generated app declares them, plus responsive and accessibility checks.
-5. **Browser-feedback repair:** feed sanitized, bounded browser/runtime failures and exact source evidence into the existing guarded model path. Repair only selected files; reject path traversal, secrets, oversized files, unrequested files and unrelated rewrites.
+5. **Browser-feedback repair:** the in-editor preview now feeds failed requirement-derived UI journeys into its existing guarded one-attempt repair path and re-runs the same inspection. Sanitized backend-runtime feedback still needs to be connected to the server-side repair coordinator.
 6. **Repair verification:** rerun the same failed tests after a repair. Accept a candidate only when it improves the reported failures and introduces no new blocker/regression. Cap retries and stop rather than loop indefinitely.
 7. **Safe persistence:** generated-project edits must use existing owner-scoped project APIs, current revision checks, backups/recovery and the required approval boundary. Do not silently overwrite a user's saved project.
 8. **Honest reporting:** separate local fixture evidence, generated-source evidence, isolated runtime evidence, external-provider receipts, human review and production deployment. Never claim real email, payment, OAuth, inventory or booking success from a mocked QA endpoint.
@@ -37,8 +37,8 @@ These are useful foundations, but they do not yet form one general autonomous te
 - [x] Instruct the Website Engine to generate a bounded `ovyx-qa-plan.json` manifest from the original requirements and actual routes/controls.
 - [ ] Add isolated generated-backend runtime execution for supported deployment targets and disposable databases.
 - [x] Add requirement-aware browser journeys with explicit expected outcomes and state assertions, loaded from the generated `ovyx-qa-plan.json` manifest. Safe same-origin GET/HEAD API probes are supported.
-- [ ] Add one bounded browser/runtime-feedback repair attempt through the existing guarded AI provider and file-safety boundaries.
-- [ ] Re-run the same tests after repair; reject regressions and retain before/after evidence.
+- [x] Add one bounded in-editor browser-journey feedback repair attempt through the existing guarded AI provider and snapshot rollback boundary. Backend-runtime-feedback repair remains pending.
+- [x] Re-run the same in-editor journey and responsive browser checks after repair; reject regressions and restore the previous snapshot when the repair does not pass. Server-side backend-runtime retesting remains pending.
 - [ ] Integrate browser/backend runtime evidence and post-repair verification into the full Web Studio preview/project revision lifecycle. The generation response now includes static QA/repair evidence and explicitly blocked runtime channels.
 - [ ] Add CI fixtures for clean, broken, security-sensitive and backend-connected generated apps.
 - [ ] Run full repository tests, static validation, production build, browser/device checks and live acceptance where credentials and approvals exist.
