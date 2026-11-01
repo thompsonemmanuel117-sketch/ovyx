@@ -747,9 +747,15 @@ export async function runWebsiteGeneration(options = {}) {
       const frontendHtml = typeof result.html === 'string' ? result.html
         : typeof result.content === 'string' ? result.content
           : typeof result.text === 'string' ? result.text : '';
-      const hasFrontendFile = Object.keys(result.files || {}).some(filePath =>
-        /\.(?:html?|tsx?|jsx?|astro|vue|svelte)$/i.test(filePath)
-      );
+      const hasFrontendFile = Object.keys(result.files || {}).some(filePath => {
+        const backendPrefixes = [
+          'functions/', 'api/', 'app/api/', 'src/app/api/', 'pages/api/', 'src/pages/api/',
+          'server/', 'src/server/', 'src/lib/server/', 'src/routes/api/', 'app/routes/api.',
+          'prisma/', 'migrations/', 'db/', 'database/', 'tests/', 'test/', '__tests__/',
+        ];
+        const isBackendPath = backendPrefixes.some(prefix => filePath.startsWith(prefix));
+        return !isBackendPath && /\.(?:html?|tsx?|jsx?|astro|vue|svelte)$/i.test(filePath);
+      });
       if (result.files && typeof result.files === 'object' && Object.keys(result.files).length) {
         if (!hasFrontendFile && /<(?:!doctype\s+html|html\b)/i.test(frontendHtml)) {
           result = { ...result, files: { ...result.files, 'index.html': frontendHtml } };
