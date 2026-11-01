@@ -69,7 +69,7 @@ function validateFiles(rawFiles) {
 function resolveRuntimeTarget(env) {
   if (env.OVYX_BACKEND_RUNTIME && typeof env.OVYX_BACKEND_RUNTIME.fetch === 'function') {
     return {
-      fetch: request => env.OVYX_BACKEND_RUNTIME.fetch(request),
+      fetch: (request, init) => env.OVYX_BACKEND_RUNTIME.fetch(request, init),
       request: new Request('https://ovyx-backend-runtime.internal/evaluate'),
     };
   }
@@ -77,7 +77,7 @@ function resolveRuntimeTarget(env) {
   if (!raw) return null;
   let url;
   try { url = new URL(raw); } catch { return null; }
-  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash ||
+  if (url.protocol !== 'https:' || (url.port && url.port !== '443') || url.username || url.password || url.search || url.hash ||
       /(?:^|\.)localhost$/i.test(url.hostname) || /\.(?:local|internal)$/i.test(url.hostname)) return null;
   url.pathname = '/evaluate';
   return { fetch: (request, init) => fetch(request, init), request: new Request(url.href) };
