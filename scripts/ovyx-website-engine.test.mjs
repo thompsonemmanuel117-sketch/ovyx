@@ -161,11 +161,13 @@ const backendBuild = await runWebsiteGeneration({
           'db/schema.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
         },
       }),
+      usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
     };
   },
   buildMultiPage: async () => ({
     text: 'frontend built',
     files: { 'index.html': '<!doctype html><html><body>Contact</body></html>' },
+    rawUsage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 },
   }),
 });
 assert.equal(backendCalls, 1, 'A full-stack website build must run a distinct backend source-generation pass.');
@@ -175,6 +177,7 @@ assert.ok(backendBuild.result.files['functions/api/contact-submissions.js']);
 assert.ok(backendBuild.result.files['db/schema.sql']);
 assert.equal(backendBuild.fullStackSourceEvidence.runtimeBehaviorVerified, false);
 assert.equal(backendBuild.fullStackSourceEvidence.databasePersistenceVerified, false);
+assert.deepEqual(backendBuild.result.rawUsage, { prompt_tokens: 13, completion_tokens: 24, total_tokens: 37 }, 'Backend model usage must be added to frontend generation usage before quota settlement.');
 
 
 let secureBackendAttempts = 0;
