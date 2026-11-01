@@ -5,7 +5,7 @@ export { ContainerProxy };
 const MAX_BODY_BYTES = 2_200_000;
 const MAX_FILES = 140;
 const MAX_FILE_BYTES = 280_000;
-const MAX_OUTPUT_CHARS = 18_000;
+const MAX_OUTPUT_CHARS = 150_000;
 const MAX_RUN_MS = 210_000;
 const ALLOWED_ROOT_FILES = new Set([
   'wrangler.jsonc', 'wrangler.json', 'package.json', 'package-lock.json',
@@ -90,7 +90,6 @@ function shellQuote(value) {
 export class OvyxBackendSandbox extends Sandbox {
   enableInternet = false;
   allowedHosts = ['npm.registry'];
-  inactivityTimeout = 60_000;
 }
 
 OvyxBackendSandbox.outboundByHost = {
@@ -143,6 +142,7 @@ async function runEvaluation(payload, env) {
   const files = safeFiles(payload.files);
   const sandboxId = 'ovyx-qa-' + crypto.randomUUID();
   const sandbox = getSandbox(env.SANDBOX, sandboxId);
+  await sandbox.setInactivityTimeout(60_000);
   await sandbox.exec('mkdir -p /workspace/project /opt/ovyx-runtime/scripts');
   for (const file of files) {
     const target = '/workspace/project/' + file.path;
@@ -152,7 +152,7 @@ async function runEvaluation(payload, env) {
   }
   const plan = { version: 1, backendRequired: true, journeys: [], apiChecks: [], backendChecks: payload.qaPlan.backendChecks };
   await sandbox.writeFile('/workspace/project/ovyx-qa-plan.json', JSON.stringify(plan));
-  await installProjectDependencies(sandbox, files);
+  const dependencyInstall = await installProjectDependencies(sandbox, files);
   await sandbox.removeAllowedHost('npm.registry');
   const command = 'cd /opt/ovyx-runtime && OVYX_QA_NETWORK_ISOLATION=cloudflare-sandbox-no-egress node scripts/ovyx-generated-backend-runtime-eval.mjs --root /workspace/project';
   const execution = await sandbox.exec(command, { timeout: MAX_RUN_MS });
@@ -168,7 +168,7 @@ async function runEvaluation(payload, env) {
     };
   }
   report.runtime = 'cloudflare-sandbox-pages-d1';
-  report.dependencyInstall = { status: 'completed-or-not-required' };
+  report.dependencyInstall = dependencyInstall;
   return report;
 }
 
