@@ -38,7 +38,7 @@ function tokens(text) {
     .replace(/\bno\s+(?=(?:login|sign.?in|account|payment|checkout|tracking|analytics|cookies?|external|third.party|pop.?ups?|animations?|images?|video|forms?|database|email|newsletter|ads?)\b)/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
     .split(/\s+/)
-    .filter(token => token.length > 2 && !STOP.has(token))];
+    .filter(token => token.length > 2 && !STOP.has(token)))];
 }
 function signature(text) {
   return tokens(text).sort().join(' ');
