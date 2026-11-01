@@ -66,12 +66,28 @@ try {
   );
   assert.doesNotMatch(foreignKeys, /foreign key constraint failed/i);
 
-  const duplicateKey = wrangler(
+  wrangler(
     'd1', 'execute', databaseName, '--local', '--command',
-    "INSERT INTO delivery_records (id, source_id, idempotency_key, status, created_at) VALUES ('d1', 'missing-contact', 'same-key', 'queued', '2026-10-31T00:00:00Z');",
+    "INSERT INTO contact_submissions (id, name, reply_to, message, status, created_at) VALUES ('contact-1', 'Name', 'email@example.com', 'Message', 'received', '2026-10-31T00:00:00Z');",
     '--config', configPath,
   );
-  assert.ok(duplicateKey.includes('success') || duplicateKey.includes('Executed'), 'The first idempotent delivery record should insert successfully.');
+  wrangler(
+    'd1', 'execute', databaseName, '--local', '--command',
+    "INSERT INTO delivery_records (id, source_id, idempotency_key, status, created_at) VALUES ('d1', 'contact-1', 'same-key', 'queued', '2026-10-31T00:00:00Z');",
+    '--config', configPath,
+  );
+
+  let duplicateKeyRejected = false;
+  try {
+    wrangler(
+      'd1', 'execute', databaseName, '--local', '--command',
+      "INSERT INTO delivery_records (id, source_id, idempotency_key, status, created_at) VALUES ('d2', 'contact-1', 'same-key', 'queued', '2026-10-31T00:00:00Z');",
+      '--config', configPath,
+    );
+  } catch {
+    duplicateKeyRejected = true;
+  }
+  assert.equal(duplicateKeyRejected, true, 'The database must reject duplicate idempotency keys.');
 
   let rejectedInvalidStatus = false;
   try {
