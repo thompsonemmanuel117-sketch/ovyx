@@ -1229,36 +1229,6 @@
                 var entry = page.path + ': ' + trim(finding, 100);
                 if (accessibilityAudit.focusObscured.indexOf(entry) < 0) accessibilityAudit.focusObscured.push(entry);
               });
-              var journeyAudit = report.browser.journeys;
-      var availableJourneyRoutes = new Set(pages.map(function (page) { return normalizeRoute(page.route || '/'); }));
-      var unmatchedJourneys = qaPlan.journeys.filter(function (journey) {
-        return !journey.startRoute || !journey.steps.length || !availableJourneyRoutes.has(normalizeRoute(journey.startRoute));
-      });
-      if (qaPlan.status !== 'ready' || !journeyAudit.total || unmatchedJourneys.length) {
-        var journeyCoverageStatus = unmatchedJourneys.length ? 'fail' : 'warn';
-        addCheck(report, 'Browser testing', 'Requirement-derived user journeys', journeyCoverageStatus,
-          qaPlan.status === 'missing'
-            ? 'No ovyx-qa-plan.json was found. The page matrix and safe-control smoke test ran, but requirement-derived user journeys were not executed.'
-            : qaPlan.status === 'invalid' || qaPlan.status === 'empty'
-              ? 'The generated QA plan is invalid or contains no executable journeys. Critical user journeys remain unverified.'
-              : (!journeyAudit.total
-                ? 'No declared user journey matched a generated page route. Check each journey startRoute against the actual project routes.'
-                : 'Some declared journeys do not match a generated page route or contain no executable steps: ' + unmatchedJourneys.slice(0, 8).map(function (journey) { return journey.name; }).join(', ')));
-      } else {
-        addCheck(report, 'Browser testing', 'Requirement-derived user journeys',
-          journeyAudit.failed ? 'fail' : journeyAudit.skipped ? 'warn' : 'pass',
-          journeyAudit.passed + ' of ' + journeyAudit.total + ' declared user journey/journeys passed in the isolated preview. ' +
-          journeyAudit.failed + ' failed and ' + journeyAudit.skipped + ' were skipped. No real form submissions, payments, bookings or external service actions were performed.' +
-          (journeyAudit.failed ? '\n' + journeyAudit.results.filter(function (item) { return item.status === 'failed'; }).slice(0, 8).map(function (item) { return item.name + ': ' + item.steps.filter(function (step) { return step.status === 'failed'; }).map(function (step) { return step.action + ' — ' + step.detail; }).join('; '); }).join('\n') : ''));
-      }
-      if (qaPlan.backendChecks && qaPlan.backendChecks.length) {
-        addCheck(report, 'Backend runtime', 'Requirement-derived backend checks', 'info',
-          qaPlan.backendChecks.length + ' disposable-backend API check(s) are declared. They must run in the network-isolated Cloudflare Pages/D1 runtime evaluator; static-host and iframe previews do not execute these checks.');
-      }
-      if (qaPlan.apiChecks && qaPlan.apiChecks.length) {
-        addCheck(report, 'Integrations', 'Read-only backend API probes', 'info',
-          qaPlan.apiChecks.length + ' read-only API contract probe(s) are declared in the QA plan. The in-editor preview intentionally blocks all network connections, so these probes are not executed here. The current generated-site browser evaluator can check static-host route responses, but it does not execute Cloudflare Functions, framework server routes or database bindings. Database writes, auth-provider flows and external delivery remain unverified until a disposable backend runtime adapter runs.');
-      }
       var interactionAudit = report.browser.interactions;
               interactionAudit.pagesProbed += 1;
               interactionAudit.candidates += Number(browserResult.interactions.candidates || 0);
@@ -1326,6 +1296,36 @@
           }
         progressFraction(runNumber, report.browser.total + 4);
         if (p % 5 === 4 || p === routePlan.length - 1) renderFindings(report);
+      }
+      var journeyAudit = report.browser.journeys;
+      var availableJourneyRoutes = new Set(pages.map(function (page) { return normalizeRoute(page.route || '/'); }));
+      var unmatchedJourneys = qaPlan.journeys.filter(function (journey) {
+        return !journey.startRoute || !journey.steps.length || !availableJourneyRoutes.has(normalizeRoute(journey.startRoute));
+      });
+      if (qaPlan.status !== 'ready' || !journeyAudit.total || unmatchedJourneys.length) {
+        var journeyCoverageStatus = unmatchedJourneys.length ? 'fail' : 'warn';
+        addCheck(report, 'Browser testing', 'Requirement-derived user journeys', journeyCoverageStatus,
+          qaPlan.status === 'missing'
+            ? 'No ovyx-qa-plan.json was found. The page matrix and safe-control smoke test ran, but requirement-derived user journeys were not executed.'
+            : qaPlan.status === 'invalid' || qaPlan.status === 'empty'
+      ? 'The generated QA plan is invalid or contains no executable journeys. Critical user journeys remain unverified.'
+      : (!journeyAudit.total
+        ? 'No declared user journey matched a generated page route. Check each journey startRoute against the actual project routes.'
+        : 'Some declared journeys do not match a generated page route or contain no executable steps: ' + unmatchedJourneys.slice(0, 8).map(function (journey) { return journey.name; }).join(', ')));
+      } else {
+        addCheck(report, 'Browser testing', 'Requirement-derived user journeys',
+          journeyAudit.failed ? 'fail' : journeyAudit.skipped ? 'warn' : 'pass',
+          journeyAudit.passed + ' of ' + journeyAudit.total + ' declared user journey/journeys passed in the isolated preview. ' +
+          journeyAudit.failed + ' failed and ' + journeyAudit.skipped + ' were skipped. No real form submissions, payments, bookings or external service actions were performed.' +
+          (journeyAudit.failed ? '\n' + journeyAudit.results.filter(function (item) { return item.status === 'failed'; }).slice(0, 8).map(function (item) { return item.name + ': ' + item.steps.filter(function (step) { return step.status === 'failed'; }).map(function (step) { return step.action + ' — ' + step.detail; }).join('; '); }).join('\n') : ''));
+      }
+      if (qaPlan.backendChecks && qaPlan.backendChecks.length) {
+        addCheck(report, 'Backend runtime', 'Requirement-derived backend checks', 'info',
+          qaPlan.backendChecks.length + ' disposable-backend API check(s) are declared. They must run in the network-isolated Cloudflare Pages/D1 runtime evaluator; static-host and iframe previews do not execute these checks.');
+      }
+      if (qaPlan.apiChecks && qaPlan.apiChecks.length) {
+        addCheck(report, 'Integrations', 'Read-only backend API probes', 'info',
+          qaPlan.apiChecks.length + ' read-only API contract probe(s) are declared in the QA plan. The in-editor preview intentionally blocks all network connections, so these probes are not executed here. The current generated-site browser evaluator can check static-host route responses, but it does not execute Cloudflare Functions, framework server routes or database bindings. Database writes, auth-provider flows and external delivery remain unverified until a disposable backend runtime adapter runs.');
       }
       addCheck(report, 'Browser testing', 'Horizontal overflow', overflow.length ? 'fail' : 'pass', overflow.length ? overflow.slice(0, 45).join('\n') : 'No horizontal overflow was detected across all ' + coveredPages.length + ' HTML route(s) under the selected responsive coverage plan.');
       addCheck(report, 'Browser testing', 'Page runtime errors', scriptErrors.length ? 'fail' : 'pass', scriptErrors.length ? scriptErrors.slice(0, 35).join('\n') : 'No browser script errors were detected during the tested previews.');
