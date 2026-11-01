@@ -395,7 +395,7 @@ try {
   assert.ok(first.checks.some(item => item.title === 'Safe form validation smoke test' && item.status === 'info'),
     'The report must disclose when custom/native validation coverage is incomplete instead of marking all forms passed.');
   assert.equal(first.browser.journeys.total, 1, 'The generated QA plan journey must run in the actual Web Studio preview sandbox.');
-  assert.equal(first.browser.journeys.passed, 1, 'The requirement-derived disclosure journey must pass all expected UI state assertions.');
+  assert.equal(first.browser.journeys.passed, 1, 'The requirement-derived disclosure journey must pass all expected UI state assertions. Results: ' + JSON.stringify(first.browser.journeys.results));
   assert.equal(first.browser.journeys.failed, 0);
   assert.equal(first.browser.journeys.results[0].steps.length, 5);
   assert.ok(first.checks.some(item => item.title === 'Requirement-derived user journeys' && item.status === 'pass'),
