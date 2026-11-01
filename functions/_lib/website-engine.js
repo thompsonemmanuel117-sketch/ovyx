@@ -3,6 +3,7 @@ import { buildPromptContract, getWebStudioBuildClarification } from './prompt-co
 import { buildStudioMultiPage } from './studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from './studio-singlepage.js';
 import { buildFullStackArchitecture, fullStackArchitectureClientSummary, fullStackArchitectureModelContract } from './fullstack-architecture.js';
+import { buildWebsiteFileGraph, analyzeWebsiteFileImpact } from './website-file-graph.js';
 
 const clean = (value, max = 240) => String(value == null ? '' : value)
   .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -83,6 +84,18 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
   const experience = buildExperienceBrief(brief, safeContext);
   const pages = pagePlan(promptContract);
   const fullStackArchitecture = buildFullStackArchitecture(sourceBrief, promptContract, safeContext, pages);
+  const projectFiles = safeContext.files || safeContext.projectFiles || {};
+  const fileGraph = buildWebsiteFileGraph(projectFiles);
+  const fileArchitecture = {
+    status: fileGraph.status,
+    fileCount: fileGraph.nodes.length,
+    dependencyCount: fileGraph.edges.length,
+    unresolvedLocalReferenceCount: fileGraph.missingReferences.length,
+    truncated: fileGraph.limits.truncated,
+    limits: fileGraph.limits,
+    graph: fileGraph,
+    impactAnalysis: analyzeWebsiteFileImpact(fileGraph, safeContext.changedPaths || []),
+  };
   const explicitMultiPage = pages.length > 1 ||
     /\b(?:multi[- ]?page|multiple pages|several pages|\d+ pages)\b/i.test(brief);
   const signals = promptContract.contactSignals || {};
@@ -144,6 +157,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
     },
     integrations: integrationRequirements(promptContract, safeContext),
     fullStackArchitecture,
+    fileArchitecture,
     qualityGates: experience.qualityGates || [],
     implementationRules: [
       'Plan the complete experience before writing files; do not stop at a visually attractive first screen.',
@@ -153,6 +167,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
       'Never fabricate credentials, data, testimonials, prices, availability, delivery receipts or connected integrations.',
       'Distinguish UI/demo behavior, configured connections and live-verified behavior.',
       'Preserve unrelated existing files and project behavior during targeted edits.',
+      'When existing source files are supplied, use the file dependency graph and transitive impact analysis to update dependent consumers safely; do not claim complete dependency coverage when the graph is bounded or partial.',
       'Use the existing Cloudflare AI routing and quota controls; do not create a second provider path.',
     ],
   };
@@ -284,6 +299,17 @@ function serializeWebsiteEngineModelPlan(plan) {
         connection: clean(item?.connection, 48),
         verification: clean(item?.verification, 120),
       })),
+      fileArchitecture: {
+        status: clean(plan.fileArchitecture?.status, 40),
+        fileCount: Number(plan.fileArchitecture?.fileCount) || 0,
+        dependencyCount: Number(plan.fileArchitecture?.dependencyCount) || 0,
+        unresolvedLocalReferenceCount: Number(plan.fileArchitecture?.unresolvedLocalReferenceCount) || 0,
+        truncated: plan.fileArchitecture?.truncated === true,
+        impactAnalysis: compactPlanValue(plan.fileArchitecture?.impactAnalysis),
+        nodes: compactPlanList((plan.fileArchitecture?.graph?.nodes || []).map(node => node.path + ' [' + node.kind + ']'), 80, 180),
+        dependencies: compactPlanList((plan.fileArchitecture?.graph?.edges || []).map(edge => edge.from + ' -> ' + edge.to + ' (' + edge.kind + ')'), 160, 220),
+        missingReferences: compactPlanList((plan.fileArchitecture?.graph?.missingReferences || []).map(item => item.from + ' -> ' + item.specifier), 40, 180),
+      },
       qualityGates: compactPlanList(plan.qualityGates, 14, 140),
       fullStackArchitecture: fullStackArchitectureModelContract(plan.fullStackArchitecture),
       implementationRules: compactPlanList(plan.implementationRules, 10, 160),
@@ -422,6 +448,14 @@ export function websiteEngineClientSummary(plan) {
       connection: item.connection,
     })),
     qualityGateCount: plan.qualityGates.length,
+    fileArchitecture: {
+      status: plan.fileArchitecture?.status || 'not-analyzed',
+      fileCount: plan.fileArchitecture?.fileCount || 0,
+      dependencyCount: plan.fileArchitecture?.dependencyCount || 0,
+      unresolvedLocalReferenceCount: plan.fileArchitecture?.unresolvedLocalReferenceCount || 0,
+      truncated: plan.fileArchitecture?.truncated === true,
+      impactAnalysis: plan.fileArchitecture?.impactAnalysis || null,
+    },
     fullStackArchitecture: fullStackArchitectureClientSummary(plan.fullStackArchitecture),
   };
 }
