@@ -5,7 +5,7 @@
 
   var STYLE_ID = 'ovyx-ws-quality-style-v1';
   var ROOT_ID = 'ovyx-ws-quality-root';
-  var WIDTHS = [320, 390, 768, 1024, 1440];
+  var WIDTHS = [320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920];
   var CORE_BROWSER_ROUTE_COUNT = 3;
   var ADDITIONAL_ROUTE_WIDTHS = [390, 1440];
   var MAX_SAFE_CONTROLS_PER_ROUTE = 8;
