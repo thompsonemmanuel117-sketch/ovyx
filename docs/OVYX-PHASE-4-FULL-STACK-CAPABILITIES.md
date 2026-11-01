@@ -13,6 +13,10 @@ The generated-website engine already has a deterministic full-stack architecture
 - Ensure Paystack already-fulfilled orders return before creating a new event idempotency claim.
 - Extend the generated-site architecture planner with schema-driven forms: versioned form definitions, validated submissions, consent evidence, idempotency, abuse controls, retention rules, indexes, API contracts, state machine and acceptance test.
 - Wire payment and full-stack architecture regression tests into the browser-quality workflow.
+- Strengthen the unified Website Engine so inferred backend capabilities (database, authentication, booking, forms, file storage, commerce, email and payments) remain consistent across integration planning and user-facing capability summaries.
+- Add explicit backend-generation requirements for private owner-scoped asset storage, signed URLs, MIME/content and quota checks, server-owned form schemas, IANA-timezone booking with transactional conflict prevention, provider-backed sessions/CSRF protection, payment reconciliation and transactional notification outboxes.
+- Add generated-site regression coverage for storage-provider detection, inferred database requirements and the secure backend-generation contract; run `scripts/ovyx-website-engine.test.mjs` in the browser-quality workflow.
+- Keep generated backend evidence explicitly `source-evidence-present-runtime-unverified` until the generated app is actually executed against its selected database and external providers.
 
 ## Capability map
 
