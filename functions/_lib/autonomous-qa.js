@@ -396,6 +396,8 @@ export function evaluateGeneratedWebsiteFiles(rawFiles = {}, options = {}) {
           testsRun += 1;
           const method = String(check?.method || 'GET').toUpperCase();
           const route = String(check?.route || '');
+          const sourceFile = String(check?.sourceFile || '').replace(/\\\\/g, '/');
+          const sourceFileSafe = sourceFile.startsWith('functions/') && !sourceFile.split('/').some(part => !part || part === '.' || part === '..') && /\\.(?:m?js|ts)$/i.test(sourceFile);
           const routeSafe = route.startsWith('/api/') && !route.startsWith('//') &&
             !/[?#]/.test(route) && !route.includes(String.fromCharCode(92)) &&
             !/[\\u0000-\\u001f]/.test(route) && !route.split('/').some(part => part === '.' || part === '..');
@@ -403,7 +405,7 @@ export function evaluateGeneratedWebsiteFiles(rawFiles = {}, options = {}) {
           const bodySafe = bodyText.length <= 4096 &&
             !/(?:password|passcode|secret|token|api[_-]?key|authorization|card|cvv|cvc|iban|bank[_-]?account|email|phone|address)/i.test(bodyText);
           if (!check?.id || backendIds.has(String(check.id)) || !['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ||
-              !routeSafe || !bodySafe || (!['GET', 'HEAD'].includes(method) && check.sideEffect !== 'disposable-local-only') ||
+              !routeSafe || !sourceFileSafe || !bodySafe || (!['GET', 'HEAD'].includes(method) && check.sideEffect !== 'disposable-local-only') ||
               (check.identity != null && !['anonymous', 'synthetic-owner-a', 'synthetic-owner-b'].includes(check.identity))) {
             add('blocker', 'QA_BACKEND_CHECK_UNSAFE', 'A backend check is malformed, contains sensitive data, or does not explicitly restrict mutations to the disposable local database.', 'ovyx-qa-plan.json');
           }
