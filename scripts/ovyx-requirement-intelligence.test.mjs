@@ -54,6 +54,8 @@ const nuanceLedger = buildRequirementIntelligence('', {
     'R003: Keep the checkout flow accessible to keyboard users.',
     'R004: Do not include the checkout flow for keyboard users.',
     'R005: Keep the layout no more than 1200 pixels wide.',
+    'R006: Not only should the site be responsive, but do not include third-party tracking.',
+    'R007: No third-party tracking scripts should be included.',
   ],
 }, {
   requirementMappings: [
@@ -67,5 +69,7 @@ assert.deepEqual(nuanceLedger.requirements[0].dependencyRequirementIds, ['R003']
 assert.deepEqual(nuanceLedger.requirements[0].acceptanceCriteria, ['Tab reaches every interactive control.']);
 assert.equal(nuanceLedger.requirements[1].polarity, 'prohibited');
 assert.equal(nuanceLedger.requirements[4].polarity, 'preference', 'Comparative “no more than” constraints are not feature exclusions.');
+assert.equal(nuanceLedger.requirements[5].polarity, 'prohibited', 'A negation later in a compound clause must not be hidden by an earlier “not only” phrase.');
+assert.equal(nuanceLedger.requirements[6].polarity, 'prohibited', 'Explicit no-feature constraints must be recognized even when they do not start the clause.');
 assert.ok(nuanceLedger.conflicts.some(item => item.requirementIds.includes('R003') && item.requirementIds.includes('R004')),
   'Near-identical positive and prohibited requirements must be surfaced even when their wording differs.');
