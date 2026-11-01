@@ -36,6 +36,7 @@ assert.equal(unsafeBackendRepair.ok, false, 'Backend repair must reject paths ou
 
 const liveGenerationRoute = fs.readFileSync('functions/api/internal/live-generation-eval.js', 'utf8');
 const liveGenerationWorkflow = fs.readFileSync('.github/workflows/ovyx-webstudio-live-generation.yml', 'utf8');
+const backendRepairClient = fs.readFileSync('scripts/ovyx-cloudflare-backend-repair-client.mjs', 'utf8');
 assert.equal(
   safeLiveGenerationFailureDetail(Object.assign(new Error('test'), { code: 'OVYX_AI_BUDGET_LEDGER_STOP_HTTP_429', status: 503 })),
   'cloudflare-ai-budget-ledger-stop-http-429',
@@ -105,6 +106,12 @@ assert.doesNotMatch(liveGenerationRoute, /Do not invent products as available fo
 assert.match(liveGenerationRoute, /operation === 'repair-backend'/);
 assert.match(liveGenerationRoute, /verifyGithubOidcToken\(match\[1\], options\)/);
 assert.match(liveGenerationRoute, /verificationRequired/);
+assert.match(backendRepairClient, /isTrustedGithubOidcRequestHostname/);
+assert.match(backendRepairClient, /CLOUDFLARE_PAGES_PROJECT/);
+assert.match(backendRepairClient, /original-report\.json/);
+assert.match(liveGenerationWorkflow, /node scripts\/ovyx-cloudflare-backend-repair-client\.mjs/);
+assert.match(liveGenerationWorkflow, /Rebuild the disposable backend and rerun the same checks|run_backend_runtime/);
+assert.match(liveGenerationWorkflow, /--restore/);
 assert.ok(liveGenerationRoute.includes("payload?.profile === 'stage4-budgeted-smoke'"));
 assert.ok(liveGenerationRoute.includes("requestedProvider === 'cloudflare-workers-ai'"));
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_POLISH_ENABLED: isBudgetedStage4Smoke ? 'false'"));
