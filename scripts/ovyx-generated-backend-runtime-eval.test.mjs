@@ -6,6 +6,7 @@ import { runCloudflarePagesBackendRuntime, validateBackendChecks } from './ovyx-
 
 const valid = validateBackendChecks({
   version: 1,
+  backendRequired: true,
   backendChecks: [
     { id: 'health', method: 'GET', route: '/api/health', expectedStatus: 200 },
     { id: 'create', method: 'POST', route: '/api/records', expectedStatus: 201, sideEffect: 'disposable-local-only', body: { name: 'Synthetic item' }, identity: 'synthetic-owner-a' },
@@ -13,6 +14,7 @@ const valid = validateBackendChecks({
 });
 assert.equal(valid.ok, true);
 assert.equal(valid.checks.length, 2);
+assert.equal(validateBackendChecks({ version: 1, backendRequired: false, journeys: [], apiChecks: [], backendChecks: [] }).notRequired, true);
 
 for (const backendChecks of [
   [{ id: 'charge', method: 'POST', route: '/api/payments/charge', body: { amount: 500 }, sideEffect: 'external-provider' }],
@@ -76,6 +78,7 @@ if (process.env.OVYX_QA_NETWORK_ISOLATION === 'docker-none') {
     ].join('\n'));
     await writeFile(path.join(root, 'ovyx-qa-plan.json'), JSON.stringify({
       version: 1,
+      backendRequired: true,
       journeys: [],
       apiChecks: [],
       backendChecks: [
