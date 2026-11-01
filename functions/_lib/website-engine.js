@@ -475,7 +475,7 @@ function parseBackendFiles(response) {
         /sk_(?:live|test)_[A-Za-z0-9]{12,}/.test(fileContent) ||
         /AIza[0-9A-Za-z_-]{30,}/.test(fileContent) ||
         /AKIA[0-9A-Z]{16}/.test(fileContent) ||
-        /Bearer\\s+[A-Za-z0-9._-]{24,}/i.test(fileContent)
+        /Bearer\s+[A-Za-z0-9._-]{24,}/i.test(fileContent)
       );
       if (!filePath || filePath.length > 300 || filePath.includes('..') || filePath.includes(String.fromCharCode(92)) ||
           lowerPath.includes('.env') || lowerPath.includes('secret') || lowerPath.includes('credential') ||
