@@ -19,7 +19,7 @@ assert.ok(graph.edges.some(edge => edge.from === 'index.html' && edge.to === 'st
 assert.ok(graph.edges.some(edge => edge.from === 'src/main.js' && edge.to === 'src/app.js'));
 assert.ok(graph.edges.some(edge => edge.from === 'styles/site.css' && edge.to === 'assets/hero.webp'));
 assert.ok(graph.missingReferences.some(item => item.specifier === './missing-local.js'));
-assert.ok(!graph.missingReferences.some(item => item.from === 'index.html' && /about|api\\/contact/.test(item.specifier)));
+assert.ok(!graph.missingReferences.some(item => item.from === 'index.html' && (item.specifier.includes('about') || item.specifier.includes('/api/contact'))));
 assert.ok(!graph.nodes.some(node => node.path.includes('escape')));
 const impact = analyzeWebsiteFileImpact(graph, ['src/render.js']);
 assert.deepEqual(impact.impactedPaths, ['src/app.js', 'src/main.js', 'index.html']);
@@ -32,8 +32,6 @@ assert.equal(bounded.limits.truncated, true);
 const oversized = buildWebsiteFileGraph({ 'huge.js': 'z'.repeat(240_001) });
 assert.equal(oversized.status, 'bounded-partial');
 assert.equal(oversized.limits.truncated, true);
-console.log('OVYX website file graph tests passed.');
-
 const edgeBounded = buildWebsiteFileGraph({
   'src/a.js': "import './b.js'; import './c.js';",
   'src/b.js': 'export const b = true;',
@@ -47,3 +45,5 @@ const missingBounded = buildWebsiteFileGraph({
 }, { maxMissingReferences: 1 });
 assert.equal(missingBounded.missingReferences.length, 1);
 assert.equal(missingBounded.limits.missingReferencesTruncated, true);
+
+console.log('OVYX website file graph tests passed.');
