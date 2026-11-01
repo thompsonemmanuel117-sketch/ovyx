@@ -304,7 +304,12 @@
     }
     return parts.join(' > ');
   }
+  function requireAssetAccess() {
+    var gate = window.OVYXDeepRepair && window.OVYXDeepRepair.requireAuth;
+    return typeof gate !== 'function' || gate('Assets & Media');
+  }
   function showImagePicker(panel) {
+    if (!requireAssetAccess()) return;
     var w = studio(), p = project(), store = window.OVYXAssetStore;
     if (!p || !p.id || !store || typeof store.list !== 'function') { toast('Project image storage is not available yet.', 'warning'); return; }
     var old = panel.querySelector('.ovyx-ve-asset-list'); if (old) old.remove();
@@ -327,6 +332,7 @@
     }).catch(function (error) { list.textContent = error && error.message || 'Project images could not be loaded.'; });
   }
   function uploadImage(file, panel) {
+    if (!requireAssetAccess()) return;
     var p = project(), store = window.OVYXAssetStore;
     if (!p || !p.id || !store || typeof store.upload !== 'function') { toast('Project image storage is not available yet.', 'warning'); return; }
     if (!file || !/^image\/(?:png|jpeg|webp|gif|svg\+xml)$/i.test(file.type || '') || file.size > 15 * 1024 * 1024) { toast('Choose an image under 15 MB.', 'warning'); return; }
