@@ -98,6 +98,10 @@ export function validateBackendChecks(plan) {
     if (expect.jsonPath != null && (typeof expect.jsonPath !== 'string' || expect.jsonPath.length > 120)) {
       return { ok: false, reason: 'backend-check-json-path-invalid', checks: [] };
     }
+    if (expect.equals !== undefined && expect.equals !== null &&
+        ['object', 'function'].includes(typeof expect.equals)) {
+      return { ok: false, reason: 'backend-check-expected-value-invalid', checks: [] };
+    }
     checks.push({
       id, name: clean(raw.name || id, 120), method, route, expectedStatus,
       headers, body, identity: raw.identity || 'anonymous',
