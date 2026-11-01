@@ -349,6 +349,9 @@ assert.equal(filePlan.fileArchitecture.status, 'analyzed');
 assert.equal(filePlan.fileArchitecture.fileCount, 3);
 assert.deepEqual(filePlan.fileArchitecture.impactAnalysis.impactedPaths, ['src/main.js', 'index.html']);
 assert.ok(buildWebsiteEngineInstructions(filePlan).includes('fileArchitecture'));
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('ovyx-qa-plan.json'));
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('expectVisible'));
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('GET or HEAD'));
 assert.equal(websiteEngineClientSummary(filePlan).fileArchitecture.dependencyCount, 2);
 
 const cyclicIntegrationContext = { connections: {} };
@@ -363,3 +366,36 @@ assert.equal(conflictedPlan.requirementIntelligence.counts.total, conflictedPlan
 assert.equal(conflictedPlan.requirementIntelligence.conflicts.length, 1);
 assert.ok(buildWebsiteEngineInstructions(conflictedPlan).includes('Conflicting instructions remain unresolved'));
 assert.equal(websiteEngineClientSummary(conflictedPlan).requirementIntelligence.counts.conflicts, 1);
+
+
+
+const autonomousBuild = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  originalPrompt: 'Build a working contact website with a visible contact panel.',
+  modelOptions: { system: 'OVYX website generation system', maxTokens: 12000 },
+  callModel: async (_env, options) => {
+    assert.equal(options.responseFormat, 'json');
+    assert.match(options.taskPrompt, /FAILED TEST EVIDENCE/);
+    return {
+      text: JSON.stringify({ files: {
+        'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Repaired contact site</title></head><body><h1>Contact</h1></body></html>',
+      } }),
+      usage: { prompt_tokens: 7, completion_tokens: 9, total_tokens: 16 },
+    };
+  },
+  buildMultiPage: async () => ({
+    text: 'Generated website with a missing title and doctype.',
+    files: { 'index.html': '<html><body><h1>Contact</h1></body></html>' },
+    rawUsage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 },
+  }),
+});
+assert.equal(autonomousBuild.autonomousQa.repair.status, 'repaired-and-passed');
+assert.equal(autonomousBuild.autonomousQa.channels.find(channel => channel.channel === 'static').status, 'passed');
+assert.equal(autonomousBuild.autonomousQa.channels.find(channel => channel.channel === 'browser').status, 'blocked');
+assert.equal(autonomousBuild.result.files['index.html'].includes('<title>Repaired contact site</title>'), true);
+assert.deepEqual(autonomousBuild.result.rawUsage, { prompt_tokens: 10, completion_tokens: 13, total_tokens: 23 },
+  'The bounded QA repair model call must be included in generation quota usage.');
+assert.equal(autonomousBuild.autonomousQa.status, 'blocked',
+  'A generated site must not be reported fully passed until its real browser and journey evidence has run.');
+
