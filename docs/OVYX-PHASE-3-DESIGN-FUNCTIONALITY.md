@@ -36,6 +36,13 @@
 - Added `scripts/ovyx-design-system-contract.test.mjs` and included it in `npm test`.
 - The contract preserves supplied brand context and does not force a universal palette, component library or canonical domain.
 
+## Additional implemented tranche
+
+- Added `functions/_lib/experience-quality.js`, an evidence-aware source audit for page metadata, document language, primary heading/landmark, image alternatives/dimensions, accessible button names, anchor destinations, form-control naming, responsive media rules, reduced-motion support and visible focus rules.
+- Integrated the source audit into `auditWebsiteIntegrity()` as the additive `experienceQuality` report. It explicitly marks rendered visuals, browser interactions, responsive rendering, WCAG conformance, external assets, live integrations and search rankings as `not-verified` until independent evidence exists.
+- Added `scripts/ovyx-experience-quality.test.mjs` to the complete `npm test` chain.
+- Expanded design-system and visual-asset responsive targets from five to thirteen widths: 320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440 and 1920 px.
+
 ## Remaining implementation tranches
 
 1. **Component intelligence:** inspect framework-specific component definitions/imports/usages, build route-to-component edges, expose shared-change impact and add regression fixtures for safe variants.
