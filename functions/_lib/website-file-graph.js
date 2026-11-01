@@ -74,6 +74,8 @@ export function buildWebsiteFileGraph(input, options = {}) {
   const bag = input && typeof input === 'object' && !Array.isArray(input) ? input : {};
   const maxFiles = Math.max(1, Math.min(MAX_FILES, Number(options.maxFiles) || MAX_FILES));
   const maxTotal = Math.max(10_000, Math.min(MAX_TOTAL_SOURCE_CHARS, Number(options.maxTotalSourceChars) || MAX_TOTAL_SOURCE_CHARS));
+  const maxEdges = Math.max(1, Math.min(5_000, Number(options.maxEdges) || 4_000));
+  const maxMissing = Math.max(1, Math.min(2_000, Number(options.maxMissingReferences) || 1_000));
   const files = new Map();
   let totalChars = 0;
   let truncated = false;
@@ -90,14 +92,18 @@ export function buildWebsiteFileGraph(input, options = {}) {
   const edges = [];
   const missingReferences = [];
   const edgeKeys = new Set();
+  let edgesTruncated = false;
+  let missingReferencesTruncated = false;
   const reverse = new Map([...known].map(path => [path, new Set()]));
   for (const [from, source] of files) {
     for (const reference of collectReferences(from, source)) {
+      if (edges.length >= maxEdges) { edgesTruncated = true; truncated = true; break; }
       const target = resolveReference(from, reference.specifier, known);
       if (!target) {
         const looksLikeFile = /\.[a-z0-9]{1,12}$/i.test(reference.specifier) || /(?:^|\/)(?:assets?|images?|scripts?|styles?|fonts?)\//i.test(reference.specifier);
         if (reference.kind !== 'document-reference' || looksLikeFile) {
-          missingReferences.push({ from, specifier: reference.specifier, kind: reference.kind });
+          if (missingReferences.length < maxMissing) missingReferences.push({ from, specifier: reference.specifier, kind: reference.kind });
+          else { missingReferencesTruncated = true; truncated = true; }
         }
         continue;
       }
@@ -107,6 +113,7 @@ export function buildWebsiteFileGraph(input, options = {}) {
       edges.push({ id: key, from, to: target, kind: reference.kind });
       reverse.get(target)?.add(from);
     }
+    if (edgesTruncated) break;
   }
   const nodes = [...known].map(path => ({
     path,
@@ -119,7 +126,7 @@ export function buildWebsiteFileGraph(input, options = {}) {
     nodes,
     edges,
     missingReferences,
-    limits: { maxFiles, maxTotalSourceChars: maxTotal, filesAnalyzed: files.size, sourceCharsAnalyzed: totalChars, truncated },
+    limits: { maxFiles, maxTotalSourceChars: maxTotal, maxEdges, maxMissingReferences: maxMissing, filesAnalyzed: files.size, sourceCharsAnalyzed: totalChars, edgesTruncated, missingReferencesTruncated, truncated },
     reverseDependencies: Object.fromEntries([...reverse].map(([path, dependents]) => [path, [...dependents].sort()])),
   };
 }
