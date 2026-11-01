@@ -194,10 +194,12 @@ const backendBuild = await runWebsiteGeneration({
     assert.match(options.taskPrompt, /active server-owned schema version/);
     assert.match(options.taskPrompt, /CSRF protection/);
     assert.match(options.taskPrompt, /transactional outbox/);
+    assert.match(options.taskPrompt, /Every route that declares data models must execute a real provider-backed read or write/);
+    assert.match(options.taskPrompt, /hard-coded arrays, in-memory maps, TODOs, mock repositories/);
     return {
       text: JSON.stringify({
         files: {
-          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const result = await context.env.DB.prepare(\"INSERT INTO contact_submissions\").run(); return Response.json({ ok: true, result }); }',
+          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const values = validateRequest(await context.request.json()); const result = await context.env.DB.prepare(\"INSERT INTO contact_submissions\").bind(values.name, values.replyTo, values.message).run(); return Response.json({ ok: true, result }); }',
           'db/schema.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'migrations/0001_initial.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'server/workflows/contact-submission.js': workflowSource,
@@ -222,6 +224,8 @@ assert.equal(backendBuild.fullStackSourceEvidence.runtimeBehaviorVerified, false
 assert.equal(backendBuild.fullStackSourceEvidence.databasePersistenceVerified, false);
 assert.equal(backendBuild.fullStackSourceEvidence.workflowEvidenceCount, backendArchitecture.stateMachines.length);
 assert.equal(backendBuild.fullStackSourceEvidence.generatedTestEvidence, true);
+assert.equal(backendBuild.fullStackSourceEvidence.requestValidationEvidenceCount, 1);
+assert.equal(backendBuild.fullStackSourceEvidence.persistenceEvidenceCount, 1);
 assert.equal(backendBuild.fullStackSourceEvidence.migrationEvidence, true);
 assert.equal(backendBuild.fullStackSourceEvidence.databaseProvider, 'not-selected-by-architecture-planner');
 assert.equal(backendBuild.fullStackSourceEvidence.indexEvidenceCount, backendArchitecture.dataIntegrity.indexes.length);
@@ -246,7 +250,7 @@ const singlePageBackend = await runWebsiteGeneration({
     return {
       text: JSON.stringify({
         files: {
-          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const result = await context.env.DB.prepare("INSERT INTO contact_submissions").run(); return Response.json({ ok: true, result }); }',
+          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const input = await context.request.json(); const values = validateRequest(input); const result = await context.env.DB.prepare("INSERT INTO contact_submissions").bind(values.name, values.replyTo, values.message).run(); return Response.json({ ok: true, result }); }',
           'db/schema.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'migrations/0001_initial.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'server/workflows/contact-submission.js': workflowSource,
@@ -274,8 +278,8 @@ const secureBackendBuild = await runWebsiteGeneration({
   callModel: async () => {
     secureBackendAttempts += 1;
     const routeSource = secureBackendAttempts === 1
-      ? 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const key = "sk_live_12345678901234567890"; return Response.json({ key }); }'
-      : 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const result = await context.env.DB.prepare("INSERT INTO contact_submissions").run(); return Response.json({ ok: true, result }); }';
+      ? 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const key = "sk_" + "live_12345678901234567890"; return Response.json({ key }); }'
+      : 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const values = validateRequest(await context.request.json()); const result = await context.env.DB.prepare("INSERT INTO contact_submissions").bind(values.name, values.replyTo, values.message).run(); return Response.json({ ok: true, result }); }';
     return {
       text: JSON.stringify({
         files: {

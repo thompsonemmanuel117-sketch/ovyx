@@ -610,6 +610,43 @@ function parseBackendFiles(response) {
   return {};
 }
 
+function collectLocalBackendModuleSource(entryFile, files) {
+  const pathMap = new Map(Object.keys(files || {}).map(filePath => [filePath.toLowerCase(), filePath]));
+  const visited = new Set();
+  let total = 0;
+  function resolve(fromFile, specifier) {
+    if (!specifier || !specifier.startsWith('.')) return '';
+    const parts = fromFile.split('/');
+    parts.pop();
+    for (const part of specifier.split('/')) {
+      if (!part || part === '.') continue;
+      if (part === '..') {
+        if (!parts.length) return '';
+        parts.pop();
+      } else {
+        parts.push(part);
+      }
+    }
+    const base = parts.join('/');
+    const candidates = [base, ...['.js', '.mjs', '.cjs', '.ts', '.tsx', '.jsx'].map(ext => base + ext),
+      ...['index.js', 'index.ts', 'index.tsx'].map(name => base + '/' + name)];
+    return candidates.map(candidate => pathMap.get(candidate.toLowerCase())).find(Boolean) || '';
+  }
+  function visit(filePath, depth) {
+    if (!filePath || depth > 6 || visited.size >= 24 || visited.has(filePath.toLowerCase()) || total >= 500000) return '';
+    visited.add(filePath.toLowerCase());
+    const source = String(files[filePath] || '');
+    total += source.length;
+    const imports = [];
+    for (const match of source.matchAll(/(?:\bimport\s+(?:[\s\S]*?\s+from\s+)?|\bexport\s+[\s\S]*?\s+from\s+|\brequire\s*\(\s*|\bimport\s*\(\s*)['"]([^'"]+)['"]/g)) {
+      const dependency = resolve(filePath, match[1]);
+      if (dependency) imports.push(dependency);
+    }
+    return source + '\n' + imports.map(dependency => visit(dependency, depth + 1)).join('\n');
+  }
+  return visit(entryFile, 0);
+}
+
 function auditBackendFiles(files, architecture) {
   const entries = Object.entries(files || {});
   const pathMap = new Map(entries.map(([filePath]) => [filePath.toLowerCase(), filePath]));
@@ -635,7 +672,7 @@ function auditBackendFiles(files, architecture) {
       'api/' + suffix + '.js', 'api/' + suffix + '.ts',
     ];
     const file = candidates.map(candidate => pathMap.get(candidate.toLowerCase())).find(Boolean) || '';
-    const code = file ? String(files[file]) : '';
+    const code = file ? collectLocalBackendModuleSource(file, files) : '';
     const method = String(route.method || 'GET').toUpperCase();
     const pascal = method.charAt(0) + method.slice(1).toLowerCase();
     const lowerFile = file.toLowerCase();
@@ -655,6 +692,15 @@ function auditBackendFiles(files, architecture) {
     );
     const policy = String(route.authPolicy || '').toLowerCase();
     const publicRoute = policy.startsWith('public');
+    const routeNeedsValidation = ['POST', 'PUT', 'PATCH'].includes(method);
+    const validationDetected = !routeNeedsValidation ||
+      /safeParse\s*\(|parse\s*\(|validate(?:[A-Z][A-Za-z]+|Request|Input|Body|Schema)?\s*\(|assertValid|requestSchema|zod|joi|valibot|jsonschema/i.test(code);
+    const databaseClientDetected = /\.prepare\s*\(|\b(?:prisma|drizzle|supabase|firestore|collection|database|repository|db)\s*(?:\.|\()/i.test(code);
+    const databaseReadDetected = /\bSELECT\s+|\.first\s*\(|\.all\s*\(|\.get\s*\(|\.find(?:Many|First|Unique|One)?\s*\(|\.select\s*\(|\.query\s*\(/i.test(code);
+    const databaseWriteDetected = /\b(?:INSERT\s+INTO|UPDATE\s+[A-Za-z_][\w.]*\s+SET|DELETE\s+FROM)\b|\.run\s*\(|\.execute\s*\(|\.insert\s*\(|\.create\s*\(|\.update\s*\(|\.delete\s*\(|\.set\s*\(|\.add\s*\(|\.upsert\s*\(|\.put\s*\(/i.test(code);
+    const persistenceExpected = Array.isArray(route.modelIds) && route.modelIds.length > 0;
+    const persistenceDetected = !persistenceExpected || (databaseClientDetected &&
+      (method === 'GET' ? databaseReadDetected : databaseWriteDetected));
     const abuseExpected = policy.includes('abuse-controls') || policy.includes('rate-limit');
     const abuseDetected = !abuseExpected || /enforceRateLimit|checkRateLimit|rateLimiter|rateLimitRequest|verifyTurnstile|verifyCaptcha|throttleRequest/i.test(code);
     const consentExpected = policy.includes('consent');
@@ -685,6 +731,8 @@ function auditBackendFiles(files, architecture) {
     return {
       id: route.id, method, path: route.path, file: file || null, methodOk,
       authOk: authorizationDetected, ownerScopeExpected, ownerScopeDetected,
+      validationExpected: routeNeedsValidation, validationDetected,
+      persistenceExpected, persistenceDetected, databaseClientDetected, databaseReadDetected, databaseWriteDetected,
       abuseExpected, abuseDetected, consentExpected, consentDetected, publicationExpected, publicationDetected, quarantineExpected, quarantineDetected,
     };
   });
@@ -782,6 +830,8 @@ function auditBackendFiles(files, architecture) {
     if (!route.file) missing.push('Missing route file: ' + route.method + ' ' + route.path);
     else if (!route.methodOk) missing.push('Missing HTTP method handler: ' + route.method + ' ' + route.path);
     if (!route.authOk) missing.push('Missing authorization/signature evidence: ' + route.path);
+    if (!route.validationDetected) missing.push('Missing strict server-side request validation: ' + route.path);
+    if (!route.persistenceDetected) missing.push('Missing executable database read/write evidence for declared route models: ' + route.path);
   });
   models.filter(model => !model.present).forEach(model => missing.push('Missing database schema model: ' + model.name));
   if (!migrationEvidence) missing.push(documentDatabase ? 'Missing Firestore collection/index schema artifact.' : 'Missing versioned database migration artifact.');
@@ -796,6 +846,8 @@ function auditBackendFiles(files, architecture) {
     routeCount: routes.length, routeSourceCount: routes.filter(route => route.file).length,
     routeMethodCount: routes.filter(route => route.methodOk).length,
     authorizationEvidenceCount: routes.filter(route => route.authOk).length,
+    requestValidationEvidenceCount: routes.filter(route => route.validationDetected).length,
+    persistenceEvidenceCount: routes.filter(route => route.persistenceDetected).length,
     modelCount: models.length, modelSchemaEvidenceCount: models.filter(model => model.present).length,
     databaseProvider, migrationEvidence, migrationFileCount: migrationFiles.length,
     relationshipCount: relations.length, relationshipEvidenceCount: relations.filter(relation => relation.present).length,
@@ -814,7 +866,7 @@ function buildBackendSourcePrompt(architecture, originalPrompt, existingPaths, f
     'Return only valid JSON: {"files":{"relative/path":"complete source text"}}. No Markdown fences.',
     'Generate real server route handlers, database schema, versioned migrations, relationships, constraints, indexes and safe tests for every declared API contract and model. A frontend-only response is not acceptable.',
     'Preserve the framework detected in existing project paths: Cloudflare Pages Functions, Next.js App Router/Pages Router, SvelteKit, Remix, Nuxt or an existing Node server. Use that framework’s native route-handler conventions. Prefer the explicitly selected database/auth/payment/email provider in the architecture contract; its connection metadata is not proof of live access, so generate server-only adapters and fail safely when bindings are absent. Only when no framework or database provider is selected, target Cloudflare Pages Functions with Cloudflare D1-compatible SQLite migrations and matching onRequestGet/onRequestPost/onRequestPut/onRequestPatch/onRequestDelete exports.',
-    'Use prepared database statements, strict server-side validation, safe error envelopes, size limits, owner scoping, deny-by-default authorization, idempotency and transactional business-state changes. Missing DB/auth bindings must fail explicitly; never simulate persistence or success.',
+    'Every route that declares data models must execute a real provider-backed read or write through a server-only repository/service in the same route or an imported local module. Generate actual create/read/update/delete operations required by the declared routes; never satisfy persistence with hard-coded arrays, in-memory maps, TODOs, mock repositories or success-shaped responses. Mutating handlers must validate request bodies with a concrete schema/validator before side effects. Use prepared database statements, safe error envelopes, size limits, owner scoping, deny-by-default authorization, idempotency and transactional business-state changes. Missing DB/auth bindings must fail explicitly; never simulate persistence or success.',
     'Generate provider-appropriate schemas, migrations, relationships, constraints and indexes for every model. Use SQL CREATE TABLE/foreign keys plus a versioned migrations/0001_initial.sql for relational databases; for Firebase Firestore emit db/firestore-schema.js and db/firestore.indexes.json with explicit collection/document validators, reference fields and required composite-index declarations. Keep money in integer minor units with ISO currency and timestamps in UTC with IANA timezone context.',
     'Generate protected identity/authorization middleware and negative permission tests when requested. Payment webhooks require signature and replay verification; booking commits must recheck availability; external email requires an outbox and verified receipt.',
     'For uploaded assets, implement provider-native private object storage with short-lived signed upload/download URLs where supported. Generate opaque owner-scoped object keys; enforce per-file and per-project quotas, allowlisted MIME types, actual content/signature checks, byte limits and checksum verification. Persist metadata only after upload verification, keep private/quarantined objects inaccessible by default, and never trust browser-supplied owner IDs, paths, MIME claims or public URLs.',
