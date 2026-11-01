@@ -280,6 +280,7 @@ try {
       type: 'application/json',
       content: JSON.stringify({
         version: 1,
+        backendRequired: false,
         journeys: [{
           id: 'home-disclosure',
           name: 'Open and close the home details disclosure',
