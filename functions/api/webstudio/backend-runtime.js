@@ -9,11 +9,33 @@ const ROOT_FILES = new Set([
   'wrangler.jsonc', 'wrangler.json', 'package.json', 'package-lock.json',
   'npm-shrinkwrap.json', 'ovyx-qa-plan.json', '_routes.json', '_headers', 'tsconfig.json', 'vite.config.js', 'vite.config.ts',
 ]);
+const RUNTIME_RATE_WINDOW_MS = 10 * 60 * 1000;
+const RUNTIME_RATE_MAX_RUNS = 6;
+const runtimeRateBuckets = new Map();
 const SECRET_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
   /\b(?:sk_(?:live|test|proj)_|whsec_|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_)[A-Za-z0-9_-]{12,}/i,
   /(?:["'](?:password|passcode|secret|token|api[_-]?key|authorization|card|cvv|cvc|iban|bank[_-]?account)["']\s*:\s*["'][^"']{12,}["']|(?:password|passcode|secret|token|api[_-]?key|authorization)\s*[:=]\s*["'][^"']{16,}["'])/i,
 ];
+
+function consumeRuntimeRateLimit(uid) {
+  const now = Date.now();
+  const key = String(uid || '').slice(0, 160);
+  if (!key) return false;
+  if (runtimeRateBuckets.size > 1500) {
+    for (const [storedKey, bucket] of runtimeRateBuckets) {
+      if (now - bucket.startedAt > RUNTIME_RATE_WINDOW_MS) runtimeRateBuckets.delete(storedKey);
+    }
+  }
+  const current = runtimeRateBuckets.get(key);
+  if (!current || now - current.startedAt >= RUNTIME_RATE_WINDOW_MS) {
+    runtimeRateBuckets.set(key, { startedAt: now, count: 1 });
+    return true;
+  }
+  if (current.count >= RUNTIME_RATE_MAX_RUNS) return false;
+  current.count += 1;
+  return true;
+}
 
 function safePath(raw) {
   const path = String(raw || '').replace(/\\/g, '/').replace(/^\/+/, '');
@@ -89,6 +111,7 @@ export async function onRequestPost(context) {
       return errorResponse(403, 'CORS_DENIED', 'Cross-origin backend runtime requests are not allowed.');
     }
     const user = assertAuthenticated(context.data?.user);
+    if (!consumeRuntimeRateLimit(user.uid)) return errorResponse(429, 'BACKEND_RUNTIME_RATE_LIMITED', 'The isolated backend runtime allows six checks per account every ten minutes. Wait before running another check.');
     const payload = await readJson(context.request, MAX_BODY_BYTES);
     const projectId = String(payload.projectId || '').trim().slice(0, 160);
     const plan = payload.qaPlan;
