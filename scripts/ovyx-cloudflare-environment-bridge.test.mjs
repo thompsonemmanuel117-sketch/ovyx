@@ -2,12 +2,15 @@ import assert from 'node:assert/strict';
 import {
   getCloudflareEnvironmentInventory,
   resolveIntegrationCredential,
+  resolveIntegrationCredentials,
 } from '../functions/_lib/cloudflare-environment.js';
 
 const env = {
   RESEND_API_KEY: 'SENTINEL_RESEND_SECRET_DO_NOT_LEAK',
   STRIPE_SECRET_KEY: 'SENTINEL_STRIPE_SECRET_DO_NOT_LEAK',
   WHATSAPP_ACCESS_TOKEN: 'SENTINEL_WHATSAPP_SECRET_DO_NOT_LEAK',
+  OPAY_CASHIER_PUBLIC_KEY: 'SENTINEL_OPAY_PUBLIC_KEY_DO_NOT_LEAK',
+  OPAY_CASHIER_SECRET_KEY: 'SENTINEL_OPAY_PRIVATE_KEY_DO_NOT_LEAK',
   PROPERTY_DATA_API_TOKEN: 'SENTINEL_UNKNOWN_SECRET_DO_NOT_LEAK',
   GEMINI_API_KEY: 'SENTINEL_GEMINI_SECRET_DO_NOT_LEAK',
   OPENAI_API_KEY: 'SENTINEL_OPENAI_SECRET_DO_NOT_LEAK',
@@ -32,6 +35,8 @@ for (const secret of [
   'SENTINEL_RESEND_SECRET_DO_NOT_LEAK',
   'SENTINEL_STRIPE_SECRET_DO_NOT_LEAK',
   'SENTINEL_WHATSAPP_SECRET_DO_NOT_LEAK',
+  'SENTINEL_OPAY_PUBLIC_KEY_DO_NOT_LEAK',
+  'SENTINEL_OPAY_PRIVATE_KEY_DO_NOT_LEAK',
   'SENTINEL_UNKNOWN_SECRET_DO_NOT_LEAK',
   'SENTINEL_GEMINI_SECRET_DO_NOT_LEAK',
   'SENTINEL_OPENAI_SECRET_DO_NOT_LEAK',
@@ -42,6 +47,7 @@ for (const secret of [
 assert.equal(resolveIntegrationCredential(env, 'email', 'resend').key, 'RESEND_API_KEY');
 assert.equal(resolveIntegrationCredential(env, 'payments', 'stripe').key, 'STRIPE_SECRET_KEY');
 assert.equal(resolveIntegrationCredential(env, 'messaging', 'whatsapp').key, 'WHATSAPP_ACCESS_TOKEN');
+assert.deepEqual(resolveIntegrationCredentials(env, 'payments', 'opay').map(item => item.key), ['OPAY_CASHIER_PUBLIC_KEY', 'OPAY_CASHIER_SECRET_KEY']);
 assert.equal(resolveIntegrationCredential(env, 'email', 'sendgrid'), null);
 assert.throws(() => resolveIntegrationCredential(env, 'unknown', 'provider'), { code: 'INTEGRATION_ADAPTER_NOT_REGISTERED' });
 assert.equal(resolveIntegrationCredential({ RESEND_API_KEY: { secret: true } }, 'email', 'resend'), null,
