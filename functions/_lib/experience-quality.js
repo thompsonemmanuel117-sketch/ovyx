@@ -2,7 +2,7 @@
 const s=v=>String(v??'');
 const a=(tag,n)=>{const m=s(tag).match(new RegExp('\\b'+n+'\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27|([^\\s>]+))','i'));return m?s(m[1]??m[2]??m[3]).trim():''};
 export function auditExperienceQuality(files={},siteMap={}){
- const entries=Object.entries(files||{}).filter(([p])=>/\\.html?$/i.test(p)||/\\.css$/i.test(p)), html=entries.filter(([p])=>/\.html?$/i.test(p)), css=entries.filter(([p])=>/\.css$/i.test(p)).map(([,v])=>s(v)).join('\n'), findings=[];
+ const entries=Object.entries(files||{}).filter(([p])=>/\.html?$/i.test(p)||/\.css$/i.test(p)), html=entries.filter(([p])=>/\.html?$/i.test(p)), css=entries.filter(([p])=>/\.css$/i.test(p)).map(([,v])=>s(v)).join('\n'), findings=[];
  const add=(code,file,severity,message)=>findings.push({code,file,severity,message});
  const titleOwners=new Map(), descriptionOwners=new Map();
  for(const [file,raw] of html){const h=s(raw);
