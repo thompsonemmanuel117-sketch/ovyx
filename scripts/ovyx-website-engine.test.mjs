@@ -140,6 +140,49 @@ assert.equal(multiPageCalls, 1);
 assert.equal(modelCalls, 0);
 assert.equal(repairCalls, 0);
 
+
+const backendArchitecture = {
+  capabilities: { backend: true },
+  apiContracts: [
+    { id: 'api-contact-submissions', method: 'POST', path: '/api/contact-submissions', authPolicy: 'public-with-abuse-controls' },
+  ],
+  dataModels: [
+    { id: 'model-contactsubmission', name: 'ContactSubmission' },
+  ],
+  dataIntegrity: { relationships: [] },
+};
+let backendCalls = 0;
+const backendBuild = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  fullStackArchitecture: backendArchitecture,
+  originalPrompt: 'Build a contact form that persists submissions.',
+  modelOptions: { system: 'system' },
+  callModel: async (_env, options) => {
+    backendCalls += 1;
+    assert.match(options.taskPrompt, /FULL-STACK SOURCE GENERATION/);
+    return {
+      text: JSON.stringify({
+        files: {
+          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { const result = await context.env.DB.prepare(\"INSERT INTO contact_submissions\").run(); return Response.json({ ok: true, result }); }',
+          'db/schema.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
+        },
+      }),
+    };
+  },
+  buildMultiPage: async () => ({
+    text: 'frontend built',
+    files: { 'index.html': '<!doctype html><html><body>Contact</body></html>' },
+  }),
+});
+assert.equal(backendCalls, 1, 'A full-stack website build must run a distinct backend source-generation pass.');
+assert.equal(backendBuild.result.fullStackGeneration.status, 'source-generated-runtime-unverified');
+assert.equal(backendBuild.fullStackSourceEvidence.status, 'source-evidence-present-runtime-unverified');
+assert.ok(backendBuild.result.files['functions/api/contact-submissions.js']);
+assert.ok(backendBuild.result.files['db/schema.sql']);
+assert.equal(backendBuild.fullStackSourceEvidence.runtimeBehaviorVerified, false);
+assert.equal(backendBuild.fullStackSourceEvidence.databasePersistenceVerified, false);
+
 const fallback = await runWebsiteGeneration({
   env: {},
   callModel: async (_env, options) => { modelCalls += 1; assert.equal(options.system, 'system'); return { text: 'raw' }; },
