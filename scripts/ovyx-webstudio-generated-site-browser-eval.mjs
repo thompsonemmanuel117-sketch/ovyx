@@ -292,8 +292,11 @@ async function runDeclaredJourneys(page, baseUrl, rawJourneys) {
               type: String(el.getAttribute('type') || '').toLowerCase(),
               href: el.getAttribute('href') || '',
               disabled: !!el.disabled,
+              inForm: !!el.closest('form'),
+              label: String(el.getAttribute('aria-label') || el.innerText || el.textContent || '').slice(0, 160),
             }));
-            if (info.disabled || info.type === 'submit' || info.type === 'reset' ||
+            if (info.disabled || info.inForm || info.type === 'submit' || info.type === 'reset' ||
+                /(?:pay|checkout|book|reserve|confirm|delete|remove|purchase|buy|logout|sign in|sign up|login|register|submit|send|order|subscription|subscribe|password|account)/i.test(info.label) ||
                 info.tag === 'form' || (info.tag === 'a' && !safeQaRoute(info.href))) {
               throw new Error('unsafe-click-target');
             }
