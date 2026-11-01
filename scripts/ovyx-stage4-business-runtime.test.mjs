@@ -208,7 +208,7 @@ try {
   await mkdir(migrationsDir, { recursive: true });
   await writeFile(configPath, JSON.stringify({
     name: databaseName,
-    compatibility_date: '2026-10-31',
+    compatibility_date: '2026-10-30',
     vars: {
       TEST_JWT_SECRET: 'local-only-stage4-jwt-secret',
       TEST_WEBHOOK_SECRET: 'local-only-stage4-webhook-secret',
