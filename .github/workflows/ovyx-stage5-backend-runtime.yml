@@ -57,6 +57,8 @@ jobs:
           DOCKERFILE
       - name: Verify per-project backend runtime bridge contracts
         run: node scripts/ovyx-backend-runtime-bridge.test.mjs
+      - name: Build the production Cloudflare Sandbox container image
+        run: docker build -f backend-runtime/Dockerfile -t ovyx-backend-runtime-worker .
       - name: Bundle and validate the Cloudflare Sandbox Worker
         working-directory: backend-runtime
         run: |
