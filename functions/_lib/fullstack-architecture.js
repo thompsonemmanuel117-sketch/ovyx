@@ -544,6 +544,63 @@ function buildWorkflowStateMachines(capabilities) {
     ],
     'Provider event IDs, references and idempotency keys must be deduplicated; amount and currency must match the server-authorized billable record.'
   );
+  if (capabilities.subscriptions) add(
+    'Customer subscription lifecycle', 'CustomerSubscription', 'incomplete',
+    ['incomplete', 'trialing', 'active', 'past_due', 'paused', 'cancel_at_period_end', 'canceled', 'expired', 'refunded', 'suspended'],
+    [
+      ['incomplete', 'trialing', 'verified provider trial creation', 'grant-trial-entitlement'],
+      ['incomplete', 'active', 'verified provider subscription and first payment', 'grant-paid-entitlement'],
+      ['trialing', 'active', 'verified first successful recurring payment', 'convert-trial-entitlement'],
+      ['active', 'past_due', 'verified renewal failure', 'apply-configured-grace-policy'],
+      ['past_due', 'active', 'verified recovered renewal payment', 'restore-paid-entitlement'],
+      ['active', 'cancel_at_period_end', 'verified provider cancellation schedule', 'retain-access-until-paid-through'],
+      ['cancel_at_period_end', 'canceled', 'authoritative paid-through expiry', 'revoke-paid-entitlement'],
+      ['active', 'canceled', 'verified immediate provider cancellation', 'revoke-paid-entitlement'],
+      ['active', 'refunded', 'verified provider refund or chargeback', 'reconcile-entitlement-revocation'],
+      ['past_due', 'expired', 'grace period elapsed and provider reconciled', 'revoke-paid-entitlement'],
+    ],
+    'Never activate paid access from a browser redirect; derive access from verified provider state and the server-owned billing period. Cancellation timing and grace periods must be explicit and provider-reconciled.'
+  );
+  if (capabilities.notifications) add(
+    'Notification lifecycle', 'Notification', 'queued',
+    ['queued', 'sending', 'accepted', 'delivered', 'read', 'failed', 'suppressed'],
+    [
+      ['queued', 'sending', 'idempotent worker claim after business transaction commit', 'claim-notification'],
+      ['sending', 'accepted', 'provider accepted the delivery request', 'record-provider-acceptance'],
+      ['accepted', 'delivered', 'provider delivery receipt or trusted channel acknowledgement', 'record-delivery-receipt'],
+      ['delivered', 'read', 'verified recipient read action', 'record-read-state'],
+      ['sending', 'failed', 'permanent provider failure or retry budget exhausted', 'record-delivery-failure'],
+      ['queued', 'suppressed', 'consent or recipient suppression policy', 'record-suppression'],
+    ],
+    'In-app read state is distinct from external delivery; never claim push/email delivery from queue acceptance alone.'
+  );
+  if (capabilities.integrations) add(
+    'Integration event lifecycle', 'IntegrationEvent', 'received',
+    ['received', 'verified', 'processing', 'processed', 'retrying', 'dead_letter', 'rejected'],
+    [
+      ['received', 'verified', 'provider-specific signature and timestamp validation', 'record-authentic-event'],
+      ['verified', 'processing', 'unique event claim and tenant scope validation', 'claim-event'],
+      ['processing', 'processed', 'business side effect committed', 'record-event-result'],
+      ['processing', 'retrying', 'transient failure within bounded retry budget', 'schedule-retry'],
+      ['retrying', 'processing', 'backoff elapsed and idempotent retry claim', 'retry-event'],
+      ['retrying', 'dead_letter', 'retry budget exhausted', 'surface-dead-letter'],
+      ['received', 'rejected', 'invalid signature, replay or unsupported event', 'record-safe-rejection'],
+    ],
+    'Unverified or replayed provider events must never trigger business mutations; retain redacted evidence for reconciliation.'
+  );
+  if (capabilities.automation) add(
+    'Automation run lifecycle', 'AutomationRun', 'queued',
+    ['queued', 'running', 'succeeded', 'retrying', 'failed', 'canceled', 'dead_letter'],
+    [
+      ['queued', 'running', 'scoped worker claims unique run key', 'claim-run'],
+      ['running', 'succeeded', 'all declared steps commit successfully', 'record-completion'],
+      ['running', 'retrying', 'retryable failure within policy', 'schedule-retry'],
+      ['retrying', 'running', 'backoff elapsed and idempotent claim', 'retry-run'],
+      ['retrying', 'dead_letter', 'retry budget exhausted', 'surface-dead-letter'],
+      ['queued', 'canceled', 'authorized owner cancels before execution', 'cancel-run'],
+    ],
+    'Automation runs must be tenant-scoped, time-bounded, idempotent and unable to perform high-impact actions without the declared approval policy.'
+  );
   if (capabilities.booking) add(
     'Booking lifecycle', 'Booking', 'requested',
     ['requested', 'pending_confirmation', 'confirmed', 'rejected', 'completed', 'cancelled', 'no_show', 'expired'],
