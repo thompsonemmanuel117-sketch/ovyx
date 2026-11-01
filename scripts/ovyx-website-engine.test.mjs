@@ -316,6 +316,6 @@ const filePlan = buildWebsiteEnginePlan('Update the existing site header and pre
 });
 assert.equal(filePlan.fileArchitecture.status, 'analyzed');
 assert.equal(filePlan.fileArchitecture.fileCount, 3);
-assert.deepEqual(filePlan.fileArchitecture.impactAnalysis.impactedPaths, ['index.html', 'src/main.js']);
+assert.deepEqual(filePlan.fileArchitecture.impactAnalysis.impactedPaths, ['src/main.js', 'index.html']);
 assert.ok(buildWebsiteEngineInstructions(filePlan).includes('fileArchitecture'));
 assert.equal(websiteEngineClientSummary(filePlan).fileArchitecture.dependencyCount, 2);
