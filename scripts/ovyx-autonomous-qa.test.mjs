@@ -8,7 +8,7 @@ import {
 } from '../functions/_lib/autonomous-qa.js';
 
 const requiredChannels = ['static', 'browser', 'backend', 'journeys'];
-const allPassed = requiredChannels.map(channel => ({ channel, status: 'passed', testsRun: 3, findings: [] }));
+const allPassed = requiredChannels.map(channel => ({ channel, status: 'passed', testsRun: 12, findings: [] }));
 
 const missing = createAutonomousQaReport({
   requiredChannels,
@@ -25,7 +25,7 @@ assert.equal(zeroRun.status, 'incomplete', 'A claimed pass with zero executed te
 
 const passed = createAutonomousQaReport({ requiredChannels, evidence: allPassed });
 assert.equal(passed.status, 'passed');
-assert.equal(passed.summary.testsRun, 12);
+assert.equal(passed.summary.testsRun, 48);
 
 const falsePass = createAutonomousQaReport({
   requiredChannels: ['browser'],
