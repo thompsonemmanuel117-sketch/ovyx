@@ -144,7 +144,7 @@
         return { status: 'invalid', journeys: [], apiChecks: [] };
       }
       var journeys = parsed.journeys.slice(0, 12).map(function (journey, index) {
-        var startRoute = text(journey && journey.startRoute).trim();
+        var startRoute = text(journey && journey.startRoute).trim().split(/[?#]/)[0];
         if (!startRoute || startRoute.charAt(0) !== '/' || startRoute.indexOf('//') === 0 || startRoute.indexOf('\\') >= 0 || /(?:^|\/)\.\.?(?:\/|$)/.test(startRoute)) startRoute = '';
         return {
           id: trim(journey && journey.id || 'journey-' + (index + 1), 80),
