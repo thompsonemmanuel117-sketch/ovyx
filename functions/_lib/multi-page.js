@@ -174,7 +174,7 @@ function routeSignature(url) {
     .split(/[?#]/, 1)[0]
     .replace(/\[\[?\.\.\.[^\]]+\]\]?|\[[^\]]+\]|:[A-Za-z0-9_]+|\*/g, ':param')
     .replace(/\/{2,}/g, '/')
-    .replace(/\/+$/, '') .toLowerCase() || '/';
+    .replace(/\/+$/, '') || '/';
 }
 
 export function normalizeSiteMap(raw, maxPages = DEFAULT_PAGE_LIMIT) {
