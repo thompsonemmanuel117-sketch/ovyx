@@ -45,12 +45,16 @@ Never promote one level to another based only on source files, mocks, saved conn
 The repository now includes `scripts/ovyx-generated-backend-runtime.test.mjs`, which writes a disposable Cloudflare Pages Functions project and a local D1 database into a temporary directory, applies its migration, starts the generated API under Wrangler's local Pages runtime, and exercises it over HTTP.
 
 The test verifies:
-- test JWTs are signature-checked and validated for issuer, audience and expiry; forged and expired tokens are rejected;\n- unauthenticated requests are rejected;
+- test JWTs are signature-checked and validated for issuer, audience and expiry; forged and expired tokens are rejected;
+- unauthenticated requests are rejected;
 - invalid request bodies are rejected;
 - a valid create operation persists in D1 and can be read back;
 - separate owners cannot list, read, update or delete another owner's records;
 - updates persist across subsequent requests;
-- deletion is reflected in subsequent reads;\n- private R2 uploads verify content signatures, remain owner-scoped and stay quarantined until approval;\n- two concurrent overlapping booking requests cannot both reserve the same resource/time window;\n- invalid booking time windows are rejected;
+- deletion is reflected in subsequent reads;
+- private R2 uploads verify content signatures, remain owner-scoped and stay quarantined until approval;
+- two concurrent overlapping booking requests cannot both reserve the same resource/time window;
+- invalid booking time windows are rejected;
 - the disposable project and local runtime process are cleaned up after the test.
 
 This is runtime evidence for the tested Cloudflare Pages + D1 fixture, not proof that every arbitrary AI-generated backend or every external provider integration works. The harness uses a local test-only JWT issuer/secret and disposable data; it does not validate a real customer identity-provider account, touch OVYX production customer data or run live payments/emails.
@@ -63,4 +67,4 @@ Generated project code must not execute inside the OVYX production request proce
 
 ## Current Stage 3 status
 
-The first integrity-gate implementation is under review in PR #370. Runtime execution and provider sandbox verification are subsequent Stage 3 work; they are not claimed as completed by this source-level change.
+The integrity-gate implementation was merged into `main` in PR #370. PR #371 contains the isolated runtime verification suite and is undergoing final CI/browser checks. Local runtime coverage now exercises signed test identities, D1 persistence, tenant isolation, private R2 upload quarantine and booking conflict prevention. Provider sandbox and production verification remain separate evidence levels and are not claimed without configured provider credentials and explicit approval.
