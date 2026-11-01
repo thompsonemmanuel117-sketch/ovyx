@@ -1190,7 +1190,6 @@
             if (browserResult.viewportWidth && Math.abs(browserResult.viewportWidth - width) > 3) {
               timeouts.push(page.path + ' at requested ' + width + 'px, actual sandbox viewport was ' + browserResult.viewportWidth + 'px.');
             }
-            addCheck(report, 'Accessibility', 'Keyboard focus is not obscured', accessibilityAudit.focusObscured.length ? 'warn' : accessibilityAudit.focusControls ? 'pass' : 'info', accessibilityAudit.focusObscured.length ? accessibilityAudit.focusObscured.slice(0, 20).join('\\n') : accessibilityAudit.focusControls ? 'No sampled keyboard-focused control was covered by another element at its visible center point. This is a targeted focus-obscuration probe, not a complete WCAG audit.' : 'No visible keyboard-operable controls were available for an obstruction probe.');
       var performanceAudit = report.browser.performance;
             if (Number.isFinite(Number(browserResult.initialRenderMs)) && browserResult.domNodes != null) {
               performanceAudit.samples += 1;
@@ -1265,6 +1264,7 @@
       } else {
         addCheck(report, 'Accessibility', 'Visible keyboard focus indicators', 'info', 'No keyboard-operable controls were available for this review.');
       }
+      addCheck(report, 'Accessibility', 'Keyboard focus is not obscured', accessibilityAudit.focusObscured.length ? 'warn' : accessibilityAudit.focusControls ? 'pass' : 'info', accessibilityAudit.focusObscured.length ? accessibilityAudit.focusObscured.slice(0, 20).join('\\n') : accessibilityAudit.focusControls ? 'No sampled keyboard-focused control was covered by another element at its visible center point. This is a targeted focus-obscuration probe, not a complete WCAG audit.' : 'No visible keyboard-operable controls were available for an obstruction probe.');
       var performanceAudit = report.browser.performance;
       if (performanceAudit.samples) {
         var averageRenderMs = Math.round(performanceAudit.totalInitialRenderMs / performanceAudit.samples);
