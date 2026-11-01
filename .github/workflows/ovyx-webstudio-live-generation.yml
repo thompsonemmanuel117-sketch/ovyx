@@ -33,6 +33,8 @@ on:
       - 'scripts/ovyx-generated-backend-runtime-eval.mjs'
       - 'scripts/ovyx-generated-backend-runtime-eval.test.mjs'
       - 'scripts/ovyx-cloudflare-backend-repair-client.mjs'
+      - 'scripts/ovyx-cloudflare-backend-repair-client.test.mjs'
+      - 'scripts/ovyx-cloudflare-backend-repair-client.mjs'
       - 'functions/_lib/prompts.js'
       - 'functions/_lib/experience.js'
       - 'functions/_lib/market-context.js'
