@@ -24,7 +24,6 @@ assert.deepEqual(contract.interactionSystem.evidenceContract.allowedResults, ['p
 assert.ok(contract.interactionSystem.verificationPlan.some(item => item.id === 'form-validation'));
 assert.ok(contract.interactionSystem.verificationPlan.some(item => item.id === 'booking-selection'));
 assert.ok(contract.interactionSystem.verificationPlan.some(item => item.id === 'primary-navigation'));
-assert.ok(!minimal.interactionSystem.verificationPlan.some(item => item.id === 'booking-selection'));
 assert.ok(contract.responsiveSystem.viewports.some(item => item.width === 320));
 assert.ok(contract.responsiveSystem.viewports.some(item => item.width === 1440));
 assert.deepEqual(contract.responsiveSystem.viewports.map(item => item.width), [320, 360, 375, 390, 430, 540, 640, 768, 820, 1024, 1280, 1440, 1920]);
@@ -44,6 +43,7 @@ assert.ok(experience.qualityGates.includes('semantic and accessible markup'));
 const minimal = buildDesignSystemContract('Build a simple one-page portfolio.');
 assert.equal(minimal.motionSystem.requested, false);
 assert.equal(minimal.seoSystem.canonicalOriginKnown, false);
+assert.ok(!minimal.interactionSystem.verificationPlan.some(item => item.id === 'booking-selection'));
 assert.ok(!minimal.interactionSystem.rules.some(item => /Commerce flows must show/i.test(item)));
 assert.ok(!minimal.interactionSystem.rules.some(item => /Booking flows must distinguish/i.test(item)));
 
