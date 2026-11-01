@@ -269,6 +269,8 @@ export async function onRequestPost(context) {
         callModel: routeCallModel,
         shouldBuild: isWebStudio && mode === 'build',
         scopedEdit: scopedWebStudioEdit,
+        fullStackArchitecture: websiteEnginePlan && websiteEnginePlan.fullStackArchitecture || null,
+        originalPrompt: studioPromptText,
         initialQuotaInputText: quotaInputText,
         multiPageOptions: {
           provider: String(payload.provider || 'automatic').toLowerCase(),
