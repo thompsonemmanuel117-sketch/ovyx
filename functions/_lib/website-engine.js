@@ -532,6 +532,9 @@ function auditBackendFiles(files, architecture) {
     const plural = snake.endsWith('s') ? snake : snake + 's';
     const present = schema.includes('model ' + name.toLowerCase()) ||
       schema.includes('create table ' + plural) ||
+      schema.includes('create table if not exists ' + plural) ||
+      schema.includes('create table "' + plural + '"') ||
+      schema.includes("create table '" + plural + "'") ||
       schema.includes('createtable("' + plural + '"') ||
       schema.includes("createtable('" + plural + "'");
     return { id: model.id, name, present };
