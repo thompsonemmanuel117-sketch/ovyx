@@ -2,7 +2,7 @@
 const s=v=>String(v??'');
 const a=(tag,n)=>{const m=s(tag).match(new RegExp('\\b'+n+'\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27|([^\\s>]+))','i'));return m?s(m[1]??m[2]??m[3]).trim():''};
 export function auditExperienceQuality(files={},siteMap={}){
- const entries=Object.entries(files||{}).filter(([p])=>/\.html?$/i.test(p)||/\.css$/i.test(p)), html=entries.filter(([p])=>/\.html?$/i.test(p)), css=entries.filter(([p])=>/\.css$/i.test(p)).map(([,v])=>s(v)).join('\n'), findings=[];
+ const allEntries=Object.entries(files||{}), entries=allEntries.filter(([p])=>/\.html?$/i.test(p)||/\.css$/i.test(p)), html=entries.filter(([p])=>/\.html?$/i.test(p)), css=entries.filter(([p])=>/\.css$/i.test(p)).map(([,v])=>s(v)).join('\n'), findings=[];
  const add=(code,file,severity,message)=>findings.push({code,file,severity,message});
  const titleOwners=new Map(), descriptionOwners=new Map();
  for(const [file,raw] of html){const h=s(raw);
@@ -13,6 +13,13 @@ export function auditExperienceQuality(files={},siteMap={}){
  if(descriptionText){if(descriptionOwners.has(descriptionText))add('DUPLICATE_META_DESCRIPTION',file,'warning','Meta description duplicates '+descriptionOwners.get(descriptionText)+'.');else descriptionOwners.set(descriptionText,file);}
  if(!/og:title/i.test(h))add('OPEN_GRAPH_TITLE_MISSING',file,'info','No Open Graph title was detected.');
  if(!/og:description/i.test(h))add('OPEN_GRAPH_DESCRIPTION_MISSING',file,'info','No Open Graph description was detected.');
+ const canonicalLinks=[...h.matchAll(/<link\b[^>]*>/gi)].filter(x=>/\brel\s*=\s*["']canonical["']/i.test(x[0]));
+ if(canonicalLinks.length>1)add('MULTIPLE_CANONICAL_LINKS',file,'warning','More than one canonical link was detected.');
+ if(canonicalLinks.length===1&&!a(canonicalLinks[0][0],'href'))add('CANONICAL_HREF_MISSING',file,'warning','Canonical link has no href.');
+ for(const data of h.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script\s*>/gi)){
+   try{const parsed=JSON.parse(data[1]);if(!parsed||typeof parsed!=='object'||!parsed['@context']||!parsed['@type'])add('STRUCTURED_DATA_SHAPE_INVALID',file,'warning','JSON-LD must contain a meaningful @context and @type.');}
+   catch{add('STRUCTURED_DATA_JSON_INVALID',file,'warning','A JSON-LD script contains invalid JSON.');}
+ }
  if(!/<title\b[^>]*>\s*[^<\s][\s\S]*?<\/title\s*>/i.test(h))add('PAGE_TITLE_MISSING',file,'warning','No non-empty document title.');
  if(!/<meta\b[^>]*name\s*=\s*["']description["'][^>]*content\s*=\s*["'][^"']+["']/i.test(h)&&!/<meta\b[^>]*content\s*=\s*["'][^"']+["'][^>]*name\s*=\s*["']description["']/i.test(h))add('META_DESCRIPTION_MISSING',file,'warning','No non-empty meta description.');
  if(!/<meta\b[^>]*name\s*=\s*["']viewport["']/i.test(h))add('VIEWPORT_META_MISSING',file,'warning','No viewport metadata.');
