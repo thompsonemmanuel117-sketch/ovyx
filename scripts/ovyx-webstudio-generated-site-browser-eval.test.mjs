@@ -41,7 +41,7 @@ await fs.writeFile(path.join(site, 'ovyx-qa-plan.json'), JSON.stringify({
 }, null, 2));
 await fs.mkdir(badSite, { recursive: true });
 await fs.writeFile(path.join(badSite, 'index.html'), '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Placeholder copy fixture</title></head><body><main><h1>Meet the team</h1><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p></main></body></html>');
-await fs.writeFile(path.join(badSite, 'ovyx-qa-plan.json'), JSON.stringify({ version: 1, backendRequired: false, journeys: [], apiChecks: [{ id: 'secret-query', name: 'Unsafe token query', route: '/?token=do-not-report-this', method: 'GET', expectedStatus: 200 }, { id: 'secret-fragment', name: 'OAuth fragment is stripped', route: '/#access_token=do-not-report-this', method: 'GET', expectedStatus: 200 }], backendChecks: [] }));
+await fs.writeFile(path.join(badSite, 'ovyx-qa-plan.json'), JSON.stringify({ version: 1, backendRequired: true, journeys: [], apiChecks: [{ id: 'secret-query', name: 'Unsafe token query', route: '/?token=do-not-report-this', method: 'GET', expectedStatus: 200 }, { id: 'secret-fragment', name: 'OAuth fragment is stripped', route: '/#access_token=do-not-report-this', method: 'GET', expectedStatus: 200 }], backendChecks: [{ id: 'backend-records', method: 'GET', route: '/api/records', expectedStatus: 200 }] }));
 
 const script = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'ovyx-webstudio-generated-site-browser-eval.mjs');
 const run = spawnSync(process.execPath, [script, path.join(root, 'sites'), out], { encoding: 'utf8', timeout: 60000 });
