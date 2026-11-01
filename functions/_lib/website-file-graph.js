@@ -26,6 +26,7 @@ function sourceOf(value) {
 function collectReferences(path, source) {
   const refs = [];
   const add = (raw, kind) => {
+    if (kind === 'document-action') return;
     const value = String(raw || '').trim().replace(/[?#].*$/, '');
     if (!value || /^(?:[a-z][a-z0-9+.-]*:|\\/\\/|#|data:|blob:|mailto:|tel:|javascript:)/i.test(value)) return;
     if (value.startsWith('/') || value.startsWith('./') || value.startsWith('../')) refs.push({ specifier: value, kind });
@@ -38,7 +39,11 @@ function collectReferences(path, source) {
     for (const match of source.matchAll(CSS_URL)) add(match[1], 'asset-url');
   }
   if (/\\.(?:html?|vue|svelte|astro)$/i.test(path)) {
-    for (const match of source.matchAll(HTML_REFERENCE)) add(match[2], 'document-reference');
+    for (const match of source.matchAll(HTML_REFERENCE)) {
+      const attribute = match[0].slice(0, match[0].indexOf('=')).trim().toLowerCase();
+      if (attribute === 'action') continue;
+      add(match[2], 'document-reference');
+    }
   }
   return refs;
 }
@@ -89,7 +94,10 @@ export function buildWebsiteFileGraph(input, options = {}) {
     for (const reference of collectReferences(from, source)) {
       const target = resolveReference(from, reference.specifier, known);
       if (!target) {
-        missingReferences.push({ from, specifier: reference.specifier, kind: reference.kind });
+        const looksLikeFile = /\\.[a-z0-9]{1,12}$/i.test(reference.specifier) || /(?:^|\\/)(?:assets?|images?|scripts?|styles?|fonts?)\\//i.test(reference.specifier);
+        if (reference.kind !== 'document-reference' || looksLikeFile) {
+          missingReferences.push({ from, specifier: reference.specifier, kind: reference.kind });
+        }
         continue;
       }
       const key = from + '->' + target + ':' + reference.kind;
