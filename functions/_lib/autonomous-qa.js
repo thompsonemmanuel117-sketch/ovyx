@@ -270,3 +270,114 @@ export async function runAutonomousRepairCycle(options = {}) {
     beforeReport: before,
   };
 }
+
+
+export function evaluateGeneratedWebsiteFiles(rawFiles = {}) {
+  const files = {};
+  const entries = rawFiles && typeof rawFiles === 'object' && !Array.isArray(rawFiles)
+    ? Object.entries(rawFiles).slice(0, 500) : [];
+  let totalBytes = 0;
+  const findings = [];
+  let testsRun = 0;
+  const add = (severity, code, message, file = '') => findings.push({
+    channel: 'static', severity, code, message: redactSensitiveText(message, 500), file: safeSourcePath(file),
+  });
+  for (const [rawPath, rawContent] of entries) {
+    const file = safeSourcePath(rawPath);
+    if (!file || typeof rawContent !== 'string') continue;
+    const bytes = new TextEncoder().encode(rawContent).byteLength;
+    if (bytes > MAX_FILE_CHARS * 4 || totalBytes + bytes > 2_000_000) {
+      add('blocker', 'QA_ARTIFACT_LIMIT', 'Generated source exceeds the autonomous QA inspection limit.', file);
+      continue;
+    }
+    totalBytes += bytes;
+    files[file] = rawContent;
+  }
+  const htmlFiles = Object.entries(files).filter(([file]) => /\.html?$/i.test(file));
+  testsRun += 1;
+  if (!htmlFiles.length) add('blocker', 'HTML_ENTRY_MISSING', 'No HTML entry page was found in the generated website.');
+  const paths = new Set(Object.keys(files).map(file => file.toLowerCase()));
+  for (const [file, html] of htmlFiles) {
+    const checks = [
+      ['DOCTYPE_MISSING', /<!doctype\s+html/i.test(html.slice(0, 500)), 'HTML page is missing the HTML5 doctype.'],
+      ['TITLE_MISSING', /<title\b[^>]*>[\s\S]*?\S[\s\S]*?<\/title\s*>/i.test(html), 'HTML page is missing a non-empty document title.'],
+      ['LANG_MISSING', /<html\b[^>]*\blang\s*=\s*(?:"[^"]+"|'[^']+'|[^\s>]+)/i.test(html), 'HTML root element is missing its language declaration.'],
+      ['VIEWPORT_MISSING', /<meta\b[^>]*name\s*=\s*(?:"viewport"|'viewport'|viewport)/i.test(html), 'HTML page is missing its responsive viewport declaration.'],
+    ];
+    for (const [code, ok, message] of checks) {
+      testsRun += 1;
+      if (!ok) add(code === 'DOCTYPE_MISSING' || code === 'TITLE_MISSING' ? 'blocker' : 'warning', code, message, file);
+    }
+    const ids = [...html.matchAll(/\bid\s*=\s*["']([^"']+)["']/gi)].map(match => match[1]);
+    const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
+    testsRun += 1;
+    if (duplicateIds.length) add('warning', 'DUPLICATE_HTML_IDS', 'Page contains duplicate element IDs: ' + [...new Set(duplicateIds)].slice(0, 8).join(', '), file);
+    const buttons = [...html.matchAll(/<(button|input)\b([^>]*)>/gi)];
+    for (const [, tag, attributes] of buttons) {
+      testsRun += 1;
+      const isSubmit = /\btype\s*=\s*["']?submit\b/i.test(attributes);
+      const accessible = /\b(?:aria-label|aria-labelledby|title)\s*=/i.test(attributes) ||
+        (tag.toLowerCase() === 'input' && /\bvalue\s*=/i.test(attributes));
+      if (!isSubmit && !accessible && tag.toLowerCase() === 'input') {
+        add('warning', 'CONTROL_LABEL_REVIEW', 'An input control may be missing an accessible name.', file);
+      }
+    }
+    const refs = [...html.matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)].map(match => match[1]);
+    for (const reference of refs) {
+      if (!reference || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|data:|blob:)/i.test(reference)) continue;
+      const target = reference.split(/[?#]/, 1)[0].replace(/^\/+/, '');
+      if (!target || target.split('/').includes('..')) continue;
+      const candidates = [target, target + '.html', target.replace(/\/$/, '') + '/index.html'];
+      testsRun += 1;
+      if (!candidates.some(candidate => paths.has(candidate.toLowerCase()))) {
+        add('warning', 'LOCAL_REFERENCE_UNRESOLVED', 'A local asset or route reference does not resolve to a generated file.', file);
+      }
+    }
+    const visibleText = html.replace(/<(script|style|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<[^>]+>/g, ' ');
+    testsRun += 1;
+    if (/\b(?:lorem ipsum|TODO|FIXME|content goes here|coming soon)\b/i.test(visibleText)) {
+      add('warning', 'PLACEHOLDER_COPY', 'Page contains obvious placeholder or unfinished copy.', file);
+    }
+  }
+  const scripts = Object.entries(files).filter(([file]) => /\.(?:m?js|jsx|tsx?)$/i.test(file));
+  for (const [file, source] of scripts) {
+    for (const [code, pattern, message] of [
+      ['DYNAMIC_CODE_EXECUTION', /\beval\s*\(|\bnew\s+Function\s*\(/, 'Generated source contains dynamic code execution.'],
+      ['DOCUMENT_WRITE', /\bdocument\.write\s*\(/, 'Generated source uses document.write, which can replace the document at runtime.'],
+    ]) {
+      testsRun += 1;
+      if (pattern.test(source)) add('blocker', code, message, file);
+    }
+  }
+  const qaPlan = files['ovyx-qa-plan.json'];
+  if (qaPlan) {
+    testsRun += 1;
+    try {
+      const plan = JSON.parse(qaPlan);
+      if (!plan || plan.version !== 1 || !Array.isArray(plan.journeys) || !Array.isArray(plan.apiChecks)) {
+        add('warning', 'QA_PLAN_SCHEMA_INVALID', 'The generated QA plan must contain version 1, journeys and apiChecks arrays.', 'ovyx-qa-plan.json');
+      } else {
+        const allowedActions = new Set(['goto', 'click', 'fill', 'check', 'uncheck', 'select', 'expectText', 'expectVisible', 'expectHidden', 'expectUrl', 'expectValue']);
+        for (const journey of plan.journeys.slice(0, 12)) {
+          for (const step of (Array.isArray(journey?.steps) ? journey.steps : []).slice(0, 30)) {
+            testsRun += 1;
+            if (!allowedActions.has(step?.action)) add('warning', 'QA_PLAN_ACTION_UNSUPPORTED', 'QA plan contains an unsupported or unsafe journey action.', 'ovyx-qa-plan.json');
+          }
+        }
+        for (const check of plan.apiChecks.slice(0, 20)) {
+          testsRun += 1;
+          if (!['GET', 'HEAD'].includes(String(check?.method || 'GET').toUpperCase())) {
+            add('warning', 'QA_PLAN_MUTATING_API_PROBE', 'QA plan contains a non-read-only API probe; mutating requests require a dedicated isolated backend fixture.', 'ovyx-qa-plan.json');
+          }
+        }
+      }
+    } catch {
+      add('warning', 'QA_PLAN_JSON_INVALID', 'The generated QA plan is not valid JSON.', 'ovyx-qa-plan.json');
+    }
+  } else {
+    testsRun += 1;
+    add('warning', 'QA_PLAN_MISSING', 'The generated website does not include ovyx-qa-plan.json, so requirement-derived browser journeys cannot run.', '');
+  }
+  const status = findings.some(finding => finding.severity === 'blocker') ? 'failed' : 'passed';
+  return { channel: 'static', status, testsRun: Math.max(1, testsRun), findings };
+}
