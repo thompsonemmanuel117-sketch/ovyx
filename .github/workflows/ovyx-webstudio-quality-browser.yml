@@ -28,6 +28,13 @@ on:
       - 'assets/ovyx-webstudio-navigation-polish.js'
       - 'assets/ovyx-webstudio-code-search.js'
       - 'assets/ovyx-webstudio-visual-editor.js'
+      - 'assets/ovyx-publishing-center.js'
+      - 'functions/api/publishing.js'
+      - 'functions/api/_middleware.js'
+      - 'functions/api/deploy.js'
+      - 'scripts/ovyx-publishing-center.test.mjs'
+      - 'scripts/ovyx-publishing-center.browser.test.mjs'
+      - 'docs/OVYX-STAGE-7-PUBLISHING.md'
       - 'scripts/ovyx-webstudio-code-search.test.mjs'
       - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
       - 'scripts/ovyx-webstudio-visual-editor.test.mjs'
@@ -82,6 +89,13 @@ on:
       - 'assets/ovyx-webstudio-navigation-polish.js'
       - 'assets/ovyx-webstudio-code-search.js'
       - 'assets/ovyx-webstudio-visual-editor.js'
+      - 'assets/ovyx-publishing-center.js'
+      - 'functions/api/publishing.js'
+      - 'functions/api/_middleware.js'
+      - 'functions/api/deploy.js'
+      - 'scripts/ovyx-publishing-center.test.mjs'
+      - 'scripts/ovyx-publishing-center.browser.test.mjs'
+      - 'docs/OVYX-STAGE-7-PUBLISHING.md'
       - 'scripts/ovyx-webstudio-code-search.test.mjs'
       - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
       - 'scripts/ovyx-webstudio-visual-editor.test.mjs'
@@ -181,6 +195,8 @@ jobs:
         run: node scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs
       - name: Test OVYX visual editor in Chromium
         run: node scripts/ovyx-webstudio-visual-editor.browser.test.mjs
+      - name: Test OVYX publishing center in Chromium
+        run: node scripts/ovyx-publishing-center.browser.test.mjs
       - name: Test desktop Code Workspace editing and dashboard route recovery in Chromium
         # Keep this independent recovery probe on successful/other-failure runs,
         # but don't delay the focused composer regression report when its own
