@@ -28,7 +28,7 @@ function validProjectId(value) {
 }
 function normalizeDomain(value) {
   const raw = String(value || '').trim().replace(/^https?:\/\//i, '').replace(/\/$/, '').toLowerCase();
-  if (!raw || raw.length > 253 || /[\s/@?#\\]/.test(raw)) throw Object.assign(new Error('Enter a valid domain name, such as example.com.'), { status: 400 });
+  if (!raw || raw.length > 253 || /[\s/:@?#\\]/.test(raw)) throw Object.assign(new Error('Enter a valid domain name, such as example.com.'), { status: 400 });
   let host;
   try {
     const parsed = new URL('https://' + raw);
