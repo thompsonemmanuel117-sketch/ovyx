@@ -38,6 +38,7 @@ const failed = summarizeDeployment({
 });
 assert.equal(failed.canRollback, false);
 assert.equal(isRollbackEligible({ environment: 'production', latest_stage: { name: 'deploy', status: 'success' } }), true);
+assert.equal(isRollbackEligible({ environment: 'production', stages: [{ name: 'deploy', status: 'success' }] }), true);
 assert.equal(isRollbackEligible({ environment: 'preview', latest_stage: { name: 'deploy', status: 'success' } }), false);
 assert.equal(isRollbackEligible({ environment: 'production', latest_stage: { name: 'deploy', status: 'failure' } }), false);
 assert.equal(isRollbackEligible({ environment: 'production', latest_stage: { name: 'build', status: 'success' } }), false);
