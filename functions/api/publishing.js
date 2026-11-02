@@ -38,7 +38,7 @@ function normalizeDomain(value) {
     throw Object.assign(new Error('Enter a valid domain name, such as example.com.'), { status: 400 });
   }
   if (host.length > 253 || !host.includes('.') || host === 'localhost' || host.endsWith('.localhost') ||
-      host.endsWith('.pages.dev') || host.endsWith('.workers.dev') ||
+      host.endsWith('.pages.dev') || host.endsWith('.workers.dev') || ['.invalid', '.test', '.example', '.local', '.internal', '.onion'].some(suffix => host.endsWith(suffix)) ||
       !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(host)) {
     throw Object.assign(new Error('Use a public domain you control. Cloudflare service hostnames and local addresses cannot be connected here.'), { status: 400 });
   }
