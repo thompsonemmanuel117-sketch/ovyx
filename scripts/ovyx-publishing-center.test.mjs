@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { normalizeDomain, summarizeDeployment, summarizeDomain } from '../functions/api/publishing.js';
+import { normalizeDomain, summarizeDeployment, summarizeDomain, isApexDomain } from '../functions/api/publishing.js';
 
 for (const value of ['example.com', 'WWW.Example.COM', 'https://example.com/', 'example.com.ng', 'shop.example.co.uk']) {
   assert.ok(normalizeDomain(value), value + ' should be accepted as a public domain');
@@ -8,6 +8,10 @@ for (const value of ['', 'localhost', 'example', 'https://example.com/path', 'ex
   assert.throws(() => normalizeDomain(value), undefined, value + ' must be rejected');
 }
 assert.equal(normalizeDomain('WWW.Example.COM'), 'www.example.com');
+assert.equal(isApexDomain('example.co.uk'), true);
+assert.equal(isApexDomain('shop.example.co.uk'), false);
+assert.equal(isApexDomain('example.com.ng'), true);
+assert.equal(isApexDomain('www.example.com.ng'), false);
 
 const healthy = summarizeDeployment({
   id: 'deployment-12345678',
@@ -54,5 +58,7 @@ const pendingDomain = summarizeDomain({
 assert.equal(pendingDomain.httpsReady, false);
 assert.equal(pendingDomain.validation.txtValue, 'verification-token');
 assert.equal(pendingDomain.dns.type, 'Nameservers');
+const ukApex = summarizeDomain({ name: 'example.co.uk', status: 'pending' }, 'ovyx-project.pages.dev');
+assert.equal(ukApex.dns.type, 'Nameservers');
 
 console.log('OVYX Stage 7 publishing contract tests passed.');
