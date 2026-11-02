@@ -39,10 +39,9 @@
   }
   async function request(path, options) {
     var idToken = await token();
-    var response = await fetch(path, Object.assign({
-      credentials: 'same-origin',
-      headers: Object.assign({ Accept: 'application/json', Authorization: 'Bearer ' + idToken }, options && options.headers || {})
-    }, options || {}));
+    var init = Object.assign({ credentials: 'same-origin' }, options || {});
+    init.headers = Object.assign({ Accept: 'application/json', Authorization: 'Bearer ' + idToken }, options && options.headers || {});
+    var response = await fetch(path, init);
     var body = await response.json().catch(function () { return {}; });
     if (!response.ok || body.success === false) throw new Error(clean(body.error || body.message || 'The publishing request could not be completed.', 300));
     return body;
