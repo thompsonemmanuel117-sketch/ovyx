@@ -102,7 +102,8 @@ async function authorize(context) {
   return { user: identity.user };
 }
 function isRollbackEligible(target) {
-  const stage = target?.latest_stage || {};
+  const stages = Array.isArray(target?.stages) ? target.stages : [];
+  const stage = target?.latest_stage || stages.find(item => item?.status === 'active') || stages.at(-1) || {};
   return target?.environment === 'production' && stage.name === 'deploy' && stage.status === 'success' && target?.is_skipped !== true;
 }
 function summarizeDeployment(item) {
