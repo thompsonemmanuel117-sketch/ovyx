@@ -148,8 +148,18 @@ function summarizeDomain(item, pagesSubdomain) {
     createdAt: item?.created_on || null
   };
 }
+async function getPagesProject(pagesName, env) {
+  return cf('/pages/projects/' + encodeURIComponent(pagesName), env);
+}
+async function ensurePagesProject(pagesName, env) {
+  try { return await getPagesProject(pagesName, env); }
+  catch (error) {
+    if (error.status !== 404) throw error;
+    return cf('/pages/projects', env, 'POST', { name: pagesName, production_branch: 'main' });
+  }
+}
 async function getPagesSubdomain(pagesName, env) {
-  const project = await cf('/pages/projects/' + encodeURIComponent(pagesName), env);
+  const project = await getPagesProject(pagesName, env);
   return String(project?.subdomain || (pagesName + '.pages.dev'));
 }
 function basePath(pagesName) {
@@ -163,11 +173,24 @@ async function handleGet(context) {
     projectId: url.searchParams.get('projectId'),
     projectName: url.searchParams.get('projectName')
   }, context.env);
-  const [deployments, domains, subdomain] = await Promise.all([
+  let pagesProject;
+  try { pagesProject = await getPagesProject(pagesName, context.env); }
+  catch (error) {
+    if (error.status !== 404) throw error;
+    return json({
+      success: true,
+      authoritative: true,
+      project: { id: projectId, name: projectName, pagesSubdomain: pagesName + '.pages.dev' },
+      releases: [],
+      domains: [],
+      requiresFirstDeployment: true
+    });
+  }
+  const [deployments, domains] = await Promise.all([
     cf(basePath(pagesName) + '/deployments?env=production&per_page=20', context.env),
-    cf(basePath(pagesName) + '/domains', context.env).catch(error => error.status === 404 ? [] : Promise.reject(error)),
-    getPagesSubdomain(pagesName, context.env)
+    cf(basePath(pagesName) + '/domains', context.env)
   ]);
+  const subdomain = String(pagesProject?.subdomain || (pagesName + '.pages.dev'));
   return json({
     success: true,
     authoritative: true,
@@ -199,6 +222,7 @@ async function handlePost(context) {
   }
   if (action === 'add-domain') {
     const domain = normalizeDomain(body.domain);
+    await ensurePagesProject(pagesName, context.env);
     const result = await cf(root + '/domains', context.env, 'POST', { name: domain });
     const subdomain = await getPagesSubdomain(pagesName, context.env);
     return json({ success: true, authoritative: true, action, domain: summarizeDomain(result, subdomain) }, 201);
