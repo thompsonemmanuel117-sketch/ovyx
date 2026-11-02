@@ -137,6 +137,7 @@
     async function refresh() {
       try {
         var data = await apiGet(p);
+        if (data.requiresFirstDeployment) statusLine(status, 'No release yet. Publish a preview or production release first; the first domain connection can also initialize your Pages project.');
         releases.replaceChildren(); domainList.replaceChildren();
         if (!data.releases || !data.releases.length) releases.appendChild(el('div', 'ovyx-pub-empty', 'No production releases yet. Publish your first release.'));
         (data.releases || []).forEach(function (release) {
