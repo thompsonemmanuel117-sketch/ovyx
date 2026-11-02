@@ -57,7 +57,7 @@ try {
   await page.getByRole('button', { name: 'Create preview' }).waitFor();
   await page.getByRole('button', { name: 'Publish to production' }).waitFor();
   await page.getByRole('button', { name: 'Restore this release' }).waitFor();
-  await page.getByText('www.example.com').waitFor();
+  await page.getByText('www.example.com', { exact: true }).waitFor();
 
   await page.getByRole('button', { name: 'Create preview' }).click();
   await page.getByText('Open published website: https://fixture.pages.dev').waitFor();
