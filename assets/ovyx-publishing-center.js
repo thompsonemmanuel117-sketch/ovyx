@@ -327,6 +327,10 @@
   }
   function boot() {
     style();
+    document.addEventListener('click', function (event) {
+      var target = event.target;
+      if (target && typeof target.closest === 'function' && target.closest('[data-ws-menu="deploy"]')) installDeployHook();
+    }, true);
     installDeployHook();
     var observer = new MutationObserver(function () { installDeployHook(); });
     if (document.body) observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'aria-hidden'] });
