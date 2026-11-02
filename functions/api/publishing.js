@@ -116,10 +116,16 @@ function summarizeDeployment(item) {
     canRollback: String(item?.environment || '') === 'production' && String(latest.name || '') === 'deploy' && String(latest.status || '') === 'success'
   };
 }
+const MULTI_LABEL_PUBLIC_SUFFIXES = new Set(['co.uk', 'org.uk', 'me.uk', 'ac.uk', 'com.au', 'net.au', 'org.au', 'co.nz', 'org.nz', 'co.za', 'org.za', 'com.ng', 'org.ng', 'net.ng', 'gov.ng', 'edu.ng', 'com.br', 'com.sg', 'com.in', 'co.in', 'firm.in', 'net.in', 'org.in', 'com.mx', 'com.tr', 'com.cn', 'com.hk', 'co.jp']);
+function isApexDomain(name) {
+  const labels = String(name || '').split('.');
+  if (labels.length < 2) return false;
+  return labels.length === (MULTI_LABEL_PUBLIC_SUFFIXES.has(labels.slice(-2).join('.')) ? 3 : 2);
+}
 function summarizeDomain(item, pagesSubdomain) {
   const status = String(item?.status || 'unknown').toLowerCase();
   const name = String(item?.name || '');
-  const apex = name.split('.').length === 2;
+  const apex = isApexDomain(name);
   return {
     name,
     status,
@@ -232,4 +238,4 @@ export function onRequest(context) {
   return json({ success: false, authoritative: true, error: 'GET or POST is required.' }, 405);
 }
 
-export { normalizeDomain, summarizeDeployment, summarizeDomain };
+export { normalizeDomain, summarizeDeployment, summarizeDomain, isApexDomain };
