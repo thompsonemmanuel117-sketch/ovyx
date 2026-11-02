@@ -20,7 +20,7 @@ try {
     window.showToast = () => {};
     window.__publishingCalls = [];
     window.fetch = async (url, init = {}) => {
-      const parsed = new URL(String(url), location.href);
+      const parsed = new URL(String(url), 'https://ovyx.test');
       const method = String(init.method || 'GET').toUpperCase();
       const headers = init.headers || {};
       const body = typeof init.body === 'string' ? JSON.parse(init.body) : {};
