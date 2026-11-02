@@ -101,6 +101,10 @@ async function authorize(context) {
   }
   return { user: identity.user };
 }
+function isRollbackEligible(target) {
+  const stage = target?.latest_stage || {};
+  return target?.environment === 'production' && stage.name === 'deploy' && stage.status === 'success' && target?.is_skipped !== true;
+}
 function summarizeDeployment(item) {
   const stages = Array.isArray(item?.stages) ? item.stages : [];
   const latest = item?.latest_stage || stages.find(stage => stage.status === 'active') || stages.at(-1) || {};
@@ -213,8 +217,7 @@ async function handlePost(context) {
     const deploymentId = String(body.deploymentId || '').trim();
     if (!/^[a-f0-9-]{16,64}$/i.test(deploymentId)) return json({ success: false, authoritative: true, error: 'Choose a valid production release to roll back to.' }, 400);
     const target = await cf(root + '/deployments/' + encodeURIComponent(deploymentId), context.env);
-    const stage = target?.latest_stage || {};
-    if (target?.environment !== 'production' || stage?.name !== 'deploy' || stage?.status !== 'success' || target?.is_skipped === true) {
+    if (!isRollbackEligible(target)) {
       return json({ success: false, authoritative: true, error: 'Only a successfully deployed production release can be restored. Preview releases cannot be rollback targets.' }, 409);
     }
     const result = await cf(root + '/deployments/' + encodeURIComponent(deploymentId) + '/rollback', context.env, 'POST', {});
@@ -262,4 +265,4 @@ export function onRequest(context) {
   return json({ success: false, authoritative: true, error: 'GET or POST is required.' }, 405);
 }
 
-export { normalizeDomain, summarizeDeployment, summarizeDomain, isApexDomain };
+export { normalizeDomain, summarizeDeployment, summarizeDomain, isApexDomain, isRollbackEligible };
