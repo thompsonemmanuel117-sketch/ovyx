@@ -314,7 +314,8 @@
   }
   function installDeployHook() {
     var w = studio();
-    if (!w || typeof w.openDeployPanel !== 'function' || w.openDeployPanel.__ovyxPublishingCenterWrapped) return;
+    if (!w || typeof w.openDeployPanel !== 'function') return false;
+    if (w.openDeployPanel.__ovyxPublishingCenterWrapped) return true;
     var original = w.openDeployPanel;
     var wrapped = function () {
       var result = original.apply(this, arguments);
@@ -325,6 +326,7 @@
     w.openDeployPanel = wrapped;
     var modal = document.getElementById('ws-deploy-modal');
     if (modal && modal.classList.contains('open')) window.setTimeout(enhanceDeployPanel, 0);
+    return true;
   }
   function boot() {
     style();
@@ -332,12 +334,13 @@
       var target = event.target;
       if (target && typeof target.closest === 'function' && target.closest('[data-ws-menu="deploy"]')) installDeployHook();
     }, true);
-    installDeployHook();
-    var observer = new MutationObserver(function () { installDeployHook(); });
-    if (document.body) observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'aria-hidden'] });
     window.addEventListener('ovyx:webstudio-ready', installDeployHook);
     window.addEventListener('ovyx:project-loaded', installDeployHook);
-    window.setInterval(installDeployHook, 1200);
+    window.addEventListener('ovyx:view-changed', installDeployHook);
+    var attempts = 0;
+    var retry = window.setInterval(function () {
+      if (installDeployHook() || ++attempts >= 60) window.clearInterval(retry);
+    }, 1000);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
