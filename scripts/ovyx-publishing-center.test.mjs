@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
-import { normalizeDomain, summarizeDeployment, summarizeDomain, isApexDomain } from '../functions/api/publishing.js';
+import { normalizeDomain, summarizeDeployment, summarizeDomain, isApexDomain, isRollbackEligible } from '../functions/api/publishing.js';
 
 for (const value of ['example.com', 'WWW.Example.COM', 'https://example.com/', 'example.com.ng', 'shop.example.co.uk']) {
   assert.ok(normalizeDomain(value), value + ' should be accepted as a public domain');
@@ -37,6 +37,11 @@ const failed = summarizeDeployment({
   latest_stage: { name: 'deploy', status: 'failure' }
 });
 assert.equal(failed.canRollback, false);
+assert.equal(isRollbackEligible({ environment: 'production', latest_stage: { name: 'deploy', status: 'success' } }), true);
+assert.equal(isRollbackEligible({ environment: 'preview', latest_stage: { name: 'deploy', status: 'success' } }), false);
+assert.equal(isRollbackEligible({ environment: 'production', latest_stage: { name: 'deploy', status: 'failure' } }), false);
+assert.equal(isRollbackEligible({ environment: 'production', latest_stage: { name: 'build', status: 'success' } }), false);
+assert.equal(isRollbackEligible({ environment: 'production', latest_stage: { name: 'deploy', status: 'success' }, is_skipped: true }), false);
 
 const activeDomain = summarizeDomain({
   name: 'www.example.com',
