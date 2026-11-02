@@ -154,7 +154,11 @@ function summarizeDomain(item, pagesSubdomain) {
   };
 }
 async function getPagesProject(pagesName, env) {
-  return cf('/pages/projects/' + encodeURIComponent(pagesName), env);
+  const project = await cf('/pages/projects/' + encodeURIComponent(pagesName), env);
+  if (project?.source?.type) {
+    throw Object.assign(new Error('This website is connected to a different publishing source. Review the deployment destination before continuing.'), { status: 409 });
+  }
+  return project;
 }
 async function ensurePagesProject(pagesName, env) {
   try { return await getPagesProject(pagesName, env); }
