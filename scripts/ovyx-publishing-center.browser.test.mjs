@@ -7,13 +7,19 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-  const calls = [];
-  await page.setContent('<!doctype html><html><head></head><body><main id="view-web-studio"></main></body></html>');
+  await page.setContent('<!doctype html><html><head></head><body><main id="view-webstudio"><div id="ws-deploy-modal"><div id="ws-deploy-content"></div></div></main></body></html>');
   await page.evaluate(() => {
-    window.KernelState = { activeProject: { id: 'publishing-fixture', name: 'Publishing fixture' } };
+    window.KernelState = { activeView: 'webstudio', activeProject: { id: 'publishing-fixture', name: 'Publishing fixture' } };
     window.WebStudio = {
       graph: { entry: 'index.html', files: { 'index.html': { content: '<!doctype html><html><head></head><body><h1>Publishing fixture</h1></body></html>' } } },
-      ensureProjectGraph() { return this.graph; }
+      ensureProjectGraph() { return this.graph; },
+      runTests() { return { ok: true }; },
+      openEngineeringConsole() {},
+      openDeployPanel() {
+        const host = document.getElementById('ws-deploy-content');
+        host.innerHTML = '<div class="ovyx-ws-plan-editor"><div><div class="ovyx-ws-plan-field"><label>Domain</label><input id="ws-deploy-domain" value="" placeholder="example.com"/></div><div class="ovyx-ws-plan-field"><label>Environment variables</label><textarea id="ws-deploy-env"></textarea></div></div></div><div class="ovyx-ws-plan-actions"><button type="button" id="ws-deploy-run">Run checks &amp; publish</button><button type="button" data-ws-close="deploy">Close</button></div>';
+        document.getElementById('ws-deploy-modal').classList.add('open');
+      }
     };
     window.firebase = { auth: () => ({ currentUser: { getIdToken: async () => 'fixture-firebase-token' } }) };
     window.confirm = () => true;
@@ -45,8 +51,9 @@ try {
     };
   });
   await page.addScriptTag({ path: path.join(root, 'assets/ovyx-publishing-center.js') });
-  await page.waitForSelector('#ovyx-publishing-center .ovyx-pub-trigger');
-  await page.getByRole('button', { name: 'Publish website' }).click();
+  await page.waitForFunction(() => window.WebStudio.openDeployPanel.__ovyxPublishingCenterWrapped === true);
+  await page.evaluate(() => window.WebStudio.openDeployPanel());
+  await page.waitForSelector('#ws-deploy-content [data-ovyx-publishing-center]');
   await page.getByRole('button', { name: 'Create preview' }).waitFor();
   await page.getByRole('button', { name: 'Publish to production' }).waitFor();
   await page.getByRole('button', { name: 'Restore this release' }).waitFor();
@@ -74,6 +81,7 @@ try {
   assert.ok(recorded.some(call => call.path === '/api/publishing' && call.method === 'POST' && call.body.action === 'add-domain' && call.body.domain === 'myshop.com'), 'The domain form must call the server-side domain API.');
   assert.ok(recorded.some(call => call.path === '/api/publishing' && call.method === 'POST' && call.body.action === 'rollback'), 'Rollback must call the server-side release API.');
   assert.equal(recorded.filter(call => call.path.startsWith('/api/')).every(call => call.authorization === 'Bearer fixture-firebase-token'), true);
+  assert.equal(await page.locator('#ws-deploy-run').count(), 1, 'The existing deployment action must be reused, not replaced with a second publishing entry point.');
   console.log('OVYX publishing center browser tests passed.');
 } finally {
   await browser.close();
