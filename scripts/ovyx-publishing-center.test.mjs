@@ -6,7 +6,7 @@ for (const value of ['example.com', 'WWW.Example.COM', 'https://example.com/', '
   assert.ok(normalizeDomain(value), value + ' should be accepted as a public domain');
 }
 for (const value of ['', 'localhost', 'example', 'https://example.com/path', 'example.com:8080', 'user@example.com', 'example.com.evil.invalid', 'project.pages.dev', 'site.workers.dev', '127.0.0.1', '*.example.com']) {
-  assert.throws(() => normalizeDomain(value), undefined, value + ' must be rejected');
+  assert.throws(() => normalizeDomain(value), Error, value + ' must be rejected');
 }
 assert.equal(normalizeDomain('WWW.Example.COM'), 'www.example.com');
 assert.equal(isApexDomain('example.co.uk'), true);
