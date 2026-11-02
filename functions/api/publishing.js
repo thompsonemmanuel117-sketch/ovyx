@@ -231,3 +231,5 @@ export function onRequest(context) {
   if (context.request.method === 'POST') return onRequestPost(context);
   return json({ success: false, authoritative: true, error: 'GET or POST is required.' }, 405);
 }
+
+export { normalizeDomain, summarizeDeployment, summarizeDomain };
