@@ -2,7 +2,7 @@
 
 ## Existing publishing foundation
 
-OVYX already provisions a Cloudflare Pages Direct Upload project per authenticated user and saved project. The Stage 7 center extends that existing flow rather than creating a second hosting system.
+OVYX already provisions a Cloudflare Pages Direct Upload project per authenticated user and saved project. The Stage 7 center extends that existing flow rather than creating a second hosting system. It reuses Web Studio's existing **Publish / Deploy** menu and deployment modal; it does not add a duplicate floating publishing button.
 
 - Preview publishing creates a uniquely named preview branch deployment.
 - Production publishing deploys the saved project to its Pages production environment.
