@@ -37,7 +37,7 @@ OVYX currently connects domains users already own; it does not yet sell/register
 
 ## Current hosting boundary
 
-The existing Pages upload endpoint deliberately rejects a generated `functions/` directory instead of silently publishing a website while dropping its backend. This Stage 7 publishing center therefore covers static Pages websites. Full-stack deployment of generated API/database runtimes needs the separate Worker/Sandbox-to-production runtime target and binding/secret provisioning path; it must be implemented and verified before OVYX advertises a generated full-stack app as production-published.
+The existing Pages upload endpoint deliberately rejects a generated `functions/` directory instead of silently publishing a website while dropping its backend. Cloudflare's Direct Upload documentation requires Wrangler for a `functions/` directory, while the `_worker.js` advanced-mode entry point is supported by Direct Upload. This Stage 7 publishing center therefore covers static Pages output and any compatible `_worker.js` output, but not generated Pages Functions folders. Full-stack deployment of generated API/database runtimes needs a production Worker/Functions target plus binding/secret provisioning; Cloudflare Workers for Platforms is the stronger multi-tenant direction because it isolates each customer's Worker. That path must be implemented and verified before OVYX advertises a generated full-stack app as production-published.
 
 ## Verification
 
