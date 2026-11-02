@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { normalizeDomain, summarizeDeployment, summarizeDomain, isApexDomain } from '../functions/api/publishing.js';
 
@@ -61,4 +62,18 @@ assert.equal(pendingDomain.dns.type, 'Nameservers');
 const ukApex = summarizeDomain({ name: 'example.co.uk', status: 'pending' }, 'ovyx-project.pages.dev');
 assert.equal(ukApex.dns.type, 'Nameservers');
 
+const apiSource = readFileSync(new URL('../functions/api/publishing.js', import.meta.url), 'utf8');
+const clientSource = readFileSync(new URL('../assets/ovyx-publishing-center.js', import.meta.url), 'utf8');
+const middlewareSource = readFileSync(new URL('../functions/_middleware.js', import.meta.url), 'utf8');
+assert.match(apiSource, /deployments\\/.*rollback/);
+assert.match(apiSource, /'add-domain'/);
+assert.match(apiSource, /'retry-domain'/);
+assert.match(apiSource, /'remove-domain'/);
+assert.match(apiSource, /resolveEntitlements/);
+assert.match(clientSource, /getIdToken\\(true\\)/);
+assert.match(clientSource, /api\\/deployment-status/);
+assert.match(clientSource, /Publish to production/);
+assert.match(clientSource, /Create preview/);
+assert.match(clientSource, /yourdomain\\.com/);
+assert.match(middlewareSource, /ovyx-publishing-center\\.js/);
 console.log('OVYX Stage 7 publishing contract tests passed.');
