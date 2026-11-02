@@ -8,7 +8,7 @@ const JSON_HEADERS = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
 };
 
-const MAX_BODY_BYTES = 20 * 1024 * 1024;
+const MAX_BODY_BYTES = 28 * 1024 * 1024;
 const MAX_FILES = 20_000;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
