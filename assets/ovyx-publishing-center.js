@@ -89,6 +89,8 @@
     var legacyEnv = host.querySelector('#ws-deploy-env');
     if (legacyDomain) { var domainField = legacyDomain.closest('.ovyx-ws-plan-field'); if (domainField) domainField.hidden = true; }
     if (legacyEnv) { var envField = legacyEnv.closest('.ovyx-ws-plan-field'); if (envField) envField.hidden = true; }
+    var legacyEditor = host.querySelector('.ovyx-ws-plan-editor');
+    if (legacyEditor) legacyEditor.hidden = true;
 
     var legacyPublish = host.querySelector('#ws-deploy-run');
     if (legacyPublish) {
