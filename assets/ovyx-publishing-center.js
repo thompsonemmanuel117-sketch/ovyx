@@ -151,8 +151,7 @@
     host.appendChild(root);
 
     function setBusy(value) {
-      preview.disabled = !!value;
-      add.disabled = !!value;
+      root.querySelectorAll('button').forEach(function (button) { button.disabled = !!value; });
       if (legacyPublish) legacyPublish.disabled = !!value;
     }
     async function refresh() {
