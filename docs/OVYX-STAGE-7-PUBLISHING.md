@@ -24,7 +24,7 @@ A user first registers a domain with a domain registrar, then connects it in the
 - Cloudflare validates the domain and provisions the certificate. The site should be treated as HTTPS-ready only when Cloudflare reports the domain as active.
 - Some domains require the TXT verification record returned by Cloudflare. OVYX displays the returned verification instructions rather than inventing DNS values.
 
-OVYX does not yet provide domain checkout/registration. Users bring a domain they already own. A registrar integration and billing flow can be added later without changing the custom-domain connection contract.
+OVYX currently connects domains users already own; it does not yet sell/register domains in the product. Cloudflare's Registrar API can programmatically search, check and register supported domains including `.com`, but it is a beta workflow. It requires a Registrar-write token, an account billing profile/default payment method, a default registrant contact and acceptance of the registration agreement. A successful registration bills the OVYX Cloudflare account and is non-refundable; the API beta does not yet support renewals. Therefore, domain checkout must wait for explicit billing, registrant-consent, renewal and ownership-transfer design rather than charging the platform account on a user's behalf.
 
 ## Safety and rollback
 
