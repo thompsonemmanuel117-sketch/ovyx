@@ -1818,14 +1818,17 @@
             return;
           }
         } catch (e) {}
-        const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '').toLowerCase();
-        if (tz.includes('lagos') || tz.includes('africa')) {
-          this.setCountry('NG');
-        } else {
-          const lang = (navigator.language || '').toUpperCase();
-          if (lang.includes('NG')) this.setCountry('NG');
-          else this.setCountry('US');
+        // Browser locale is only a display fallback, never proof of residence or business jurisdiction.
+        const languageHints = [navigator.language].concat(Array.isArray(navigator.languages) ? navigator.languages : []).filter(Boolean);
+        let region = '';
+        for (const language of languageHints) {
+          try {
+            const locale = typeof Intl.Locale === 'function' ? new Intl.Locale(language) : null;
+            region = String(locale && locale.region || (String(language).match(/(?:^|[-_])([A-Z]{2})(?:$|[-_])/i) || [])[1] || '').toUpperCase();
+            if (/^[A-Z]{2}$/.test(region)) break;
+          } catch (e) {}
         }
+        this.setCountry(/^[A-Z]{2}$/.test(region) ? region : 'US');
       },
       setCountry(code) {
         this.countryCode = code.toUpperCase();
