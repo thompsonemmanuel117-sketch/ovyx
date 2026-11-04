@@ -166,7 +166,7 @@ assert.match(client, /api\/deploy/);
 assert.match(client, /api\/deployment-status/);
 assert.match(client, /pagesProjectName: String\(resolution\.pagesProjectName \|\| ''\)/);
 assert.match(client, /environment === 'production'/);
-assert.match(client, /existing production project/);
+assert.match(client, /existing production Pages project/);
 assert.match(client, /functions\//);
 assert.match(client, /previous project snapshot was restored/);
 assert.match(client, /Do not assume Nigeria, NGN, USD, English/);
