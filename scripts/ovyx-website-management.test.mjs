@@ -36,7 +36,7 @@ assert.match(client, /OVYXAssetStore/);
 assert.match(client, /api\/projects/);
 assert.match(client, /api\/site-management/);
 assert.match(client, /Restore this earlier website version/);
-assert.match(client, /does not claim to rewrite the published HTML/);
+assert.match(client, /do not claim to rewrite the published HTML/);
 assert.match(client, /No estimated or invented traffic/);
 
 console.log('OVYX Stage 8 website-management contracts passed.');
