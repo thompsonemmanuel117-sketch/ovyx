@@ -5,7 +5,7 @@ import {
   setFirestoreDocumentAtPath,
   deleteFirestoreDocumentAtPath,
   listFirestoreSubcollectionDocumentsAtPath,
-} from './_lib/firebase-admin.js';
+} from '../_lib/firebase-admin.js';
 import { readJson, jsonResponse, requestId } from './_lib/http.js';
 
 const MAX_BODY_BYTES = 900_000;
@@ -106,7 +106,6 @@ export async function onRequest(context) {
     const method = context.request.method.toUpperCase();
     const projectId = safeProjectId(url.searchParams.get('projectId') || '');
     const { path, document, project } = await loadOwnedProject(context.env, owner.email, owner.uid, projectId);
-    const backupPath = [...path, BACKUP_COLLECTION];
 
     if (method === 'GET') {
       const view = clean(url.searchParams.get('view') || 'settings', 24).toLowerCase();
