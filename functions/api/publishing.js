@@ -244,6 +244,43 @@ export async function resolvePublishedSiteFromProjects({ uid, email, host, proje
   return { ...matches[0], sameProject: true, deploymentTarget: 'existing-pages-project' };
 }
 
+async function expectedPagesProjectPrefix(user, projectId, env) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(user.uid + ':' + projectId));
+  const hash = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
+  return safeSlug(env.CLOUDFLARE_PAGES_PROJECT_PREFIX || 'ovyx') + '-' + hash.slice(0, 10) + '-';
+}
+
+async function findExistingPagesProject(user, row, host, env) {
+  const projectId = String(row.id);
+  const data = row.data || {};
+  const prefix = await expectedPagesProjectPrefix(user, projectId, env);
+  const hints = new Set();
+  const storedName = String(data.ovyxPagesProjectName || '').trim().toLowerCase();
+  if (storedName) hints.add(storedName);
+  const hostName = String(host || '').toLowerCase().endsWith('.pages.dev') ? String(host).toLowerCase().slice(0, -'.pages.dev'.length) : '';
+  if (hostName) hints.add(hostName);
+  const current = await resolveProject(user, { projectId, projectName: data.name || data.title || 'site' }, env);
+  hints.add(current.pagesName);
+  const names = [...hints].filter(name => name.startsWith(prefix) && /^[a-z0-9-]{1,63}$/.test(name));
+  let listed = [];
+  try {
+    const projects = await cf('/pages/projects?per_page=100', env);
+    listed = (Array.isArray(projects) ? projects : []).map(item => String(item?.name || '').toLowerCase()).filter(name => name.startsWith(prefix) && /^[a-z0-9-]{1,63}$/.test(name));
+  } catch {}
+  for (const name of listed) names.push(name);
+  const uniqueNames = [...new Set(names)].slice(0, 20);
+  const matches = [];
+  for (const pagesName of uniqueNames) {
+    let project;
+    try { project = await getPagesProject(pagesName, env); } catch (error) { if (error.status === 404) continue; throw error; }
+    const [domains, deployments] = await Promise.all([cf(basePath(pagesName) + '/domains', env), cf(basePath(pagesName) + '/deployments?env=production&per_page=20', env)]);
+    const subdomain = String(project?.subdomain || pagesName + '.pages.dev').toLowerCase();
+    const attached = (Array.isArray(domains) ? domains : []).some(item => String(item?.name || '').toLowerCase() === String(host).toLowerCase());
+    if (subdomain === String(host).toLowerCase() || attached) matches.push({ pagesName, project, domains, deployments });
+  }
+  if (matches.length > 1) throw Object.assign(new Error('Several existing hosting projects appear to match this website link. OVYX stopped to avoid updating the wrong website.'), { status: 409, code: 'PUBLISHED_SITE_AMBIGUOUS' });
+  return matches[0] || null;
+}
 async function handleResolvePublishedSite(context, auth) {
   const { host, canonicalUrl } = normalizePublishedSiteUrl(new URL(context.request.url).searchParams.get('resolveUrl'));
   const rows = await listFirestoreSubcollectionDocumentsAtPath(context.env, ['users', auth.user.email], 'projects', 200);
@@ -254,14 +291,8 @@ async function handleResolvePublishedSite(context, auth) {
     host,
     projects,
     resolvePagesProject: async row => {
-      const projectName = clean(row.data?.name || row.data?.title || 'site', 100);
-      const resolved = await resolveProject(auth.user, { projectId: row.id, projectName }, context.env);
-      const project = await getPagesProject(resolved.pagesName, context.env);
-      const [domains, deployments] = await Promise.all([
-        cf(basePath(resolved.pagesName) + '/domains', context.env),
-        cf(basePath(resolved.pagesName) + '/deployments?env=production&per_page=20', context.env),
-      ]);
-      return { ...resolved, project, domains, deployments };
+      const existing = await findExistingPagesProject(auth.user, row, host, context.env);
+      return existing || {};
     },
   });
   return json({ success: true, authoritative: true, site: { ...result, canonicalUrl } });
