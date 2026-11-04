@@ -88,7 +88,7 @@ assert.ok(uploadPlan.fullStackArchitecture.capabilities.fileStorage,
 assert.ok(uploadPlan.fullStackArchitecture.dataModels.some(model => model.name === 'StoredAsset'));
 assert.ok(uploadPlan.fullStackArchitecture.apiContracts.some(route => route.path === '/api/assets'));
 assert.ok(uploadPlan.interactionArchitecture.capabilities.includes('file-storage'));
-assert.ok(uploadPlan.integrations.some(item => item.capability === 'storage' && item.connection === 'connected-in-context'));
+assert.ok(uploadPlan.integrations.some(item => item.capability === 'storage' && item.connection === 'configured-unverified'));
 assert.match(buildWebsiteEngineInstructions(uploadPlan), /upload-isolation/);
 
 
