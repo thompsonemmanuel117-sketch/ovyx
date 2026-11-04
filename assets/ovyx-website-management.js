@@ -73,7 +73,14 @@
   function open() {
     if (!panel) build();
     panel.hidden = false;
-    try { document.querySelectorAll('[data-nav="workspace"],[data-mobile-nav="workspace"]').forEach(function (node) { node.classList.add('active'); node.setAttribute('aria-current','page'); }); } catch (_) {}
+    try {
+      document.querySelectorAll('[data-nav],[data-mobile-nav]').forEach(function (node) {
+        var selected = node.getAttribute('data-nav') === 'workspace' || node.getAttribute('data-mobile-nav') === 'workspace';
+        node.classList.toggle('active', selected);
+        if (node.hasAttribute('data-nav')) { node.classList.toggle('text-white', selected); node.classList.toggle('bg-white/[0.08]', selected); }
+        if (selected) node.setAttribute('aria-current', 'page'); else node.removeAttribute('aria-current');
+      });
+    } catch (_) {}
     render(activeTab);
   }
   function openWorkspace() {
@@ -86,7 +93,19 @@
     } else open();
     return true;
   }
-  function close() { if (panel) panel.hidden = true; }
+  function close() {
+    if (panel) panel.hidden = true;
+    try {
+      var route = activeView();
+      document.querySelectorAll('[data-nav],[data-mobile-nav]').forEach(function (node) {
+        var key = node.getAttribute('data-nav') || node.getAttribute('data-mobile-nav');
+        var selected = key === route;
+        node.classList.toggle('active', selected);
+        if (node.hasAttribute('data-nav')) { node.classList.toggle('text-white', selected); node.classList.toggle('bg-white/[0.08]', selected); }
+        if (selected) node.setAttribute('aria-current', 'page'); else node.removeAttribute('aria-current');
+      });
+    } catch (_) {}
+  }
   function build() {
     panel = element('aside');
     panel.id = ROOT; panel.hidden = true; panel.setAttribute('aria-label', 'Website management');
@@ -119,7 +138,7 @@
       filtered.forEach(function (p) {
         var box = card(list, clean(p.name || p.title || 'Untitled website', 120), 'Updated ' + clean(p.updatedAt || 'date unavailable', 40));
         var row = element('div', 'ovym-row'); row.appendChild(element('span', 'ovym-muted', p.publishedUrl ? 'Published' : 'Saved project'));
-        button(row, 'Manage this website', function () { try { if (window.ProjectStore && typeof window.ProjectStore.open === 'function') window.ProjectStore.open(p.id); else throw new Error('The project opener is not available.'); activeTab = 'content'; window.setTimeout(function () { open(); render('content'); }, 180); } catch (error) { status(error.message || 'Could not open this website.', true); } });
+        button(row, 'Manage this website', function () { try { if (window.ProjectStore && typeof window.ProjectStore.open === 'function') window.ProjectStore.open(p.id); else throw new Error('The project opener is not available.'); activeTab = 'content'; window.setTimeout(function () { open(); }, 180); } catch (error) { status(error.message || 'Could not open this website.', true); } });
         box.appendChild(row);
       });
       if (!filtered.length) list.appendChild(element('div', 'ovym-muted', 'No websites match this search.'));
