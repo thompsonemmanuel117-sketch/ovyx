@@ -855,7 +855,7 @@ function collectLocalBackendModuleSource(entryFile, files) {
   return visit(entryFile, 0);
 }
 
-function auditBackendFiles(files, architecture) {
+export function auditBackendFiles(files, architecture) {
   const entries = Object.entries(files || {});
   const pathMap = new Map(entries.map(([filePath]) => [filePath.toLowerCase(), filePath]));
   const routes = (architecture.apiContracts || []).map(route => {
@@ -905,10 +905,14 @@ function auditBackendFiles(files, architecture) {
       /(?:\.safeParse|\.parse|\bvalidate(?:[A-Z][A-Za-z]+|Request|Input|Body|Schema)?|\bassertValid)\s*\(/i.test(code);
     const databaseClientDetected = /\.prepare\s*\(|\b(?:prisma|drizzle|supabase|firestore|collection|database|repository|db)\s*(?:\.|\()/i.test(code);
     const databaseReadDetected = /\bSELECT\s+|\.first\s*\(|\.all\s*\(|\.get\s*\(|\.find(?:Many|First|Unique|One)?\s*\(|\.select\s*\(|\.query\s*\(/i.test(code);
-    const databaseWriteDetected = /\b(?:INSERT\s+INTO|UPDATE\s+[A-Za-z_][\w.]*\s+SET|DELETE\s+FROM)\b|\.run\s*\(|\.execute\s*\(|\.insert\s*\(|\.create\s*\(|\.update\s*\(|\.delete\s*\(|\.set\s*\(|\.add\s*\(|\.upsert\s*\(|\.put\s*\(/i.test(code);
+    const databaseWriteDetected = /\\b(?:INSERT\\s+INTO|UPDATE\\s+[A-Za-z_][\\w.]*\\s+SET|DELETE\\s+FROM)\\b|\\.run\\s*\\(|\\.execute\\s*\\(|\\.insert\\s*\\(|\\.create\\s*\\(|\\.update\\s*\\(|\\.delete\\s*\\(|\\.set\\s*\\(|\\.add\\s*\\(|\\.upsert\\s*\\(|\\.put\\s*\\(/i.test(code);
+    const inMemoryStoreDetected =
+      /\\b(?:const|let|var)\\s+(?:db|database|store|repository|records)\\s*=\\s*new\\s+(?:Map|Set)\\s*\\(/i.test(code) ||
+      /\\b(?:const|let|var)\\s+(?:db|database|store|records)\\s*=\\s*\\[\\s*\\]/i.test(code) ||
+      /\\b(?:mock|fake|demo)(?:Database|Repository|Store|Persistence|Provider)\\b/i.test(code);
     const persistenceExpected = Array.isArray(route.modelIds) && route.modelIds.length > 0;
     const persistenceDetected = !persistenceExpected || (databaseClientDetected &&
-      (method === 'GET' ? databaseReadDetected : databaseWriteDetected));
+      (method === 'GET' ? databaseReadDetected : databaseWriteDetected) && !inMemoryStoreDetected);
     const abuseExpected = policy.includes('abuse-controls') || policy.includes('rate-limit');
     const abuseDetected = !abuseExpected || /enforceRateLimit|checkRateLimit|rateLimiter|rateLimitRequest|verifyTurnstile|verifyCaptcha|throttleRequest/i.test(code);
     const consentExpected = policy.includes('consent');
