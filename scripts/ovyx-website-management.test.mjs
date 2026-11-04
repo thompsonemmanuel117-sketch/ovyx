@@ -12,10 +12,13 @@ const [api, client, middleware, packageSource] = await Promise.all([
 assert.match(packageSource, /ovyx-website-management\.test\.mjs/);
 assert.match(middleware, /ovyx-website-management\.js/);
 assert.match(api, /authenticateRequest/);
+assert.match(api, /from '\.\.\/_lib\/firebase-admin\.js'/, 'The endpoint must use the shared Firebase Admin helpers that support owner-scoped subcollections.');
 assert.match(api, /loadOwnedProject/);
 assert.match(api, /ownerUid/);
 assert.match(api, /ownerEmail/);
 assert.match(api, /expectedUpdateTime/);
+assert.match(api, /listFirestoreSubcollectionDocumentsAtPath/);
+assert.match(api, /setFirestoreDocumentAtPath/);
 assert.match(api, /Before website settings update/);
 assert.match(api, /Before restoring/);
 assert.match(api, /MAX_BACKUPS = 20/);
