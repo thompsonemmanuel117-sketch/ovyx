@@ -64,6 +64,18 @@ assert.equal(resolvedPages.sameProject, true);
 assert.equal(resolvedPages.deploymentTarget, 'existing-pages-project');
 assert.equal(resolvedPages.matchedBy, 'pages-hostname');
 
+const stableNameProject = {
+  id: 'project-stable',
+  data: { name: 'Renamed project', ownerUid: owner.uid, ownerEmail: owner.email, ovyxPagesProjectName: 'ovyx-abcdef1234-renamed' },
+};
+const resolvedStableName = await resolvePublishedSiteFromProjects({
+  ...owner,
+  host: 'ovyx-abcdef1234-renamed.pages.dev',
+  projects: [stableNameProject],
+  resolvePagesProject: async () => ({ pagesName: 'ovyx-abcdef1234-renamed', project: { subdomain: 'ovyx-abcdef1234-renamed.pages.dev' }, domains: [], deployments: production }),
+});
+assert.equal(resolvedStableName.projectId, 'project-stable');
+assert.equal(resolvedStableName.pagesProjectName, 'ovyx-abcdef1234-renamed');
 const customDomainProject = {
   id: 'project-2',
   data: {
