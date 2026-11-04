@@ -5,6 +5,7 @@ import { validateOrRepairSinglePageBuild } from './studio-singlepage.js';
 import { buildFullStackArchitecture, fullStackArchitectureClientSummary, fullStackArchitectureModelContract } from './fullstack-architecture.js';
 import { buildWebsiteFileGraph, analyzeWebsiteFileImpact } from './website-file-graph.js';
 import { buildRequirementIntelligence } from './requirement-intelligence.js';
+import { buildProjectIntelligence, projectIntelligenceInstructions } from './project-intelligence.js';
 import { createAutonomousQaReport, evaluateGeneratedWebsiteFiles, runAutonomousRepairCycle } from './autonomous-qa.js';
 
 const clean = (value, max = 240) => String(value == null ? '' : value)
@@ -197,6 +198,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
   const requirementIntelligence = buildRequirementIntelligence(sourceBrief, promptContract, fullStackArchitecture);
   const projectFiles = safeContext.files || safeContext.projectFiles || {};
   const fileGraph = buildWebsiteFileGraph(projectFiles);
+  const projectIntelligence = buildProjectIntelligence(projectFiles);
   const fileArchitecture = {
     status: fileGraph.status,
     fileCount: fileGraph.nodes.length,
@@ -278,6 +280,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
     fullStackArchitecture,
     requirementIntelligence,
     fileArchitecture,
+    projectIntelligence,
     qualityGates: experience.qualityGates || [],
     implementationRules: [
       'Plan the complete experience before writing files; do not stop at a visually attractive first screen.',
@@ -511,6 +514,7 @@ function serializeWebsiteEngineModelPlan(plan) {
         conflicts: compactPlanList((plan.requirementIntelligence?.conflicts || []).map(item => item.requirementIds.join(' / ') + ': ' + item.sharedIntent), 8, 180),
         unmappedRequirementIds: compactPlanList(plan.requirementIntelligence?.unmappedRequirementIds, 30, 12),
       },
+      projectIntelligence: plan.projectIntelligence || null,
       fileArchitecture: {
         status: clean(plan.fileArchitecture?.status, 40),
         fileCount: Number(plan.fileArchitecture?.fileCount) || 0,
@@ -675,6 +679,7 @@ export function buildWebsiteEngineInstructions(plan) {
     'The complete original user brief is supplied separately as the task prompt and remains authoritative. The JSON below is a bounded architecture plan and requirement index; its clause excerpts never replace the original brief.',
     serializedPlan,
     'REQUIREMENT SIGNAL LEGEND: requirementSignals is positionally aligned with requirementManifest.requirements; entry N describes the requirement at index N. Each compact entry is [polarity][priority]:[category letters]:[mapping]. Polarity + means required, ! means prohibited and must remain excluded, ~ means preference. Priority C is critical, H is high, N is normal. Mapping M means linked to architecture nodes; U means still unmapped. Category letters: s=security, i=identity, d=data, c=commerce, x=integration, r=routes, u=interaction, v=design, t=content, w=responsive, a=accessibility, p=performance, o=SEO, m=assets, l=localization, q=explicit constraints, g=general. These are deterministic signals, not a substitute for reading the complete brief.',
+    ...projectIntelligenceInstructions(plan.projectIntelligence),
     ...fullStackRules,
     ...requirementRules.map(rule => 'REQUIREMENT RECONCILIATION: ' + rule),
     'AUTONOMOUS QA PLAN OUTPUT: For a new website build, add a root file named ovyx-qa-plan.json with strict JSON {"version":1,"backendRequired":true|false,"journeys":[...],"apiChecks":[...],"backendChecks":[...]}. Set backendRequired true whenever the requested architecture includes server routes, authentication, persistent data, bookings, commerce, subscriptions or other backend features; otherwise set false. Derive journeys from the original brief and the actual implemented UI. Include at least one executable journey for every website (for a simple brochure site, verify its primary page and navigation/CTA). Each journey has id, name, startRoute and ordered steps. Limit the manifest to 12 journeys total, no more than 4 journeys per route, and no more than 30 steps per journey. Supported step actions are click {selector}, fill {selector,value}, check {selector}, uncheck {selector}, select {selector,value}, expectText {selector?,text}, expectVisible {selector}, expectHidden {selector}, expectUrl {route}, and expectValue {selector,value}. Create a separate journey for each page route rather than using a cross-page goto step. Use stable, unique data-testid selectors for important controls. Assert observable outcomes and resulting UI state after each action, not merely that a click occurred. Include the primary navigation, main call-to-action, form validation/success state, and every explicitly requested critical user journey that can be safely exercised without real credentials or financial side effects.',
@@ -721,6 +726,16 @@ export function websiteEngineClientSummary(plan) {
       truncated: plan.fileArchitecture?.truncated === true,
       impactAnalysis: plan.fileArchitecture?.impactAnalysis || null,
     },
+    projectIntelligence: plan.projectIntelligence ? {
+      status: plan.projectIntelligence.status,
+      evidenceLevel: plan.projectIntelligence.evidenceLevel,
+      fileCount: plan.projectIntelligence.project?.fileCount || 0,
+      routeCount: plan.projectIntelligence.project?.routes?.length || 0,
+      apiRouteCount: plan.projectIntelligence.project?.apiRoutes?.length || 0,
+      schemaFileCount: plan.projectIntelligence.project?.schemaFiles?.length || 0,
+      integrationEvidence: (plan.projectIntelligence.project?.integrationEvidence || []).slice(0, 20),
+      detectedCapabilities: (plan.projectIntelligence.project?.detectedCapabilities || []).slice(0, 20),
+    } : null,
     fullStackArchitecture: fullStackArchitectureClientSummary(plan.fullStackArchitecture),
   };
 }
