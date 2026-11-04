@@ -233,6 +233,7 @@ export async function resolvePublishedSiteFromProjects({ uid, email, host, proje
       matches.push({
         projectId: String(row.id),
         projectName: clean(data.name || data.title || 'Website', 100),
+        pagesProjectName: String(remote.pagesName || ''),
         canonicalUrl: 'https://' + String(host).toLowerCase(),
         matchedBy: isPagesHost ? 'pages-hostname' : 'connected-custom-domain',
         domainStatus: domain ? String(domain.status || 'unknown').toLowerCase() : 'active',
