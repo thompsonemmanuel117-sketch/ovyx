@@ -278,6 +278,7 @@
         if (active) {
           active.ovyxDeployments = Array.isArray(active.ovyxDeployments) ? active.ovyxDeployments : [];
           active.ovyxDeployments.unshift({ at: Date.now(), status: 'published', url: finalState.url || '' });
+          if (finalState.pagesProjectName) active.ovyxPagesProjectName = String(finalState.pagesProjectName);
           active.ovyxDeployments = active.ovyxDeployments.slice(0, 20);
           try { window.ProjectStore?.save?.(); } catch (_) {}
         }
