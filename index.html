@@ -429,7 +429,7 @@
 <div class="space-y-0.5">
 <button class="ovyx-nav-item spring-btn" data-nav="webstudio" onclick="Router.go('webstudio')"><span class="ovyx-nav-icon ovyx-gold-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span class="ovyx-nav-copy"><b>Web Studio</b><small>Magic · Advanced</small></span></button>
 <button class="ovyx-nav-item spring-btn" data-nav="appstudio" onclick="Router.go('appstudio')"><span class="ovyx-nav-icon"><i class="fa-solid fa-mobile-screen-button"></i></span><span class="ovyx-nav-copy"><b>App Studio</b><small>Mobile app generation</small></span></button>
-<button class="ovyx-nav-item spring-btn" data-nav="workspace" onclick="openWebStudioCode()"><span class="ovyx-nav-icon"><i class="fa-solid fa-code"></i></span><span class="ovyx-nav-copy"><b>Code</b><small>Files · Repository · Export</small></span></button>
+<button class="ovyx-nav-item spring-btn" data-nav="workspace" onclick="window.OVYXWebsiteManagement?.openWorkspace?.()"><span class="ovyx-nav-icon"><i class="fa-solid fa-globe"></i></span><span class="ovyx-nav-copy"><b>Manage Website</b><small>Content · Media · Publishing</small></span></button>
 <button class="ovyx-nav-item spring-btn" data-nav="templates" onclick="Router.go('templates')"><span class="ovyx-nav-icon ovyx-gold-icon"><i class="fa-solid fa-layer-group"></i></span><span class="ovyx-nav-copy"><b>Templates</b><small>Published blueprint library</small></span></button>
 </div>
 </div>
@@ -472,7 +472,7 @@
 <div><div class="ovyx-nav-label px-2">BUILD</div><div class="space-y-1">
 <button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="webstudio" onclick="Router.go('webstudio')"><i class="fa-solid fa-wand-magic-sparkles text-brand-gold"></i><span>Web Studio<small>Magic · Advanced</small></span></button>
 <button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="appstudio" onclick="Router.go('appstudio')"><i class="fa-solid fa-mobile-screen-button"></i><span>App Studio<small>Mobile app generation</small></span></button>
-<button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="workspace" onclick="openWebStudioCode()"><i class="fa-solid fa-code"></i><span>Code<small>Files · Repository · Export</small></span></button>
+<button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="workspace" onclick="window.OVYXWebsiteManagement?.openWorkspace?.()"><i class="fa-solid fa-globe"></i><span>Manage Website<small>Content · Media · Publishing</small></span></button>
 <button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="templates" onclick="Router.go('templates')"><i class="fa-solid fa-layer-group text-brand-gold"></i><span>Templates<small>Published blueprint library</small></span></button>
 </div></div>
 <div><div class="ovyx-nav-label px-2">MANAGE</div><button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="projects" onclick="Router.go('projects'); MobileDrawer.close()"><i class="fa-regular fa-folder-open"></i><span>Projects<small>All projects · Assets · Revisions</small></span></button></div>
@@ -608,7 +608,7 @@
 <div class="v59-tool-grid">
 <button class="v59-tool-card" onclick="Router.go('webstudio')" type="button"><span class="v59-tool-icon gold"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span><b>Web Studio</b><small>Design and refine responsive websites.</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
 <button class="v59-tool-card" onclick="Router.go('appstudio')" type="button"><span class="v59-tool-icon cyan"><i class="fa-solid fa-mobile-screen-button"></i></span><span><b>App Studio</b><small>Shape product screens and app flows.</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
-<button class="v59-tool-card" onclick="openWebStudioCode()" type="button"><span class="v59-tool-icon"><i class="fa-solid fa-code"></i></span><span><b>Code Workspace</b><small>Open the main OVYX Code workspace for your project source.</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+<button class="v59-tool-card" onclick="window.OVYXWebsiteManagement?.openWorkspace?.()" type="button"><span class="v59-tool-icon"><i class="fa-solid fa-globe"></i></span><span><b>Manage Website</b><small>Manage website content, media, settings and releases.</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
 <button class="v59-tool-card" onclick="Router.go('projects')" type="button"><span class="v59-tool-icon"><i class="fa-regular fa-folder-open"></i></span><span><b>Projects</b><small>Continue a project and its revisions.</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
 </div>
 </section>
@@ -4084,7 +4084,7 @@
       const map={home:'home',projects:'projects',webstudio:'webstudio'};
       const key=map[view]; const el=key&&document.querySelector('[data-bottom-nav="'+key+'"]'); if(el)el.classList.add('active');
       document.querySelectorAll('[data-mobile-nav]').forEach(b=>b.classList.toggle('active',b.dataset.mobileNav===view));
-      const title=document.getElementById('mobile-current-view'); if(title) title.textContent=({home:'Home',projects:'Projects',webstudio:'Web Studio',appstudio:'App Studio',workspace:'Code',settings:'Settings',pricing:'Plans',faq:'Help'})[view]||'OVYX';
+      const title=document.getElementById('mobile-current-view'); if(title) title.textContent=({home:'Home',projects:'Projects',webstudio:'Web Studio',appstudio:'App Studio',workspace:'Manage Website',settings:'Settings',pricing:'Plans',faq:'Help'})[view]||'OVYX';
     }
     const originalGo=Router.go.bind(Router);
     Router.go=function(view){ const r=originalGo(view); syncMobileNav(view); return r; };
@@ -5938,7 +5938,7 @@ function bindMobileControls(){
   const more=$('ovyx-v52-bottom-bar')?.querySelector('[data-v52-bottom="more"]');
   if(more&&!more.dataset.v57More){more.dataset.v57More='1';more.removeAttribute('onclick');more.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openMore()},{capture:true})}
   const code=$('ovyx-v52-bottom-bar')?.querySelector('[data-v52-bottom="workspace"]');
-  if(code&&!code.dataset.v57Code){code.dataset.v57Code='1';code.removeAttribute('onclick');code.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();try{window.openWebStudioCode?.()}catch(err){console.warn('[OVYX V57] Code shortcut failed',err)}},{capture:true})}
+  if(code&&!code.dataset.v57Code){code.dataset.v57Code='1';code.removeAttribute('onclick');code.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();try{window.OVYXWebsiteManagement?.openWorkspace?.()}catch(err){console.warn('[OVYX V57] Manage Website shortcut failed',err)}},{capture:true})}
   const top=$('ovyx-v34-menu-source');
   if(top&&!top.dataset.v57More){top.dataset.v57More='1';top.removeAttribute('onclick');top.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openMore()},{capture:true})}
   const backdrop=$('mobile-drawer-backdrop');if(backdrop&&!backdrop.dataset.v57Close){backdrop.dataset.v57Close='1';backdrop.addEventListener('click',e=>{e.preventDefault();closeMore()},{capture:true})}
