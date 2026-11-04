@@ -130,7 +130,18 @@ const INTEGRATION_SETUP_GUIDES = Object.freeze({
   },
 });
 
-function paymentGuideForMarket(context) {\n  const source = context && typeof context === 'object' ? context : {};\n  const marketValues = [source.market, source.country, source.countryCode, source.currency, source.locale, source.marketContext?.country, source.marketContext?.countryCode, source.marketContext?.currency];\n  const nigeria = marketValues.some(value => /nigeria|nigerian|\\bNGN\\b|\\bNG\\b|naira|₦/i.test(String(value || '')));\n  if (nigeria) return INTEGRATION_SETUP_GUIDES.payments;\n  return {\n    providers: ['Stripe'],\n    recommendation: 'First confirm the business legal and settlement country. Stripe may be suitable only where merchant onboarding and settlement are supported; otherwise ask the owner to choose a provider available in that country. Paystack and OPay are not default recommendations outside Nigeria.',\n    action: 'Confirm the business country and settlement currency, connect a provider available to that business, configure server-side keys and verified webhooks, then run a sandbox checkout before enabling live payments.',\n  };\n}\nfunction integrationRequirements(contract, context, capabilities = {}) {
+function paymentGuideForMarket(context) {
+  const source = context && typeof context === 'object' ? context : {};
+  const marketValues = [source.market, source.country, source.countryCode, source.currency, source.locale, source.marketContext?.country, source.marketContext?.countryCode, source.marketContext?.currency];
+  const nigeria = marketValues.some(value => /nigeria|nigerian|\\bNGN\\b|\\bNG\\b|naira|₦/i.test(String(value || '')));
+  if (nigeria) return INTEGRATION_SETUP_GUIDES.payments;
+  return {
+    providers: ['Stripe'],
+    recommendation: 'First confirm the business legal and settlement country. Stripe may be suitable only where merchant onboarding and settlement are supported; otherwise ask the owner to choose a provider available in that country. Paystack and OPay are not default recommendations outside Nigeria.',
+    action: 'Confirm the business country and settlement currency, connect a provider available to that business, configure server-side keys and verified webhooks, then run a sandbox checkout before enabling live payments.',
+  };
+}
+function integrationRequirements(contract, context, capabilities = {}) {
   const requested = [
     ['payments', capabilities.payments],
     ['email', capabilities.email],
