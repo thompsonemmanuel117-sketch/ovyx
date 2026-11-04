@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { normalizeSettings } from '../functions/api/site-management.js';
 
 const read = path => readFile(new URL('../' + path, import.meta.url), 'utf8');
 const [api, client, middleware, packageSource] = await Promise.all([
@@ -38,5 +39,22 @@ assert.match(client, /api\/site-management/);
 assert.match(client, /Restore this earlier website version/);
 assert.match(client, /do not claim to rewrite the published HTML/);
 assert.match(client, /No estimated or invented traffic/);
+
+const normalized = normalizeSettings({
+  title: '<script>alert(1)</script>',
+  language: '../../invalid',
+  navigation: [
+    { label: 'Unsafe', path: 'javascript:alert(1)' },
+    { label: 'Protocol relative', path: '//attacker.example' },
+    { label: 'Traversal', path: '../private' },
+    { label: 'Home', path: '/' },
+    { label: 'About', path: 'about.html' },
+  ],
+});
+assert.equal(normalized.language, 'en', 'Invalid language tags must normalize to a safe default.');
+assert.deepEqual(normalized.navigation.map(item => item.path), ['/', 'about.html'],
+  'Navigation must reject script URLs, protocol-relative URLs and path traversal.');
+assert.equal(normalized.title, '<script>alert(1)</script>',
+  'Settings are stored as text; consumers must escape them when rendering.');
 
 console.log('OVYX Stage 8 website-management contracts passed.');
