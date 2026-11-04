@@ -132,8 +132,9 @@ const INTEGRATION_SETUP_GUIDES = Object.freeze({
 
 function paymentGuideForMarket(context) {
   const source = context && typeof context === 'object' ? context : {};
-  const marketValues = [source.market, source.country, source.countryCode, source.currency, source.locale, source.marketContext?.country, source.marketContext?.countryCode, source.marketContext?.currency];
-  const nigeria = marketValues.some(value => /nigeria|nigerian|\\bNGN\\b|\\bNG\\b|naira|₦/i.test(String(value || '')));
+  const marketValues = [source.countryCode, source.country, source.marketContext?.countryCode, source.marketContext?.country, source.currency, source.marketContext?.currency, source.locale, source.market];
+  const primaryMarket = marketValues.find(value => String(value || '').trim());
+  const nigeria = /nigeria|nigerian|\\bNGN\\b|\\bNG\\b|naira|₦/i.test(String(primaryMarket || ''));
   if (nigeria) return INTEGRATION_SETUP_GUIDES.payments;
   return {
     providers: ['Stripe'],
