@@ -41,6 +41,14 @@
     }
     return body;
   }
+  async function persistProject(project) {
+    if (!project || !project.id) throw new Error('The saved website project identity is missing.');
+    return request('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId: String(project.id), project: project })
+    });
+  }
   function styles() {
     if (document.getElementById(ROOT + '-style')) return;
     var style = el('style');
@@ -137,7 +145,7 @@
       return String(typeof left === 'string' ? left : left && left.content || '') !== String(typeof right === 'string' ? right : right && right.content || '');
     }).sort();
   }
-  function restoreProject(studioRef, snapshot) {
+  async function restoreProject(studioRef, snapshot) {
     var s = state();
     s.projects = (Array.isArray(s.projects) ? s.projects : []).map(function (item) {
       return item && String(item.id) === String(snapshot.project.id) ? clone(snapshot.project) : item;
@@ -149,6 +157,7 @@
     try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
     try { studioRef.renderPreview && studioRef.renderPreview(); } catch (_) {}
     try { studioRef.render && studioRef.render(); } catch (_) {}
+    try { await persistProject(s.activeProject); return true; } catch (_) { return false; }
   }
   function projectFilesForDeploy(graph) {
     var files = {};
@@ -166,48 +175,56 @@
   }
   async function publishExistingProject(project, resolution, graph, statusNode) {
     var files = projectFilesForDeploy(graph);
+    var deploymentAttempted = false;
     setStatus(statusNode, 'Publishing the verified changes to the existing website project…');
-    var response = await request('/api/deploy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    try {
+      deploymentAttempted = true;
+      var response = await request('/api/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: String(project.id),
+          projectName: String(project.name || project.title || 'site'),
+          pagesProjectName: String(resolution.pagesProjectName || ''),
+          action: 'publish',
+          files: files
+        })
+      });
+      var deploymentId = response.deployment && response.deployment.deploymentId;
+      if (!deploymentId) throw Object.assign(new Error('The existing hosting project did not return a deployment ID. Its final status is unknown; do not start a second update until you check Publishing → release history.'), { code: 'DEPLOYMENT_PENDING' });
+      var query = new URLSearchParams({
         projectId: String(project.id),
         projectName: String(project.name || project.title || 'site'),
         pagesProjectName: String(resolution.pagesProjectName || ''),
-        action: 'publish',
-        files: files
-      })
-    });
-    var deploymentId = response.deployment && response.deployment.deploymentId;
-    if (!deploymentId) throw new Error('The existing hosting project did not return a deployment ID. The live site was not confirmed as updated.');
-    var query = new URLSearchParams({
-      projectId: String(project.id),
-      projectName: String(project.name || project.title || 'site'),
-      pagesProjectName: String(resolution.pagesProjectName || ''),
-      deploymentId: String(deploymentId)
-    });
-    var finalState = null;
-    for (var attempt = 0; attempt < 90; attempt += 1) {
-      await new Promise(function (resolve) { window.setTimeout(resolve, 2000); });
-      var checked = await request('/api/deployment-status?' + query.toString(), { method: 'GET' });
-      finalState = checked.deployment || {};
-      if (finalState.stage === 'deploy' && finalState.status === 'success' && finalState.environment === 'production') break;
-      if (finalState.status === 'failure' || finalState.status === 'canceled') {
-        throw new Error('The production deployment failed. Cloudflare keeps the previous successful production release available.');
+        deploymentId: String(deploymentId)
+      });
+      var finalState = null;
+      for (var attempt = 0; attempt < 90; attempt += 1) {
+        await new Promise(function (resolve) { window.setTimeout(resolve, 2000); });
+        var checked = await request('/api/deployment-status?' + query.toString(), { method: 'GET' });
+        finalState = checked.deployment || {};
+        if (finalState.stage === 'deploy' && finalState.status === 'success' && finalState.environment === 'production') break;
+        if (finalState.status === 'failure' || finalState.status === 'canceled') {
+          throw Object.assign(new Error('The production deployment failed. Cloudflare keeps the previous successful production release available.'), { code: 'DEPLOYMENT_FAILED' });
+        }
       }
+      if (!finalState || finalState.stage !== 'deploy' || finalState.status !== 'success' || finalState.environment !== 'production') {
+        throw Object.assign(new Error('Cloudflare is still processing the production update. The edited source remains safely saved in your account. Check Publishing → release history before retrying; do not create another website.'), { code: 'DEPLOYMENT_PENDING' });
+      }
+      var canonical = 'https://' + resolution.canonicalUrl.replace(/^https:\/\//i, '').split('/')[0];
+      project.ovyxDeployments = Array.isArray(project.ovyxDeployments) ? project.ovyxDeployments : [];
+      project.ovyxDeployments.unshift({ at: Date.now(), status: 'published', url: canonical, deploymentId: String(deploymentId), action: 'live-site-update' });
+      if (finalState.pagesProjectName) project.ovyxPagesProjectName = String(finalState.pagesProjectName);
+      project.ovyxDeployments = project.ovyxDeployments.slice(0, 30);
+      if (resolution.matchedBy === 'connected-custom-domain') project.ovyxDeploymentDomain = canonical.replace(/^https:\/\//, '');
+      var metadataSaved = true;
+      try { await persistProject(project); } catch (_) { metadataSaved = false; }
+      try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
+      return { url: canonical, deployment: finalState, metadataSaved: metadataSaved };
+    } catch (error) {
+      if (deploymentAttempted && error.code !== 'DEPLOYMENT_FAILED' && error.code !== 'DEPLOYMENT_PENDING') error.code = 'DEPLOYMENT_PENDING';
+      throw error;
     }
-    if (!finalState || finalState.stage !== 'deploy' || finalState.status !== 'success' || finalState.environment !== 'production') {
-      throw new Error('Cloudflare is still processing the production update. Check Publishing → release history before retrying; do not create another website.');
-    }
-    var canonical = 'https://' + resolution.canonicalUrl.replace(/^https:\/\//i, '').split('/')[0];
-    project.ovyxDeployments = Array.isArray(project.ovyxDeployments) ? project.ovyxDeployments : [];
-    project.ovyxDeployments.unshift({ at: Date.now(), status: 'published', url: canonical, deploymentId: String(deploymentId), action: 'live-site-update' });
-    if (finalState.pagesProjectName) project.ovyxPagesProjectName = String(finalState.pagesProjectName);
-    project.ovyxDeployments = project.ovyxDeployments.slice(0, 30);
-    if (resolution.matchedBy === 'connected-custom-domain') project.ovyxDeploymentDomain = canonical.replace(/^https:\/\//, '');
-    try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
-    try { window.OVYXProjectCloudSync && window.OVYXProjectCloudSync.save && window.OVYXProjectCloudSync.save(project); } catch (_) {}
-    return { url: canonical, deployment: finalState };
   }
   function setBusy(value, statusNode, findButton, updateButton, closeButton) {
     busy = !!value;
@@ -360,21 +377,26 @@
       }
       active = state().activeProject && String(state().activeProject.id) === String(active.id) ? state().activeProject : active;
       active.ovyxGraph = clone(after);
+      await persistProject(active);
       try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
-      setStatus(statusNode, 'Source checks passed. Publishing to the same production project and preserving the current domain…', 'info');
+      setStatus(statusNode, 'Source checks passed and saved to your account. Publishing to the same production project and preserving the current domain…', 'info');
       var publishedResult = await publishExistingProject(active, activeResolution, after, statusNode);
       published = true;
       try { studioRef.renderPreview && studioRef.renderPreview(); } catch (_) {}
       try { studioRef.render && studioRef.render(); } catch (_) {}
-      setStatus(statusNode, 'Website updated successfully. ' + changed.length + ' source file(s) changed. Your existing link is still ' + publishedResult.url + '. The previous project backup is available in Manage Website → Backups.', 'success');
+      setStatus(statusNode, 'Website updated successfully. ' + changed.length + ' source file(s) changed. Your existing link is still ' + publishedResult.url + '. The previous project backup is available in Manage Website → Backups.' + (publishedResult.metadataSaved ? '' : ' The live release succeeded, but its latest deployment details could not be synced to the account record; the saved source code is already safe, and the existing project/domain were not changed.'), 'success');
       updateButton.disabled = true;
       findButton.disabled = true;
       toast('Your existing website was updated on its current link.', 'success');
     } catch (error) {
-      if (snapshot && !published) {
-        try { restoreProject(studioRef || studio(), snapshot); } catch (_) {}
+      var restored = false;
+      if (snapshot && !published && error.code !== 'DEPLOYMENT_PENDING') {
+        try { restored = await restoreProject(studioRef || studio(), snapshot); } catch (_) {}
       }
-      setStatus(statusNode, clean(error.message || 'The live website update failed.', 600) + (snapshot && !published ? ' The previous saved project snapshot was restored. The previous live production release remains in place.' : ''), 'error');
+      var recovery = error.code === 'DEPLOYMENT_PENDING'
+        ? ' The deployment result is not confirmed yet, so OVYX kept the edited source saved instead of risking a mismatch. Check Publishing → release history before retrying.'
+        : snapshot ? (restored ? ' The previous saved project snapshot was restored; the previous live production release remains in place.' : ' The previous project snapshot is available in Manage Website → Backups, but automatic cloud restoration could not be confirmed.') : '';
+      setStatus(statusNode, clean(error.message || 'The live website update failed.', 600) + recovery, 'error');
       toast('The live website was not confirmed as updated. Review the message in the update panel.', 'error');
     } finally {
       busy = false;
