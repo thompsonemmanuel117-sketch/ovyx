@@ -354,6 +354,9 @@
         try { studioRef.openEngineeringConsole && studioRef.openEngineeringConsole('tests'); } catch (_) {}
         throw new Error(clean(tests && tests.summary || 'The website quality checks did not pass. OVYX will not publish this update.', 500));
       }
+      active = state().activeProject && String(state().activeProject.id) === String(active.id) ? state().activeProject : active;
+      active.ovyxGraph = clone(after);
+      try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
       setStatus(statusNode, 'Source checks passed. Publishing to the same production project and preserving the current domain…', 'info');
       var publishedResult = await publishExistingProject(active, activeResolution, after, statusNode);
       published = true;
