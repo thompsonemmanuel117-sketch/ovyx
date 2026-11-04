@@ -173,8 +173,8 @@
     var title = element('input'); title.value = clean(settings.title || '', 120); title.maxLength = 120;
     var description = element('textarea'); description.value = clean(settings.description || '', 320); description.maxLength = 320;
     var language = element('input'); language.value = clean(settings.language || 'en', 12); language.maxLength = 12;
-    var navigation = element('textarea'); navigation.value = (Array.isArray(settings.navigation) ? settings.navigation : []).map(function (item) { return clean(item.label, 60) + ' | ' + clean(item.path, 180); }).join('\\n');
-    navigation.placeholder = 'Home | /\\nAbout | /about.html';
+    var navigation = element('textarea'); navigation.value = (Array.isArray(settings.navigation) ? settings.navigation : []).map(function (item) { return clean(item.label, 60) + ' | ' + clean(item.path, 180); }).join('\n');
+    navigation.placeholder = 'Home | /\nAbout | /about.html';
     [['SEO title', title],['SEO description', description],['Language code', language],['Navigation links (one label | path per line)', navigation]].forEach(function (item) {
       var wrap = element('label', 'ovym-field'); wrap.appendChild(element('span', '', item[0])); wrap.appendChild(item[1]); root.appendChild(wrap);
     });
@@ -182,7 +182,7 @@
     button(root, 'Save website settings', async function () {
       try {
         setBusy(true);
-        var links = navigation.value.split(/\\r?\\n/).map(function (line) { var parts = line.split('|'); return { label: clean(parts.shift(), 60), path: clean(parts.join('|'), 180) }; }).filter(function (item) { return item.label && item.path; });
+        var links = navigation.value.split(/\r?\n/).map(function (line) { var parts = line.split('|'); return { label: clean(parts.shift(), 60), path: clean(parts.join('|'), 180) }; }).filter(function (item) { return item.label && item.path; });
         await post('settings', { settings: { title: title.value, description: description.value, language: language.value, navigation: links } });
         status('Settings saved. An automatic backup was created first.');
       } catch (error) { status(error.message, true); }
