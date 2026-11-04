@@ -9,11 +9,12 @@ import {
 } from '../functions/api/publishing.js';
 
 const read = path => readFile(new URL('../' + path, import.meta.url), 'utf8');
-const [client, middleware, api, packageSource] = await Promise.all([
+const [client, middleware, api, packageSource, deploySource] = await Promise.all([
   read('assets/ovyx-live-site-updater.js'),
   read('functions/_middleware.js'),
   read('functions/api/publishing.js'),
   read('package.json'),
+  read('functions/api/deploy.js'),
 ]);
 
 // Compile the browser asset without executing it in Node's non-browser environment.
@@ -134,6 +135,8 @@ await assert.rejects(
 assert.match(api, /listFirestoreSubcollectionDocumentsAtPath/);
 assert.match(api, /handleResolvePublishedSite/);
 assert.match(api, /findExistingPagesProject/);
+assert.match(deploySource, /if\(requestedPagesProjectName\)await ovyxGetExistingPagesProject/);
+assert.match(deploySource, /async function ovyxGetExistingPagesProject/);
 assert.match(api, /resolveEntitlements/);
 assert.match(api, /emailVerified/);
 assert.match(client, /Update an existing live website/);
