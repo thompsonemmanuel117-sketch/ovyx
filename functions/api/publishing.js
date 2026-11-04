@@ -229,9 +229,10 @@ export async function resolvePublishedSiteFromProjects({ uid, email, host, proje
     const pagesSubdomain = String(remote?.project?.subdomain || (remote?.pagesName ? remote.pagesName + '.pages.dev' : '')).toLowerCase();
     const pagesHost = pagesSubdomain || String(remote?.pagesName || '').toLowerCase() + '.pages.dev';
     const domain = (Array.isArray(remote?.domains) ? remote.domains : []).find(item => String(item?.name || '').toLowerCase() === String(host).toLowerCase());
+    const activeCustomDomain = !!domain && String(domain.status || '').toLowerCase() === 'active';
     const isPagesHost = String(host).toLowerCase() === pagesHost;
     const hasSuccessfulProduction = (Array.isArray(remote?.deployments) ? remote.deployments : []).some(isRollbackEligible);
-    if ((isPagesHost || !!domain) && hasSuccessfulProduction) {
+    if ((isPagesHost || activeCustomDomain) && hasSuccessfulProduction) {
       matches.push({
         projectId: String(row.id),
         projectName: String(data.name || data.title || 'Website').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').trim().slice(0, 100),
