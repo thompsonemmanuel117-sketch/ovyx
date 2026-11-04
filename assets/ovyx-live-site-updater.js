@@ -122,7 +122,7 @@
       '- Confirm all requested changes are represented in the actual project files. If the build/test gate fails, do not publish.',
       '- Never report a provider or backend operation as live unless the target runtime and real service have been verified.',
       '- Deliver the changes in the existing project graph. Do not answer with a plan alone.'
-    ].join('\\n');
+    ].join('\n');
   }
   function cloneGraph(studioRef) {
     if (typeof studioRef.ensureProjectGraph === 'function') studioRef.ensureProjectGraph();
