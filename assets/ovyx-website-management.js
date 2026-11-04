@@ -136,7 +136,7 @@
     paths.forEach(function (path) {
       var record = files[path]; var content = typeof record === 'string' ? record : record && record.content || '';
       var box = card(root, path, clean(content.slice(0, 4000).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '), 180) || 'Content file');
-      if (typeof w.openFile === 'function') button(box, 'Edit this file', function () { w.openFile(path); });
+      if (typeof w.openCodeEditor === 'function') button(box, 'Edit in Code Editor', function () { close(); w.openCodeEditor(path); });
       else box.appendChild(element('div', 'ovym-muted', 'Open this file from the existing Code workspace to edit it.'));
     });
   }
