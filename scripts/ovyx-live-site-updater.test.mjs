@@ -46,7 +46,7 @@ const pagesProject = {
     name: 'Storefront',
     ownerUid: owner.uid,
     ownerEmail: owner.email,
-    ovyxDeployments: [{ status: 'published', url: 'https://storefront.pages.dev' }],
+    ovyxDeployments: [{ status: 'published', url: 'https://ovyx-1234567890-storefront.pages.dev' }],
   },
 };
 const resolvePagesProject = async () => ({
@@ -79,6 +79,7 @@ const resolvedCustom = await resolvePublishedSiteFromProjects({
   host: 'shop.example.co.uk',
   projects: [customDomainProject],
   resolvePagesProject: async () => ({
+    pagesName: 'ovyx-0987654321-international-shop',
     project: { subdomain: 'international-shop.pages.dev' },
     domains: [{ name: 'shop.example.co.uk', status: 'active' }],
     deployments: production,
@@ -110,7 +111,7 @@ await assert.rejects(
 await assert.rejects(
   resolvePublishedSiteFromProjects({
     ...owner,
-    host: 'storefront.pages.dev',
+    host: 'ovyx-1234567890-storefront.pages.dev',
     projects: [pagesProject, { ...pagesProject, id: 'project-duplicate' }],
     resolvePagesProject,
   }),
