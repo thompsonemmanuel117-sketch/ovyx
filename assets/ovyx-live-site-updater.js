@@ -173,6 +173,7 @@
       body: JSON.stringify({
         projectId: String(project.id),
         projectName: String(project.name || project.title || 'site'),
+        pagesProjectName: String(resolution.pagesProjectName || ''),
         action: 'publish',
         files: files
       })
@@ -182,6 +183,7 @@
     var query = new URLSearchParams({
       projectId: String(project.id),
       projectName: String(project.name || project.title || 'site'),
+      pagesProjectName: String(resolution.pagesProjectName || ''),
       deploymentId: String(deploymentId)
     });
     var finalState = null;
