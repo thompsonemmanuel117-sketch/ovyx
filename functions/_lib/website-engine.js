@@ -757,7 +757,7 @@ function mergeGenerationUsage(...records) {
   } : null;
 }
 
-function parseBackendFiles(response) {
+export function parseBackendFiles(response) {
   const candidates = [response, response && response.output, response && response.result, response && response.data];
   for (const item of candidates) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
