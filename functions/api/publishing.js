@@ -234,7 +234,7 @@ export async function resolvePublishedSiteFromProjects({ uid, email, host, proje
     if ((isPagesHost || !!domain) && hasSuccessfulProduction) {
       matches.push({
         projectId: String(row.id),
-        projectName: clean(data.name || data.title || 'Website', 100),
+        projectName: String(data.name || data.title || 'Website').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').trim().slice(0, 100),
         pagesProjectName: String(remote.pagesName || ''),
         canonicalUrl: 'https://' + String(host).toLowerCase(),
         matchedBy: isPagesHost ? 'pages-hostname' : 'connected-custom-domain',
