@@ -698,7 +698,15 @@ export function websiteEngineClientSummary(plan) {
     integrations: plan.integrations.map(item => ({
       capability: item.capability,
       requested: item.requested,
+      provider: item.provider || '',
       connection: item.connection,
+      connectionMetadataPresent: item.connectionMetadataPresent === true,
+      externalProviderRequired: item.externalProviderRequired !== false,
+      productionGate: item.productionGate || 'blocked-until-live-verification',
+      nextAction: item.nextAction || 'connect-provider-and-run-live-verification',
+      recommendedProviders: (item.recommendedProviders || []).slice(0, 4),
+      recommendation: item.recommendation || '',
+      ownerAction: item.ownerAction || '',
     })),
     qualityGateCount: plan.qualityGates.length,
     requirementIntelligence: {
@@ -791,13 +799,11 @@ function parseBackendFiles(response) {
       const lowerPath = filePath.toLowerCase();
       const containsCredentialMaterial = typeof fileContent === 'string' && (
         /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i.test(fileContent) ||
-        /sk_(?:live|test)_[A-Za-z0-9]{12,}/.test(fileContent) ||
-        /AIza[0-9A-Za-z_-]{30,}/.test(fileContent) ||
-        /AKIA[0-9A-Z]{16}/.test(fileContent) ||
-        /Bearer\s+[A-Za-z0-9._-]{24,}/i.test(fileContent)
+        /\\b(?:sk_(?:live|test|proj)_|whsec_|AIza[0-9A-Za-z_-]{30,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/i.test(fileContent) ||
+        /\\bBearer\\s+[A-Za-z0-9._-]{24,}/i.test(fileContent)
       );
       const containsUnsafeExecution = typeof fileContent === 'string' &&
-        /\beval\s*\(|new\s+Function\s*\(|\bchild_process\b|\bexecSync\s*\(|\bspawn\s*\(/i.test(fileContent);
+        /\\beval\\s*\\(|new\\s+Function\\s*\\(|\\bchild_process\\b|\\bexecSync\\s*\\(|\\bspawn\\s*\\(|\\bvm\\.run(?:InNewContext|InContext|InThisContext)?\\s*\\(|\\bDeno\\.Command\\s*\\(|\\bBun\\.spawn\\s*\\(/i.test(fileContent);
       if (!filePath || filePath.length > 300 || filePath.includes('..') || filePath.includes(String.fromCharCode(92)) ||
           lowerPath.includes('.env') || lowerPath.includes('secret') || lowerPath.includes('credential') ||
           lowerPath.includes('private-key') || lowerPath.includes('service-account') ||
