@@ -168,7 +168,7 @@ assert.match(client, /pagesProjectName: String\(resolution\.pagesProjectName \|\
 assert.match(client, /environment === 'production'/);
 assert.match(client, /existing production Pages project/);
 assert.match(client, /functions\//);
-assert.match(client, /previous project snapshot was restored/);
+assert.match(client, /previous saved project snapshot was restored/);
 assert.match(client, /Do not assume Nigeria, NGN, USD, English/);
 assert.match(middleware, /ovyx-live-site-updater\.js/);
 assert.match(packageSource, /ovyx-live-site-updater\.test\.mjs/);
