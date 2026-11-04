@@ -43,15 +43,16 @@ const pagesProject = {
   },
 };
 const resolvePagesProject = async () => ({
-  pagesName: 'ovyx-storefront',
-  project: { subdomain: 'storefront.pages.dev' },
+  pagesName: 'ovyx-1234567890-storefront',
+  project: { subdomain: 'ovyx-1234567890-storefront.pages.dev' },
   domains: [],
   deployments: production,
 });
 const resolvedPages = await resolvePublishedSiteFromProjects({
-  ...owner, host: 'storefront.pages.dev', projects: [pagesProject], resolvePagesProject,
+  ...owner, host: 'ovyx-1234567890-storefront.pages.dev', projects: [pagesProject], resolvePagesProject,
 });
 assert.equal(resolvedPages.projectId, 'project-1');
+assert.equal(resolvedPages.pagesProjectName, 'ovyx-1234567890-storefront');
 assert.equal(resolvedPages.sameProject, true);
 assert.equal(resolvedPages.deploymentTarget, 'existing-pages-project');
 assert.equal(resolvedPages.matchedBy, 'pages-hostname');
@@ -82,7 +83,7 @@ assert.equal(resolvedCustom.domainStatus, 'active');
 await assert.rejects(
   resolvePublishedSiteFromProjects({
     ...owner,
-    host: 'storefront.pages.dev',
+    host: 'ovyx-1234567890-storefront.pages.dev',
     projects: [{ ...pagesProject, data: { ...pagesProject.data, ownerUid: 'another-user' } }],
     resolvePagesProject,
   }),
@@ -92,9 +93,9 @@ await assert.rejects(
 await assert.rejects(
   resolvePublishedSiteFromProjects({
     ...owner,
-    host: 'storefront.pages.dev',
+    host: 'ovyx-1234567890-storefront.pages.dev',
     projects: [pagesProject],
-    resolvePagesProject: async () => ({ project: { subdomain: 'other.pages.dev' }, domains: [], deployments: [] }),
+    resolvePagesProject: async () => ({ pagesName: 'other-project', project: { subdomain: 'other.pages.dev' }, domains: [], deployments: [] }),
   }),
   error => error.code === 'PUBLISHED_SITE_NOT_VERIFIED',
   'A hostname without a confirmed production release must not be updated.',
@@ -112,6 +113,7 @@ await assert.rejects(
 
 assert.match(api, /listFirestoreSubcollectionDocumentsAtPath/);
 assert.match(api, /handleResolvePublishedSite/);
+assert.match(api, /findExistingPagesProject/);
 assert.match(api, /resolveEntitlements/);
 assert.match(api, /emailVerified/);
 assert.match(client, /Update an existing live website/);
@@ -124,6 +126,7 @@ assert.match(client, /runBuildAgent/);
 assert.match(client, /runTests\(true\)/);
 assert.match(client, /api\/deploy/);
 assert.match(client, /api\/deployment-status/);
+assert.match(client, /pagesProjectName: String\(resolution\.pagesProjectName \|\| ''\)/);
 assert.match(client, /environment === 'production'/);
 assert.match(client, /existing production project/);
 assert.match(client, /functions\//);
