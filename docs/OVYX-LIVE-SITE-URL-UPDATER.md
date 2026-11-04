@@ -8,7 +8,7 @@ Web Studio exposes an **Update live website** action. A signed-in owner pastes a
 2. A candidate project must have the supplied host in its saved deployment/domain metadata.
 3. OVYX independently verifies the deterministic Pages project identity against the Firebase UID + project ID hash, then checks the actual Pages project, attached custom domains and a successful production release in Cloudflare.
 4. The UI opens the exact saved project from the account. It does not scrape or attempt to reconstruct source code from the public website.
-5. OVYX takes a server-side Website Management backup, gives the existing project graph to the current Web Studio build agent, runs source/quality checks and saves the verified source changes.
+5. OVYX takes a server-side Website Management backup, gives the existing project graph to the current Web Studio build agent, runs source/quality checks and persists the verified source changes to the same account project before publishing.
 6. The existing /api/deploy production path uploads to the same deterministic Pages project. The status endpoint must confirm environment=production, stage=deploy and status=success before the UI says the website was updated.
 7. The current hostname remains attached to the same Pages project. No new Pages project, domain or replacement URL is created by this workflow. The stable Pages project name is saved for future lookups, including after a project rename.
 
@@ -19,7 +19,7 @@ Web Studio exposes an **Update live website** action. A signed-in owner pastes a
 - The resolver reads only the signed-in user's Firestore project subcollection and verifies ownerUid plus ownerEmail.
 - The Pages project name must match the deterministic UID/project-ID hash prefix. Cloudflare's actual project and domain records must match the supplied host.
 - A missing, ambiguous, foreign-account, pending-only or unverified production site is rejected before source files are opened.
-- A server-side backup is created before AI edits. If source checks or deployment fail, the previous saved project graph is restored; a failed production release does not replace the previous successful release.
+- A server-side backup is created before AI edits. If source checks or a confirmed failed/canceled deployment occurs, the previous saved project graph is restored. If the deployment outcome is uncertain (for example, a network timeout after upload), OVYX keeps the new source saved and marks the deployment pending instead of risking a mismatch with a release that may still finish. A failed production release does not replace the previous successful release.
 - Credentials remain in server-side environment bindings and are not copied into the AI prompt.
 - The workflow is deliberately scoped to existing OVYX projects. A random third-party URL does not contain editable source files. Importing an external site requires a separate source import/ownership-verification flow (for example, an owner-authorized Git repository or uploaded project archive).
 
