@@ -37,7 +37,7 @@ function compactPlanValue(value, maxChars = 160) {
   return '';
 }
 
-function connectedFor(context, kind) {
+function findConnectionMetadata(context, kind) {
   const source = context && typeof context === 'object' ? context : {};
   const roots = [source.connections, source.activeConnections, source.integrations,
     source.connectionStatus, source.connectedServices];
@@ -56,25 +56,78 @@ function connectedFor(context, kind) {
     return result;
   };
   const patterns = {
-    payments: /stripe|paypal|paystack|flutterwave|payment|checkout/i,
+    payments: /stripe|paypal|paystack|opay|flutterwave|payment|checkout/i,
     email: /email|mailgun|sendgrid|resend|postmark|smtp/i,
     auth: /firebase|supabase|auth|identity|clerk|auth0/i,
     database: /firebase|supabase|database|firestore|d1|postgres|mysql/i,
-    booking: /booking|reservation|calendar|scheduling/i,
-    storage: /storage|cloudflare\s*r2|firebase\s*storage|s3|supabase\s*storage/i,
+    booking: /booking|reservation|calendar|scheduling|cal\\.com/i,
+    storage: /storage|cloudflare\\s*r2|firebase\\s*storage|s3|supabase\\s*storage/i,
     subscriptions: /subscription|recurring|billing|membership|stripe|paystack|paddle/i,
-    notifications: /notification|push|email|sms|messaging|resend|sendgrid/i,
+    notifications: /notification|push|email|sms|messaging|resend|sendgrid|twilio/i,
     integrations: /.+/i,
     automation: /automation|workflow|scheduler|cron|queue/i,
   };
-  return flatten(roots).some(item => {
+  return flatten(roots).find(item => {
     if (!item || typeof item !== 'object') return false;
     const identity = clean(item.provider || item.name || item.id || item.type || item.service, 120);
-    const active = item.connected === true || item.status === 'connected' ||
-      item.state === 'connected' || item.isConnected === true;
-    return active && (patterns[kind] || /$a/).test(identity);
-  });
+    const saved = item.connected === true || item.status === 'connected' ||
+      item.state === 'connected' || item.isConnected === true || item.configured === true;
+    return saved && (patterns[kind] || /$a/).test(identity);
+  }) || null;
 }
+
+const INTEGRATION_SETUP_GUIDES = Object.freeze({
+  payments: {
+    providers: ['Paystack', 'OPay', 'Stripe'],
+    recommendation: 'For a Nigerian business selling in naira, start with Paystack or OPay; consider Stripe only when the business and settlement country are supported.',
+    action: 'Connect a payment provider, configure its server-side keys and verified webhook, then run a sandbox checkout before enabling live payments.',
+  },
+  email: {
+    providers: ['Resend', 'Postmark', 'Mailgun'],
+    recommendation: 'Resend is a straightforward transactional-email starting point; Postmark is a strong option for delivery-focused transactional mail.',
+    action: 'Connect an email provider, verify the sending domain and test a real message to an owner-controlled test inbox.',
+  },
+  auth: {
+    providers: ['Firebase Authentication', 'Supabase Auth', 'Application-managed sessions'],
+    recommendation: 'Use Firebase Authentication or Supabase Auth for managed identity, or a carefully implemented application-managed session system backed by the project database.',
+    action: 'Choose and connect the customer identity provider; OVYX workspace login is not automatically the generated website customer login.',
+  },
+  database: {
+    providers: ['Cloudflare D1', 'Firebase Firestore', 'Supabase Postgres'],
+    recommendation: 'Cloudflare D1 is a natural fit for Cloudflare-hosted projects; use Firestore or Supabase when the project explicitly needs those ecosystems.',
+    action: 'Create or select the project database, configure its server-side binding/credentials and apply reviewed migrations before production data is accepted.',
+  },
+  booking: {
+    providers: ['Built-in database-backed booking', 'Cal.com', 'Google Calendar'],
+    recommendation: 'A real internal booking system can run on the project database without a third-party calendar. Add Cal.com or Google Calendar only when external calendar sync is required.',
+    action: 'Use the persistent project database for booking records and conflict-safe availability; connect a calendar provider only if external calendar synchronization was requested.',
+  },
+  storage: {
+    providers: ['Cloudflare R2', 'Firebase Storage', 'Amazon S3'],
+    recommendation: 'Cloudflare R2 is a natural fit for Cloudflare-hosted projects; Firebase Storage and S3 are alternatives when already used by the owner.',
+    action: 'Create the storage bucket, configure private server-side access and test signed upload/download plus ownership checks.',
+  },
+  subscriptions: {
+    providers: ['Paystack', 'Stripe', 'Paddle'],
+    recommendation: 'Check recurring-billing and settlement support for the business country before choosing a provider; Paystack or Stripe may fit depending on eligibility.',
+    action: 'Connect recurring billing, verify signed webhooks and reconcile a sandbox subscription lifecycle before granting paid access.',
+  },
+  notifications: {
+    providers: ['Resend', 'Postmark', 'Twilio', "Africa's Talking"],
+    recommendation: 'Use email for receipts and account notices; add an SMS provider only when SMS is part of the requested customer journey.',
+    action: 'Connect the selected channel and verify delivery to an owner-controlled test recipient.',
+  },
+  integrations: {
+    providers: ['The service named in the project brief', 'A documented HTTPS API with server-side credentials'],
+    recommendation: 'Prefer the service the owner already uses; do not invent an integration or claim compatibility without a documented API contract.',
+    action: 'Ask the owner which service to connect, then configure its server-side adapter and verify a real read-only request.',
+  },
+  automation: {
+    providers: ['Cloudflare Queues', 'Cloudflare Workflows', 'Cloudflare Cron Triggers'],
+    recommendation: 'Use Cloudflare-native queues/workflows for bounded background work when the deployment target is Cloudflare.',
+    action: 'Configure the required queue/workflow/cron binding and verify a synthetic job, retry and dead-letter path.',
+  },
+});
 
 function integrationRequirements(contract, context, capabilities = {}) {
   const requested = [
@@ -89,12 +142,25 @@ function integrationRequirements(contract, context, capabilities = {}) {
     ['integrations', capabilities.integrations],
     ['automation', capabilities.automation],
   ];
-  return requested.filter(([, needed]) => needed).map(([kind]) => ({
-    capability: kind,
-    requested: true,
-    connection: connectedFor(context, kind) ? 'connected-in-context' : 'not-confirmed',
-    verification: 'connection metadata is not a live transaction or delivery test',
-  }));
+  return requested.filter(([, needed]) => needed).map(([kind]) => {
+    const saved = findConnectionMetadata(context, kind);
+    const guide = INTEGRATION_SETUP_GUIDES[kind];
+    const internalBooking = kind === 'booking';
+    return {
+      capability: kind,
+      requested: true,
+      provider: saved ? clean(saved.provider || saved.name || saved.service || '', 80) : '',
+      connection: internalBooking ? 'internal-database-backed-option' : saved ? 'configured-unverified' : 'connect-required',
+      connectionMetadataPresent: Boolean(saved),
+      externalProviderRequired: !internalBooking,
+      productionGate: internalBooking ? 'database-and-runtime-verification-required' : 'blocked-until-live-verification',
+      nextAction: internalBooking ? 'verify-database-and-booking-runtime' : 'connect-provider-and-run-live-verification',
+      recommendedProviders: guide.providers,
+      recommendation: guide.recommendation,
+      ownerAction: guide.action,
+      verification: 'Saved connection metadata is not proof of reachability, persistence, transaction success or message delivery. Only a successful provider-specific test and the resulting business-state check can verify the workflow.',
+    };
+  });
 }
 
 function pagePlan(contract) {
@@ -423,11 +489,19 @@ function serializeWebsiteEngineModelPlan(plan) {
         interactionConcepts: compactPlanList(interaction.interactionConcepts, 8, 140),
         motionChoreography: compactPlanList(interaction.motionChoreography, 8, 140),
       },
-      integrations: (Array.isArray(plan.integrations) ? plan.integrations : []).slice(0, 8).map(item => ({
+      integrations: (Array.isArray(plan.integrations) ? plan.integrations : []).slice(0, 10).map(item => ({
         capability: clean(item?.capability, 48),
         requested: item?.requested === true,
+        provider: clean(item?.provider, 64),
         connection: clean(item?.connection, 48),
-        verification: clean(item?.verification, 120),
+        connectionMetadataPresent: item?.connectionMetadataPresent === true,
+        externalProviderRequired: item?.externalProviderRequired !== false,
+        productionGate: clean(item?.productionGate, 64),
+        nextAction: clean(item?.nextAction, 64),
+        recommendedProviders: compactPlanList(item?.recommendedProviders, 4, 48),
+        recommendation: clean(item?.recommendation, 220),
+        ownerAction: clean(item?.ownerAction, 240),
+        verification: clean(item?.verification, 220),
       })),
       requirementIntelligence: {
         status: clean(plan.requirementIntelligence?.status, 48),
@@ -586,7 +660,10 @@ export function buildWebsiteEngineInstructions(plan) {
     'For subscriptions, implement server-owned plan catalog, recurring provider checkout, invoice history, renewal/failure/grace-period handling, cancellation/resume and entitlement gates. Activate or revoke paid access only after authoritative provider reconciliation; never trust a browser redirect.',
     'For dashboards, derive every KPI from tenant-scoped persisted records with bounded date ranges, explicit timezone, pagination and role-safe aggregation. Do not invent sample revenue, order counts or customer metrics in production views.',
     'For notifications, create events only after the business transaction commits, use an idempotent outbox, separate queued/accepted/delivered/read states, enforce recipient ownership and provide retry/failure feedback.',
-    'For integrations, use typed server-only adapters with per-environment credentials, health probes, bounded timeouts, signature-verified webhooks, replay protection, redacted logs and visible disconnected/degraded states. Never fake a successful connection or delivery.',
+    'For every requested external integration, treat saved connection metadata as configured-but-unverified, never as connected or production-ready. The plan includes a recommended provider shortlist, a clear owner action and a production gate: surface a setup/connect request to the owner when no provider is configured; if a suitable service is not selected, recommend the best-fit options and explain what must be connected. Do not silently invent credentials or pick an account on the owner’s behalf.',
+    'For payments, email, subscriptions, storage, notifications and third-party integrations, show an honest pending/disconnected state until a provider-specific live test and a resulting business-state/delivery check succeed. Payment checkout must remain disabled until server-side credentials, verified webhook signatures/replay protection and sandbox reconciliation are complete; never show a fake paid/success state.',
+    'For database-backed features, generate real persistent repositories and migrations, but label the database as awaiting provisioning until a real project database binding is configured and runtime persistence tests pass. A local migration test, source file, saved connection row or in-memory store is not proof of a production database.',
+    'For bookings, an internal database-backed reservation workflow is a valid real implementation without a third-party calendar provider, provided the project database is provisioned and conflict checks run transactionally. Ask for a calendar connection only when external calendar synchronization is requested.',
     'For automation, generate tenant-scoped scheduled/event workflows with unique run keys, bounded execution, retry budgets, dead-letter visibility and explicit approval for irreversible or financial actions.',
     'Use server-side adapters for integrations, bounded timeouts, retry only safe/idempotent operations, idempotency keys, replay protection and auditable reconciliation. A configured connection is not a live delivery or transaction.',
     'Keep provider credentials in server bindings or encrypted server-side storage. Add only variable names and safe setup guidance to environment templates; never generate real secrets or expose them to browser code, URLs, logs or exported client bundles.',
