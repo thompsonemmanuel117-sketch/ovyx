@@ -132,7 +132,7 @@ const INTEGRATION_SETUP_GUIDES = Object.freeze({
 
 function paymentGuideForMarket(context) {
   const source = context && typeof context === 'object' ? context : {};
-  const marketValues = [source.countryCode, source.country, source.marketContext?.countryCode, source.marketContext?.country, source.currency, source.marketContext?.currency, source.locale, source.market];
+  const marketValues = [source.countryCode, source.country, source.marketContext?.countryCode, source.marketContext?.country, source.currency, source.marketContext?.currency, source.market, source.locale];
   const primaryMarket = marketValues.find(value => String(value || '').trim());
   const nigeria = /nigeria|nigerian|\\bNGN\\b|\\bNG\\b|naira|₦/i.test(String(primaryMarket || ''));
   if (nigeria) return INTEGRATION_SETUP_GUIDES.payments;
