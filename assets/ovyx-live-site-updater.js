@@ -277,8 +277,10 @@
   function syncVisibility() {
     if (!launcher) launcher = document.getElementById(ROOT + '-launcher');
     if (!launcher) return;
-    var active = String(state().activeView || '').replace(/^view-/, '').toLowerCase();
-    launcher.hidden = active !== 'webstudio';
+    var active = String(state().activeView || window.activeView || '').replace(/^view-/, '').toLowerCase();
+    var view = document.getElementById('view-webstudio');
+    var visible = active ? active === 'webstudio' : !!(view && view.getClientRects && view.getClientRects().length);
+    launcher.hidden = !visible;
   }
   async function findWebsite() {
     if (busy) return;
@@ -388,6 +390,11 @@
     window.addEventListener('ovyx:view-changed', syncVisibility);
     window.addEventListener('ovyx:project-loaded', syncVisibility);
     window.addEventListener('firebase-auth-state-ready', syncVisibility);
+    var view = document.getElementById('view-webstudio');
+    if (view && !window.__OVYX_LIVE_SITE_VISIBILITY_OBSERVER__ && typeof MutationObserver === 'function') {
+      window.__OVYX_LIVE_SITE_VISIBILITY_OBSERVER__ = new MutationObserver(syncVisibility);
+      window.__OVYX_LIVE_SITE_VISIBILITY_OBSERVER__.observe(view, { attributes: true, attributeFilter: ['class', 'style', 'aria-hidden'] });
+    }
     var attempts = 0;
     var timer = window.setInterval(function () {
       if (document.getElementById('view-webstudio') || ++attempts > 50) {
