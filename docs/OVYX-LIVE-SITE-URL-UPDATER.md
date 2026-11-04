@@ -31,7 +31,7 @@ The current Pages Direct Upload path supports static assets and compatible root 
 
 The shared Website Engine now instructs the AI to serve the audience and countries stated in the original brief rather than assuming a Nigerian market. It uses BCP 47 language tags, ISO country/currency codes, IANA timezones and locale-aware Intl formatting; it prohibits invented exchange rates, taxes, legal rules and payment-provider coverage. Provider choices must match the business's target countries and settlement availability.
 
-The OVYX platform currently displays local NGN pricing in Nigeria and USD as its international pricing baseline. This does not mean every local currency or payment method is available in every country. Localized platform billing, region-specific payment acquiring and translated OVYX interface content remain future global-expansion work; they must be added only with real exchange-rate, provider and legal/settlement verification.
+The OVYX platform currently displays local NGN pricing in Nigeria and USD as its international pricing baseline. If Cloudflare country detection is unavailable, the currency display falls back to the browser locale's region hint; an Africa timezone alone is never treated as Nigeria. This does not mean every local currency or payment method is available in every country. Localized platform billing, region-specific payment acquiring and translated OVYX interface content remain future global-expansion work; they must be added only with real exchange-rate, provider and legal/settlement verification.
 
 ## Verification
 
