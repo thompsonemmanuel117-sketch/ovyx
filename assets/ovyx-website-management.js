@@ -22,7 +22,7 @@
     if (document.getElementById(ROOT + '-style')) return;
     var css = document.createElement('style');
     css.id = ROOT + '-style';
-    css.textContent = '#' + ROOT + '-launcher{position:fixed;z-index:99980;right:18px;top:50%;bottom:auto;transform:translateY(-50%);border:1px solid rgba(232,182,79,.55);border-radius:999px;background:#090909;color:#f4f4f4;padding:11px 15px;font:700 12px Inter,system-ui,sans-serif;box-shadow:0 8px 32px #0008;cursor:pointer}#' + ROOT + '{position:fixed;z-index:99990;inset:0 0 0 auto;width:min(460px,100vw);height:100dvh;background:#080808;color:#f5f5f5;border-left:1px solid #ffffff1c;box-shadow:-18px 0 60px #0009;font:500 12px/1.5 Inter,system-ui,sans-serif;display:flex;flex-direction:column}#' + ROOT + '[hidden]{display:none}#' + ROOT + ' *{box-sizing:border-box}#' + ROOT + ' .ovym-head{padding:17px 18px;border-bottom:1px solid #ffffff18;display:flex;align-items:center;justify-content:space-between;gap:12px}#' + ROOT + ' .ovym-head strong{font-size:14px}#' + ROOT + ' .ovym-muted{color:#999}#' + ROOT + ' button,#' + ROOT + ' input{font:inherit}#' + ROOT + ' button{border:1px solid #ffffff24;background:#151515;color:#eee;border-radius:8px;padding:8px 10px;cursor:pointer}#' + ROOT + ' button:disabled{opacity:.45;cursor:wait}#' + ROOT + ' .ovym-primary{background:#e8b64f;color:#17120a;border-color:#e8b64f;font-weight:800}#' + ROOT + ' .ovym-tabs{display:flex;gap:5px;overflow:auto;padding:10px 12px;border-bottom:1px solid #ffffff18}#' + ROOT + ' .ovym-tabs button{white-space:nowrap;font-size:11px}#' + ROOT + ' .ovym-tabs button[aria-selected=true]{border-color:#e8b64f;color:#f4d28c}#' + ROOT + ' .ovym-body{padding:16px;overflow:auto;flex:1}#' + ROOT + ' .ovym-card{border:1px solid #ffffff18;border-radius:10px;padding:12px;margin:0 0 10px;background:#ffffff04}#' + ROOT + ' .ovym-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}#' + ROOT + ' .ovym-field{display:grid;gap:5px;margin:12px 0}#' + ROOT + ' input,#' + ROOT + ' textarea{width:100%;border:1px solid #ffffff24;background:#111;color:#fff;border-radius:8px;padding:9px}#' + ROOT + ' textarea{min-height:85px;resize:vertical}#' + ROOT + ' .ovym-status{padding:10px 12px;color:#aaa;border-top:1px solid #ffffff18;min-height:40px}#' + ROOT + ' .ovym-image{max-width:100%;max-height:110px;object-fit:contain;display:block;margin:8px 0;border-radius:6px}#' + ROOT + ' .ovym-danger{color:#ffb1a8}';
+    css.textContent = '#' + ROOT + '-launcher{position:fixed;z-index:99980;right:18px;top:50%;bottom:auto;transform:translateY(-50%);border:1px solid rgba(232,182,79,.55);border-radius:999px;background:#090909;color:#f4f4f4;padding:11px 15px;font:700 12px Inter,system-ui,sans-serif;box-shadow:0 8px 32px #0008;cursor:pointer}#' + ROOT + '{position:fixed;z-index:99990;inset:0 0 0 auto;width:min(460px,100vw);height:100dvh;background:#080808;color:#f5f5f5;border-left:1px solid #ffffff1c;box-shadow:-18px 0 60px #0009;font:500 12px/1.5 Inter,system-ui,sans-serif;display:flex;flex-direction:column}#' + ROOT + '[hidden]{display:none}#' + ROOT + ' *{box-sizing:border-box}#' + ROOT + ' .ovym-head{padding:17px 18px;border-bottom:1px solid #ffffff18;display:flex;align-items:center;justify-content:space-between;gap:12px}#' + ROOT + ' .ovym-head strong{font-size:14px}#' + ROOT + ' .ovym-muted{color:#999}#' + ROOT + ' button,#' + ROOT + ' input{font:inherit}#' + ROOT + ' button{border:1px solid #ffffff24;background:#151515;color:#eee;border-radius:8px;padding:8px 10px;cursor:pointer}#' + ROOT + ' button:disabled{opacity:.45;cursor:wait}#' + ROOT + ' .ovym-primary{background:#e8b64f;color:#17120a;border-color:#e8b64f;font-weight:800}#' + ROOT + ' .ovym-tabs{display:flex;gap:5px;overflow:auto;padding:10px 12px;border-bottom:1px solid #ffffff18}#' + ROOT + ' .ovym-tabs button{white-space:nowrap;font-size:11px}#' + ROOT + ' .ovym-tabs button[aria-selected=true]{border-color:#e8b64f;color:#f4d28c}#' + ROOT + ' .ovym-body{padding:16px;overflow:auto;flex:1}#' + ROOT + ' .ovym-card{border:1px solid #ffffff18;border-radius:10px;padding:12px;margin:0 0 10px;background:#ffffff04}#' + ROOT + ' .ovym-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}#' + ROOT + ' .ovym-field{display:grid;gap:5px;margin:12px 0}#' + ROOT + ' input,#' + ROOT + ' textarea{width:100%;border:1px solid #ffffff24;background:#111;color:#fff;border-radius:8px;padding:9px}#' + ROOT + ' textarea{min-height:85px;resize:vertical}#' + ROOT + ' .ovym-status{padding:10px 12px;color:#aaa;border-top:1px solid #ffffff18;min-height:40px}#' + ROOT + ' .ovym-image{max-width:100%;max-height:110px;object-fit:contain;display:block;margin:8px 0;border-radius:6px}#' + ROOT + ' .ovym-danger{color:#ffb1a8}#' + ROOT + ' .ovym-download-grid{display:grid;grid-template-columns:1fr;gap:10px}#' + ROOT + ' .ovym-download-card{border:1px solid #ffffff1c;border-radius:12px;padding:14px;background:linear-gradient(145deg,#ffffff08,#ffffff02)}#' + ROOT + ' .ovym-download-top{display:flex;align-items:center;gap:10px}#' + ROOT + ' .ovym-download-icon{width:36px;height:36px;display:grid;place-items:center;border-radius:9px;background:#e8b64f18;color:#f0c66f;font-size:15px}#' + ROOT + ' .ovym-download-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#' + ROOT + ' .ovym-download-tag{font-size:9px;letter-spacing:.08em;color:#d9b96d;border:1px solid #d9b96d55;border-radius:20px;padding:2px 6px}#' + ROOT + ' .ovym-download-info{font-size:10px;color:#b8b8b8;padding:8px 0;min-height:30px}#' + ROOT + ' .ovym-download-action{width:100%;margin-top:4px}#' + ROOT + ' .ovym-download-note{border:1px solid #d9b96d35;border-radius:10px;padding:12px;margin-top:4px;background:#e8b64f08}#' + ROOT + ' .ovym-download-note p{margin:6px 0 0}';
     document.head.appendChild(css);
   }
   async function token() {
@@ -113,7 +113,7 @@
     var brand = element('div'); brand.appendChild(element('strong', '', 'Website Management')); brand.appendChild(element('div', 'ovym-muted', 'Manage your saved website'));
     head.appendChild(brand); button(head, 'Close', close); panel.appendChild(head);
     var tabs = element('nav', 'ovym-tabs'); tabs.setAttribute('aria-label', 'Website management sections');
-    [['websites','My Websites'],['content','Pages & Content'],['media','Media Library'],['settings','Website Settings'],['backups','Backups'],['analytics','Analytics'],['publishing','Publishing']].forEach(function (item) {
+    [['websites','My Websites'],['content','Pages & Content'],['media','Media Library'],['downloads','Downloads'],['settings','Website Settings'],['backups','Backups'],['analytics','Analytics'],['publishing','Publishing']].forEach(function (item) {
       var b = button(tabs, item[1], function () { activeTab = item[0]; render(activeTab); });
       b.dataset.tab = item[0]; b.setAttribute('aria-selected', String(item[0] === activeTab));
     });
@@ -197,6 +197,76 @@
     });
     if (!images.length) root.appendChild(element('div', 'ovym-muted', 'No images uploaded yet.'));
   }
+  async function renderDownloads(root) {
+    var current = project();
+    if (!current || !current.id) throw new Error('Open a saved website in Web Studio before downloading its files.');
+    var exporter = window.OVYXWebStudioProjectExport;
+    if (!exporter || typeof exporter.export !== 'function' || typeof exporter.inspect !== 'function') {
+      throw new Error('The secure project export engine is still loading. Refresh Web Studio and try again.');
+    }
+    root.appendChild(element('p', 'ovym-muted', 'Download the source files for the currently open website. Each ZIP is prepared from the same saved project graph and uses OVYX’s existing export and safety checks.'));
+    var grid = element('div', 'ovym-download-grid');
+    root.appendChild(grid);
+    var options = [
+      { mode: 'complete', title: 'Complete project', tag: 'RECOMMENDED', description: 'Frontend + backend together, including shared project files, configuration, setup instructions and retrievable media assets.', action: 'Download complete ZIP', icon: 'fa-box-archive' },
+      { mode: 'website-only', title: 'Frontend only', tag: 'WEBSITE', description: 'Website pages, browser scripts, styles and retrievable media. Recognized backend implementation files are excluded.', action: 'Download frontend ZIP', icon: 'fa-window-maximize' },
+      { mode: 'backend-only', title: 'Backend only', tag: 'SERVER', description: 'Recognized API/server code, database schemas, migrations and related setup files. Frontend pages and styles are excluded.', action: 'Download backend ZIP', icon: 'fa-database' }
+    ];
+    options.forEach(function (option) {
+      var box = element('section', 'ovym-download-card');
+      var top = element('div', 'ovym-download-top');
+      var icon = element('span', 'ovym-download-icon'); icon.setAttribute('aria-hidden', 'true');
+      var glyph = element('i'); glyph.className = 'fa-solid ' + option.icon; icon.appendChild(glyph);
+      top.appendChild(icon);
+      var meta = element('div', 'ovym-download-meta');
+      meta.appendChild(element('strong', '', option.title));
+      meta.appendChild(element('span', 'ovym-download-tag', option.tag));
+      top.appendChild(meta); box.appendChild(top);
+      box.appendChild(element('p', 'ovym-muted', option.description));
+      var info = element('div', 'ovym-download-info', 'Checking project files…');
+      info.setAttribute('aria-live', 'polite'); box.appendChild(info);
+      var action = button(box, option.action, async function () {
+        var active = project();
+        if (!active || String(active.id) !== String(current.id)) {
+          status('The active website changed. Reopen Downloads for the website you want to export.', true);
+          return;
+        }
+        if (action.disabled) return;
+        action.disabled = true;
+        action.textContent = 'Preparing ZIP…';
+        status('Preparing ' + option.title.toLowerCase() + ' for download. Keep this tab open.');
+        try {
+          await exporter.export({ mode: option.mode });
+          status('Export request completed. Check your browser downloads and the OVYX export notification.');
+        } catch (error) {
+          status(clean(error && error.message || 'The ZIP could not be prepared.', 300), true);
+        } finally {
+          action.disabled = false;
+          action.textContent = option.action;
+        }
+      }, option.mode === 'complete');
+      action.classList.add('ovym-download-action');
+      grid.appendChild(box);
+      try {
+        var report = exporter.inspect({ mode: option.mode });
+        if (!report || !report.ok) {
+          info.textContent = report && report.error || 'This export is not available for the current project.';
+          info.classList.add('ovym-danger');
+          action.disabled = true;
+        } else {
+          info.textContent = report.fileCount + ' source file(s) detected · ' + clean(report.framework || 'Framework not identified', 80) + (report.excludedCount ? ' · ' + report.excludedCount + ' file(s) may be excluded by safety rules' : '');
+        }
+      } catch (error) {
+        info.textContent = clean(error && error.message || 'Could not inspect this export.', 240);
+        info.classList.add('ovym-danger');
+        action.disabled = true;
+      }
+    });
+    var note = element('div', 'ovym-download-note');
+    note.appendChild(element('strong', '', 'A quick safety note'));
+    note.appendChild(element('p', 'ovym-muted', 'OVYX never puts private API keys, Firebase credentials or Cloudflare secrets into a download. ZIPs include setup notes and manifests describing detected files and exclusions. Some external services still need their own credentials and deployment setup after extraction.'));
+    root.appendChild(note);
+  }
   async function renderSettings(root) {
     var data = await managementRequest('settings'); var settings = data.settings || {};
     var title = element('input'); title.value = clean(settings.title || '', 120); title.maxLength = 120;
@@ -256,7 +326,7 @@
     try {
       if (activeTab === 'websites') await renderWebsites(root);
       else if (activeTab === 'content') await renderContent(root);
-      else if (activeTab === 'media') await renderMedia(root);
+      else if (activeTab === 'media') await renderMedia(root);\n      else if (activeTab === 'downloads') await renderDownloads(root);
       else if (activeTab === 'settings') await renderSettings(root);
       else if (activeTab === 'backups') await renderBackups(root);
       else if (activeTab === 'analytics') await renderAnalytics(root);
