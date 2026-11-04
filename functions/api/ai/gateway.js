@@ -171,10 +171,10 @@ export async function onRequestPost(context) {
       .slice(-12);
     const conversationText = userTurns.join('\\n\\n');
     const studioPromptText = isWebStudio && conversationText ? conversationText : String(promptText || '');
-    const websiteEnginePlan = isWebStudio ? buildWebsiteEnginePlan(studioPromptText, payload.context || {}) : null;
+    const submittedFiles = payload.context?.files || payload.files || {};
+    const websiteEnginePlan = isWebStudio ? buildWebsiteEnginePlan(studioPromptText, { ...(payload.context || {}), files: submittedFiles }) : null;
     const experience = websiteEnginePlan?.experience || null;
     const websiteEngineInstructions = buildWebsiteEngineInstructions(websiteEnginePlan);
-    const submittedFiles = payload.context?.files || payload.files || {};
     const scopedWebStudioEdit = isWebStudio && mode === 'build' &&
       isScopedWebStudioEdit(studioPromptText, !!(submittedFiles && typeof submittedFiles === 'object' && Object.keys(submittedFiles).length));
 
