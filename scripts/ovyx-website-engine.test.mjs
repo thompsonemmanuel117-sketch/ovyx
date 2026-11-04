@@ -34,6 +34,15 @@ assert.equal(plan.interactionArchitecture.capabilities.includes('file-storage'),
 assert.ok(plan.integrations.some(item => item.capability === 'email' && item.connection === 'configured-unverified' && item.connectionMetadataPresent));
 assert.ok(plan.integrations.find(item => item.capability === 'email').recommendedProviders.includes('Resend'));
 assert.match(plan.integrations.find(item => item.capability === 'email').ownerAction, /verify the sending domain/i);
+const nigeriaPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { country: 'Nigeria' }).integrations.find(item => item.capability === 'payments');
+assert.ok(nigeriaPayments.recommendedProviders.includes('Paystack'));
+assert.ok(nigeriaPayments.recommendedProviders.includes('OPay'));
+const germanyPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { country: 'Germany' }).integrations.find(item => item.capability === 'payments');
+assert.deepEqual(germanyPayments.recommendedProviders, ['Stripe']);
+assert.match(germanyPayments.recommendation, /settlement country/i);
+assert.match(germanyPayments.recommendation, /not default recommendations outside Nigeria/i);
+const unspecifiedMarketPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.').integrations.find(item => item.capability === 'payments');
+assert.deepEqual(unspecifiedMarketPayments.recommendedProviders, ['Stripe'], 'An unspecified target market must not silently default to Nigerian payment providers.');
 assert.ok(plan.integrations.some(item => item.capability === 'booking' && item.connection === 'internal-database-backed-option' && item.externalProviderRequired === false));
 assert.ok(plan.integrations.some(item => item.capability === 'database' && item.connection === 'connect-required' && item.productionGate === 'blocked-until-live-verification'));
 assert.ok(plan.qualityGates.length > 0);
