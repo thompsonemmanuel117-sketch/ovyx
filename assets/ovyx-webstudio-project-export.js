@@ -711,7 +711,7 @@
   async function exportProject(options) {
     if (exportBusy) {
       showMessage('A project export is already being prepared. Please wait for it to finish.', 'info');
-      return;
+      return { ok: false, busy: true };
     }
     exportBusy = true;
     showMessage('Preparing the project ZIP, retrieving stored assets and checking export safety…', 'info');
@@ -744,8 +744,11 @@
       } else {
         showMessage('Project ZIP downloaded with ' + data.files.length + ' files, including ' + data.assetStorage.includedCount + ' stored media asset(s) and ' + data.assetStorage.rewrittenReferences + ' local media reference(s).', 'success');
       }
+      return { ok: true, fileCount: data.files.length, excludedCount: data.excluded.length, mode: mode };
     } catch (error) {
-      showMessage((backendOnly ? 'Could not export backend-only ZIP: ' : websiteOnly ? 'Could not export website-only ZIP: ' : 'Could not export project ZIP: ') + clean(error && error.message || 'unknown export error', 300), 'error');
+      var errorMessage = clean(error && error.message || 'unknown export error', 300);
+      showMessage((backendOnly ? 'Could not export backend-only ZIP: ' : websiteOnly ? 'Could not export website-only ZIP: ' : 'Could not export project ZIP: ') + errorMessage, 'error');
+      return { ok: false, error: errorMessage, mode: mode };
     } finally {
       exportBusy = false;
     }
