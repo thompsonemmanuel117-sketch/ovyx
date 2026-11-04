@@ -74,7 +74,7 @@ async function createBackup(env, owner, projectId, project, kind = 'manual', lab
     snapshot,
   };
   await setFirestoreDocumentAtPath(env, ['users', owner.email, 'projects', projectId, BACKUP_COLLECTION, id], record, { merge: false });
-  const rows = await listFirestoreSubcollectionDocumentsAtPath(env, ['users', owner.email, 'projects', projectId], BACKUP_COLLECTION, MAX_BACKUPS + 10);
+  const rows = await listFirestoreSubcollectionDocumentsAtPath(env, ['users', owner.email, 'projects', projectId], BACKUP_COLLECTION, 1000);
   const excess = rows
     .filter(row => row.id !== id && clean(row.data?.ownerUid) === owner.uid)
     .sort((a, b) => String(b.data?.createdAt || '').localeCompare(String(a.data?.createdAt || '')))
@@ -110,7 +110,7 @@ export async function onRequest(context) {
     if (method === 'GET') {
       const view = clean(url.searchParams.get('view') || 'settings', 24).toLowerCase();
       if (view === 'backups') {
-        const rows = await listFirestoreSubcollectionDocumentsAtPath(context.env, path, BACKUP_COLLECTION, MAX_BACKUPS + 5);
+        const rows = await listFirestoreSubcollectionDocumentsAtPath(context.env, path, BACKUP_COLLECTION, 1000);
         const backups = rows
           .filter(row => clean(row.data?.ownerUid) === owner.uid && clean(row.data?.ownerEmail, 320).toLowerCase() === owner.email)
           .sort((a, b) => String(b.data?.createdAt || '').localeCompare(String(a.data?.createdAt || '')))
