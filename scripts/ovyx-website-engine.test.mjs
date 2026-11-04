@@ -48,7 +48,7 @@ assert.match(buildWebsiteEngineInstructions(plan), /AUTHORITATIVE PRE-GENERATION
 assert.match(buildWebsiteEngineInstructions(plan), /FULL-STACK ARCHITECTURE CONTRACT/);
 assert.match(buildWebsiteEngineInstructions(plan), /do not silently return a frontend-only site/i);
 assert.match(buildWebsiteEngineInstructions(plan), /configured-but-unverified/i);
-assert.match(buildWebsiteEngineInstructions(plan), /surface a setup\\/connect request to the owner/i);
+assert.ok(buildWebsiteEngineInstructions(plan).includes('surface a setup/connect request to the owner'));
 assert.match(buildWebsiteEngineInstructions(plan), /Payment checkout must remain disabled until server-side credentials/i);
 assert.match(buildWebsiteEngineInstructions(plan), /internal database-backed reservation workflow/i);
 assert.match(buildWebsiteEngineInstructions(plan), /Cloudflare D1/);
