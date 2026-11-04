@@ -28,8 +28,11 @@ assert.ok(plan.interactionArchitecture.capabilities.includes('booking'));
 assert.ok(plan.interactionArchitecture.capabilities.includes('forms'));
 assert.equal(plan.interactionArchitecture.capabilities.includes('file-storage'), false,
   'Existing hotel brief does not request user-managed file storage.');
-assert.ok(plan.integrations.some(item => item.capability === 'email' && item.connection === 'connected-in-context'));
-assert.ok(plan.integrations.some(item => item.capability === 'booking' && item.connection === 'not-confirmed'));
+assert.ok(plan.integrations.some(item => item.capability === 'email' && item.connection === 'configured-unverified' && item.connectionMetadataPresent));
+assert.ok(plan.integrations.find(item => item.capability === 'email').recommendedProviders.includes('Resend'));
+assert.match(plan.integrations.find(item => item.capability === 'email').ownerAction, /verify the sending domain/i);
+assert.ok(plan.integrations.some(item => item.capability === 'booking' && item.connection === 'internal-database-backed-option' && item.externalProviderRequired === false));
+assert.ok(plan.integrations.some(item => item.capability === 'database' && item.connection === 'connect-required' && item.productionGate === 'blocked-until-live-verification'));
 assert.ok(plan.qualityGates.length > 0);
 assert.equal(plan.fullStackArchitecture.engine, 'ovyx-fullstack-architecture');
 assert.ok(plan.fullStackArchitecture.capabilities.frontend);
@@ -43,6 +46,11 @@ assert.ok(websiteEngineClientSummary(plan).fullStackArchitecture.workflowStateMa
 assert.match(buildWebsiteEngineInstructions(plan), /AUTHORITATIVE PRE-GENERATION PLAN/);
 assert.match(buildWebsiteEngineInstructions(plan), /FULL-STACK ARCHITECTURE CONTRACT/);
 assert.match(buildWebsiteEngineInstructions(plan), /do not silently return a frontend-only site/i);
+assert.match(buildWebsiteEngineInstructions(plan), /configured-but-unverified/i);
+assert.match(buildWebsiteEngineInstructions(plan), /surface a setup\\/connect request to the owner/i);
+assert.match(buildWebsiteEngineInstructions(plan), /Payment checkout must remain disabled until server-side credentials/i);
+assert.match(buildWebsiteEngineInstructions(plan), /internal database-backed reservation workflow/i);
+assert.match(buildWebsiteEngineInstructions(plan), /Cloudflare D1/);
 assert.match(buildWebsiteEngineInstructions(plan), /matching server route\/handler/i);
 assert.match(buildWebsiteEngineInstructions(plan), /domain schema, relationships, constraints and indexes/i);
 assert.match(buildWebsiteEngineInstructions(plan), /workflow state machines/i);
