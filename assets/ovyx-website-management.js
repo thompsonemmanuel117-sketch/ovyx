@@ -73,7 +73,18 @@
   function open() {
     if (!panel) build();
     panel.hidden = false;
+    try { document.querySelectorAll('[data-nav="workspace"],[data-mobile-nav="workspace"]').forEach(function (node) { node.classList.add('active'); node.setAttribute('aria-current','page'); }); } catch (_) {}
     render(activeTab);
+  }
+  function openWorkspace() {
+    try { window.MobileDrawer && window.MobileDrawer.close && window.MobileDrawer.close(); } catch (_) {}
+    var route = String(window.KernelState && window.KernelState.activeView || '').toLowerCase();
+    if (route !== 'webstudio') {
+      if (window.Router && typeof window.Router.go === 'function') window.Router.go('webstudio');
+      else if (typeof window.switchView === 'function') window.switchView('webstudio');
+      window.setTimeout(open, 120);
+    } else open();
+    return true;
   }
   function close() { if (panel) panel.hidden = true; }
   function build() {
@@ -91,12 +102,6 @@
     panel.appendChild(element('div', 'ovym-body'));
     panel.appendChild(element('div', 'ovym-status', 'Ready.'));
     document.body.appendChild(panel);
-    var launcher = document.getElementById(ROOT + '-launcher');
-    if (!launcher) {
-      launcher = element('button');
-      launcher.id = ROOT + '-launcher'; launcher.type = 'button'; launcher.textContent = 'Manage website';
-      launcher.addEventListener('click', open); document.body.appendChild(launcher);
-    }
     document.addEventListener('keydown', function (event) { if (event.key === 'Escape') close(); });
   }
   function body() { return panel.querySelector('.ovym-body'); }
@@ -114,7 +119,7 @@
       filtered.forEach(function (p) {
         var box = card(list, clean(p.name || p.title || 'Untitled website', 120), 'Updated ' + clean(p.updatedAt || 'date unavailable', 40));
         var row = element('div', 'ovym-row'); row.appendChild(element('span', 'ovym-muted', p.publishedUrl ? 'Published' : 'Saved project'));
-        button(row, 'Open Projects', function () { close(); if (typeof window.switchView === 'function') window.switchView('projects'); });
+        button(row, 'Manage this website', function () { try { if (window.ProjectStore && typeof window.ProjectStore.open === 'function') window.ProjectStore.open(p.id); else throw new Error('The project opener is not available.'); activeTab = 'content'; window.setTimeout(function () { open(); render('content'); }, 180); } catch (error) { status(error.message || 'Could not open this website.', true); } });
         box.appendChild(row);
       });
       if (!filtered.length) list.appendChild(element('div', 'ovym-muted', 'No websites match this search.'));
@@ -126,7 +131,7 @@
     if (typeof w.ensureProjectGraph === 'function') w.ensureProjectGraph();
     var files = w.graph && w.graph.files || {};
     var paths = Object.keys(files).filter(function (path) { return typeof path === 'string' && !path.endsWith('/') && /\.(?:html?|md|json)$/i.test(path); }).sort();
-    root.appendChild(element('p', 'ovym-muted', 'These are the pages and content files in your saved website. Use the existing visual editor or Code workspace to make and save edits.'));
+    root.appendChild(element('p', 'ovym-muted', 'These are the pages and content files in your saved website. Open the visual editor or Code Editor to change these files; both use the same website project files.'));
     if (!paths.length) { root.appendChild(element('div', 'ovym-card', 'No editable content files were found in the current project.')); return; }
     paths.forEach(function (path) {
       var record = files[path]; var content = typeof record === 'string' ? record : record && record.content || '';
@@ -240,16 +245,7 @@
     } catch (error) { renderError(error); }
   }
   function install() {
-    if (!studio() || activeView() !== 'webstudio') {
-      var launcher = document.getElementById(ROOT + '-launcher');
-      if (launcher) launcher.remove();
-      if (panel) close();
-      return false;
-    }
     style();
-    if (!document.getElementById(ROOT + '-launcher')) {
-      var launcher = element('button'); launcher.id = ROOT + '-launcher'; launcher.type = 'button'; launcher.textContent = 'Manage website'; launcher.addEventListener('click', open); document.body.appendChild(launcher);
-    }
     return true;
   }
   function boot() {
@@ -264,5 +260,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
-  window.OVYXWebsiteManagement = { open: open, close: close, refresh: function () { return render(activeTab); } };
+  window.OVYXWebsiteManagement = { open: open, openWorkspace: openWorkspace, close: close, refresh: function () { return render(activeTab); } };
 })();
