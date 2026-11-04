@@ -39,6 +39,8 @@ assert.ok(nigeriaPayments.recommendedProviders.includes('Paystack'));
 assert.ok(nigeriaPayments.recommendedProviders.includes('OPay'));
 const germanyPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { country: 'Germany' }).integrations.find(item => item.capability === 'payments');
 assert.deepEqual(germanyPayments.recommendedProviders, ['Stripe']);
+const explicitGermanyOverridesMarket = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { country: 'Germany', market: 'Nigeria' }).integrations.find(item => item.capability === 'payments');
+assert.deepEqual(explicitGermanyOverridesMarket.recommendedProviders, ['Stripe'], 'An explicit country must override a broader market label.');
 assert.match(germanyPayments.recommendation, /settlement country/i);
 assert.match(germanyPayments.recommendation, /not default recommendations outside Nigeria/i);
 const unspecifiedMarketPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.').integrations.find(item => item.capability === 'payments');
