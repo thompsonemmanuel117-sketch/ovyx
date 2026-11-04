@@ -35,7 +35,7 @@ assert.match(client, /Analytics/);
 assert.match(client, /Publishing/);
 assert.match(client, /OVYXAssetStore/);
 assert.match(client, /getElementById\(ROOT \+ '-launcher'\)/, 'Opening the panel must reuse its existing launcher instead of creating duplicate IDs.');
-assert.match(client, /bottom:108px/, 'The launcher must not cover the Web Studio message composer.');
+assert.match(client, /top:50%;bottom:auto/, 'The launcher must not cover the Web Studio message composer.');
 assert.match(client, /api\/projects/);
 assert.match(client, /api\/site-management/);
 assert.match(client, /Restore this earlier website version/);
