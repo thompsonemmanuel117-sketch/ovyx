@@ -480,7 +480,7 @@ const intelligence = buildProjectIntelligence({
   'functions/api/orders.js': 'export async function onRequestGet() {} export async function onRequestPost() {}',
   'migrations/0001_orders.sql': 'CREATE TABLE orders (id TEXT PRIMARY KEY, owner_id TEXT);',
   'src/lib/auth.ts': 'export function requireAuth() {}',
-  'src/lib/payments.ts': 'export async function createPaystackCheckout() {}',
+  'src/lib/payments.ts': 'export async function createPaystackCheckout() {} // payment checkout workflow',
 });
 assert.equal(intelligence.status, 'source-mapped');
 assert.equal(intelligence.evidenceLevel, 'static-source-only-runtime-unverified');
