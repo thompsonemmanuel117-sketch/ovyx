@@ -132,12 +132,13 @@
     var files = w.graph && w.graph.files || {};
     var paths = Object.keys(files).filter(function (path) { return typeof path === 'string' && !path.endsWith('/') && /\.(?:html?|md|json)$/i.test(path); }).sort();
     root.appendChild(element('p', 'ovym-muted', 'These are the pages and content files in your saved website. Open the visual editor or Code Editor to change these files; both use the same website project files.'));
+    button(root, 'Open Code Editor', function () { var target = w.activeCodeFile || (typeof w.entryFile === 'function' ? w.entryFile() : ''); if (!target || typeof w.openCodeEditor !== 'function') { status('The Code Editor is not ready. Open Web Studio and try again.', true); return; } close(); w.openCodeEditor(target); }, true);
     if (!paths.length) { root.appendChild(element('div', 'ovym-card', 'No editable content files were found in the current project.')); return; }
     paths.forEach(function (path) {
       var record = files[path]; var content = typeof record === 'string' ? record : record && record.content || '';
       var box = card(root, path, clean(content.slice(0, 4000).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '), 180) || 'Content file');
       if (typeof w.openCodeEditor === 'function') button(box, 'Edit in Code Editor', function () { close(); w.openCodeEditor(path); });
-      else box.appendChild(element('div', 'ovym-muted', 'Open this file from the existing Code workspace to edit it.'));
+      else box.appendChild(element('div', 'ovym-muted', 'The Code Editor is not available in this session.'));
     });
   }
   async function renderMedia(root) {
