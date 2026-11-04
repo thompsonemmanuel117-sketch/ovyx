@@ -60,8 +60,8 @@ function findConnectionMetadata(context, kind) {
     email: /email|mailgun|sendgrid|resend|postmark|smtp/i,
     auth: /firebase|supabase|auth|identity|clerk|auth0/i,
     database: /firebase|supabase|database|firestore|d1|postgres|mysql/i,
-    booking: /booking|reservation|calendar|scheduling|cal\\.com/i,
-    storage: /storage|cloudflare\\s*r2|firebase\\s*storage|s3|supabase\\s*storage/i,
+    booking: /booking|reservation|calendar|scheduling|cal\.com/i,
+    storage: /storage|cloudflare\s*r2|firebase\s*storage|s3|supabase\s*storage/i,
     subscriptions: /subscription|recurring|billing|membership|stripe|paystack|paddle/i,
     notifications: /notification|push|email|sms|messaging|resend|sendgrid|twilio/i,
     integrations: /.+/i,
@@ -799,11 +799,11 @@ function parseBackendFiles(response) {
       const lowerPath = filePath.toLowerCase();
       const containsCredentialMaterial = typeof fileContent === 'string' && (
         /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i.test(fileContent) ||
-        /\\b(?:sk_(?:live|test|proj)_|whsec_|AIza[0-9A-Za-z_-]{30,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/i.test(fileContent) ||
-        /\\bBearer\\s+[A-Za-z0-9._-]{24,}/i.test(fileContent)
+        /\b(?:sk_(?:live|test|proj)_|whsec_|AIza[0-9A-Za-z_-]{30,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/i.test(fileContent) ||
+        /\bBearer\s+[A-Za-z0-9._-]{24,}/i.test(fileContent)
       );
       const containsUnsafeExecution = typeof fileContent === 'string' &&
-        /\\beval\\s*\\(|new\\s+Function\\s*\\(|\\bchild_process\\b|\\bexecSync\\s*\\(|\\bspawn\\s*\\(|\\bvm\\.run(?:InNewContext|InContext|InThisContext)?\\s*\\(|\\bDeno\\.Command\\s*\\(|\\bBun\\.spawn\\s*\\(/i.test(fileContent);
+        /\beval\s*\(|new\s+Function\s*\(|\bchild_process\b|\bexecSync\s*\(|\bspawn\s*\(|\bvm\.run(?:InNewContext|InContext|InThisContext)?\s*\(|\bDeno\.Command\s*\(|\bBun\.spawn\s*\(/i.test(fileContent);
       if (!filePath || filePath.length > 300 || filePath.includes('..') || filePath.includes(String.fromCharCode(92)) ||
           lowerPath.includes('.env') || lowerPath.includes('secret') || lowerPath.includes('credential') ||
           lowerPath.includes('private-key') || lowerPath.includes('service-account') ||
