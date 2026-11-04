@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
+import { isOwnedOvyxPagesProjectName as isDeployProjectName } from '../functions/api/deploy.js';
+import { isOwnedOvyxPagesProjectName as isStatusProjectName } from '../functions/api/deployment-status.js';
 import {
   normalizePublishedSiteUrl,
   resolvePublishedSiteFromProjects,
@@ -22,6 +24,11 @@ assert.deepEqual(normalizePublishedSiteUrl('https://www.example.com/shop/product
   canonicalUrl: 'https://www.example.com/shop/products',
 });
 assert.equal(normalizePublishedSiteUrl('https://sample-project.pages.dev/').host, 'sample-project.pages.dev');
+assert.equal(isDeployProjectName('ovyx-1234567890-storefront', 'ovyx-1234567890-'), true);
+assert.equal(isDeployProjectName('ovyx-1234567890-other', 'ovyx-1234567890-'), true);
+assert.equal(isDeployProjectName('ovyx-aaaaaaaaaa-storefront', 'ovyx-1234567890-'), false);
+assert.equal(isStatusProjectName('ovyx-1234567890-storefront', 'ovyx-1234567890-'), true);
+assert.equal(isStatusProjectName('somebody-elses-pages-project', 'ovyx-1234567890-'), false);
 for (const invalid of [
   '', 'example.com', 'http://example.com', 'https://user:pass@example.com',
   'https://example.com:8443', 'https://localhost', 'https://127.0.0.1',
