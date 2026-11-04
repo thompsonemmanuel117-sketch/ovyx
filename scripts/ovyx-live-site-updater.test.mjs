@@ -100,6 +100,16 @@ const resolvedCustom = await resolvePublishedSiteFromProjects({
 });
 assert.equal(resolvedCustom.matchedBy, 'connected-custom-domain');
 assert.equal(resolvedCustom.domainStatus, 'active');
+await assert.rejects(
+  resolvePublishedSiteFromProjects({
+    ...owner,
+    host: 'shop.example.co.uk',
+    projects: [customDomainProject],
+    resolvePagesProject: async () => ({ pagesName: 'ovyx-0987654321-international-shop', project: { subdomain: 'international-shop.pages.dev' }, domains: [{ name: 'shop.example.co.uk', status: 'pending' }], deployments: production }),
+  }),
+  error => error.code === 'PUBLISHED_SITE_NOT_VERIFIED',
+  'A pending custom domain must not be treated as a live website.',
+);
 
 await assert.rejects(
   resolvePublishedSiteFromProjects({
