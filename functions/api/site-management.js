@@ -57,7 +57,7 @@ async function createBackup(env, owner, projectId, project, kind = 'manual', lab
   delete snapshot.ownerUid;
   delete snapshot.ownerEmail;
   const bytes = utf8Size(snapshot);
-  if (bytes > 850_000) {
+  if (bytes > 700_000) {
     throw fail('This website is too large for a safe built-in backup. No changes were made. Export a project ZIP before continuing.', 413, 'BACKUP_TOO_LARGE');
   }
   const id = 'backup_' + crypto.randomUUID().replace(/-/g, '');
