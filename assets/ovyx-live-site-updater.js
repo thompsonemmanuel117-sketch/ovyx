@@ -153,7 +153,7 @@
   function projectFilesForDeploy(graph) {
     var files = {};
     Object.keys(graph.files || {}).forEach(function (path) {
-      var normalized = String(path || '').replace(/\\\\/g, '/').replace(/^\\.\\//, '');
+      var normalized = String(path || '').replace(/\\/g, '/').replace(/^\.\//, '');
       if (!normalized || normalized.startsWith('/') || normalized.split('/').includes('..')) throw new Error('The updated project contains an unsafe file path. No deployment was started.');
       if (normalized === 'functions' || normalized.startsWith('functions/')) throw new Error('This website now contains a functions/ backend folder, which the current production publisher cannot deploy. The live website was not changed. The generated source will be restored so the published version and saved project do not drift.');
       var record = graph.files[path];
