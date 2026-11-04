@@ -5,6 +5,7 @@ import {
   websiteEngineClientSummary,
   buildWebsiteEngineReadiness,
   runWebsiteGeneration,
+  parseBackendFiles,
 } from '../functions/_lib/website-engine.js';
 
 const prompt = [
@@ -55,6 +56,14 @@ assert.match(buildWebsiteEngineInstructions(plan), /matching server route\/handl
 assert.match(buildWebsiteEngineInstructions(plan), /domain schema, relationships, constraints and indexes/i);
 assert.match(buildWebsiteEngineInstructions(plan), /workflow state machines/i);
 assert.match(buildWebsiteEngineInstructions(plan), /authorization-negative cases/i);
+const safeBackendSource = parseBackendFiles({ files: {
+  'functions/api/health.js': 'export async function onRequestGet() { return Response.json({ ok: true }); }',
+  'functions/api/secret.js': "export async function onRequestGet() { const key = 'sk_live_12345678901234567890'; return Response.json({ ok: true }); }",
+  'functions/api/unsafe.js': 'export async function onRequestGet() { return eval("1 + 1"); }',
+  'functions/api/slack-secret.js': "export async function onRequestGet() { const key = 'xoxb-12345678901234567890'; return Response.json({ ok: true }); }",
+} });
+assert.deepEqual(Object.keys(safeBackendSource), ['functions/api/health.js'],
+  'Backend source ingestion must reject known credential formats and unsafe dynamic execution while retaining safe route code.');
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
 const emailSummary = websiteEngineClientSummary(plan).integrations.find(item => item.capability === 'email');
 assert.equal(emailSummary.connection, 'configured-unverified');
