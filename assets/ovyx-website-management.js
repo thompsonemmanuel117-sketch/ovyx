@@ -138,7 +138,7 @@
       filtered.forEach(function (p) {
         var box = card(list, clean(p.name || p.title || 'Untitled website', 120), 'Updated ' + clean(p.updatedAt || 'date unavailable', 40));
         var row = element('div', 'ovym-row'); row.appendChild(element('span', 'ovym-muted', p.publishedUrl ? 'Published' : 'Saved project'));
-        button(row, 'Manage this website', function () { try { if (window.ProjectStore && typeof window.ProjectStore.open === 'function') window.ProjectStore.open(p.id); else throw new Error('The project opener is not available.'); activeTab = 'content'; window.setTimeout(function () { open(); }, 180); } catch (error) { status(error.message || 'Could not open this website.', true); } });
+        button(row, 'Manage this website', function () { try { if (window.ProjectStore && typeof window.ProjectStore.open === 'function') window.ProjectStore.open(p.id); else throw new Error('The project opener is not available.'); if (!window.KernelState || !window.KernelState.activeProject || String(window.KernelState.activeProject.id) !== String(p.id)) throw new Error('That saved website could not be opened in the current project workspace.'); activeTab = 'content'; window.setTimeout(function () { open(); }, 180); } catch (error) { status(error.message || 'Could not open this website.', true); } });
         box.appendChild(row);
       });
       if (!filtered.length) list.appendChild(element('div', 'ovym-muted', 'No websites match this search.'));
