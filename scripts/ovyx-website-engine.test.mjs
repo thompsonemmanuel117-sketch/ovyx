@@ -1,3 +1,4 @@
+import { buildProjectIntelligence, projectIntelligenceInstructions } from '../functions/_lib/project-intelligence.js';
 import assert from 'node:assert/strict';
 import {
   buildWebsiteEnginePlan,
@@ -469,3 +470,41 @@ assert.deepEqual(autonomousBuild.result.rawUsage, { prompt_tokens: 10, completio
 assert.equal(autonomousBuild.autonomousQa.status, 'blocked',
   'A generated site must not be reported fully passed until its real browser and journey evidence has run.');
 
+
+
+const intelligence = buildProjectIntelligence({
+  'package.json': JSON.stringify({ dependencies: { react: '1.0.0', vite: '1.0.0' } }),
+  'index.html': '<!doctype html><html><body><main>Home</main></body></html>',
+  'src/pages/account.tsx': 'export default function Account() { return null; }',
+  'src/components/ProductCard.tsx': 'export function ProductCard() { return null; }',
+  'functions/api/orders.js': 'export async function onRequestGet() {} export async function onRequestPost() {}',
+  'migrations/0001_orders.sql': 'CREATE TABLE orders (id TEXT PRIMARY KEY, owner_id TEXT);',
+  'src/lib/auth.ts': 'export function requireAuth() {}',
+  'src/lib/payments.ts': 'export async function createPaystackCheckout() {}',
+});
+assert.equal(intelligence.status, 'source-mapped');
+assert.equal(intelligence.evidenceLevel, 'static-source-only-runtime-unverified');
+assert.ok(intelligence.project.frameworks.includes('Vite'));
+assert.ok(intelligence.project.frameworks.includes('React'));
+assert.ok(intelligence.project.routes.some(route => route.path === '/account/'));
+assert.ok(intelligence.project.apiRoutes.some(route => route.source === 'functions/api/orders.js' && route.methods.includes('POST')));
+assert.ok(intelligence.project.schemaFiles.includes('migrations/0001_orders.sql'));
+assert.ok(intelligence.project.migrationFiles.includes('migrations/0001_orders.sql'));
+assert.ok(intelligence.project.authEvidence.includes('authorization-or-ownership-source'));
+assert.ok(intelligence.project.integrationEvidence.includes('paystack'));
+assert.ok(intelligence.project.detectedCapabilities.includes('payments'));
+assert.equal(JSON.stringify(intelligence).includes('createPaystackCheckout() {}'), false,
+  'The project map must never include source file contents.');
+assert.equal(intelligence.changeSafety.requireOwnerApprovalForDestructiveChanges, true);
+assert.match(projectIntelligenceInstructions(intelligence).join(' '), /not proof that routes, databases/i);
+assert.match(projectIntelligenceInstructions(intelligence).join(' '), /Prefer a minimal compatible extension/i);
+
+const noProjectIntelligence = buildProjectIntelligence({});
+assert.equal(noProjectIntelligence.status, 'no-project-files');
+assert.match(projectIntelligenceInstructions(noProjectIntelligence).join(' '), /new project build/i);
+
+const partialProjectIntelligence = buildProjectIntelligence({
+  'oversized.js': 'x'.repeat(160001),
+});
+assert.equal(partialProjectIntelligence.status, 'no-project-files',
+  'A project containing only rejected oversized files has no analyzable source map.');
