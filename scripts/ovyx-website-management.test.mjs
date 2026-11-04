@@ -39,6 +39,7 @@ assert.match(client, /node\.classList\.toggle\('active', selected\)/, 'The manag
 assert.match(client, /function close\(\)[\s\S]*activeView\(\)/, 'Closing management must restore the active route selection.');
 assert.doesNotMatch(client, /open\(\); render\('content'\)/, 'Project switching must not trigger duplicate content renders.');
 assert.match(client, /ProjectStore\.open\(p\.id\)/, 'Selecting a website must activate that exact saved project.');
+assert.match(client, /String\(window\.KernelState\.activeProject\.id\) !== String\(p\.id\)/, 'A failed project switch must not show content from the previously selected website.');
 assert.match(client, /openCodeEditor\(path\)/, 'Manage Website must open the real source editor for the selected file.');
 assert.match(client, /button\(root, 'Open Code Editor'/, 'Manage Website must provide a direct Code Editor entry point.');
 assert.match(client, /Pages & Content/);
