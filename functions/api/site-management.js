@@ -82,7 +82,7 @@ async function createBackup(env, owner, projectId, project, kind = 'manual', lab
   await Promise.all(excess.map(row => deleteFirestoreDocumentAtPath(env, ['users', owner.email, 'projects', projectId, BACKUP_COLLECTION, row.id])));
   return publicBackup({ id, data: record });
 }
-function normalizeSettings(value) {
+export function normalizeSettings(value) {
   const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const navigation = Array.isArray(input.navigation) ? input.navigation.slice(0, 30).map((item, index) => {
     const path = clean(item?.path, 180);
