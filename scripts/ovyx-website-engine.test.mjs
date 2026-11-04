@@ -508,3 +508,18 @@ const partialProjectIntelligence = buildProjectIntelligence({
 });
 assert.equal(partialProjectIntelligence.status, 'no-project-files',
   'A project containing only rejected oversized files has no analyzable source map.');
+
+const existingProjectPlan = buildWebsiteEnginePlan(
+  'Add a customer order history page to this existing application.',
+  { files: {
+    'package.json': '{"dependencies":{"react":"1.0.0","vite":"1.0.0"}}',
+    'src/pages/orders.tsx': 'export default function Orders() { return null; }',
+    'functions/api/orders.js': 'export async function onRequestGet() {}',
+    'migrations/0001_orders.sql': 'CREATE TABLE orders (id TEXT PRIMARY KEY);',
+  } },
+);
+assert.equal(existingProjectPlan.projectIntelligence.status, 'source-mapped');
+assert.ok(existingProjectPlan.projectIntelligence.project.routes.some(route => route.path === '/orders/'));
+assert.match(buildWebsiteEngineInstructions(existingProjectPlan), /EXISTING PROJECT INTELLIGENCE MAP/);
+assert.match(buildWebsiteEngineInstructions(existingProjectPlan), /do not create duplicate systems/);
+assert.equal(websiteEngineClientSummary(existingProjectPlan).projectIntelligence.routeCount, 1);
