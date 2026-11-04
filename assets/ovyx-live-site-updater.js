@@ -200,6 +200,7 @@
     var canonical = 'https://' + resolution.canonicalUrl.replace(/^https:\/\//i, '').split('/')[0];
     project.ovyxDeployments = Array.isArray(project.ovyxDeployments) ? project.ovyxDeployments : [];
     project.ovyxDeployments.unshift({ at: Date.now(), status: 'published', url: canonical, deploymentId: String(deploymentId), action: 'live-site-update' });
+    if (finalState.pagesProjectName) project.ovyxPagesProjectName = String(finalState.pagesProjectName);
     project.ovyxDeployments = project.ovyxDeployments.slice(0, 30);
     if (resolution.matchedBy === 'connected-custom-domain') project.ovyxDeploymentDomain = canonical.replace(/^https:\/\//, '');
     try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
