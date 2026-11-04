@@ -9,12 +9,13 @@ import {
 } from '../functions/api/publishing.js';
 
 const read = path => readFile(new URL('../' + path, import.meta.url), 'utf8');
-const [client, middleware, api, packageSource, deploySource] = await Promise.all([
+const [client, middleware, api, packageSource, deploySource, indexSource] = await Promise.all([
   read('assets/ovyx-live-site-updater.js'),
   read('functions/_middleware.js'),
   read('functions/api/publishing.js'),
   read('package.json'),
   read('functions/api/deploy.js'),
+  read('index.html'),
 ]);
 
 // Compile the browser asset without executing it in Node's non-browser environment.
@@ -172,5 +173,8 @@ assert.match(client, /previous saved project snapshot was restored/);
 assert.match(client, /Do not assume Nigeria, NGN, USD, English/);
 assert.match(middleware, /ovyx-live-site-updater\.js/);
 assert.match(packageSource, /ovyx-live-site-updater\.test\.mjs/);
+assert.match(indexSource, /Browser locale is only a display fallback/);
+assert.match(indexSource, /typeof Intl\.Locale === 'function'/);
+assert.doesNotMatch(indexSource, /tz\.includes\(['"]africa['"]\)/, 'An African timezone must not be mistaken for Nigeria.');
 
 console.log('OVYX authenticated same-domain live website updater tests passed.');
