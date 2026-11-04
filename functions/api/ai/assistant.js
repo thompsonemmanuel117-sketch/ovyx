@@ -219,6 +219,7 @@ export async function onRequestPost(context) {
       : Array.isArray(payload.attachments) ? payload.attachments : [];
     const attachmentContextText = buildWebStudioAttachmentContext(rawAttachmentSource);
     const modelContext = compactContextForModel(payload.context, rawAttachmentSource);
+    if (submittedFiles && !modelContext.files) modelContext.files = submittedFiles;
     // Never send raw data URLs/base64 bodies as JSON text. They can consume the
     // full provider input budget and push the actual extracted file text out.
     const projectContext = Object.keys(modelContext).length
