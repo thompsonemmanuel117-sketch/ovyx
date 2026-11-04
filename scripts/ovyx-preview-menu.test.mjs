@@ -42,6 +42,10 @@ for (const token of [
   assert.ok(html.includes(token), 'Preview menu is missing its expected operation: ' + token);
 }
 
+assert.match(html, /data-ws-menu="code"[\s\S]{0,500}/, 'The preview Code option must remain present after sidebar consolidation.');
+assert.match(html, /case'code':[\s\S]{0,100}openCodeEditor\(this\.entryFile\(\)\)/, 'The preview Code option must still open the exact active preview entry file.');
+assert.ok(html.includes('data-nav="workspace" onclick="window.OVYXWebsiteManagement?.openWorkspace?.()"'), 'The desktop Code sidebar entry must now open Manage Website.');
+assert.ok(html.includes('data-mobile-nav="workspace" onclick="window.OVYXWebsiteManagement?.openWorkspace?.()"'), 'The mobile Code sidebar entry must now open Manage Website.');
 assert.ok(html.includes("document.querySelectorAll('[data-ws-menu]').forEach(btn => btn.addEventListener('click', () => this.handlePreviewMenu(btn.dataset.wsMenu)))"),
   'Preview menu buttons must be connected to the dispatcher.');
 assert.ok(html.includes('window.OVYXPreviewProjectControls?.openSections?.()'), 'Sections must open the real project sections tool.');
