@@ -201,6 +201,8 @@ function projectPublishedHosts(project) {
   addUrl(project?.publishedUrl);
   addUrl(project?.liveUrl);
   addUrl(project?.ovyxPublishedUrl);
+  const savedPagesName = String(project?.ovyxPagesProjectName || '').trim().toLowerCase();
+  if (/^[a-z0-9-]{1,63}$/.test(savedPagesName)) hosts.add(savedPagesName + '.pages.dev');
   for (const deployment of (Array.isArray(project?.ovyxDeployments) ? project.ovyxDeployments : []).slice(0, 30)) {
     if (deployment && (deployment.status === 'published' || deployment.status === 'success' || deployment.url)) addUrl(deployment.url);
   }
