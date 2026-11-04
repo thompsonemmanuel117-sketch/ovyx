@@ -57,9 +57,9 @@
     var style = el('style');
     style.id = ROOT + '-style';
     style.textContent =
-      '#' + ROOT + '-launcher{position:fixed;z-index:99970;right:18px;top:120px;bottom:auto;border:1px solid rgba(232,182,79,.6);border-radius:999px;background:#090909;color:#f5d58d;padding:11px 15px;font:750 12px Inter,system-ui,sans-serif;box-shadow:0 8px 30px #0008;cursor:pointer}' +
+      '#' + ROOT + '-launcher{position:relative;z-index:2147483002;flex:0 0 auto;margin-left:8px;border:1px solid rgba(232,182,79,.6);border-radius:999px;background:#090909;color:#f5d58d;padding:8px 11px;font:750 11px Inter,system-ui,sans-serif;box-shadow:0 4px 14px #0005;cursor:pointer;white-space:nowrap}' +
       '#' + ROOT + '-launcher[hidden]{display:none}' +
-      '@media(max-width:700px){#' + ROOT + '-launcher{right:12px;top:120px;bottom:auto;max-width:calc(100vw - 24px)}}' +
+      '@media(max-width:700px){#' + ROOT + '-launcher{margin-left:4px;padding:7px 8px;font-size:9px;max-width:132px;overflow:hidden;text-overflow:ellipsis}}' +
       '#' + MODAL + '{position:fixed;z-index:99999;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(10px);display:grid;place-items:center;padding:18px;color:#f5f5f5;font:500 13px/1.55 Inter,system-ui,sans-serif}' +
       '#' + MODAL + '[hidden]{display:none}' +
       '#' + MODAL + ' *{box-sizing:border-box}' +
@@ -262,13 +262,15 @@
     if (modal) modal.hidden = true;
   }
   function ensureUI() {
+    var headerActions = document.querySelector('#view-webstudio .ovyx-ws-header-actions');
     if (!document.getElementById(ROOT + '-launcher')) {
       launcher = el('button', '', 'Update live website');
       launcher.id = ROOT + '-launcher';
       launcher.type = 'button';
       launcher.addEventListener('click', openModal);
-      document.body.appendChild(launcher);
     } else launcher = document.getElementById(ROOT + '-launcher');
+    if (headerActions && launcher.parentNode !== headerActions) headerActions.appendChild(launcher);
+    else if (!launcher.parentNode) document.body.appendChild(launcher);
     if (!document.getElementById(MODAL)) {
       var overlay = el('div');
       overlay.id = MODAL;
