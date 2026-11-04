@@ -236,8 +236,9 @@
         action.textContent = 'Preparing ZIP…';
         status('Preparing ' + option.title.toLowerCase() + ' for download. Keep this tab open.');
         try {
-          await exporter.export({ mode: option.mode });
-          status('Export request completed. Check your browser downloads and the OVYX export notification.');
+          var result = await exporter.export({ mode: option.mode });
+          if (!result || !result.ok) throw new Error(result && result.error || (result && result.busy ? 'Another ZIP export is already running. Please wait and try again.' : 'The ZIP export did not complete.'));
+          status(result.fileCount + ' file(s) packaged. Check your browser downloads and the OVYX export notification.' + (result.excludedCount ? ' ' + result.excludedCount + ' file(s) were excluded; review the ZIP manifest.' : ''));
         } catch (error) {
           status(clean(error && error.message || 'The ZIP could not be prepared.', 300), true);
         } finally {
@@ -326,7 +327,8 @@
     try {
       if (activeTab === 'websites') await renderWebsites(root);
       else if (activeTab === 'content') await renderContent(root);
-      else if (activeTab === 'media') await renderMedia(root);\n      else if (activeTab === 'downloads') await renderDownloads(root);
+      else if (activeTab === 'media') await renderMedia(root);
+      else if (activeTab === 'downloads') await renderDownloads(root);
       else if (activeTab === 'settings') await renderSettings(root);
       else if (activeTab === 'backups') await renderBackups(root);
       else if (activeTab === 'analytics') await renderAnalytics(root);
