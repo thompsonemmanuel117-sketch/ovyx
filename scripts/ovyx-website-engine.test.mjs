@@ -56,6 +56,11 @@ assert.match(buildWebsiteEngineInstructions(plan), /domain schema, relationships
 assert.match(buildWebsiteEngineInstructions(plan), /workflow state machines/i);
 assert.match(buildWebsiteEngineInstructions(plan), /authorization-negative cases/i);
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
+const emailSummary = websiteEngineClientSummary(plan).integrations.find(item => item.capability === 'email');
+assert.equal(emailSummary.connection, 'configured-unverified');
+assert.equal(emailSummary.productionGate, 'blocked-until-live-verification');
+assert.ok(emailSummary.recommendedProviders.includes('Resend'));
+assert.match(emailSummary.ownerAction, /test a real message/i);
 assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
 const genericFullStackPlan = buildWebsiteEnginePlan(
   'Build a full-stack business website with a custom backend and persistent data.',
@@ -394,8 +399,11 @@ const cyclicIntegrationContext = { connections: {} };
 cyclicIntegrationContext.connections.self = cyclicIntegrationContext.connections;
 cyclicIntegrationContext.connections.provider = { provider: 'Resend', connected: true };
 const cyclicContextPlan = buildWebsiteEnginePlan('Build a contact form with email delivery.', cyclicIntegrationContext);
-assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').connection, 'connected-in-context',
-  'Integration inspection must safely traverse cyclic connection context without unbounded recursion.');
+assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').connection, 'configured-unverified',
+  'Saved connection metadata must never be mistaken for a live delivery test, even in cyclic context.');
+assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').productionGate, 'blocked-until-live-verification');
+assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').connectionMetadataPresent, true);
+assert.equal(websiteEngineClientSummary(cyclicContextPlan).integrations.find(item => item.capability === 'email').nextAction, 'connect-provider-and-run-live-verification');
 
 const conflictedPlan = buildWebsiteEnginePlan('Include a customer login and account dashboard.\nDo not include a customer login and account dashboard.');
 assert.equal(conflictedPlan.requirementIntelligence.counts.total, conflictedPlan.requirementManifest.total);
