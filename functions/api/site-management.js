@@ -84,6 +84,10 @@ async function createBackup(env, owner, projectId, project, kind = 'manual', lab
 }
 function normalizeSettings(value) {
   const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const navigation = Array.isArray(input.navigation) ? input.navigation.slice(0, 30).map((item, index) => {
+    const path = clean(item?.path, 180);
+    const safePath = /^(?:\/(?!\/)|#|\?)[A-Za-z0-9._~!function normalizeSettings(value) {
+  const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const navigation = Array.isArray(input.navigation) ? input.navigation.slice(0, 30).map((item, index) => ({
     label: clean(item?.label, 60),
     path: clean(item?.path, 180),
@@ -93,6 +97,18 @@ function normalizeSettings(value) {
     title: clean(input.title, 120),
     description: clean(input.description, 320),
     language: clean(input.language || 'en', 12).toLowerCase(),
+    navigation,
+    updatedAt: new Date().toISOString(),
+  };
+}()*+,;=:@%/?#-]*$/.test(path) ||
+      /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(path);
+    return { label: clean(item?.label, 60), path: safePath && !path.split('/').includes('..') ? path : '', order: index };
+  }).filter(item => item.label && item.path) : [];
+  const requestedLanguage = clean(input.language || 'en', 12).toLowerCase();
+  return {
+    title: clean(input.title, 120),
+    description: clean(input.description, 320),
+    language: /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(requestedLanguage) ? requestedLanguage : 'en',
     navigation,
     updatedAt: new Date().toISOString(),
   };
