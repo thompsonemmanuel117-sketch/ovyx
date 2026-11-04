@@ -6,6 +6,7 @@ import {
   buildWebsiteEngineReadiness,
   runWebsiteGeneration,
   parseBackendFiles,
+  auditBackendFiles,
 } from '../functions/_lib/website-engine.js';
 
 const prompt = [
@@ -56,6 +57,22 @@ assert.match(buildWebsiteEngineInstructions(plan), /matching server route\/handl
 assert.match(buildWebsiteEngineInstructions(plan), /domain schema, relationships, constraints and indexes/i);
 assert.match(buildWebsiteEngineInstructions(plan), /workflow state machines/i);
 assert.match(buildWebsiteEngineInstructions(plan), /authorization-negative cases/i);
+const persistenceContract = {
+  apiContracts: [{ id: 'records-read', method: 'GET', path: '/api/records', authPolicy: 'session-or-authenticated', modelIds: ['model-record'] }],
+  dataModels: [],
+  dataIntegrity: { relationships: [], indexes: [] },
+  stateMachines: [],
+};
+const memoryOnlyAudit = auditBackendFiles({
+  'functions/api/records.js': 'export async function onRequestGet({ data }) { const user = requireAuth(data.user); const db = new Map(); return Response.json({ record: db.get(user.uid) }); }',
+}, persistenceContract);
+assert.equal(memoryOnlyAudit.routeEvidence[0].persistenceDetected, false,
+  'An in-memory Map must not count as persistent backend storage.');
+const databaseBackedAudit = auditBackendFiles({
+  'functions/api/records.js': "export async function onRequestGet({ env, data }) { const user = requireAuth(data.user); const record = await env.DB.prepare('SELECT id FROM records WHERE owner_id = ?').bind(user.uid).first(); return Response.json(record); }",
+}, persistenceContract);
+assert.equal(databaseBackedAudit.routeEvidence[0].persistenceDetected, true,
+  'A server route using the configured database binding and a real query should retain source evidence; runtime persistence remains a separate gate.');
 const safeBackendSource = parseBackendFiles({ files: {
   'functions/api/health.js': 'export async function onRequestGet() { return Response.json({ ok: true }); }',
   'functions/api/secret.js': "export async function onRequestGet() { const key = 'sk_live_12345678901234567890'; return Response.json({ ok: true }); }",
