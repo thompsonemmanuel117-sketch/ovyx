@@ -1,0 +1,135 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
+import {
+  normalizePublishedSiteUrl,
+  resolvePublishedSiteFromProjects,
+} from '../functions/api/publishing.js';
+
+const read = path => readFile(new URL('../' + path, import.meta.url), 'utf8');
+const [client, middleware, api, packageSource] = await Promise.all([
+  read('assets/ovyx-live-site-updater.js'),
+  read('functions/_middleware.js'),
+  read('functions/api/publishing.js'),
+  read('package.json'),
+]);
+
+// Compile the browser asset without executing it in Node's non-browser environment.
+new vm.Script(client, { filename: 'ovyx-live-site-updater.js' });
+
+assert.deepEqual(normalizePublishedSiteUrl('https://www.example.com/shop/products?utm_source=test'), {
+  host: 'www.example.com',
+  canonicalUrl: 'https://www.example.com/shop/products',
+});
+assert.equal(normalizePublishedSiteUrl('https://sample-project.pages.dev/').host, 'sample-project.pages.dev');
+for (const invalid of [
+  '', 'example.com', 'http://example.com', 'https://user:pass@example.com',
+  'https://example.com:8443', 'https://localhost', 'https://127.0.0.1',
+  'https://internal.example.test', 'https://service.workers.dev',
+]) {
+  assert.throws(() => normalizePublishedSiteUrl(invalid), Error, invalid + ' must not be accepted as a live website URL');
+}
+
+const owner = { uid: 'owner-1', email: 'owner@example.com' };
+const production = [{ id: 'deploy-1', environment: 'production', latest_stage: { name: 'deploy', status: 'success' } }];
+const pagesProject = {
+  id: 'project-1',
+  data: {
+    id: 'project-1',
+    name: 'Storefront',
+    ownerUid: owner.uid,
+    ownerEmail: owner.email,
+    ovyxDeployments: [{ status: 'published', url: 'https://storefront.pages.dev' }],
+  },
+};
+const resolvePagesProject = async () => ({
+  pagesName: 'ovyx-storefront',
+  project: { subdomain: 'storefront.pages.dev' },
+  domains: [],
+  deployments: production,
+});
+const resolvedPages = await resolvePublishedSiteFromProjects({
+  ...owner, host: 'storefront.pages.dev', projects: [pagesProject], resolvePagesProject,
+});
+assert.equal(resolvedPages.projectId, 'project-1');
+assert.equal(resolvedPages.sameProject, true);
+assert.equal(resolvedPages.deploymentTarget, 'existing-pages-project');
+assert.equal(resolvedPages.matchedBy, 'pages-hostname');
+
+const customDomainProject = {
+  id: 'project-2',
+  data: {
+    name: 'International shop',
+    ownerUid: owner.uid,
+    ownerEmail: owner.email,
+    ovyxDeploymentDomain: 'shop.example.co.uk',
+    ovyxDeployments: [{ status: 'published', url: 'https://shop.example.co.uk' }],
+  },
+};
+const resolvedCustom = await resolvePublishedSiteFromProjects({
+  ...owner,
+  host: 'shop.example.co.uk',
+  projects: [customDomainProject],
+  resolvePagesProject: async () => ({
+    project: { subdomain: 'international-shop.pages.dev' },
+    domains: [{ name: 'shop.example.co.uk', status: 'active' }],
+    deployments: production,
+  }),
+});
+assert.equal(resolvedCustom.matchedBy, 'connected-custom-domain');
+assert.equal(resolvedCustom.domainStatus, 'active');
+
+await assert.rejects(
+  resolvePublishedSiteFromProjects({
+    ...owner,
+    host: 'storefront.pages.dev',
+    projects: [{ ...pagesProject, data: { ...pagesProject.data, ownerUid: 'another-user' } }],
+    resolvePagesProject,
+  }),
+  error => error.code === 'PUBLISHED_SITE_NOT_FOUND',
+  'A link saved under another account must never resolve.',
+);
+await assert.rejects(
+  resolvePublishedSiteFromProjects({
+    ...owner,
+    host: 'storefront.pages.dev',
+    projects: [pagesProject],
+    resolvePagesProject: async () => ({ project: { subdomain: 'other.pages.dev' }, domains: [], deployments: [] }),
+  }),
+  error => error.code === 'PUBLISHED_SITE_NOT_VERIFIED',
+  'A hostname without a confirmed production release must not be updated.',
+);
+await assert.rejects(
+  resolvePublishedSiteFromProjects({
+    ...owner,
+    host: 'storefront.pages.dev',
+    projects: [pagesProject, { ...pagesProject, id: 'project-duplicate' }],
+    resolvePagesProject,
+  }),
+  error => error.code === 'PUBLISHED_SITE_AMBIGUOUS',
+  'Ambiguous ownership must stop before any source edit.',
+);
+
+assert.match(api, /listFirestoreSubcollectionDocumentsAtPath/);
+assert.match(api, /handleResolvePublishedSite/);
+assert.match(api, /resolveEntitlements/);
+assert.match(api, /emailVerified/);
+assert.match(client, /Update an existing live website/);
+assert.match(client, /Find my website/);
+assert.match(client, /Update this live website/);
+assert.match(client, /api\/publishing\?resolveUrl=/);
+assert.match(client, /api\/site-management/);
+assert.match(client, /Before AI live website update/);
+assert.match(client, /runBuildAgent/);
+assert.match(client, /runTests\(true\)/);
+assert.match(client, /api\/deploy/);
+assert.match(client, /api\/deployment-status/);
+assert.match(client, /environment === 'production'/);
+assert.match(client, /existing production project/);
+assert.match(client, /functions\//);
+assert.match(client, /previous project snapshot was restored/);
+assert.match(client, /Do not assume Nigeria, NGN, USD, English/);
+assert.match(middleware, /ovyx-live-site-updater\.js/);
+assert.match(packageSource, /ovyx-live-site-updater\.test\.mjs/);
+
+console.log('OVYX authenticated same-domain live website updater tests passed.');
