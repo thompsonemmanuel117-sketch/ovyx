@@ -37,7 +37,10 @@
     var response = await fetch(path, init);
     var body = await response.json().catch(function () { return {}; });
     if (!response.ok || body.success === false || body.ok === false) {
-      throw new Error(clean(body.error || body.message || 'The request could not be completed.', 500));
+      var failure = new Error(clean(body.error || body.message || 'The request could not be completed.', 500));
+      failure.status = response.status;
+      failure.apiCode = clean(body.code || '', 80);
+      throw failure;
     }
     return body;
   }
@@ -176,6 +179,7 @@
   async function publishExistingProject(project, resolution, graph, statusNode) {
     var files = projectFilesForDeploy(graph);
     var deploymentAttempted = false;
+    var deploymentAccepted = false;
     setStatus(statusNode, 'Publishing the verified changes to the existing website project…');
     try {
       deploymentAttempted = true;
@@ -190,6 +194,7 @@
           files: files
         })
       });
+      deploymentAccepted = true;
       var deploymentId = response.deployment && response.deployment.deploymentId;
       if (!deploymentId) throw Object.assign(new Error('The existing hosting project did not return a deployment ID. Its final status is unknown; do not start a second update until you check Publishing → release history.'), { code: 'DEPLOYMENT_PENDING' });
       var query = new URLSearchParams({
@@ -222,7 +227,10 @@
       try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
       return { url: canonical, deployment: finalState, metadataSaved: metadataSaved };
     } catch (error) {
-      if (deploymentAttempted && error.code !== 'DEPLOYMENT_FAILED' && error.code !== 'DEPLOYMENT_PENDING') error.code = 'DEPLOYMENT_PENDING';
+      if (deploymentAttempted && error.code !== 'DEPLOYMENT_FAILED' && error.code !== 'DEPLOYMENT_PENDING') {
+        if (deploymentAccepted || Number(error.status) >= 500 || !error.status) error.code = 'DEPLOYMENT_PENDING';
+        else error.code = 'DEPLOYMENT_FAILED';
+      }
       throw error;
     }
   }
