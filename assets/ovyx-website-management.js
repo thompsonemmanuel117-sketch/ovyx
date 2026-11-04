@@ -94,7 +94,7 @@
     var brand = element('div'); brand.appendChild(element('strong', '', 'Website Management')); brand.appendChild(element('div', 'ovym-muted', 'Manage your saved website'));
     head.appendChild(brand); button(head, 'Close', close); panel.appendChild(head);
     var tabs = element('nav', 'ovym-tabs'); tabs.setAttribute('aria-label', 'Website management sections');
-    [['websites','My Websites'],['content','Content'],['media','Media'],['settings','Settings'],['backups','Backups'],['analytics','Analytics'],['publishing','Publishing']].forEach(function (item) {
+    [['websites','My Websites'],['content','Pages & Content'],['media','Media Library'],['settings','Website Settings'],['backups','Backups'],['analytics','Analytics'],['publishing','Publishing']].forEach(function (item) {
       var b = button(tabs, item[1], function () { activeTab = item[0]; render(activeTab); });
       b.dataset.tab = item[0]; b.setAttribute('aria-selected', String(item[0] === activeTab));
     });
