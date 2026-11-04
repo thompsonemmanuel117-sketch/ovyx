@@ -170,7 +170,7 @@ assert.match(client, /environment === 'production'/);
 assert.match(client, /existing production Pages project/);
 assert.match(client, /functions\//);
 assert.match(client, /previous saved project snapshot was restored/);
-assert.match(client, /Do not assume Nigeria, NGN, USD, English/);
+assert.match(client, /Do not assume Nigeria, NGN, USD, one language/);
 assert.match(middleware, /ovyx-live-site-updater\.js/);
 assert.match(packageSource, /ovyx-live-site-updater\.test\.mjs/);
 assert.match(indexSource, /Browser locale is only a display fallback/);
