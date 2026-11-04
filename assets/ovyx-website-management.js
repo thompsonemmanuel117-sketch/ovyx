@@ -127,7 +127,7 @@
     if (!paths.length) { root.appendChild(element('div', 'ovym-card', 'No editable content files were found in the current project.')); return; }
     paths.forEach(function (path) {
       var record = files[path]; var content = typeof record === 'string' ? record : record && record.content || '';
-      var box = card(root, path, clean(content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '), 180) || 'Content file');
+      var box = card(root, path, clean(content.slice(0, 4000).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '), 180) || 'Content file');
       if (typeof w.openFile === 'function') button(box, 'Edit this file', function () { w.openFile(path); });
       else box.appendChild(element('div', 'ovym-muted', 'Open this file from the existing Code workspace to edit it.'));
     });
@@ -140,6 +140,7 @@
       if (!upload.files || !upload.files.length) { status('Choose one or more images first.', true); return; }
       try {
         setBusy(true);
+        if (upload.files.length > 20) throw new Error('Upload up to 20 images at a time.');
         for (var i = 0; i < upload.files.length; i += 1) {
           var file = upload.files[i];
           if (!/^image\/(?:png|jpeg|webp|gif|svg\+xml)$/i.test(file.type || '') || file.size > 15 * 1024 * 1024) throw new Error(file.name + ' is not a supported image under 15 MB.');
