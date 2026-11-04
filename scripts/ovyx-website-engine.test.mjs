@@ -37,6 +37,10 @@ assert.match(plan.integrations.find(item => item.capability === 'email').ownerAc
 const nigeriaPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { country: 'Nigeria' }).integrations.find(item => item.capability === 'payments');
 assert.ok(nigeriaPayments.recommendedProviders.includes('Paystack'));
 assert.ok(nigeriaPayments.recommendedProviders.includes('OPay'));
+const nigeriaCodePayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { countryCode: 'NG' }).integrations.find(item => item.capability === 'payments');
+assert.ok(nigeriaCodePayments.recommendedProviders.includes('Paystack'));
+const nigeriaCurrencyPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { currency: 'NGN' }).integrations.find(item => item.capability === 'payments');
+assert.ok(nigeriaCurrencyPayments.recommendedProviders.includes('OPay'));
 const germanyPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { country: 'Germany' }).integrations.find(item => item.capability === 'payments');
 assert.deepEqual(germanyPayments.recommendedProviders, ['Stripe']);
 const explicitGermanyOverridesMarket = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { country: 'Germany', market: 'Nigeria' }).integrations.find(item => item.capability === 'payments');
