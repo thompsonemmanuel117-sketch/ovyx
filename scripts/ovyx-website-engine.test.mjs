@@ -5,6 +5,8 @@ import {
   websiteEngineClientSummary,
   buildWebsiteEngineReadiness,
   runWebsiteGeneration,
+  parseBackendFiles,
+  auditBackendFiles,
 } from '../functions/_lib/website-engine.js';
 
 const prompt = [
@@ -28,8 +30,11 @@ assert.ok(plan.interactionArchitecture.capabilities.includes('booking'));
 assert.ok(plan.interactionArchitecture.capabilities.includes('forms'));
 assert.equal(plan.interactionArchitecture.capabilities.includes('file-storage'), false,
   'Existing hotel brief does not request user-managed file storage.');
-assert.ok(plan.integrations.some(item => item.capability === 'email' && item.connection === 'connected-in-context'));
-assert.ok(plan.integrations.some(item => item.capability === 'booking' && item.connection === 'not-confirmed'));
+assert.ok(plan.integrations.some(item => item.capability === 'email' && item.connection === 'configured-unverified' && item.connectionMetadataPresent));
+assert.ok(plan.integrations.find(item => item.capability === 'email').recommendedProviders.includes('Resend'));
+assert.match(plan.integrations.find(item => item.capability === 'email').ownerAction, /verify the sending domain/i);
+assert.ok(plan.integrations.some(item => item.capability === 'booking' && item.connection === 'internal-database-backed-option' && item.externalProviderRequired === false));
+assert.ok(plan.integrations.some(item => item.capability === 'database' && item.connection === 'connect-required' && item.productionGate === 'blocked-until-live-verification'));
 assert.ok(plan.qualityGates.length > 0);
 assert.equal(plan.fullStackArchitecture.engine, 'ovyx-fullstack-architecture');
 assert.ok(plan.fullStackArchitecture.capabilities.frontend);
@@ -43,11 +48,45 @@ assert.ok(websiteEngineClientSummary(plan).fullStackArchitecture.workflowStateMa
 assert.match(buildWebsiteEngineInstructions(plan), /AUTHORITATIVE PRE-GENERATION PLAN/);
 assert.match(buildWebsiteEngineInstructions(plan), /FULL-STACK ARCHITECTURE CONTRACT/);
 assert.match(buildWebsiteEngineInstructions(plan), /do not silently return a frontend-only site/i);
+assert.match(buildWebsiteEngineInstructions(plan), /configured-but-unverified/i);
+assert.ok(buildWebsiteEngineInstructions(plan).includes('surface a setup/connect request to the owner'));
+assert.match(buildWebsiteEngineInstructions(plan), /Payment checkout must remain disabled until server-side credentials/i);
+assert.match(buildWebsiteEngineInstructions(plan), /internal database-backed reservation workflow/i);
+assert.match(buildWebsiteEngineInstructions(plan), /Cloudflare D1/);
 assert.match(buildWebsiteEngineInstructions(plan), /matching server route\/handler/i);
 assert.match(buildWebsiteEngineInstructions(plan), /domain schema, relationships, constraints and indexes/i);
 assert.match(buildWebsiteEngineInstructions(plan), /workflow state machines/i);
 assert.match(buildWebsiteEngineInstructions(plan), /authorization-negative cases/i);
+const persistenceContract = {
+  apiContracts: [{ id: 'records-read', method: 'GET', path: '/api/records', authPolicy: 'session-or-authenticated', modelIds: ['model-record'] }],
+  dataModels: [],
+  dataIntegrity: { relationships: [], indexes: [] },
+  stateMachines: [],
+};
+const memoryOnlyAudit = auditBackendFiles({
+  'functions/api/records.js': 'export async function onRequestGet({ data }) { const user = requireAuth(data.user); const db = new Map(); return Response.json({ record: db.get(user.uid) }); }',
+}, persistenceContract);
+assert.equal(memoryOnlyAudit.routeEvidence[0].persistenceDetected, false,
+  'An in-memory Map must not count as persistent backend storage.');
+const databaseBackedAudit = auditBackendFiles({
+  'functions/api/records.js': "export async function onRequestGet({ env, data }) { const user = requireAuth(data.user); const record = await env.DB.prepare('SELECT id FROM records WHERE owner_id = ?').bind(user.uid).first(); return Response.json(record); }",
+}, persistenceContract);
+assert.equal(databaseBackedAudit.routeEvidence[0].persistenceDetected, true,
+  'A server route using the configured database binding and a real query should retain source evidence; runtime persistence remains a separate gate.');
+const safeBackendSource = parseBackendFiles({ files: {
+  'functions/api/health.js': 'export async function onRequestGet() { return Response.json({ ok: true }); }',
+  'functions/api/secret.js': "export async function onRequestGet() { const key = 'sk_live_12345678901234567890'; return Response.json({ ok: true }); }",
+  'functions/api/unsafe.js': 'export async function onRequestGet() { return eval("1 + 1"); }',
+  'functions/api/slack-secret.js': "export async function onRequestGet() { const key = 'xoxb-12345678901234567890'; return Response.json({ ok: true }); }",
+} });
+assert.deepEqual(Object.keys(safeBackendSource), ['functions/api/health.js'],
+  'Backend source ingestion must reject known credential formats and unsafe dynamic execution while retaining safe route code.');
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
+const emailSummary = websiteEngineClientSummary(plan).integrations.find(item => item.capability === 'email');
+assert.equal(emailSummary.connection, 'configured-unverified');
+assert.equal(emailSummary.productionGate, 'blocked-until-live-verification');
+assert.ok(emailSummary.recommendedProviders.includes('Resend'));
+assert.match(emailSummary.ownerAction, /test a real message/i);
 assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
 const genericFullStackPlan = buildWebsiteEnginePlan(
   'Build a full-stack business website with a custom backend and persistent data.',
@@ -66,7 +105,7 @@ assert.ok(uploadPlan.fullStackArchitecture.capabilities.fileStorage,
 assert.ok(uploadPlan.fullStackArchitecture.dataModels.some(model => model.name === 'StoredAsset'));
 assert.ok(uploadPlan.fullStackArchitecture.apiContracts.some(route => route.path === '/api/assets'));
 assert.ok(uploadPlan.interactionArchitecture.capabilities.includes('file-storage'));
-assert.ok(uploadPlan.integrations.some(item => item.capability === 'storage' && item.connection === 'connected-in-context'));
+assert.ok(uploadPlan.integrations.some(item => item.capability === 'storage' && item.connection === 'configured-unverified'));
 assert.match(buildWebsiteEngineInstructions(uploadPlan), /upload-isolation/);
 
 
@@ -386,8 +425,11 @@ const cyclicIntegrationContext = { connections: {} };
 cyclicIntegrationContext.connections.self = cyclicIntegrationContext.connections;
 cyclicIntegrationContext.connections.provider = { provider: 'Resend', connected: true };
 const cyclicContextPlan = buildWebsiteEnginePlan('Build a contact form with email delivery.', cyclicIntegrationContext);
-assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').connection, 'connected-in-context',
-  'Integration inspection must safely traverse cyclic connection context without unbounded recursion.');
+assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').connection, 'configured-unverified',
+  'Saved connection metadata must never be mistaken for a live delivery test, even in cyclic context.');
+assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').productionGate, 'blocked-until-live-verification');
+assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').connectionMetadataPresent, true);
+assert.equal(websiteEngineClientSummary(cyclicContextPlan).integrations.find(item => item.capability === 'email').nextAction, 'connect-provider-and-run-live-verification');
 
 const conflictedPlan = buildWebsiteEnginePlan('Include a customer login and account dashboard.\nDo not include a customer login and account dashboard.');
 assert.equal(conflictedPlan.requirementIntelligence.counts.total, conflictedPlan.requirementManifest.total);
