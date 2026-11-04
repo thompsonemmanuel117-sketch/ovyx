@@ -91,9 +91,12 @@
     panel.appendChild(element('div', 'ovym-body'));
     panel.appendChild(element('div', 'ovym-status', 'Ready.'));
     document.body.appendChild(panel);
-    var launcher = element('button');
-    launcher.id = ROOT + '-launcher'; launcher.type = 'button'; launcher.textContent = 'Manage website';
-    launcher.addEventListener('click', open); document.body.appendChild(launcher);
+    var launcher = document.getElementById(ROOT + '-launcher');
+    if (!launcher) {
+      launcher = element('button');
+      launcher.id = ROOT + '-launcher'; launcher.type = 'button'; launcher.textContent = 'Manage website';
+      launcher.addEventListener('click', open); document.body.appendChild(launcher);
+    }
     document.addEventListener('keydown', function (event) { if (event.key === 'Escape') close(); });
   }
   function body() { return panel.querySelector('.ovym-body'); }
