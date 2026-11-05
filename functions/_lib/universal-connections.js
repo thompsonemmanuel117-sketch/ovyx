@@ -538,7 +538,7 @@ async function requestConnection(record, input, env) {
 
   try {
     const payload = buildUniversalConnectionPayload(record, input);
-    const url = assertSafeUrl(universalConnectionEndpoint(record, input?.model), { requireHttps: true });
+    const url = assertSafeUrl(universalConnectionEndpoint(record, input?.model), { requireHttps: record.authMode !== 'none' || supportsAIProtocol(record.protocol) });
 
     const method = clean(input?.method || 'POST', 10).toUpperCase();
     const response = await fetch(url, {

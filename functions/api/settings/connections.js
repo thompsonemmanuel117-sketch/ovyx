@@ -501,8 +501,7 @@ async function onRequest(context) {
       await setFirestoreDocumentAtPath(context.env, ['users', auth.uid], clearInvalidSelections, { merge: true });
     }
 
-    // Existing profile fields remain readable for safe migration, but external
-    // AI connections are no longer assignable to any OVYX model route.
+    // The selected personal AI connection is used only after OVYX quota exhaustion.
 
     return jsonResponse({
       ok: true,
