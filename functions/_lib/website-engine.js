@@ -139,9 +139,10 @@ function paymentGuideForMarket(context) {
     marketContext.countryCode, marketContext.country, source.currency,
     market.currency, marketContext.currency, source.market, source.locale,
   ].filter(value => typeof value === 'string' && value.trim());
-  const nigeria = marketValues.some(value =>
-    /nigeria|nigerian|(^|[^A-Z0-9])NGN($|[^A-Z0-9])|(^|[^A-Z0-9])NG($|[^A-Z0-9])|naira|₦/i.test(value)
-  );
+  // The first explicit project-market value wins. A broad market hint must
+  // never override a more specific legal/business country supplied by the owner.
+  const primaryMarket = marketValues[0] || '';
+  const nigeria = /nigeria|nigerian|(^|[^A-Z0-9])NGN($|[^A-Z0-9])|(^|[^A-Z0-9])NG($|[^A-Z0-9])|naira|₦/i.test(primaryMarket);
   if (nigeria) return INTEGRATION_SETUP_GUIDES.payments;
   return {
     // Do not present Stripe (or any other provider) as universally eligible.
