@@ -578,6 +578,7 @@ export async function finalizeAIQuota(env, reservation, rawUsage, inputText, out
           {
             ...normalized.profile,
             current_monthly_tokens: next,
+            booster_tokens: nextBooster,
             is_monthly_exhausted: nextExhausted,
           },
           normalized.tier,
