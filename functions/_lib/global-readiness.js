@@ -61,7 +61,7 @@ const COUNTRY_DEFAULTS = Object.freeze({
 
 function cleanCountry(value) {
   const country = String(value || '').trim().toUpperCase();
-  return /^[A-Z]{2}$/.test(country) && country !== 'XX' ? country : '';
+  return /^[A-Z]{2}$/.test(country) && country !== 'XX' && country !== 'ZZ' ? country : '';
 }
 
 function preferredLanguage(acceptLanguage, fallback) {
