@@ -4,17 +4,23 @@ Universal Connections are account-owned server integrations. Existing credential
 
 ## AI model provider policy
 
-**Cloudflare Workers AI is OVYX's only supported AI model provider.** The ordinary assistant, Web Studio, App Studio, OVYX Agent, automatic repair and other platform model-generation routes use the authenticated Cloudflare Pages Workers AI binding named \`AI\`.
+Cloudflare Workers AI remains OVYX's default inference provider. Users may optionally save one supported personal AI provider connection (OpenAI-compatible, Anthropic, or Gemini) and explicitly select it as their personal Brain fallback. OVYX continues to use Cloudflare while the user's monthly, booster, or daily OVYX allowance is available. Only after the quota service returns `DAILY_RATION_EXHAUSTED` does an enabled personal Brain connection take over. If no personal connection is selected, the original quota error is returned.
 
-OVYX does not call Gemini, Claude/Anthropic, DeepSeek, OpenAI, Groq, OpenRouter, or a user-saved AI Brain as alternate model providers. Browser-supplied provider/model preferences, old global provider-order settings and stale personal-Brain selections are ignored at the server boundary. If the Cloudflare binding is unavailable or its guarded quota is exhausted, OVYX returns an explicit error instead of silently switching providers.
+Personal provider credentials use the existing AES-GCM encrypted connection storage and are decrypted only inside server-side request handling. They are never returned by connection listing APIs, sent to browser code, inserted into generated sites, or written into usage logs. Personal-provider inference does not consume OVYX token allowance; a minimal usage record stores provider/model and upstream usage metadata. Provider failures do not trigger retry loops or silently fall back to another external provider. The native OVYX assistant, Web Studio, App Studio, and Agent mode follow the same quota-exhaustion policy; Cloudflare remains the first route. Image generation remains on its separate Cloudflare Workers AI route because the personal text-provider adapters do not implement image-generation operations.
 
-Older encrypted AI connection records are retained for account-data compatibility. They are not used for model inference, cannot be newly created or selected as an OVYX AI Brain, and are not tested against their remote AI endpoint. Users can still remove an old record themselves. A change in this routing policy does not require deleting or rotating any saved credential.
+Supported personal AI protocols are OpenAI-compatible Chat Completions, Anthropic Messages, and Gemini Generate Content. Credential-bearing endpoints must use HTTPS and are revalidated before every outbound call. Redirects are not followed. A saved AI connection must be active, owned by the signed-in account, and explicitly selected as the personal Brain.
 
 ## Non-AI service connections
 
 Universal Connections remain available for approved non-AI HTTP, webhook, database and tool integrations. These integrations are not model providers and are not automatically wired to business workflows. A feature-specific adapter and explicit purpose mapping are required before OVYX sends business data to them.
 
 The read-only Test action is available for supported non-AI service connections. Saved AI-protocol records are deliberately excluded from health checks so the application cannot accidentally contact an external model endpoint.
+
+## Project connection permissions
+
+A user can grant an active non-AI connection to one of their own saved projects through `POST /api/settings/connection-grants`, list grants through `GET /api/settings/connection-grants?projectId=...`, and revoke access with the same POST endpoint using `action: "revoke"`. Each grant is project-specific and can allow only `read`, `write`, `delete`, and/or `execute` actions. The server verifies project ownership, connection ownership, active state, and the grant on every invocation.
+
+A generated project invokes an approved connection through `POST /api/projects/connection-action`. The request must include its project ID, connection ID, HTTP method, and JSON payload where required. For generic HTTP integrations it may also include a relative `path` and simple `query` object; these are appended under the saved endpoint, cannot change hosts, reject path traversal, and block credential-like query keys. AI Brain credentials are deliberately excluded from project grants. Calls create a minimal audit record containing the project, connection, method, result and error code, never the request body or saved credential.
 
 ## Encryption configuration
 

@@ -18,6 +18,8 @@ import {
 } from '../_lib/orchestrator.js';
 
 import { withCloudflareAIOnly, OVYX_CLOUDFLARE_ONLY_PROVIDER } from '../_lib/cloudflare-routing.js';
+import { callUserUniversalConnection, getActiveBrainConnectionId } from '../_lib/universal-connections.js';
+import { extractJsonObject } from '../_lib/providers.js';
 
 import {
   getFirestoreDataAtPath,
@@ -43,6 +45,8 @@ export async function onRequestPost(
   let quotaReservation = null;
   let streamStarted = false;
   let agentCompleted = false;
+  let personalAIConnectionId = null;
+  let personalAIConnectionActive = false;
 
   try {
     assertAgentAccess(
@@ -143,7 +147,14 @@ export async function onRequestPost(
     // Reserve one user-visible AI build attempt before starting the Agent.
     // All model calls made by the multi-stage Agent are aggregated and charged
     // once at the end, while exhausted daily prompts are reserved atomically.
-    quotaReservation = await beginAIQuota(context.env, user);
+    try {
+      quotaReservation = await beginAIQuota(context.env, user);
+    } catch (quotaError) {
+      if (quotaError?.code !== 'DAILY_RATION_EXHAUSTED') throw quotaError;
+      personalAIConnectionId = await getActiveBrainConnectionId(context.env, user);
+      if (!personalAIConnectionId) throw quotaError;
+      personalAIConnectionActive = true;
+    }
     const quotaUsage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
     let usageEstimated = false;
     const onUsage = (rawUsage, inputText, outputText) => {
@@ -186,7 +197,7 @@ export async function onRequestPost(
 
         prompt,
 
-        requestedProvider: OVYX_CLOUDFLARE_ONLY_PROVIDER,
+        requestedProvider: personalAIConnectionActive ? 'personal-connection' : OVYX_CLOUDFLARE_ONLY_PROVIDER,
 
         model:
           payload.model ||
@@ -234,7 +245,12 @@ export async function onRequestPost(
 
                 jobId,
 
-                requestedProvider: OVYX_CLOUDFLARE_ONLY_PROVIDER,
+                requestedProvider: personalAIConnectionActive ? 'personal-connection' : OVYX_CLOUDFLARE_ONLY_PROVIDER,
+                callJsonModelOverride: personalAIConnectionActive ? async (_agentEnv, options = {}) => {
+                  const personal = await callUserUniversalConnection(context.env, { authUser: user, connectionId: personalAIConnectionId, messages: options.messages, system: options.system, user: options.user, maxTokens: options.maxTokens });
+                  if (typeof options.onUsage === 'function') options.onUsage(personal.rawUsage || null, String(options.user || ''), personal.text, 'personal-connection');
+                  return { ...personal, json: extractJsonObject(personal.text) };
+                } : undefined,
 
                 model:
                   payload.model ||
@@ -268,13 +284,7 @@ export async function onRequestPost(
             );
 
           agentCompleted = true;
-          const quota = await finalizeAIQuota(
-            context.env,
-            quotaReservation,
-            quotaUsage,
-            '',
-            ''
-          );
+          const quota = personalAIConnectionActive ? { mode: 'personal-provider', chargedToOVYX: false, provider: 'personal-connection' } : await finalizeAIQuota(context.env, quotaReservation, quotaUsage, '', '');
           if (quota?.usage) quota.usage.estimated = usageEstimated;
           await send('quota', { quota });
 
@@ -293,7 +303,9 @@ export async function onRequestPost(
             try {
               // Partial Agent runs still consumed real provider tokens. Charge
               // those calls instead of refunding a daily prompt and losing usage.
-              if (Number(quotaUsage.total_tokens) > 0) {
+              if (personalAIConnectionActive) {
+                // Personal-provider usage is billed by the connected provider, not OVYX.
+              } else if (Number(quotaUsage.total_tokens) > 0) {
                 const partialQuota = await finalizeAIQuota(
                   context.env,
                   quotaReservation,

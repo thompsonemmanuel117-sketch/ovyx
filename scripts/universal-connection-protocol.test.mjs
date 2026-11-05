@@ -5,6 +5,8 @@ import {
   buildConnectionRecord,
   buildUniversalConnectionPayload,
   callUserUniversalConnection,
+  hasConnectionPermission,
+  buildConnectionRequestUrl,
   getActiveBrainConnectionId,
   getActiveWebStudioConnectionId,
   publicConnection,
@@ -34,7 +36,7 @@ assert.equal(legacyPublicRecord.hasSecret, true);
 assert.equal(legacyPublicRecord.secret, undefined);
 assert.equal(legacyPublicRecord.encryptedSecret, undefined);
 assert.deepEqual(legacyPublicRecord.capabilities, {
-  canUseAsBrain: false,
+  canUseAsBrain: true,
   canUseForWebStudio: false,
 });
 
@@ -47,22 +49,14 @@ await assert.rejects(
     system: 'system prompt',
     user: 'user prompt',
   }),
-  error => error.code === 'AI_PROVIDER_DISABLED' && error.status === 409,
-  'The library-level model call must fail before it can read credentials or send a request.',
+  error => error.code === 'AUTH_IDENTITY_REQUIRED' && error.status === 401,
+  'Personal AI calls require an authenticated account identity.',
 );
 
-// Attempts to create or edit an external AI model connection are rejected at
-// the connection-record boundary, before encryption or endpoint validation.
-for (const input of [
-  { name: 'Legacy AI', type: 'ai', endpoint: 'https://example.test/v1', protocol: 'openai-chat', authMode: 'none' },
-  { name: 'Gemini Brain', type: 'tool', endpoint: 'https://example.test/v1', protocol: 'gemini-generate-content', authMode: 'bearer' },
-  { name: 'Claude Brain', type: 'http', endpoint: 'https://example.test/v1', protocol: 'anthropic-messages', authMode: 'bearer' },
-]) {
-  await assert.rejects(
-    () => buildConnectionRecord({}, input, { uid: 'owner-1', email: 'owner@example.test' }),
-    error => error.code === 'AI_PROVIDER_DISABLED' && error.status === 409,
-  );
-}
+// AI provider credentials can be saved as encrypted account-owned connections.
+const personalAI = await buildConnectionRecord({ OVYX_CONNECTION_ENCRYPTION_KEY: 'test-encryption-key-for-connection-tests' }, { name: 'Personal OpenAI', type: 'ai', protocol: 'openai-chat', endpoint: 'https://api.openai.com/v1', authMode: 'bearer', secret: 'sk-test-personal-key', model: 'gpt-4o-mini' }, { uid: 'owner-1', email: 'owner@example.test' });
+assert.equal(personalAI.type, 'ai'); assert.equal(personalAI.protocol, 'openai-chat'); assert.ok(personalAI.encryptedSecret); assert.notEqual(personalAI.encryptedSecret, 'sk-test-personal-key'); assert.equal(publicConnection(personalAI, 'personal-ai').capabilities.canUseAsBrain, true);
+for (const input of [{ name: 'Gemini on tool type', type: 'tool', endpoint: 'https://example.test/v1', protocol: 'gemini-generate-content', authMode: 'bearer', secret: 'test' }, { name: 'Claude on http type', type: 'http', endpoint: 'https://example.test/v1', protocol: 'anthropic-messages', authMode: 'bearer', secret: 'test' }]) await assert.rejects(() => buildConnectionRecord({ OVYX_CONNECTION_ENCRYPTION_KEY: 'test-encryption-key' }, input, { uid: 'owner-1', email: 'owner@example.test' }), error => error.code === 'AI_CONNECTION_PROTOCOL_INVALID' && error.status === 400);
 
 // Non-AI HTTP/webhook/database/tool connections remain creatable and keep their
 // explicit generic JSON protocol without being mistaken for model providers.
@@ -124,19 +118,36 @@ applyConnectionAuth(geminiHeaders, 'bearer', 'test-gemini-key', 'gemini-generate
 assert.equal(geminiHeaders['x-goog-api-key'], 'test-gemini-key');
 assert.equal(geminiHeaders.Authorization, undefined);
 
-// Both the route and the underlying library reject AI-protocol readiness checks
-// before any fetch call, while still allowing safe HTTP/webhook checks.
+// AI-protocol health checks now use the authenticated server-side credential path.
 const testStart = universalSource.indexOf('export async function testUserConnection(');
-const aiGuard = universalSource.indexOf('if (supportsAIProtocol(record.protocol))', testStart);
 const firstFetch = universalSource.indexOf('await fetch(', testStart);
-assert.ok(testStart >= 0 && aiGuard > testStart && firstFetch > aiGuard);
-assert.match(connectionsRouteSource, /if \(supportsAIProtocol\(record\.protocol\)\)[\s\S]{0,300}AI_PROVIDER_DISABLED/);
+assert.ok(testStart >= 0 && firstFetch > testStart);
+assert.match(universalSource, /const url = buildConnectionRequestUrl\(record, input\)/);
+assert.equal(hasConnectionPermission('GET', 'http', ['read']), true);
+assert.equal(hasConnectionPermission('POST', 'http', ['read']), false);
+assert.equal(hasConnectionPermission('POST', 'tool', ['execute']), true);
+assert.equal(hasConnectionPermission('DELETE', 'tool', ['execute']), false);
+const requestUrl = buildConnectionRequestUrl({ endpoint: 'https://api.example.test/v1', protocol: 'http-json', authMode: 'bearer' }, { path: '/customers', query: { limit: 10, active: true } });
+assert.equal(requestUrl, 'https://api.example.test/v1/customers?limit=10&active=true');
+assert.throws(() => buildConnectionRequestUrl({ endpoint: 'https://api.example.test/v1', protocol: 'http-json', authMode: 'bearer' }, { path: '//evil.example/steal' }), error => error.code === 'CONNECTION_PATH_INVALID');
+assert.throws(() => buildConnectionRequestUrl({ endpoint: 'https://api.example.test/v1', protocol: 'http-json', authMode: 'bearer' }, { path: '/../admin' }), error => error.code === 'CONNECTION_PATH_INVALID');
+assert.throws(() => buildConnectionRequestUrl({ endpoint: 'https://api.example.test/v1', protocol: 'http-json', authMode: 'bearer' }, { query: { api_key: 'secret' } }), error => error.code === 'CONNECTION_SECRET_IN_QUERY_BLOCKED');
+const openAiHeaders = {};
+applyConnectionAuth(openAiHeaders, 'api-key', 'test-openai-key', 'openai-chat');
+assert.equal(openAiHeaders.Authorization, 'Bearer test-openai-key');
+assert.match(connectionsRouteSource, /aiRoutingPolicy: state\.activeBrainConnectionId \? 'cloudflare-then-personal-key' : 'cloudflare-only'/);
 assert.match(connectionsRouteSource, /action === 'use-ai'/);
+assert.match(connectionsRouteSource, /AI_CONNECTION_NOT_READY/);
 assert.match(connectionsRouteSource, /action === 'clear-ai'/);
 assert.match(connectionsRouteSource, /action === 'use-webstudio'/);
 assert.match(connectionsRouteSource, /action === 'clear-webstudio'/);
+const grantRouteSource = readFileSync(new URL('../functions/api/settings/connection-grants.js', import.meta.url), 'utf8');
+const projectActionSource = readFileSync(new URL('../functions/api/projects/connection-action.js', import.meta.url), 'utf8');
+assert.match(grantRouteSource, /ownerUid !== uid/);
+assert.match(grantRouteSource, /connection_grants/);
+assert.match(projectActionSource, /callProjectUniversalConnection/);
 assert.match(universalSource, /name: 'AES-GCM'/);
 assert.match(universalSource, /delete copy\.encryptedSecret/);
 assert.match(universalSource, /delete copy\.secret/);
 
-console.log('Universal Connection tests passed: legacy AI credentials preserved but blocked from routing, while non-AI service connections remain supported.');
+console.log('Universal Connection tests passed: encrypted personal AI credentials can be configured for quota-exhaustion fallback, while non-AI connections remain supported.');

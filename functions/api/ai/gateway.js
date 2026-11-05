@@ -12,6 +12,7 @@ import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prom
 import { isWebStudioPrompt } from '../../_lib/experience.js';
 import { isScopedWebStudioEdit } from '../../_lib/webstudio-source.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
+import { callUserUniversalConnection, getActiveBrainConnectionId } from '../../_lib/universal-connections.js';
 import {
   saveChatTurn,
   resolveConversationId,
@@ -90,12 +91,17 @@ export async function onRequestPost(context) {
     const isAppStudio = activeView === 'appstudio' || ['appstudio', 'app-build', 'app-fix'].includes(mode);
     const isWebStudio = !isAppStudio && (isWebStudioPrompt(promptText, mode) ||
       ((mode === 'build' || mode === 'fix') && hasStudioContext));
-    const routeCallModel = (env, options = {}) => callModel(env, {
+    let personalAIConnectionId = null;
+    let personalAIConnectionActive = false;
+    const routeCallModel = async (env, options = {}) => {
+      if (personalAIConnectionActive) return callUserUniversalConnection(env, { ...options, authUser: user, connectionId: personalAIConnectionId });
+      return callModel(env, {
       ...cloudflareOnlyModelOptions(options),
       authUser: user,
       webStudioRequest: isWebStudio,
       appStudioRequest: isAppStudio,
-    });
+      });
+    };
 
     // A request-scoped app brand always wins over the user's saved default.
     // Fresh Web Studio builds and all App Studio requests can fall back to the
@@ -254,7 +260,14 @@ export async function onRequestPost(context) {
     );
 
     let quotaReservation = null;
-    quotaReservation = await beginAIQuota(context.env, user);
+    try {
+      quotaReservation = await beginAIQuota(context.env, user);
+    } catch (quotaError) {
+      if (quotaError?.code !== 'DAILY_RATION_EXHAUSTED') throw quotaError;
+      personalAIConnectionId = await getActiveBrainConnectionId(context.env, user);
+      if (!personalAIConnectionId) throw quotaError;
+      personalAIConnectionActive = true;
+    }
 
     let result;
     let multiPageBuild = false;
@@ -331,7 +344,7 @@ export async function onRequestPost(context) {
       quotaInputText = generation.quotaInputText;
       quotaOutputText = generation.quotaOutputText;
     } catch (providerError) {
-      if (providerError?.partialUsage) {
+      if (providerError?.partialUsage && quotaReservation) {
         await finalizeAIQuota(
           context.env,
           quotaReservation,
@@ -341,7 +354,7 @@ export async function onRequestPost(context) {
         ).catch(quotaError => {
           console.error('[OVYX PARTIAL AI USAGE]', quotaError?.message || quotaError);
         });
-      } else {
+      } else if (quotaReservation) {
         await refundDailyPrompt(context.env, quotaReservation);
       }
       throw providerError;
@@ -371,13 +384,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    const quota = await finalizeAIQuota(
-      context.env,
-      quotaReservation,
-      result.rawUsage || null,
-      quotaInputText,
-      quotaOutputText || result.text || ''
-    );
+    const quota = personalAIConnectionActive ? { mode: 'personal-provider', chargedToOVYX: false, provider: 'personal-connection' } : await finalizeAIQuota(context.env, quotaReservation, result.rawUsage || null, quotaInputText, quotaOutputText || result.text || '');
 
     let historySaved = false;
 

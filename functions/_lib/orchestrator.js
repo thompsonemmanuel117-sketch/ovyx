@@ -1066,7 +1066,9 @@ export async function runAgent({
     false,
   delivery =
     'pr',
+  callJsonModelOverride = null,
 }) {
+  const invokeJsonModel = typeof callJsonModelOverride === 'function' ? callJsonModelOverride : callJsonModel;
   const webStudio = isWebStudioPrompt(prompt, clientContext?.mode || '');
   const experienceBrief = webStudio
     ? buildExperienceBrief(prompt, clientContext)
@@ -1158,7 +1160,7 @@ export async function runAgent({
     );
 
   let planResult =
-    await callJsonModel(
+    await invokeJsonModel(
       env,
       {
         provider:
@@ -1257,7 +1259,7 @@ export async function runAgent({
       message: 'Rechecking the requested multi-page sitemap before writing any files…',
     });
 
-    planResult = await callJsonModel(
+    planResult = await invokeJsonModel(
       env,
       {
         provider: requestedProvider,
@@ -1419,7 +1421,7 @@ export async function runAgent({
         maxChars: cap(env, 'AGENT_MAX_BATCH_CONTEXT_CHARS', 160_000),
       });
 
-      executionResult = await callJsonModel(
+      executionResult = await invokeJsonModel(
         env,
         {
           provider: requestedProvider,
@@ -1551,7 +1553,7 @@ export async function runAgent({
       },
     };
   } else {
-    executionResult = await callJsonModel(
+    executionResult = await invokeJsonModel(
       env,
       {
         provider: requestedProvider,
@@ -1676,7 +1678,7 @@ export async function runAgent({
       .join('\n\n');
 
     const repairResult =
-      await callJsonModel(
+      await invokeJsonModel(
         env,
         {
           provider:
@@ -1813,7 +1815,7 @@ export async function runAgent({
           )
           .join('\n\n');
 
-        const polishResult = await callJsonModel(
+        const polishResult = await invokeJsonModel(
           env,
           {
             provider: requestedProvider,
@@ -2330,7 +2332,7 @@ export async function repairBranchFromCI({
   }
 
   const repairResult =
-    await callJsonModel(
+    await invokeJsonModel(
       env,
       {
         provider:

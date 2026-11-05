@@ -214,10 +214,9 @@ export function publicConnection(record, id) {
   copy.healthUrl = redactSensitiveEndpoint(copy.healthUrl);
   copy.hasSecret = !!record?.encryptedSecret;
   copy.requiresSecret = copy.authMode !== 'none';
-  // AI protocols may remain on legacy encrypted records for migration
-  // visibility, but this release never exposes them as assignable model engines.
+  // Only an active, encrypted account-owned AI connection can be selected as fallback.
   copy.capabilities = {
-    canUseAsBrain: false,
+    canUseAsBrain: copy.type === 'ai' && supportsAIProtocol(copy.protocol) && copy.active === true && !!record?.encryptedSecret,
     canUseForWebStudio: false,
   };
   return copy;
@@ -241,13 +240,9 @@ export async function buildConnectionRecord(env, body, owner, existing = {}) {
   }
 
   const protocol = normalizeProtocol(body?.protocol || existing?.protocol, type);
-  if (type === 'ai' || AI_PROTOCOLS.has(protocol)) {
-    throw Object.assign(
-      new Error('OVYX uses Cloudflare Workers AI as its only model provider. External AI Brain connections cannot be created or updated.'),
-      { status: 409, code: 'AI_PROVIDER_DISABLED' }
-    );
-  }
-  const authMode = normalizeAuthMode(body?.authMode || existing?.authMode);
+  if ((type === 'ai' && !AI_PROTOCOLS.has(protocol)) || (type !== 'ai' && AI_PROTOCOLS.has(protocol))) throw Object.assign(new Error('AI provider connections must use the AI connection type and a supported OpenAI-compatible, Anthropic, or Gemini protocol.'), { status: 400, code: 'AI_CONNECTION_PROTOCOL_INVALID' });
+  const authMode = normalizeAuthMode(body?.authMode || existing?.authMode || (type === 'ai' ? 'bearer' : 'none'));
+  if (type === 'ai' && authMode === 'none') throw Object.assign(new Error('AI provider connections require an API key.'), { status: 400, code: 'CONNECTION_SECRET_REQUIRED' });
   const requireHttps = authMode !== 'none' || AI_PROTOCOLS.has(protocol);
   const endpoint = assertSafeUrl(body?.endpoint || existing?.endpoint, { requireHttps });
   const healthUrl =
@@ -347,6 +342,10 @@ export async function getConnection(env, user, id, { requireActive = true } = {}
 
 export function applyConnectionAuth(headers, authMode, secret, protocol) {
   // Vendor-native authentication must be applied only on the server.
+  if (protocol === 'openai-chat') {
+    if (secret) headers.Authorization = 'Bearer ' + secret;
+    return;
+  }
   if (protocol === 'anthropic-messages') {
     if (secret) {
       headers['x-api-key'] = secret;
@@ -465,28 +464,23 @@ export function buildUniversalConnectionPayload(record, input = {}) {
       model: model || 'claude-sonnet-4-6',
       max_tokens: maxTokens,
       ...(system ? { system } : {}),
-      messages: [{ role: 'user', content: user }],
+      messages: (Array.isArray(input.messages) && input.messages.length ? input.messages : [{ role: 'user', content: user }]).filter(item => item && ['user','assistant'].includes(item.role)).slice(-20).map(item => ({ role: item.role, content: clean(item.content, 50000) })),
       temperature
     };
   }
   if (record?.protocol === 'gemini-generate-content') {
     return {
       ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-      contents: [{ role: 'user', parts: [{ text: user }] }],
+      contents: (Array.isArray(input.messages) && input.messages.length ? input.messages : [{ role: 'user', content: user }]).filter(item => item && ['user','assistant'].includes(item.role)).slice(-20).map(item => ({ role: item.role === 'assistant' ? 'model' : 'user', parts: [{ text: clean(item.content, 50000) }] })),
       generationConfig: {
         temperature,
         maxOutputTokens: Math.min(maxTokens, 8192)
       }
     };
   }
-  return {
-    messages: Array.isArray(input.messages) ? input.messages : [],
-    prompt: user,
-    system,
-    ...(model ? { model } : {}),
-    max_tokens: Number(input.maxTokens) > 0 ? Math.min(Number(input.maxTokens), 24000) : undefined,
-    temperature
-  };
+  const messages = Array.isArray(input.messages) && input.messages.length ? input.messages.filter(item => item && ['system','user','assistant'].includes(item.role)).slice(-20).map(item => ({ role: item.role, content: clean(item.content, 50000) })) : [...(system ? [{ role: 'system', content: system }] : []), ...(user ? [{ role: 'user', content: user }] : [])];
+  if (system && !messages.some(item => item.role === 'system')) messages.unshift({ role: 'system', content: system });
+  return { messages, ...(model ? { model } : {}), max_tokens: Number(input.maxTokens) > 0 ? Math.min(Number(input.maxTokens), 24000) : undefined, temperature };
 }
 
 function extractResponseText(payload) {
@@ -527,6 +521,34 @@ async function responseJson(response) {
   }
 }
 
+export function buildConnectionRequestUrl(record, input = {}) {
+  const url = new URL(universalConnectionEndpoint(record, input?.model));
+  if (input.path !== undefined && input.path !== null && input.path !== '') {
+    const path = clean(input.path, 512);
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('?') || path.includes('#') || path.includes('\\') || /[\x00-\x1f]/.test(path) || /%(?:2e|2f|5c)/i.test(path)) {
+      throw Object.assign(new Error('Use a relative API path under the saved connection endpoint.'), { status: 400, code: 'CONNECTION_PATH_INVALID' });
+    }
+    let segments;
+    try { segments = path.split('/').filter(Boolean).map(decodeURIComponent); }
+    catch { throw Object.assign(new Error('The API path encoding is invalid.'), { status: 400, code: 'CONNECTION_PATH_INVALID' }); }
+    if (segments.some(segment => segment === '.' || segment === '..' || /[\\/\x00-\x1f]/.test(segment))) {
+      throw Object.assign(new Error('Path traversal is not allowed in a connection request.'), { status: 400, code: 'CONNECTION_PATH_INVALID' });
+    }
+    url.pathname = url.pathname.replace(/\/+$/, '') + path;
+  }
+  if (input.query !== undefined && input.query !== null) {
+    if (!input.query || typeof input.query !== 'object' || Array.isArray(input.query)) throw Object.assign(new Error('Query parameters must be a JSON object.'), { status: 400, code: 'CONNECTION_QUERY_INVALID' });
+    const entries = Object.entries(input.query);
+    if (entries.length > 30) throw Object.assign(new Error('A connection request supports up to 30 query parameters.'), { status: 400, code: 'CONNECTION_QUERY_LIMIT' });
+    for (const [key, value] of entries) {
+      if (!/^[A-Za-z0-9_.-]{1,80}$/.test(key) || /^(?:key|api[_-]?key|token|access[_-]?token|secret|password|authorization)$/i.test(key)) throw Object.assign(new Error('Credential-like query parameters are blocked. Keep API credentials in the encrypted connection settings.'), { status: 400, code: 'CONNECTION_SECRET_IN_QUERY_BLOCKED' });
+      if (!['string', 'number', 'boolean'].includes(typeof value)) throw Object.assign(new Error('Query parameter values must be strings, numbers or booleans.'), { status: 400, code: 'CONNECTION_QUERY_INVALID' });
+      url.searchParams.set(key, String(value).slice(0, 2000));
+    }
+  }
+  return assertSafeUrl(url.toString(), { requireHttps: record.authMode !== 'none' || supportsAIProtocol(record.protocol) });
+}
+
 async function requestConnection(record, input, env) {
   const timeoutMs = Math.min(
     Math.max(Number(env?.OVYX_CONNECTION_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS, 5000),
@@ -544,7 +566,7 @@ async function requestConnection(record, input, env) {
 
   try {
     const payload = buildUniversalConnectionPayload(record, input);
-    const url = universalConnectionEndpoint(record, input?.model);
+    const url = buildConnectionRequestUrl(record, input);
 
     const method = clean(input?.method || 'POST', 10).toUpperCase();
     const response = await fetch(url, {
@@ -590,9 +612,13 @@ async function requestConnection(record, input, env) {
   }
 }
 
-export async function getActiveBrainConnectionId() {
-  // Retained as a compatibility export. External AI Brain routing is disabled.
-  return null;
+export async function getActiveBrainConnectionId(env, user) {
+  const { uid, email } = ownerOf(user);
+  if (!uid || !email) return null;
+  const profile = await getFirestoreDataAtPath(env, ['users', uid]) || {};
+  const id = clean(profile.activeBrainConnectionId, 100);
+  if (!id) return null;
+  try { const { record } = await getConnection(env, user, id); return record.type === 'ai' && supportsAIProtocol(record.protocol) && record.encryptedSecret ? id : null; } catch { return null; }
 }
 
 export async function getActiveWebStudioConnectionId() {
@@ -600,22 +626,46 @@ export async function getActiveWebStudioConnectionId() {
   return null;
 }
 
-export async function callUserUniversalConnection() {
-  // Fail before reading saved credentials or contacting the connection endpoint.
-  throw Object.assign(
-    new Error('OVYX uses Cloudflare Workers AI as its only model provider. Saved external AI Brain connections cannot be called.'),
-    { status: 409, code: 'AI_PROVIDER_DISABLED' }
-  );
+export async function callUserUniversalConnection(env, input = {}) {
+  const user = input.authUser;
+  const { record } = await getConnection(env, user, input.connectionId);
+  if (record.type !== 'ai' || !supportsAIProtocol(record.protocol) || !record.encryptedSecret) throw Object.assign(new Error('The selected connection is not a ready AI provider.'), { status: 409, code: 'AI_CONNECTION_NOT_READY' });
+  const result = await requestConnection(record, input, env);
+  if (!result.text) throw Object.assign(new Error('The connected AI provider returned no text response.'), { status: 502, code: 'AI_PROVIDER_EMPTY_RESPONSE' });
+  const owner = ownerOf(user); const usage = result.data?.usage || result.data?.usageMetadata || null;
+  try { await setFirestoreDocumentAtPath(env, ['users', owner.email, 'personal_ai_usage', crypto.randomUUID().replace(/-/g, '')], { ownerUid: owner.uid, provider: clean(record.name, 120), protocol: record.protocol, model: clean(record.model, 180) || null, usage: usage && typeof usage === 'object' ? usage : null, status: 'success', createdAt: new Date().toISOString() }, { merge: false }); } catch (error) { console.warn('[OVYX PERSONAL AI USAGE]', error?.message || error); }
+  return { text: result.text, provider: record.name, model: record.model || null, rawUsage: usage, requestedProvider: 'personal-connection', routedProvider: 'personal-connection' };
+}
+
+export function hasConnectionPermission(method, type, permissions) {
+  const verb = clean(method, 10).toUpperCase();
+  if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(verb)) return false;
+  const granted = new Set(Array.isArray(permissions) ? permissions : []);
+  if (verb === 'GET') return granted.has('read');
+  if (verb === 'DELETE') return granted.has('delete');
+  return granted.has('write') || (type === 'tool' && granted.has('execute'));
+}
+
+export async function callProjectUniversalConnection(env, user, input = {}) {
+  const owner = ownerOf(user); const projectId = clean(input.projectId, 120); const connectionId = clean(input.connectionId, 100);
+  if (!owner.uid || !owner.email) throw Object.assign(new Error('Authenticated workspace identity is required.'), { status: 401, code: 'AUTH_IDENTITY_REQUIRED' });
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(projectId) || !/^[A-Za-z0-9_-]{1,100}$/.test(connectionId)) throw Object.assign(new Error('Project or connection ID is invalid.'), { status: 400, code: 'INVALID_CONNECTION_GRANT_TARGET' });
+  const project = await getFirestoreDataAtPath(env, ['users', owner.email, 'projects', projectId]);
+  if (!project || project.ownerUid !== owner.uid || String(project.ownerEmail || '').toLowerCase() !== owner.email) throw Object.assign(new Error('Project not found.'), { status: 404, code: 'PROJECT_NOT_FOUND' });
+  const grant = await getFirestoreDataAtPath(env, ['users', owner.email, 'projects', projectId, 'connection_grants', connectionId]);
+  if (!grant || grant.active !== true || grant.ownerUid !== owner.uid || grant.connectionId !== connectionId) throw Object.assign(new Error('This project has not been granted access to that connection.'), { status: 403, code: 'PROJECT_CONNECTION_NOT_GRANTED' });
+  const { record } = await getConnection(env, user, connectionId);
+  if (record.type === 'ai' || supportsAIProtocol(record.protocol)) throw Object.assign(new Error('Personal AI Brain credentials cannot be exposed as general project service credentials.'), { status: 403, code: 'AI_CONNECTION_PROJECT_SCOPE_BLOCKED' });
+  const method = clean(input.method || 'POST', 10).toUpperCase();
+  if (!hasConnectionPermission(method, record.type, grant.permissions)) throw Object.assign(new Error('The project connection grant does not allow this operation.'), { status: 403, code: 'PROJECT_CONNECTION_PERMISSION_DENIED' });
+  if (method !== 'GET' && method !== 'DELETE' && (!input.payload || typeof input.payload !== 'object' || Array.isArray(input.payload))) throw Object.assign(new Error('A JSON object payload is required for this operation.'), { status: 400, code: 'CONNECTION_PAYLOAD_REQUIRED' });
+  const audit = async (status, code = null) => { try { await setFirestoreDocumentAtPath(env, ['users', owner.email, 'projects', projectId, 'connection_audit', crypto.randomUUID().replace(/-/g, '')], { ownerUid: owner.uid, projectId, connectionId, method, status, code, createdAt: new Date().toISOString() }, { merge: false }); } catch (error) { console.warn('[OVYX CONNECTION AUDIT]', error?.message || error); } };
+  try { const result = await requestConnection(record, { method, payload: input.payload, path: input.path, query: input.query }, env); await audit('success'); return { ok: true, status: result.status, data: result.data }; }
+  catch (error) { await audit('failed', clean(error?.code || 'UPSTREAM_FAILED', 80)); throw error; }
 }
 
 export async function testUserConnection(env, user, id) {
   const { record } = await getConnection(env, user, id, { requireActive: false });
-  if (supportsAIProtocol(record.protocol)) {
-    throw Object.assign(
-      new Error('OVYX uses Cloudflare Workers AI only. Saved external AI credentials are preserved but are not tested or called.'),
-      { status: 409, code: 'AI_PROVIDER_DISABLED' }
-    );
-  }
   const started = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);

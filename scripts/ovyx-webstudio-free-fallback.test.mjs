@@ -16,6 +16,12 @@ assert.doesNotMatch(assistantRoute, /isWebStudioUniversalConnectionFallbackTrigg
 assert.doesNotMatch(gatewayRoute, /isWebStudioUniversalConnectionFallbackTrigger|requiresUniversalConnectionFallback|useUniversalConnectionAfterCloudflareLimit|webStudioUserConnectionFallback/);
 assert.doesNotMatch(providerSource, /isCloudflareFreeAllowanceExhausted\(env,? options|useUniversalConnectionAfterCloudflareLimit|webStudioUserConnectionFallback/);
 assert.doesNotMatch(cloudflareSource, /isWebStudioUniversalConnectionFallbackTrigger/);
-assert.match(assistantRoute, /const quota = await finalizeAIQuota/);
-assert.match(gatewayRoute, /const quota = await finalizeAIQuota/);
-console.log('OVYX Web Studio quota stop checks passed: exhausted allowances cannot trigger provider switching.');
+assert.match(assistantRoute, /DAILY_RATION_EXHAUSTED/);
+assert.match(gatewayRoute, /DAILY_RATION_EXHAUSTED/);
+assert.match(assistantRoute, /personalAIConnectionActive \?/);
+assert.match(gatewayRoute, /personalAIConnectionActive \?/);
+assert.match(assistantRoute, /callUserUniversalConnection/);
+assert.match(gatewayRoute, /callUserUniversalConnection/);
+assert.match(assistantRoute, /const quota = personalAIConnectionActive/);
+assert.match(gatewayRoute, /const quota = personalAIConnectionActive/);
+console.log('OVYX Web Studio quota fallback checks passed: Cloudflare remains first and personal keys activate only after the full OVYX allowance is exhausted.');

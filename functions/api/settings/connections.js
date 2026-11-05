@@ -229,9 +229,9 @@ async function onRequest(context) {
         limit: state.limit === Infinity ? null : state.limit,
         activeCount: state.active.length,
         totalCount: state.connections.length,
-        activeBrainConnectionId: null,
+        activeBrainConnectionId: state.activeBrainConnectionId,
         activeWebStudioConnectionId: null,
-        aiRoutingPolicy: 'cloudflare-only',
+        aiRoutingPolicy: state.activeBrainConnectionId ? 'cloudflare-then-personal-key' : 'cloudflare-only',
         connections: state.connections.map(item => publicConnection(item, item.id))
       });
     }
@@ -316,15 +316,9 @@ async function onRequest(context) {
 
     const body = await request.json();
 
-    if (body?.useAsBrain === true || body?.useForWebStudio === true) {
-      return errorResponse(
-        409,
-        'AI_PROVIDER_DISABLED',
-        'OVYX uses Cloudflare Workers AI only. External AI connections cannot be assigned as model providers.'
-      );
-    }
+    if (body?.useForWebStudio === true) return errorResponse(409, 'AI_PROVIDER_DISABLED', 'Web Studio uses the OVYX AI routing policy and cannot be assigned a separate connection.');
 
-    const action = clean(body?.action, 20).toLowerCase();
+    const action = clean(body?.action || (body?.useAsBrain === true ? 'use-ai' : ''), 20).toLowerCase();
 
     if (action === 'use-ai' || action === 'clear-ai') {
       if (action === 'clear-ai') {
@@ -341,11 +335,11 @@ async function onRequest(context) {
         });
       }
 
-      return errorResponse(
-        409,
-        'AI_PROVIDER_DISABLED',
-        'OVYX uses Cloudflare Workers AI as its only model provider. Saved external AI connections cannot be selected as an OVYX AI Brain.'
-      );
+      const id = connectionId(body?.id);
+      const record = await getFirestoreDataAtPath(context.env, [...base, id]);
+      if (!record || record.ownerUid !== auth.uid || record.ownerEmail !== auth.email || record.active !== true || record.type !== 'ai' || !supportsAIProtocol(record.protocol) || !record.encryptedSecret) return errorResponse(409, 'AI_CONNECTION_NOT_READY', 'Choose an active AI connection with a saved API key.');
+      await setFirestoreDocumentAtPath(context.env, ['users', auth.uid], { activeBrainConnectionId: id }, { merge: true });
+      return jsonResponse({ ok: true, activeBrainConnectionId: id, aiRoutingPolicy: 'cloudflare-then-personal-key' });
     }
 
     if (action === 'use-webstudio' || action === 'clear-webstudio') {
@@ -371,13 +365,6 @@ async function onRequest(context) {
       const record = await getFirestoreDataAtPath(context.env, [...base, id]);
       if (!record || record.ownerUid !== auth.uid || record.ownerEmail !== auth.email) {
         return errorResponse(404, 'CONNECTION_NOT_FOUND', 'This connection is no longer available.');
-      }
-      if (supportsAIProtocol(record.protocol)) {
-        return errorResponse(
-          409,
-          'AI_PROVIDER_DISABLED',
-          'OVYX uses Cloudflare Workers AI only. Saved external AI credentials are preserved but are not tested or called.'
-        );
       }
       const result = await testUserConnection(
         context.env,
@@ -412,13 +399,7 @@ async function onRequest(context) {
       { uid: auth.uid, email: auth.email },
       currentRecord || {}
     );
-    if (supportsAIProtocol(record.protocol)) {
-      return errorResponse(
-        409,
-        'AI_PROVIDER_DISABLED',
-        'OVYX uses Cloudflare Workers AI only. Create HTTP, webhook, database or tool connections for non-AI service integrations instead.'
-      );
-    }
+    if (record.type === 'ai' && !record.encryptedSecret) return errorResponse(400, 'CONNECTION_SECRET_REQUIRED', 'Add the provider API key before saving this AI connection.');
     const currentWasActive = currentRecord?.active === true;
     const requestedActive = record.active === true;
     const limit = state.limit;
@@ -504,24 +485,18 @@ async function onRequest(context) {
         [...base, id]
       );
 
-    // Legacy external-AI assignment IDs are no longer active routing settings.
-    let activeBrainConnectionId = null;
-    let activeWebStudioConnectionId = null;
+    let activeBrainConnectionId = state.activeBrainConnectionId;
+    const activeWebStudioConnectionId = null;
     const clearInvalidSelections = {};
-    if (activeBrainConnectionId === id && (!record.active || !supportsAIProtocol(record.protocol))) {
+    if (activeBrainConnectionId === id && (!record.active || record.type !== 'ai' || !supportsAIProtocol(record.protocol) || !record.encryptedSecret)) {
       activeBrainConnectionId = null;
       clearInvalidSelections.activeBrainConnectionId = null;
-    }
-    if (activeWebStudioConnectionId === id && (!record.active || !supportsAIProtocol(record.protocol))) {
-      activeWebStudioConnectionId = null;
-      clearInvalidSelections.activeWebStudioConnectionId = null;
     }
     if (Object.keys(clearInvalidSelections).length) {
       await setFirestoreDocumentAtPath(context.env, ['users', auth.uid], clearInvalidSelections, { merge: true });
     }
 
-    // Existing profile fields remain readable for safe migration, but external
-    // AI connections are no longer assignable to any OVYX model route.
+    // The selected personal AI connection is used only after OVYX quota exhaustion.
 
     return jsonResponse({
       ok: true,

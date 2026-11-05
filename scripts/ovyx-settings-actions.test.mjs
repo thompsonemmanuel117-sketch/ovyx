@@ -263,10 +263,16 @@ assert.match(providers, /OVYX_CLOUDFLARE_FREE_MODEL/);
 assert.doesNotMatch(providers, /providerOrder\(|callGemini|callClaude|callDeepSeek|callOpenAI|callGroq|callOpenRouter/);
 assert.doesNotMatch(providers, /preferredProvider|providerRouting|fallback/,
   'Removed multi-provider priority/fallback controls must not be reintroduced into the shared router.');
-// Compatibility payloads may still carry old fields, but only through the
-// existing assistant and gateway endpoints; the server router ignores them.
-assert.match(assistant, /routeCallModel = \(env, options = \{\}\) => callModel/);
-assert.match(gateway, /routeCallModel = \(env, options = \{\}\) => callModel/);
+// The shared Cloudflare router remains first; only an exhausted OVYX quota may
+// activate the separately encrypted personal Brain connection in these routes.
+assert.match(assistant, /const routeCallModel = async/);
+assert.match(gateway, /const routeCallModel = async/);
+assert.match(assistant, /return callModel\(env, \{/);
+assert.match(gateway, /return callModel\(env, \{/);
+assert.match(assistant, /personalAIConnectionActive/);
+assert.match(gateway, /personalAIConnectionActive/);
+assert.match(assistant, /DAILY_RATION_EXHAUSTED/);
+assert.match(gateway, /DAILY_RATION_EXHAUSTED/);
 assert.match(multipage, /callModel\(/);
 
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-settings-actions.test.mjs'), 'Settings action regressions must run in the npm test chain.');
