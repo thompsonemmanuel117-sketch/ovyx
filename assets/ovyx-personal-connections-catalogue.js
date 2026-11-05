@@ -112,13 +112,16 @@
       const button = $('[data-ovyx-personal-ai-manager]', panel);
       if (!button) return;
       button.click();
-      requestAnimationFrame(() => {
+      const preselectProvider = (attempts) => {
         const select = $('#ovyx-ai-provider');
         if (select && select.querySelector('option[value="' + service.provider + '"]')) {
           select.value = service.provider;
           select.dispatchEvent(new Event('change', { bubbles: true }));
+          return;
         }
-      });
+        if (attempts > 0) setTimeout(() => preselectProvider(attempts - 1), 100);
+      };
+      preselectProvider(30);
       return;
     }
     const add = $('[data-pc-add]', panel);
