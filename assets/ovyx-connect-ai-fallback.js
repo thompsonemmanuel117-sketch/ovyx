@@ -36,7 +36,7 @@
     if (document.getElementById('ovyx-connect-control-center-styles')) return;
     const style = document.createElement('style');
     style.id = 'ovyx-connect-control-center-styles';
-    style.textContent = '.ovyx-connect-overlay{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:18px}.ovyx-connect-dialog{width:min(560px,100%);max-height:min(88vh,820px);overflow:auto;background:#090909;border:1px solid rgba(255,255,255,.13);border-radius:22px;padding:22px;color:#f5f5f5;box-shadow:0 24px 90px rgba(0,0,0,.65);font:14px/1.5 system-ui}.ovyx-connect-dialog h2{font-size:20px;margin:0 0 5px}.ovyx-connect-dialog p{color:#a1a1aa;margin:0 0 16px}.ovyx-connect-dialog label{display:block;color:#d4d4d8;font-size:12px;margin:12px 0 5px}.ovyx-connect-dialog input,.ovyx-connect-dialog select{width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:10px;padding:11px 12px;color:#fff;font:inherit}.ovyx-connect-dialog input:focus,.ovyx-connect-dialog select:focus{outline:1px solid #d7a43e;border-color:#d7a43e}.ovyx-connect-dialog .ovyx-connect-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}.ovyx-connect-dialog button{border:1px solid #444;border-radius:10px;padding:10px 14px;background:#171717;color:#eee;cursor:pointer;font:600 13px system-ui}.ovyx-connect-dialog button.primary{background:#d7a43e;color:#17120a;border-color:#d7a43e}.ovyx-connect-dialog button:disabled{opacity:.55;cursor:wait}.ovyx-connect-dialog .note{font-size:12px;color:#a1a1aa;background:#111;border:1px solid #272727;border-radius:10px;padding:10px;margin-top:12px}.ovyx-connect-perms{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.ovyx-connect-perms label{display:flex;align-items:center;gap:7px;margin:0;background:#111;padding:9px;border-radius:9px}.ovyx-connect-perms input{width:auto}';
+    style.textContent = '.ovyx-connect-overlay{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:18px}.ovyx-connect-dialog{width:min(560px,100%);max-height:min(88vh,820px);overflow:auto;background:#090909;border:1px solid rgba(255,255,255,.13);border-radius:22px;padding:22px;color:#f5f5f5;box-shadow:0 24px 90px rgba(0,0,0,.65);font:14px/1.5 system-ui}.ovyx-connect-dialog h2{font-size:20px;margin:0 0 5px}.ovyx-connect-dialog p{color:#a1a1aa;margin:0 0 16px}.ovyx-connect-dialog label{display:block;color:#d4d4d8;font-size:12px;margin:12px 0 5px}.ovyx-connect-dialog input,.ovyx-connect-dialog select{width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:10px;padding:11px 12px;color:#fff;font:inherit}.ovyx-connect-dialog input:focus,.ovyx-connect-dialog select:focus{outline:1px solid #d7a43e;border-color:#d7a43e}.ovyx-connect-dialog .ovyx-connect-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}.ovyx-connect-dialog button{border:1px solid #444;border-radius:10px;padding:10px 14px;background:#171717;color:#eee;cursor:pointer;font:600 13px system-ui}.ovyx-connect-dialog button.primary{background:#d7a43e;color:#17120a;border-color:#d7a43e}.ovyx-connect-dialog button:disabled{opacity:.55;cursor:wait}.ovyx-connect-dialog .note{font-size:12px;color:#a1a1aa;background:#111;border:1px solid #272727;border-radius:10px;padding:10px;margin-top:12px}.ovyx-connect-perms{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.ovyx-connect-perms label{display:flex;align-items:center;gap:7px;margin:0;background:#111;padding:9px;border-radius:9px}.ovyx-connect-perms input{width:auto}.ovyx-personal-flow-note{margin:10px 0;padding:11px 12px;border:1px solid rgba(232,182,79,.18);border-radius:10px;background:rgba(232,182,79,.045);color:#aeb4bd;font:500 12px/1.5 Inter,system-ui,sans-serif}';
     document.head.appendChild(style);
   }
   function closeDialog() { document.querySelectorAll('.ovyx-connect-overlay').forEach(node => node.remove()); }
@@ -184,17 +184,99 @@
     openAIManager();
   }, true);
 
+  function upgradePersonalConnectionsForm() {
+    const form = document.querySelector('.ovyx-v91-conn-form');
+    const type = form && form.querySelector('#ovyx-v91-conn-type');
+    if (!form || !type || form.dataset.personalFlowReady === '1') return;
+    form.dataset.personalFlowReady = '1';
+
+    const typeField = type.closest('.ovyx-v91-field');
+    if (!typeField) return;
+    const nameField = form.querySelector('#ovyx-v91-conn-name')?.closest('.ovyx-v91-field');
+    if (nameField) form.insertBefore(typeField, nameField);
+
+    type.innerHTML = '<option value="">Choose what you want to connect</option>' +
+      '<option value="ai">AI provider — personal API key</option>' +
+      '<option value="tool">App or service — connect an endpoint</option>' +
+      '<option value="http">API connection</option>' +
+      '<option value="webhook">Webhook</option>' +
+      '<option value="database">Database service</option>';
+    type.value = '';
+
+    const fields = Array.from(form.querySelectorAll('.ovyx-v91-field'));
+    const typeLabel = typeField.querySelector('label');
+    if (typeLabel) typeLabel.textContent = 'CONNECTION TYPE';
+    const protocolField = form.querySelector('#ovyx-v91-conn-protocol')?.closest('.ovyx-v91-field');
+    const endpoint = form.querySelector('#ovyx-v91-conn-endpoint');
+    const name = form.querySelector('#ovyx-v91-conn-name');
+    const secret = form.querySelector('#ovyx-v91-conn-secret');
+    const auth = form.querySelector('#ovyx-v91-conn-auth');
+    const status = document.querySelector('#ovyx-v91-conn-status') || form.parentElement?.querySelector('.ovyx-v91-status');
+    const add = form.querySelector('#ovyx-v91-add');
+    const actions = form.querySelector('.ovyx-v91-actions');
+    const intro = document.createElement('div');
+    intro.className = 'ovyx-personal-flow-note';
+    intro.textContent = 'Choose a connection type first. AI providers use the secure provider setup; apps and services use their supported API or webhook endpoint.';
+    typeField.insertAdjacentElement('afterend', intro);
+
+    fields.forEach(field => { if (field !== typeField) field.hidden = true; });
+    if (protocolField) protocolField.hidden = true;
+    if (endpoint) { endpoint.value = ''; endpoint.placeholder = 'https://api.example.com/v1'; }
+    if (name) name.placeholder = 'e.g. My CRM';
+    if (secret) secret.placeholder = 'Paste an API key or access token';
+    const secretLabel = secret?.closest('.ovyx-v91-field')?.querySelector('label');
+    if (secretLabel) secretLabel.textContent = 'API KEY / ACCESS TOKEN';
+
+    function showFor(value) {
+      fields.forEach(field => { field.hidden = field !== typeField && !!value; });
+      if (!value) {
+        fields.forEach(field => { if (field !== typeField) field.hidden = true; });
+        intro.textContent = 'Choose a connection type first. AI providers use the secure provider setup; apps and services use their supported API or webhook endpoint.';
+        return;
+      }
+      fields.forEach(field => { if (field !== typeField) field.hidden = false; });
+      if (protocolField) protocolField.hidden = true;
+      const labels = {
+        tool: ['APP / SERVICE NAME', 'https://api.your-service.com/v1', 'Connect a service endpoint. Use its API credentials if authentication is required.'],
+        http: ['API CONNECTION NAME', 'https://api.example.com/v1', 'Connect an API endpoint. Credentials are encrypted and sent only from the server.'],
+        webhook: ['WEBHOOK NAME', 'https://your-service.com/webhook', 'Connect a secure webhook endpoint. Use HTTPS when sending credentials.'],
+        database: ['DATABASE CONNECTION NAME', 'https://your-database-api.com', 'Connect through a supported HTTPS database service API; direct database ports are not exposed.']
+      };
+      const config = labels[value] || labels.http;
+      if (name) { name.closest('.ovyx-v91-field')?.querySelector('label')?.replaceChildren(document.createTextNode(config[0])); name.placeholder = value === 'webhook' ? 'e.g. Order notifications' : 'e.g. My ' + (value === 'tool' ? 'CRM' : value === 'database' ? 'database service' : 'API'); }
+      if (endpoint) { endpoint.value = ''; endpoint.placeholder = config[1]; }
+      intro.textContent = config[2];
+      if (add) add.textContent = value === 'webhook' ? 'Add Webhook' : value === 'database' ? 'Add Database Service' : value === 'tool' ? 'Connect App / Service' : 'Add API Connection';
+      if (auth) auth.value = 'none';
+      if (secret) secret.value = '';
+    }
+
+    type.addEventListener('change', () => {
+      if (type.value === 'ai') {
+        type.value = '';
+        showFor('');
+        openAIManager();
+        return;
+      }
+      showFor(type.value);
+    });
+    showFor('');
+  }
+
   function boot() {
     decorateProjectGrantActions();
     bindPersonalAIButtons();
+    upgradePersonalConnectionsForm();
     const observer = new MutationObserver(() => {
       decorateProjectGrantActions();
       bindPersonalAIButtons();
+      upgradePersonalConnectionsForm();
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
     window.addEventListener('ovyx:connections-updated', () => {
       decorateProjectGrantActions();
       bindPersonalAIButtons();
+      upgradePersonalConnectionsForm();
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();

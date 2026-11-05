@@ -35,6 +35,7 @@ const controlCenter = read('assets/ovyx-connect-ai-fallback.js');
 const middleware = read('functions/_middleware.js');
 const grantApi = read('functions/api/settings/connection-grants.js');
 const projectAction = read('functions/api/projects/connection-action.js');
+const connectionManager = read('assets/ovyx-connect-ai-fallback.js');
 assert.match(api, /aiRoutingPolicy: state\.activeBrainConnectionId \? 'cloudflare-then-personal-key' : 'cloudflare-only'/);
 assert.match(api, /action === 'use-ai'/);
 assert.match(api, /AI_CONNECTION_NOT_READY/);
@@ -58,5 +59,15 @@ assert.match(ui, /<option value="webhook">Webhook<\/option>/);
 assert.match(ui, /<option value="tool">Tool<\/option>/);
 assert.match(ui, /<option value="database">Database<\/option>/);
 assert.match(ui, /<option value="http">Web service<\/option>/);
+
+assert.match(connectionManager, /function upgradePersonalConnectionsForm\(\)/, 'The Personal Connections page must upgrade the legacy generic form.');
+assert.match(connectionManager, /Choose what you want to connect/, 'The connection type must be chosen before endpoint credentials are shown.');
+assert.match(connectionManager, /AI provider — personal API key/, 'AI providers must use the dedicated encrypted provider flow.');
+assert.match(connectionManager, /App or service — connect an endpoint/, 'App and service endpoints must be an explicit connection type.');
+assert.match(connectionManager, /API connection/, 'API connections must be a first-class setup option.');
+assert.match(connectionManager, /openAIManager\(\)/, 'Choosing an AI provider must open the secure AI connection manager.');
+assert.match(connectionManager, /endpoint\.value = ''/, 'A fake example endpoint must never be prefilled.');
+assert.match(connectionManager, /Grant to project/, 'Saved non-AI connections must retain project-grant controls.');
+
 
 console.log('Personal Connections tests passed: one account-scoped UI, secure service management, personal AI keys, project grants and non-AI integrations.');
