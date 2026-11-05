@@ -91,8 +91,7 @@ try {
     const dialog = page.locator('.ovyx-connect-overlay .ovyx-connect-dialog');
     await dialog.waitFor({ state: 'visible', timeout: 10000 });
     assert.equal(await dialog.locator('h2').textContent(), 'Personal AI connection');
-    await dialog.locator('[data-cancel]').waitFor({ state: 'visible', timeout: 10000 });
-    await dialog.locator('[data-cancel]').click();
+    await page.keyboard.press('Escape');
     await page.locator('.ovyx-connect-overlay').waitFor({ state: 'detached' });
 
     const generalNav = page.locator('#view-settings [data-settings-nav="general"]').first();
