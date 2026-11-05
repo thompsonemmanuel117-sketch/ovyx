@@ -29,6 +29,7 @@ assert.ok(api.includes("if (action === 'test')"), 'Per-connection health tests m
 assert.ok(api.includes("lastTestStatus: result.ok ? 'reachable' : 'unreachable'"), 'Service test status must persist.');
 assert.ok(connectionLib.includes("method: 'GET'") && connectionLib.includes("'OVYX-Connection-Check/1.0'"), 'Read-only readiness checks must remain bounded.');
 assert.ok(connectionLib.includes('delete copy.encryptedSecret') && connectionLib.includes('delete copy.secret'), 'Public records must never expose credentials.');
+assert.doesNotMatch(api + '\\n' + connectionLib, /(?:universal connection|Universal Connection) (?:limit|state|operation|secret|response|upstream|request)|This Universal Connection/i, 'User-facing connection errors must use the Personal Connections name.');
 
 const controlCenter = read('assets/ovyx-connect-ai-fallback.js');
 const middleware = read('functions/_middleware.js');
