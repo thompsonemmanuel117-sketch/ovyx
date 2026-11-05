@@ -78,10 +78,18 @@
       let candidate = null;
       for (let depth = 0; node && node !== document.body && depth < 7; depth += 1, node = node.parentElement) {
         const text = String(node.innerText || node.textContent || '');
-        if (text.length > 0 && text.length < 2200 &&
-            node.querySelector('[data-v91-test], [data-v91-delete], [data-conn-test], [data-conn-delete]')) {
+        const hasTest = !!node.querySelector('[data-v91-test], [data-conn-test]');
+        const hasDelete = !!node.querySelector('[data-v91-delete], [data-conn-delete]');
+        if (text.length > 0 && text.length < 2200 && hasTest && hasDelete) {
           candidate = node;
-          if (node.matches('[data-connection-id], [data-v91-connection], article, li')) break;
+          break;
+        }
+      }
+      if (!candidate) {
+        node = action.parentElement;
+        for (let depth = 0; node && node !== document.body && depth < 4; depth += 1, node = node.parentElement) {
+          const text = String(node.innerText || node.textContent || '');
+          if (text.length > 0 && text.length < 1400) { candidate = node; break; }
         }
       }
       if (candidate) rows.add(candidate);
