@@ -23,7 +23,7 @@ assert.match(catalogue, /OAuth:/, 'Every service card must disclose OAuth availa
 assert.match(catalogue, /Project adapter:/, 'Every service card must disclose project-adapter readiness.');
 assert.match(catalogue, /Generic HTTPS adapter ready/, 'The generic project adapter must be identified accurately.');
 assert.match(catalogue, /0 native provider adapters/, 'The catalogue must not invent provider-specific project adapters.');
-assert.match(catalogue, /Separate GitHub account OAuth flow is not a project connection adapter/);
+assert.match(catalogue, /The separate GitHub account OAuth flow is not a project connection adapter/);
 assert.match(catalogue, /OVYX platform checkout routes are separate from project adapters/);
 assert.match(catalogue, /OAuth-only services stay unavailable here/);
 assert.match(catalogue, /enabled:false/, 'OAuth-only or unsupported signed integrations must not offer a misleading Connect action.');
