@@ -132,14 +132,24 @@ const INTEGRATION_SETUP_GUIDES = Object.freeze({
 
 function paymentGuideForMarket(context) {
   const source = context && typeof context === 'object' ? context : {};
-  const marketValues = [source.countryCode, source.country, source.marketContext?.countryCode, source.marketContext?.country, source.currency, source.marketContext?.currency, source.market, source.locale];
-  const primaryMarket = marketValues.find(value => String(value || '').trim());
-  const nigeria = /nigeria|nigerian|(^|[^A-Z0-9])NGN($|[^A-Z0-9])|(^|[^A-Z0-9])NG($|[^A-Z0-9])|naira|₦/i.test(String(primaryMarket || ''));
+  const market = source.market && typeof source.market === 'object' ? source.market : {};
+  const marketContext = source.marketContext && typeof source.marketContext === 'object' ? source.marketContext : {};
+  const marketValues = [
+    source.countryCode, source.country, market.countryCode, market.country,
+    marketContext.countryCode, marketContext.country, source.currency,
+    market.currency, marketContext.currency, source.market, source.locale,
+  ].filter(value => typeof value === 'string' && value.trim());
+  const nigeria = marketValues.some(value =>
+    /nigeria|nigerian|(^|[^A-Z0-9])NGN($|[^A-Z0-9])|(^|[^A-Z0-9])NG($|[^A-Z0-9])|naira|₦/i.test(value)
+  );
   if (nigeria) return INTEGRATION_SETUP_GUIDES.payments;
   return {
-    providers: ['Stripe'],
-    recommendation: 'First confirm the business legal and settlement country. Stripe may be suitable only where merchant onboarding and settlement are supported; otherwise ask the owner to choose a provider available in that country. Paystack and OPay are not default recommendations outside Nigeria.',
-    action: 'Confirm the business country and settlement currency, connect a provider available to that business, configure server-side keys and verified webhooks, then run a sandbox checkout before enabling live payments.',
+    // Do not present Stripe (or any other provider) as universally eligible.
+    // The owner must select a provider after its merchant and settlement-country
+    // coverage is confirmed; the generated checkout stays behind its live gate.
+    providers: [],
+    recommendation: 'No payment provider is selected by default for this market. First confirm the business legal-registration country, settlement country and required settlement currency. Then compare providers against their current merchant-onboarding, payment-method and settlement eligibility for that exact business. Do not assume Stripe, Paystack, OPay or any other provider is available.',
+    action: 'Ask the owner to confirm the legal and settlement countries, preferred currency and available provider account. Connect the selected provider with server-side credentials and verified webhooks, then run sandbox checkout and reconciliation before enabling live payments.',
   };
 }
 function integrationRequirements(contract, context, capabilities = {}) {
