@@ -371,6 +371,7 @@ try {
     await page.waitForFunction(() => window.OVYXSettings?.current === 'connections', null, { timeout: 10000 });
     const personalAIAction = page.locator('#view-settings [data-ovyx-personal-ai-manager]');
     await personalAIAction.waitFor({ state: 'visible', timeout: 10000 });
+    await personalAIAction.scrollIntoViewIfNeeded();
     const actionBounds = await personalAIAction.boundingBox();
     assert.ok(actionBounds && actionBounds.width > 0 && actionBounds.height > 0, '[' + target.name + '] Personal AI connection action must have a real touch target.');
     const topmostAction = await page.evaluate(({ x, y }) => {
