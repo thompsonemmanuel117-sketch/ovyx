@@ -15,6 +15,7 @@ try {
     page.setDefaultTimeout(20000);
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error.message));
+    await page.addInitScript(() => { window.__ovyxPersonalConnectionsPageErrors = []; window.addEventListener('error', event => window.__ovyxPersonalConnectionsPageErrors.push(event.message)); });
 
     await page.addInitScript(() => {
       let session = {};
@@ -104,8 +105,21 @@ try {
       };
     });
 
+    assert.equal(await page.evaluate(() => window.__OVYX_CONNECT_CONTROL_CENTER_V1__ === true), true, '[' + target.name + '] The Personal Connections action runtime must be loaded.');
     await personalAction.click();
-    await page.locator('.ovyx-connect-overlay .ovyx-connect-dialog #ovyx-ai-choice').waitFor({ state: 'visible' });
+    try {
+      await page.locator('.ovyx-connect-overlay .ovyx-connect-dialog #ovyx-ai-choice').waitFor({ state: 'visible', timeout: 10000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        managerLoaded: window.__OVYX_CONNECT_CONTROL_CENTER_V1__ === true,
+        overlayCount: document.querySelectorAll('.ovyx-connect-overlay').length,
+        buttonConnected: !!document.querySelector('[data-ovyx-personal-ai-manager]')?.isConnected,
+        currentUserAvailable: !!window.firebase?.auth?.().currentUser,
+        dialogText: document.querySelector('.ovyx-connect-dialog')?.textContent?.slice(0, 240) || '',
+        pageErrors: window.__ovyxPersonalConnectionsPageErrors || []
+      }));
+      throw new Error('Personal AI connection dialog did not open: ' + JSON.stringify(diagnostic) + ' | ' + error.message);
+    }
     assert.equal(await page.locator('.ovyx-connect-dialog h2').textContent(), 'Personal AI connection');
     await page.locator('.ovyx-connect-dialog [data-cancel]').click();
     await page.locator('.ovyx-connect-overlay').waitFor({ state: 'detached' });
