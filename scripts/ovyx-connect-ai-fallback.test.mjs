@@ -21,6 +21,7 @@ assert.doesNotMatch(ui, /\.ovyx-connect-cta\{position:fixed/);
 assert.doesNotMatch(ui, /function hasConnectionsView/);
 assert.match(html, /class="ovyx-v91-personal-ai-btn" data-ovyx-personal-ai-manager/);
 assert.match(html, /<h2>Personal Connections<\/h2>/);
+assert.match(html, /addNav\('connections','Personal Connections','Your apps, APIs and personal AI keys'/);
 assert.doesNotMatch(html, /Universal Connections &amp; Tier Limits/);
 assert.match(ui, /Revoke access/);
 assert.match(ui, /Use Cloudflare only/);
