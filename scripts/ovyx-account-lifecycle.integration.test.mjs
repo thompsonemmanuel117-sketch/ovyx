@@ -172,6 +172,10 @@ try {
   const request = () => new Request('https://ovyx.test/api/payments/create', {
     headers: { Authorization: 'Bearer ovyx-lifecycle-test-token' },
   });
+  const anonymousIdentity = await verifyFirebaseIdToken(new Request('https://ovyx.test/api/payments/create'), env);
+  assert.equal(anonymousIdentity.ok, false);
+  assert.equal(anonymousIdentity.response.status, 401);
+  assert.equal((await anonymousIdentity.response.json()).code, 'AUTH_REQUIRED');
   let identity = await verifyFirebaseIdToken(request(), env);
   assert.equal(identity.ok, true);
   assert.equal(identity.user.emailVerified, false);
@@ -264,6 +268,7 @@ try {
   const disabledIdentity = await verifyFirebaseIdToken(request(), env);
   assert.equal(disabledIdentity.ok, false);
   assert.equal(disabledIdentity.response.status, 403);
+  assert.equal((await disabledIdentity.response.json()).code, 'ACCOUNT_DISABLED');
 
   // Payment flow contract checks: server-verified provider status, amount,
   // currency, webhook HMAC, idempotent fulfillment, owner-bound payment reads,
