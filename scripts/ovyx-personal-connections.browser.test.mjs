@@ -52,6 +52,15 @@ try {
     await page.waitForFunction(() => window.OVYXSettings?.current === 'connections', null, { timeout: 10000 });
     assert.equal(await page.locator('#view-settings [data-settings-panel="connections"]').count(), 1, '[' + target.name + '] Exactly one Personal Connections panel must exist.');
 
+    await page.locator('#view-settings [data-settings-panel="connections"] .pc-hero').waitFor({ state: 'visible', timeout: 15000 });
+    assert.match(await page.locator('#view-settings [data-settings-panel="connections"]').innerText(), /Your connections\\. One secure home\\./);
+    const addConnection = page.locator('#view-settings [data-pc-add]');
+    await addConnection.waitFor({ state: 'visible' });
+    await addConnection.click();
+    await page.locator('.pc-overlay .pc-dialog[aria-label="Add a Personal Connection"]').waitFor({ state: 'visible' });
+    await page.locator('.pc-overlay [data-pc-cancel]').click();
+    await page.locator('.pc-overlay').waitFor({ state: 'detached' });
+
     const personalAction = page.locator('#view-settings [data-ovyx-personal-ai-manager]');
     try {
       await personalAction.waitFor({ state: 'visible', timeout: 10000 });
