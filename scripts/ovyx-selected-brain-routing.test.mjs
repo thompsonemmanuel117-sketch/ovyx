@@ -25,20 +25,28 @@ assert.doesNotMatch(providerSource, /export function providerOrder/,
   'The previous multi-provider priority selector must not remain a public routing API.');
 
 assert.match(assistantSource, /cloudflareOnlyModelOptions\(options\)/);
+assert.match(assistantSource, /callUserUniversalConnection/);
+assert.match(assistantSource, /getActiveBrainConnectionId/);
+assert.match(assistantSource, /DAILY_RATION_EXHAUSTED/);
+assert.match(assistantSource, /personalAIConnectionActive/);
 assert.match(gatewaySource, /cloudflareOnlyModelOptions\(options\)/);
+assert.match(gatewaySource, /callUserUniversalConnection/);
+assert.match(gatewaySource, /getActiveBrainConnectionId/);
+assert.match(gatewaySource, /DAILY_RATION_EXHAUSTED/);
+assert.match(gatewaySource, /personalAIConnectionActive/);
 assert.match(assistantSource, /webStudioRequest: isWebStudio/);
 assert.match(assistantSource, /appStudioRequest: isAppStudio/);
 assert.match(gatewaySource, /webStudioRequest: isWebStudio/);
 assert.match(gatewaySource, /appStudioRequest: isAppStudio/);
 
-assert.match(connectionsApi, /AI_PROVIDER_DISABLED/);
-assert.match(connectionsApi, /Saved external AI credentials are preserved but are not tested or called/);
-assert.match(connectionsApi, /activeBrainConnectionId: null/);
-assert.match(connectionsApi, /activeWebStudioConnectionId: null/);
-assert.match(docs, /Cloudflare Workers AI is OVYX's only supported AI model provider/i);
-assert.match(docs, /Older encrypted AI connection records are retained/i);
-assert.match(docs, /Universal Connections remain available for approved non-AI HTTP, webhook, database and tool integrations/i);
+assert.match(connectionsApi, /action === 'use-ai'/);
+assert.match(connectionsApi, /AI_CONNECTION_NOT_READY/);
+assert.match(connectionsApi, /activeBrainConnectionId: state\.activeBrainConnectionId/);
+assert.match(connectionsApi, /cloudflare-then-personal-key/);
+assert.match(docs, /Cloudflare Workers AI remains OVYX's default inference provider/i);
+assert.match(docs, /DAILY_RATION_EXHAUSTED/);
+assert.match(docs, /AES-GCM encrypted connection storage/);
 assert.doesNotMatch(docs, /Automatic uses the selected AI Brain exclusively/i);
 assert.doesNotMatch(docs, /Platform Automatic routing[\\s\\S]*tries the providers in/i);
 
-console.log('OVYX Cloudflare-only Brain routing tests passed: no selected external Brain route remains and generic service connections remain separate.');
+console.log('OVYX AI routing tests passed: Cloudflare stays first and a selected encrypted personal Brain is used only after quota exhaustion.');

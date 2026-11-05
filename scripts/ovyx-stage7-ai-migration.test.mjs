@@ -115,7 +115,9 @@ assert.match(indexHtml, /id="card-provider-cloudflare-workers-ai"/,
 assert.doesNotMatch(indexHtml, /Use for Web Studio|Use as AI Brain|Use for AI requests/);
 assert.match(indexHtml, /id="ws-brain-label">Cloudflare<\/span>/,
   'The Web Studio composer must identify the Cloudflare engine rather than an external Brain.');
-assert.match(indexHtml, /Workspace response preferences\. OVYX uses Cloudflare Workers AI exclusively/);
+assert.match(middleware, /ovyx-connect-ai-fallback\.js/);
+assert.match(assistantRoute, /DAILY_RATION_EXHAUSTED/);
+assert.match(gatewayRoute, /DAILY_RATION_EXHAUSTED/);
 assert.match(indexHtml, /this\.brain='automatic';try\{persistStateNow\('cloudflare-only-engine'\)/,
   'The legacy brain button must normalize old provider state to managed Cloudflare routing.');
 assert.doesNotMatch(indexHtml, /const order = \['automatic','gemini','deepseek','anthropic','openai'\]/,
@@ -159,4 +161,4 @@ assert.match(imageClient, /['"]Authorization['"]: 'Bearer ' \+ token/);
 assert.match(imageClient, /ovyx-image-gen-download/);
 assert.match(middleware, /ovyx-image-generation\.js\?v=20261031-1/);
 
-console.log('OVYX Stage 7 migration contract tests passed: Cloudflare-only text, website, App Studio, Agent and image routes remain bounded and independently tested.');
+console.log('OVYX Stage 7 migration contract tests passed: Cloudflare-first text routes, personal-key quota fallback, Agent and image routes remain independently bounded.');
