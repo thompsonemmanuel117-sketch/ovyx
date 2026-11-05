@@ -84,24 +84,19 @@ try {
     assert.equal(receivesTap, true, '[' + target.name + '] Another element must not cover the Personal AI connection action.');
 
     // Stub only this authenticated settings read; no credentials or live user data
-    // are used by this browser regression.
+    // are used by this browser regression. Playwright routing intercepts the real
+    // request at the network boundary so application fetch wrappers cannot bypass it.
+    await page.route('**/api/settings/connections*', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, connections: [], activeBrainConnectionId: null }),
+    }));
     await page.evaluate(() => {
       const firebase = window.firebase || (window.firebase = {});
       const originalAuth = firebase.auth;
       firebase.auth = () => ({ currentUser: { getIdToken: async () => 'browser-test-token' } });
       window.__personalConnectionsTestRestoreAuth = () => {
         if (originalAuth) firebase.auth = originalAuth;
-      };
-      const originalFetch = window.fetch.bind(window);
-      window.fetch = async (input, init) => {
-        const url = new URL(typeof input === 'string' ? input : input.url, window.location.href);
-        if (url.pathname === '/api/settings/connections') {
-          return new Response(JSON.stringify({ ok: true, connections: [], activeBrainConnectionId: null }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
-        return originalFetch(input, init);
       };
     });
 
