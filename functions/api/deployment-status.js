@@ -71,13 +71,17 @@ function slug(value, fallback='site') {
   return out || fallback;
 }
 
-async function pagesProjectName(user, projectId, projectName, prefix) {
-  const digest = await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode(user.uid+':'+projectId)
-  );
+async function pagesProjectPrefix(user, projectId, prefix) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(user.uid+':'+projectId));
   const hash=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');
-  return slug((prefix||'ovyx')+'-'+hash.slice(0,10)+'-'+slug(projectName,'site'));
+  return slug(prefix||'ovyx')+'-'+hash.slice(0,10)+'-';
+}
+async function pagesProjectName(user, projectId, projectName, prefix) {
+  return slug((await pagesProjectPrefix(user, projectId, prefix))+slug(projectName,'site'));
+}
+export function isOwnedOvyxPagesProjectName(value, expectedPrefix) {
+  const name=String(value||'').trim().toLowerCase(), prefix=String(expectedPrefix||'').trim().toLowerCase();
+  return !!prefix && name.startsWith(prefix) && /^[a-z0-9-]{1,63}$/.test(name);
 }
 
 export async function onRequestGet(context) {
@@ -98,17 +102,17 @@ export async function onRequestGet(context) {
     const projectId=String(qs.get('projectId')||'').trim();
     const deploymentId=String(qs.get('deploymentId')||'').trim();
     const projectName=String(qs.get('projectName')||'').trim();
+    const requestedPagesProjectName=String(qs.get('pagesProjectName')||'').trim().toLowerCase();
 
     if(!projectId||!deploymentId){
       return json({success:false,authoritative:true,error:'Choose a saved app and release before checking the publishing status.',requestId},400);
     }
 
-    const safeProjectName=await pagesProjectName(
-      user,
-      projectId,
-      projectName||'site',
-      env.CLOUDFLARE_PAGES_PROJECT_PREFIX
-    );
+    const expectedPrefix=await pagesProjectPrefix(user,projectId,env.CLOUDFLARE_PAGES_PROJECT_PREFIX);
+    if(requestedPagesProjectName&&!isOwnedOvyxPagesProjectName(requestedPagesProjectName,expectedPrefix)){
+      return json({success:false,authoritative:true,error:'The requested hosting project does not belong to this saved website.',requestId},403);
+    }
+    const safeProjectName=requestedPagesProjectName||await pagesProjectName(user,projectId,projectName||'site',env.CLOUDFLARE_PAGES_PROJECT_PREFIX);
 
     const deployment=await cloudflareGet(
       '/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+

@@ -130,6 +130,18 @@ const INTEGRATION_SETUP_GUIDES = Object.freeze({
   },
 });
 
+function paymentGuideForMarket(context) {
+  const source = context && typeof context === 'object' ? context : {};
+  const marketValues = [source.countryCode, source.country, source.marketContext?.countryCode, source.marketContext?.country, source.currency, source.marketContext?.currency, source.market, source.locale];
+  const primaryMarket = marketValues.find(value => String(value || '').trim());
+  const nigeria = /nigeria|nigerian|(^|[^A-Z0-9])NGN($|[^A-Z0-9])|(^|[^A-Z0-9])NG($|[^A-Z0-9])|naira|₦/i.test(String(primaryMarket || ''));
+  if (nigeria) return INTEGRATION_SETUP_GUIDES.payments;
+  return {
+    providers: ['Stripe'],
+    recommendation: 'First confirm the business legal and settlement country. Stripe may be suitable only where merchant onboarding and settlement are supported; otherwise ask the owner to choose a provider available in that country. Paystack and OPay are not default recommendations outside Nigeria.',
+    action: 'Confirm the business country and settlement currency, connect a provider available to that business, configure server-side keys and verified webhooks, then run a sandbox checkout before enabling live payments.',
+  };
+}
 function integrationRequirements(contract, context, capabilities = {}) {
   const requested = [
     ['payments', capabilities.payments],
@@ -145,7 +157,7 @@ function integrationRequirements(contract, context, capabilities = {}) {
   ];
   return requested.filter(([, needed]) => needed).map(([kind]) => {
     const saved = findConnectionMetadata(context, kind);
-    const guide = INTEGRATION_SETUP_GUIDES[kind];
+    const guide = kind === 'payments' ? paymentGuideForMarket(context) : INTEGRATION_SETUP_GUIDES[kind];
     const internalBooking = kind === 'booking';
     return {
       capability: kind,
@@ -697,6 +709,10 @@ export function buildWebsiteEngineInstructions(plan) {
     'OVYX UNIFIED WEBSITE ENGINE — AUTHORITATIVE PRE-GENERATION PLAN',
     'The complete original user brief is supplied separately as the task prompt and remains authoritative. The JSON below is a bounded architecture plan and requirement index; its clause excerpts never replace the original brief.',
     serializedPlan,
+    'GLOBAL-FIRST PRODUCT RULES: OVYX serves users and audiences worldwide. Follow the country, audience, language, currency, region and business rules explicitly requested in the original brief; never assume the user is Nigerian or that NGN, USD, English, one tax regime, one date format or one timezone is universally correct. When location is unspecified, use neutral international defaults and ask only when a country-specific decision materially affects correctness.',
+    'Use BCP 47 language tags, ISO 3166-1 country codes, ISO 4217 currency codes and IANA timezone identifiers. Use Intl.NumberFormat, Intl.DateTimeFormat and Intl.PluralRules for locale-sensitive presentation; store monetary values as integer minor units with an explicit currency code. Never hardcode exchange rates, taxes, shipping duties or legal obligations. If multiple currencies are required, let the business owner configure supported currencies and authoritative rates.',
+    'Choose payment, identity, email, maps, shipping and other providers based on the owner’s target countries and the provider’s actual country/settlement availability. Do not default to Paystack or OPay for a non-Nigerian business, do not claim worldwide provider coverage, and keep unavailable integrations behind honest setup/verification gates.',
+    'Support international names, addresses, phone formats, postal codes, RTL languages where requested, local date/time formats, accessibility and mobile networks. Do not assume every country uses the same address fields, phone prefix, units or privacy/consumer rules.',
     'REQUIREMENT SIGNAL LEGEND: requirementSignals is positionally aligned with requirementManifest.requirements; entry N describes the requirement at index N. Each compact entry is [polarity][priority]:[category letters]:[mapping]. Polarity + means required, ! means prohibited and must remain excluded, ~ means preference. Priority C is critical, H is high, N is normal. Mapping M means linked to architecture nodes; U means still unmapped. Category letters: s=security, i=identity, d=data, c=commerce, x=integration, r=routes, u=interaction, v=design, t=content, w=responsive, a=accessibility, p=performance, o=SEO, m=assets, l=localization, q=explicit constraints, g=general. These are deterministic signals, not a substitute for reading the complete brief.',
     ...projectIntelligenceInstructions(plan.projectIntelligence),
     ...fullStackRules,

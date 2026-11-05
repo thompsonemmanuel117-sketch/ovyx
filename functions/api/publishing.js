@@ -1,4 +1,5 @@
 import { resolveEntitlements } from './entitlements.js';
+import { listFirestoreSubcollectionDocumentsAtPath } from '../_lib/firebase-admin.js';
 
 const HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -174,10 +175,138 @@ async function getPagesSubdomain(pagesName, env) {
 function basePath(pagesName) {
   return '/pages/projects/' + encodeURIComponent(pagesName);
 }
+
+export function normalizePublishedSiteUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw.length > 2048) throw Object.assign(new Error('Paste the HTTPS link of a website published from this OVYX account.'), { status: 400, code: 'INVALID_PUBLISHED_SITE_URL' });
+  let parsed;
+  try { parsed = new URL(raw); } catch { throw Object.assign(new Error('That website link is not valid. Paste the full HTTPS address.'), { status: 400, code: 'INVALID_PUBLISHED_SITE_URL' }); }
+  const host = String(parsed.hostname || '').toLowerCase();
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port || !host || host === 'localhost' ||
+      /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) || host.includes(':') || !host.includes('.') ||
+      host.endsWith('.workers.dev') || ['.invalid', '.test', '.example', '.local', '.internal', '.onion'].some(suffix => host.endsWith(suffix))) {
+    throw Object.assign(new Error('Use the public HTTPS link of your published website. Local addresses and unsupported hosts cannot be updated.'), { status: 400, code: 'INVALID_PUBLISHED_SITE_URL' });
+  }
+  return { host, canonicalUrl: parsed.origin + (parsed.pathname === '/' ? '' : parsed.pathname) };
+}
+
+function projectPublishedHosts(project) {
+  const hosts = new Set();
+  const addUrl = value => {
+    try {
+      const parsed = new URL(String(value || ''));
+      if (parsed.protocol === 'https:' && !parsed.username && !parsed.password && !parsed.port) hosts.add(parsed.hostname.toLowerCase());
+    } catch {}
+  };
+  addUrl(project?.publishedUrl);
+  addUrl(project?.liveUrl);
+  addUrl(project?.ovyxPublishedUrl);
+  const savedPagesName = String(project?.ovyxPagesProjectName || '').trim().toLowerCase();
+  if (/^[a-z0-9-]{1,63}$/.test(savedPagesName)) hosts.add(savedPagesName + '.pages.dev');
+  for (const deployment of (Array.isArray(project?.ovyxDeployments) ? project.ovyxDeployments : []).slice(0, 30)) {
+    if (deployment && (deployment.status === 'published' || deployment.status === 'success' || deployment.url)) addUrl(deployment.url);
+  }
+  const customDomain = String(project?.ovyxDeploymentDomain || '').trim();
+  if (customDomain) {
+    try { hosts.add(normalizeDomain(customDomain)); } catch {}
+  }
+  return hosts;
+}
+
+export async function resolvePublishedSiteFromProjects({ uid, email, host, projects, resolvePagesProject }) {
+  const candidates = (Array.isArray(projects) ? projects : []).filter(row => {
+    const data = row?.data || {};
+    return /^[A-Za-z0-9_-]{1,120}$/.test(String(row?.id || '')) &&
+      String(data.ownerUid || '') === String(uid || '') &&
+      String(data.ownerEmail || '').trim().toLowerCase() === String(email || '').trim().toLowerCase() &&
+      projectPublishedHosts(data).has(String(host || '').toLowerCase());
+  });
+  if (!candidates.length) throw Object.assign(new Error('OVYX could not find that link among the websites saved in this account. Make sure this website was created and published from this OVYX account.'), { status: 404, code: 'PUBLISHED_SITE_NOT_FOUND' });
+  const matches = [];
+  for (const row of candidates.slice(0, 8)) {
+    const data = row.data || {};
+    const remote = await resolvePagesProject(row);
+    const pagesSubdomain = String(remote?.project?.subdomain || (remote?.pagesName ? remote.pagesName + '.pages.dev' : '')).toLowerCase();
+    const pagesHost = pagesSubdomain || String(remote?.pagesName || '').toLowerCase() + '.pages.dev';
+    const domain = (Array.isArray(remote?.domains) ? remote.domains : []).find(item => String(item?.name || '').toLowerCase() === String(host).toLowerCase());
+    const activeCustomDomain = !!domain && String(domain.status || '').toLowerCase() === 'active';
+    const isPagesHost = String(host).toLowerCase() === pagesHost;
+    const hasSuccessfulProduction = (Array.isArray(remote?.deployments) ? remote.deployments : []).some(isRollbackEligible);
+    if ((isPagesHost || activeCustomDomain) && hasSuccessfulProduction) {
+      matches.push({
+        projectId: String(row.id),
+        projectName: String(data.name || data.title || 'Website').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').trim().slice(0, 100),
+        pagesProjectName: String(remote.pagesName || ''),
+        canonicalUrl: 'https://' + String(host).toLowerCase(),
+        matchedBy: isPagesHost ? 'pages-hostname' : 'connected-custom-domain',
+        domainStatus: domain ? String(domain.status || 'unknown').toLowerCase() : 'active',
+      });
+    }
+  }
+  if (matches.length > 1) throw Object.assign(new Error('More than one saved project appears to use this link. Open Manage Website and check the connected domains before updating.'), { status: 409, code: 'PUBLISHED_SITE_AMBIGUOUS' });
+  if (!matches.length) throw Object.assign(new Error('OVYX found a saved project with this link, but could not verify an active production website and its domain connection. No changes were made.'), { status: 409, code: 'PUBLISHED_SITE_NOT_VERIFIED' });
+  return { ...matches[0], sameProject: true, deploymentTarget: 'existing-pages-project' };
+}
+
+async function expectedPagesProjectPrefix(user, projectId, env) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(user.uid + ':' + projectId));
+  const hash = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
+  return safeSlug(env.CLOUDFLARE_PAGES_PROJECT_PREFIX || 'ovyx') + '-' + hash.slice(0, 10) + '-';
+}
+
+async function findExistingPagesProject(user, row, host, env) {
+  const projectId = String(row.id);
+  const data = row.data || {};
+  const prefix = await expectedPagesProjectPrefix(user, projectId, env);
+  const hints = new Set();
+  const storedName = String(data.ovyxPagesProjectName || '').trim().toLowerCase();
+  if (storedName) hints.add(storedName);
+  const hostName = String(host || '').toLowerCase().endsWith('.pages.dev') ? String(host).toLowerCase().slice(0, -'.pages.dev'.length) : '';
+  if (hostName) hints.add(hostName);
+  const current = await resolveProject(user, { projectId, projectName: data.name || data.title || 'site' }, env);
+  hints.add(current.pagesName);
+  const names = [...hints].filter(name => name.startsWith(prefix) && /^[a-z0-9-]{1,63}$/.test(name));
+  let listed = [];
+  try {
+    const projects = await cf('/pages/projects?per_page=100', env);
+    listed = (Array.isArray(projects) ? projects : []).map(item => String(item?.name || '').toLowerCase()).filter(name => name.startsWith(prefix) && /^[a-z0-9-]{1,63}$/.test(name));
+  } catch {}
+  for (const name of listed) names.push(name);
+  const uniqueNames = [...new Set(names)].slice(0, 20);
+  const matches = [];
+  for (const pagesName of uniqueNames) {
+    let project;
+    try { project = await getPagesProject(pagesName, env); } catch (error) { if (error.status === 404) continue; throw error; }
+    const [domains, deployments] = await Promise.all([cf(basePath(pagesName) + '/domains', env), cf(basePath(pagesName) + '/deployments?env=production&per_page=20', env)]);
+    const subdomain = String(project?.subdomain || pagesName + '.pages.dev').toLowerCase();
+    const attached = (Array.isArray(domains) ? domains : []).some(item => String(item?.name || '').toLowerCase() === String(host).toLowerCase());
+    if (subdomain === String(host).toLowerCase() || attached) matches.push({ pagesName, project, domains, deployments });
+  }
+  if (matches.length > 1) throw Object.assign(new Error('Several existing hosting projects appear to match this website link. OVYX stopped to avoid updating the wrong website.'), { status: 409, code: 'PUBLISHED_SITE_AMBIGUOUS' });
+  return matches[0] || null;
+}
+async function handleResolvePublishedSite(context, auth) {
+  const { host, canonicalUrl } = normalizePublishedSiteUrl(new URL(context.request.url).searchParams.get('resolveUrl'));
+  const rows = await listFirestoreSubcollectionDocumentsAtPath(context.env, ['users', auth.user.email], 'projects', 200);
+  const projects = rows.filter(row => row && row.data && row.data.ownerUid === auth.user.uid && String(row.data.ownerEmail || '').trim().toLowerCase() === auth.user.email);
+  const result = await resolvePublishedSiteFromProjects({
+    uid: auth.user.uid,
+    email: auth.user.email,
+    host,
+    projects,
+    resolvePagesProject: async row => {
+      const existing = await findExistingPagesProject(auth.user, row, host, context.env);
+      return existing || {};
+    },
+  });
+  return json({ success: true, authoritative: true, site: { ...result, canonicalUrl } });
+}
+
 async function handleGet(context) {
   const auth = await authorize(context);
   if (auth.response) return auth.response;
   const url = new URL(context.request.url);
+  if (url.searchParams.has('resolveUrl')) return handleResolvePublishedSite(context, auth);
   const { projectId, projectName, pagesName } = await resolveProject(auth.user, {
     projectId: url.searchParams.get('projectId'),
     projectName: url.searchParams.get('projectName')
