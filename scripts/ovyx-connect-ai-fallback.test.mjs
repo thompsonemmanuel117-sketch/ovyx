@@ -55,7 +55,7 @@ assert.match(center, /async function grant/);
 assert.match(center, /action:'test'/);
 assert.match(center, /credentials are encrypted on the server/i);
 assert.match(center, /OAuth is offered only for services with a verified connector/i);
-assert.match(center, /api\\/settings\\/connections/);
+assert.ok(center.includes('/api/settings/connections'));
 assert.match(center, /data-pc-toggle/);
 assert.match(center, /data-pc-delete/);
 assert.match(center, /window\\.addEventListener\\('ovyx-settings-rendered'/);
