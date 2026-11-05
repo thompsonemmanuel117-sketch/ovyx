@@ -13784,15 +13784,15 @@ async function renderConnectionsPanel(){
   if(!panel)return;
   let data;
   try{data=await UniversalConnections.list()}catch(error){
-    panel.innerHTML='<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / CONNECTIONS</div><h2>Universal Connections &amp; Tier Limits</h2><p>Real server-managed external connections for this account.</p></div><div class="ovyx-deep-status">'+String(error?.message||'Sign in to load connections.')+'</div>';
+    panel.innerHTML='<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / CONNECTIONS</div><h2>Personal Connections</h2><p>Real server-managed external connections for this account.</p></div><div class="ovyx-deep-status">'+String(error?.message||'Sign in to load connections.')+'</div>';
     return;
   }
   const limit=data.limit==null?'Unlimited':String(data.limit);
   const rows=Array.isArray(data.connections)?data.connections:[];
   panel.innerHTML=
-    '<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / CONNECTIONS</div><h2>Universal Connections &amp; Tier Limits</h2><p>Manage approved webhooks, tools, and data services here. Available options depend on your plan.</p></div>'+
+    '<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / CONNECTIONS</div><h2>Personal Connections</h2><p>Manage approved webhooks, tools, and data services here. Available options depend on your plan.</p></div>'+
     '<div class="ovyx-deep-grid"><div class="ovyx-pref-group"><div class="ovyx-pref-label">PLAN</div><div class="ovyx-deep-note"><b style="color:var(--app-text,#fff)">'+String(data.tier||'free').toUpperCase()+'</b> · '+String(data.activeCount||0)+' active / '+limit+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">STATUS</div><div class="ovyx-deep-note">'+String(data.totalCount||0)+' saved connection'+(Number(data.totalCount||0)===1?'':'s')+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">AI MODEL ENGINE</div><div class="ovyx-deep-note">'+'Cloudflare Workers AI · exclusive model provider'+'</div></div></div>'+
-    '<div class="ovyx-pref-group"><div class="ovyx-pref-label">ADD CONNECTION</div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Name</label><input id="deep-conn-name" placeholder="Custom AI service"></div><div class="ovyx-deep-field"><label>Type</label><select id="deep-conn-type"><option value="http">Web service</option><option value="webhook">Webhook</option><option value="tool">Service address</option><option value="database">Legacy HTTP Database</option></select></div></div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Protocol</label><select id="deep-conn-protocol"><option value="http-json">Generic JSON HTTP</option></select></div><div class="ovyx-deep-field"><label>Auth</label><select id="deep-conn-auth"><option value="bearer">Bearer token</option><option value="api-key">X-API-Key</option><option value="basic">Basic token</option><option value="none">No credential</option></select></div></div><div class="ovyx-deep-status" id="deep-conn-auth-note">Credential is optional. Leave it empty for public services.</div><div class="ovyx-deep-field"><label>Endpoint</label><input id="deep-conn-endpoint" placeholder="https://api.example.com/v1/chat/completions"></div><div class="ovyx-deep-field"><label>Credential <small>(optional; only required when the external service requires one; encrypted server-side)</small></label><input id="deep-conn-secret" type="password" autocomplete="new-password" placeholder="Access credential (optional)"></div><div class="ovyx-deep-actions"><button class="ovyx-deep-btn primary" id="deep-conn-add">Save Connection</button></div><div class="ovyx-deep-status">Universal Connections are live server connectors. Saving a connection does not claim it works until its Test/Run operation succeeds.</div></div>'+
+    '<div class="ovyx-pref-group"><div class="ovyx-pref-label">ADD CONNECTION</div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Name</label><input id="deep-conn-name" placeholder="Custom AI service"></div><div class="ovyx-deep-field"><label>Type</label><select id="deep-conn-type"><option value="http">Web service</option><option value="webhook">Webhook</option><option value="tool">Service address</option><option value="database">Legacy HTTP Database</option></select></div></div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Protocol</label><select id="deep-conn-protocol"><option value="http-json">Generic JSON HTTP</option></select></div><div class="ovyx-deep-field"><label>Auth</label><select id="deep-conn-auth"><option value="bearer">Bearer token</option><option value="api-key">X-API-Key</option><option value="basic">Basic token</option><option value="none">No credential</option></select></div></div><div class="ovyx-deep-status" id="deep-conn-auth-note">Credential is optional. Leave it empty for public services.</div><div class="ovyx-deep-field"><label>Endpoint</label><input id="deep-conn-endpoint" placeholder="https://api.example.com/v1/chat/completions"></div><div class="ovyx-deep-field"><label>Credential <small>(optional; only required when the external service requires one; encrypted server-side)</small></label><input id="deep-conn-secret" type="password" autocomplete="new-password" placeholder="Access credential (optional)"></div><div class="ovyx-deep-actions"><button class="ovyx-deep-btn primary" id="deep-conn-add">Save Connection</button></div><div class="ovyx-deep-status">Personal Connections are secure account connections. Saving a connection does not claim it works until its Test/Run operation succeeds.</div></div>'+
     '<div class="ovyx-pref-group"><div class="ovyx-pref-label">SAVED CONNECTIONS</div><div class="ovyx-deep-conn-list">'+
       (rows.length?rows.map(row=>{const legacyAiModel=String(row.type||'').toLowerCase()==='ai'||['openai-chat','anthropic-messages','gemini-generate-content'].includes(String(row.protocol||'').toLowerCase());return '<div class="ovyx-deep-conn"><div><b>'+String(row.name||'Unnamed').replace(/[<>]/g,'')+'</b><small>'+String(row.type||'tool').toUpperCase()+' · '+String(row.endpoint||'').replace(/[<>]/g,'')+' · '+(row.active?'Enabled':'Disabled')+(legacyAiModel?' · Legacy AI model disabled':'')+'</small></div><div class="ovyx-deep-conn-actions">'+(legacyAiModel?'<span class="ovyx-deep-status">AI model disabled</span>':'<button class="ovyx-deep-btn" data-conn-test="'+String(row.id)+'">Test</button>')+'<button class="ovyx-deep-btn danger" data-conn-delete="'+String(row.id)+'">Delete</button></div></div>'}).join(''):'<div class="ovyx-deep-status">No connections have been added yet.</div>')+
     '</div></div><div class="ovyx-deep-status" id="deep-conn-status">Usage limits follow your current account plan.</div>';
@@ -13877,11 +13877,14 @@ function installSettingsRepair(){
     button.addEventListener('click',()=>S.show(id));
   }
   addNav('brand-identity','Brand Identity Lock','Logo, colors and layout rules','fa-gem');
-  addNav('connections','External Services & Plan Limits','Secure external integrations','fa-plug');
-  main.insertAdjacentHTML('beforeend','<section class="ovyx-settings-panel ovyx-deep-settings-panel" data-settings-panel="brand-identity"></section><section class="ovyx-settings-panel ovyx-deep-settings-panel" data-settings-panel="connections"></section>');
+  // Personal Connections is owned by the later V91 account-scoped renderer.
+  // This legacy repair layer must not create a second navigation item or panel.
+  if(!main.querySelector('[data-settings-panel="brand-identity"]')){
+    main.insertAdjacentHTML('beforeend','<section class="ovyx-settings-panel ovyx-deep-settings-panel" data-settings-panel="brand-identity"></section>');
+  }
   const originalShow=S.show.bind(S);
   S.show=function(id){
-    if(id==='brand-identity'||id==='connections'){
+    if(id==='brand-identity'){
       S.current=id;
       main.querySelectorAll('[data-settings-panel]').forEach(panel=>{
         const active=panel.dataset.settingsPanel===id;
@@ -13889,8 +13892,7 @@ function installSettingsRepair(){
         
       });
       sidebar.querySelectorAll('[data-settings-nav]').forEach(button=>button.classList.toggle('active',button.dataset.settingsNav===id));
-      if(id==='brand-identity')setTimeout(renderBrandPanel,0);
-      if(id==='connections')setTimeout(()=>renderConnectionsPanel(),0);
+      setTimeout(renderBrandPanel,0);
       return true;
     }
     return originalShow(id);
@@ -13899,7 +13901,6 @@ function installSettingsRepair(){
     if(!event.detail?.user)return;
     setTimeout(()=>{
       if(S.current==='brand-identity')renderBrandPanel();
-      if(S.current==='connections')renderConnectionsPanel();
     },100);
   },{passive:true});
 }
@@ -14507,11 +14508,11 @@ function installSettingsSurface(){
   const root=S.root, sidebar=root?.querySelector('.ovyx-settings-sidebar'), main=root?.querySelector('#ovyx-settings-main');if(!sidebar||!main)return;
   const addNav=(id,label,desc,icon)=>{if(sidebar.querySelector('[data-settings-nav="'+id+'"]'))return;const b=document.createElement('button');b.type='button';b.className='ovyx-settings-nav';b.dataset.settingsNav=id;b.innerHTML='<i class="fa-solid '+icon+'"></i><span>'+label+'<small>'+desc+'</small></span>';sidebar.appendChild(b);b.addEventListener('click',()=>S.show(id))};
   addNav('brand-identity','Brand Identity Lock','Logo, corporate color and layout rules','fa-gem');
-  addNav('connections','External Services & Plan Limits','External integrations with plan limits','fa-plug');
+  addNav('connections','Personal Connections','Your apps, APIs and personal AI keys','fa-plug');
   if(!main.querySelector('[data-settings-panel="brand-identity"]')){const p=document.createElement('section');p.className='ovyx-settings-panel ovyx-strict-settings-panel';p.dataset.settingsPanel='brand-identity';main.appendChild(p)}
   if(!main.querySelector('[data-settings-panel="connections"]')){const p=document.createElement('section');p.className='ovyx-settings-panel ovyx-strict-settings-panel';p.dataset.settingsPanel='connections';main.appendChild(p)}
   const old=typeof S.show==='function'&&S.show.__OVYXStrictWrapped?null:S.show?.bind(S);
-  if(old){const wrapped=function(id){if(id==='brand-identity'){main.querySelectorAll('.ovyx-settings-panel').forEach(x=>{x.classList.toggle('active',x.dataset.settingsPanel===id);x.hidden=x.dataset.settingsPanel!==id});sidebar.querySelectorAll('.ovyx-settings-nav').forEach(x=>x.classList.toggle('active',x.dataset.settingsNav===id));renderBrand(main.querySelector('[data-settings-panel="brand-identity"]'));S.current=id;return true}if(id==='connections'){main.querySelectorAll('.ovyx-settings-panel').forEach(x=>{x.classList.toggle('active',x.dataset.settingsPanel===id);x.hidden=x.dataset.settingsPanel!==id});sidebar.querySelectorAll('.ovyx-settings-nav').forEach(x=>x.classList.toggle('active',x.dataset.settingsNav===id));renderConnections(main.querySelector('[data-settings-panel="connections"]'));S.current=id;return true}return old(id)};wrapped.__OVYXStrictWrapped=true;S.show=wrapped}
+  if(old){const wrapped=function(id){if(id==='brand-identity'){main.querySelectorAll('.ovyx-settings-panel').forEach(x=>{x.classList.toggle('active',x.dataset.settingsPanel===id);x.hidden=x.dataset.settingsPanel!==id});sidebar.querySelectorAll('.ovyx-settings-nav').forEach(x=>x.classList.toggle('active',x.dataset.settingsNav===id));renderBrand(main.querySelector('[data-settings-panel="brand-identity"]'));S.current=id;return true}if(id==='connections'){main.querySelectorAll('.ovyx-settings-panel').forEach(x=>{x.classList.toggle('active',x.dataset.settingsPanel===id);x.hidden=x.dataset.settingsPanel!==id});sidebar.querySelectorAll('.ovyx-settings-nav').forEach(x=>x.classList.toggle('active',x.dataset.settingsNav===id));S.current=id;window.dispatchEvent(new CustomEvent('ovyx-settings-rendered'));return true}return old(id)};wrapped.__OVYXStrictWrapped=true;S.show=wrapped}
   function renderBrand(panel){panel.innerHTML='<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">IDENTITY / BRAND</div><h2>Brand Identity Lock</h2><p>Account-scoped brand controls. Saved changes are authoritative for this OVYX account.</p></div><div class="ovyx-strict-field"><label>PNG Brand Logo</label><input id="strict-brand-logo" class="ovyx-strict-input" type="file" accept="image/png"></div><div class="ovyx-strict-field"><label>Corporate Hex Color</label><input id="strict-brand-color" class="ovyx-strict-input" maxlength="7" placeholder="#E8B64F"></div><div class="ovyx-strict-field"><label>Layout Rules</label><textarea id="strict-brand-rules" class="ovyx-strict-input" placeholder="One rule per line"></textarea></div><div class="ovyx-strict-actions"><button type="button" class="ovyx-settings-btn primary" data-strict-brand-save>Save Brand Identity</button><button type="button" class="ovyx-settings-btn" data-strict-brand-load>Reload</button></div><div class="ovyx-strict-status" data-strict-brand-status>Loading account brand profile…</div>';
    const status=panel.querySelector('[data-strict-brand-status]');
    if(!user()){status.textContent='Sign in to manage the account brand profile.';return}
@@ -14519,17 +14520,9 @@ function installSettingsSurface(){
    panel.querySelector('[data-strict-brand-load]').onclick=()=>renderBrand(panel);
    panel.querySelector('[data-strict-brand-save]').onclick=async()=>{try{let logoData=null;const file=panel.querySelector('#strict-brand-logo').files?.[0];if(file){if(file.type!=='image/png')throw Error('Brand logo must be a PNG.');if(file.size>600*1024)throw Error('Brand logo must be 600 KB or smaller.');logoData=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result));r.onerror=rej;r.readAsDataURL(file)})}const color=String(panel.querySelector('#strict-brand-color').value||'').trim().toUpperCase();if(!/^#[0-9A-F]{6}$/.test(color))throw Error('Corporate color must be a 6-digit hex value.');const rules=String(panel.querySelector('#strict-brand-rules').value||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean).slice(0,50);const d=await api('/api/settings/brand-profile',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({logoDataUrl:logoData,colors:{corporate:color},layoutRules:rules})});status.textContent='Saved to your account '+String(d.profile?.updatedAt||new Date().toISOString());toast('Brand Identity Lock saved.','success')}catch(e){status.textContent=e.message||'Brand profile save failed.';toast(status.textContent,'error')}};
   }
-  async function renderConnections(panel){panel.innerHTML='<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / CONNECTIONS</div><h2>Universal Connections &amp; Tier Limits</h2><p>Manage webhooks, tools, and data service addresses. Available options depend on your plan.</p></div><div class="ovyx-strict-field"><label>Name</label><input id="strict-conn-name" class="ovyx-strict-input" placeholder="My Webhook"></div><div class="ovyx-strict-field"><label>Type</label><select id="strict-conn-type" class="ovyx-strict-input"><option value="webhook">Webhook</option><option value="tool">Tool</option><option value="database">Database</option></select></div><div class="ovyx-strict-field"><label>Endpoint</label><input id="strict-conn-endpoint" class="ovyx-strict-input" placeholder="https://example.com/health"></div><div class="ovyx-strict-actions"><button type="button" class="ovyx-settings-btn primary" data-strict-conn-add>Add Connection</button><button type="button" class="ovyx-settings-btn" data-strict-conn-reload>Reload</button></div><div class="ovyx-strict-status" data-strict-conn-status>Loading connections…</div><div data-strict-conn-list></div>';
-   const status=panel.querySelector('[data-strict-conn-status]'), list=panel.querySelector('[data-strict-conn-list]');
-   if(!user()){status.textContent='Sign in to manage Universal Connections.';return}
-   const refresh=async()=>{try{const d=await api('/api/settings/connections');status.textContent=String(d.tier||'free').toUpperCase()+' · '+String(d.activeCount||0)+' active / '+(d.limit==null?'unlimited':d.limit);list.innerHTML='';for(const row of (d.connections||[])){const card=document.createElement('div');card.className='ovyx-strict-connection';card.innerHTML='<b></b><small></small><div class="actions"><button type="button" data-test>Test</button><button type="button" data-delete>Delete</button></div>';card.querySelector('b').textContent=String(row.name||'Connection');card.querySelector('small').textContent=String(row.type||'tool').toUpperCase()+' · '+String(row.endpoint||'');card.querySelector('[data-test]').onclick=async()=>{try{const t=await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id:row.id})});toast(t.ok?'Connection reachable.':'This service could not be reached. Check its settings and try again.',t.ok?'success':'error')}catch(e){toast(e.message||'The service check could not be completed. Please try again.','error')}};card.querySelector('[data-delete]').onclick=async()=>{try{await api('/api/settings/connections?id='+encodeURIComponent(row.id),{method:'DELETE'});refresh();toast('Connection removed.','success')}catch(e){toast(e.message||'Could not remove this service. Please try again.','error')}};list.appendChild(card)}}catch(e){status.textContent=e.message||'Connection service unavailable.'}};
-   panel.querySelector('[data-strict-conn-reload]').onclick=refresh;
-   panel.querySelector('[data-strict-conn-add]').onclick=async()=>{try{await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:panel.querySelector('#strict-conn-name').value,type:panel.querySelector('#strict-conn-type').value,endpoint:panel.querySelector('#strict-conn-endpoint').value,active:true})});panel.querySelector('#strict-conn-name').value='';panel.querySelector('#strict-conn-endpoint').value='';await refresh();toast('Universal Connection saved.','success')}catch(e){toast(e.message||'These service settings could not be saved. Please try again.','error')}};
-   refresh();
-  }
-  const rerender=()=>{try{const current=S.current;if(current==='brand-identity')renderBrand(main.querySelector('[data-settings-panel="brand-identity"]'));if(current==='connections')renderConnections(main.querySelector('[data-settings-panel="connections"]'))}catch(_){}};
+  const rerender=()=>{try{if(S.current==='brand-identity')renderBrand(main.querySelector('[data-settings-panel="brand-identity"]'))}catch(_){}};
   window.addEventListener('firebase-auth-state-ready',()=>setTimeout(rerender,120),{passive:true});
-  window.addEventListener('ovyx:view-changed',e=>{if(e.detail?.view==='settings')setTimeout(()=>{try{if(S.current==='brand-identity')renderBrand(main.querySelector('[data-settings-panel="brand-identity"]'));else if(S.current==='connections')renderConnections(main.querySelector('[data-settings-panel="connections"]'))}catch(_){}} ,100)}, {passive:true});
+  window.addEventListener('ovyx:view-changed',e=>{if(e.detail?.view==='settings')setTimeout(rerender,100)}, {passive:true});
  });
 }
 function installWebStudioSurface(){
@@ -15940,6 +15933,9 @@ window.addEventListener('ovyx:view-changed',()=>setTimeout(run,0),{passive:true}
 .ovyx-v91-conn-head{margin-bottom:22px}
 .ovyx-v91-conn-head h2{margin:0;color:#f4f5f6;font:850 clamp(25px,4vw,38px)/1.05 Inter,sans-serif;letter-spacing:-.045em}
 .ovyx-v91-conn-head p{margin:9px 0 0;max-width:720px;color:#777f89;font:500 11px/1.6 Inter,sans-serif}
+.ovyx-v91-personal-ai-btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;margin-top:14px;padding:0 14px;border:1px solid rgba(232,182,79,.38);border-radius:10px;background:rgba(232,182,79,.09);color:#f0c76e;font:750 10px/1 Inter,sans-serif;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .15s ease,border-color .15s ease}
+.ovyx-v91-personal-ai-btn:hover,.ovyx-v91-personal-ai-btn:focus-visible{background:rgba(232,182,79,.16);border-color:rgba(232,182,79,.75);outline:none}
+.ovyx-v91-personal-ai-btn:active{transform:translateY(1px)}
 .ovyx-v91-conn-card{border:1px solid rgba(255,255,255,.075);background:#0a0b0d;border-radius:18px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.22)}
 .ovyx-v91-conn-form{padding:18px}
 .ovyx-v91-field{display:grid;gap:7px;margin-bottom:13px}
@@ -16011,7 +16007,7 @@ function render(panel){
   const user=signedIn();
   panel.innerHTML='<div class="ovyx-v91-conn-shell">'+
     '<div class="ovyx-v91-conn-breadcrumb"><i class="fa-solid fa-plug"></i><span>WORKSPACE / CONNECTIONS</span></div>'+
-    '<div class="ovyx-v91-conn-head"><h2>Universal Connections &amp; Tier Limits</h2><p>Choose what each connection is for: AI Brain for ordinary assistant chats, Web Studio for explicitly approved website continuation, or a service/tool endpoint that stays unused until a feature-specific integration is configured.</p></div>'+
+    '<div class="ovyx-v91-conn-head"><h2>Personal Connections</h2><p>Connect your apps, APIs and AI providers to your OVYX account. Choose which projects can use each connection.</p><button type="button" class="ovyx-v91-personal-ai-btn" data-ovyx-personal-ai-manager>＋ Add personal AI connection</button></div>'+
     '<div class="ovyx-v91-conn-card"><div class="ovyx-v91-conn-form">'+
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-name">NAME</label><input id="ovyx-v91-conn-name" class="ovyx-v91-input" placeholder="My Webhook" autocomplete="off"></div>'+
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-type">TYPE</label><select id="ovyx-v91-conn-type" class="ovyx-v91-select"><option value="webhook">Webhook</option><option value="tool">Tool</option><option value="database">Database</option><option value="http">Web service</option></select></div>'+
@@ -16021,7 +16017,7 @@ function render(panel){
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-secret">ACCESS CREDENTIAL</label><input id="ovyx-v91-conn-secret" class="ovyx-v91-input" type="password" autocomplete="new-password" placeholder="Stored encrypted on the server"><small class="text-zinc-500 text-xs">Credentials are kept private. Secure service addresses are required.</small></div>'+
       ''+
       '<div class="ovyx-v91-actions"><button type="button" class="ovyx-v91-btn ovyx-v91-btn-primary" id="ovyx-v91-add">Add Connection</button><button type="button" class="ovyx-v91-btn ovyx-v91-btn-secondary" id="ovyx-v91-reload">Reload</button></div>'+
-    '</div><div class="ovyx-v91-status" id="ovyx-v91-status" data-state="'+(user?'ready':'error')+'">'+(user?'Ready. Your plan connection limit will be checked by the server.':'Sign in to manage Universal Connections.')+'</div></div>'+
+    '</div><div class="ovyx-v91-status" id="ovyx-v91-status" data-state="'+(user?'ready':'error')+'">'+(user?'Ready. Your plan connection limit will be checked by the server.':'Sign in to manage your Personal Connections.')+'</div></div>'+
     '<div class="ovyx-v91-saved" id="ovyx-v91-saved-wrap" '+(user?'':'hidden')+'><div class="ovyx-v91-saved-head"><b>SAVED CONNECTIONS</b><small id="ovyx-v91-limit"></small></div><div class="ovyx-v91-list" id="ovyx-v91-list"></div></div>'+
   '</div>';
   const add=$('ovyx-v91-add'),reload=$('ovyx-v91-reload'),status=$('ovyx-v91-status');const clearBrain=$('ovyx-v91-clear-brain');
@@ -16058,7 +16054,7 @@ function render(panel){
   syncConnectionDefaults();
   add.disabled=!user;
   async function load(){
-    if(!signedIn()){status.textContent='Sign in to manage Universal Connections.';status.dataset.state='error';add.disabled=true;$('ovyx-v91-saved-wrap')?.setAttribute('hidden','');return}
+    if(!signedIn()){status.textContent='Sign in to manage your Personal Connections.';status.dataset.state='error';add.disabled=true;$('ovyx-v91-saved-wrap')?.setAttribute('hidden','');return}
     add.disabled=false;status.textContent='Loading your connection limit…';status.dataset.state='ready';
     try{
       const d=await api('/api/settings/connections');
@@ -16070,7 +16066,7 @@ function render(panel){
       list?.querySelectorAll('[data-v91-use-brain]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;status.textContent='Checking AI service availability…';status.dataset.state='ready';try{await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id:btn.dataset.v91UseBrain})});await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'use-ai',id:btn.dataset.v91UseBrain})});const key=window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1';let prefs={};try{prefs=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}prefs.provider='automatic';try{localStorage.setItem(key,JSON.stringify(prefs))}catch(_){}if(window.OVYXAI)window.OVYXAI.provider='automatic';await load();status.textContent='AI option verified and saved. New AI requests will use this option automatically.';status.dataset.state='ok'}catch(e){const message='The AI option could not be verified. It was not activated.';await load();status.textContent=message;status.dataset.state='error';btn.disabled=false}}));
       list?.querySelectorAll('[data-v91-delete]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;try{await api('/api/settings/connections?id='+encodeURIComponent(btn.dataset.v91Delete),{method:'DELETE'});await load();status.textContent='Connection deleted.';status.dataset.state='ok'}catch(e){status.textContent=e.message||'Could not remove this service. Please try again.';status.dataset.state='error'}finally{btn.disabled=false}}));
       status.textContent='Connections refreshed. '+active+' active / '+limit+' active.';status.dataset.state='ok';
-    }catch(e){status.textContent=e.message||'Unable to load Universal Connections.';status.dataset.state='error'}
+    }catch(e){status.textContent=e.message||'Unable to load Personal Connections.';status.dataset.state='error'}
   }
   add.onclick=async()=>{
     const name=$('ovyx-v91-conn-name')?.value.trim(),type=$('ovyx-v91-conn-type')?.value||'webhook',endpoint=$('ovyx-v91-conn-endpoint')?.value.trim();

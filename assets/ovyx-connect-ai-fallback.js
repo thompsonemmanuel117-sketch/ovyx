@@ -12,7 +12,7 @@
     openrouter: { label: 'OpenRouter', protocol: 'openai-chat', endpoint: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini' },
     custom: { label: 'Custom OpenAI-compatible API', protocol: 'openai-chat', endpoint: '', model: '' }
   });
-  const $ = (root, selector) => root.querySelector(selector);
+  const $ = (selector, root = document) => root.querySelector(selector);
   const notify = (message, kind) => {
     try { const fn = window.showToast || window.toast; if (typeof fn === 'function') fn(message, kind || 'info'); } catch (_) {}
   };
@@ -22,7 +22,7 @@
   async function api(path, options) {
     options = options || {};
     const user = currentUser();
-    if (!user) throw new Error('Sign in to manage Universal Connections.');
+    if (!user) throw new Error('Sign in to manage your Personal Connections.');
     const token = await user.getIdToken(false);
     const headers = Object.assign({ Accept: 'application/json', Authorization: 'Bearer ' + token }, options.headers || {});
     const response = await fetch(path, Object.assign({ credentials: 'same-origin', cache: 'no-store', headers }, options, { headers }));
@@ -36,7 +36,7 @@
     if (document.getElementById('ovyx-connect-control-center-styles')) return;
     const style = document.createElement('style');
     style.id = 'ovyx-connect-control-center-styles';
-    style.textContent = '.ovyx-connect-cta{position:fixed;right:22px;bottom:22px;z-index:9998;border:1px solid rgba(232,182,79,.5);border-radius:14px;padding:12px 17px;background:linear-gradient(135deg,#17130a,#090909);color:#fff;font:600 13px/1.2 system-ui;box-shadow:0 8px 34px rgba(0,0,0,.42);cursor:pointer}.ovyx-connect-cta:hover{border-color:#e8b64f;transform:translateY(-1px)}.ovyx-connect-overlay{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:18px}.ovyx-connect-dialog{width:min(560px,100%);max-height:min(88vh,820px);overflow:auto;background:#090909;border:1px solid rgba(255,255,255,.13);border-radius:22px;padding:22px;color:#f5f5f5;box-shadow:0 24px 90px rgba(0,0,0,.65);font:14px/1.5 system-ui}.ovyx-connect-dialog h2{font-size:20px;margin:0 0 5px}.ovyx-connect-dialog p{color:#a1a1aa;margin:0 0 16px}.ovyx-connect-dialog label{display:block;color:#d4d4d8;font-size:12px;margin:12px 0 5px}.ovyx-connect-dialog input,.ovyx-connect-dialog select{width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:10px;padding:11px 12px;color:#fff;font:inherit}.ovyx-connect-dialog input:focus,.ovyx-connect-dialog select:focus{outline:1px solid #d7a43e;border-color:#d7a43e}.ovyx-connect-dialog .ovyx-connect-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}.ovyx-connect-dialog button{border:1px solid #444;border-radius:10px;padding:10px 14px;background:#171717;color:#eee;cursor:pointer;font:600 13px system-ui}.ovyx-connect-dialog button.primary{background:#d7a43e;color:#17120a;border-color:#d7a43e}.ovyx-connect-dialog button:disabled{opacity:.55;cursor:wait}.ovyx-connect-dialog .note{font-size:12px;color:#a1a1aa;background:#111;border:1px solid #272727;border-radius:10px;padding:10px;margin-top:12px}.ovyx-connect-perms{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.ovyx-connect-perms label{display:flex;align-items:center;gap:7px;margin:0;background:#111;padding:9px;border-radius:9px}.ovyx-connect-perms input{width:auto}';
+    style.textContent = '.ovyx-connect-overlay{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.78);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;padding:18px}.ovyx-connect-dialog{width:min(560px,100%);max-height:min(88vh,820px);overflow:auto;background:#090909;border:1px solid rgba(255,255,255,.13);border-radius:22px;padding:22px;color:#f5f5f5;box-shadow:0 24px 90px rgba(0,0,0,.65);font:14px/1.5 system-ui}.ovyx-connect-dialog h2{font-size:20px;margin:0 0 5px}.ovyx-connect-dialog p{color:#a1a1aa;margin:0 0 16px}.ovyx-connect-dialog label{display:block;color:#d4d4d8;font-size:12px;margin:12px 0 5px}.ovyx-connect-dialog input,.ovyx-connect-dialog select{width:100%;box-sizing:border-box;background:#111;border:1px solid #333;border-radius:10px;padding:11px 12px;color:#fff;font:inherit}.ovyx-connect-dialog input:focus,.ovyx-connect-dialog select:focus{outline:1px solid #d7a43e;border-color:#d7a43e}.ovyx-connect-dialog .ovyx-connect-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}.ovyx-connect-dialog button{border:1px solid #444;border-radius:10px;padding:10px 14px;background:#171717;color:#eee;cursor:pointer;font:600 13px system-ui}.ovyx-connect-dialog button.primary{background:#d7a43e;color:#17120a;border-color:#d7a43e}.ovyx-connect-dialog button:disabled{opacity:.55;cursor:wait}.ovyx-connect-dialog .note{font-size:12px;color:#a1a1aa;background:#111;border:1px solid #272727;border-radius:10px;padding:10px;margin-top:12px}.ovyx-connect-perms{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.ovyx-connect-perms label{display:flex;align-items:center;gap:7px;margin:0;background:#111;padding:9px;border-radius:9px}.ovyx-connect-perms input{width:auto}';
     document.head.appendChild(style);
   }
   function closeDialog() { document.querySelectorAll('.ovyx-connect-overlay').forEach(node => node.remove()); }
@@ -50,7 +50,7 @@
   }
   function renderAIForm(root, existing, activeId) {
     const options = existing.map(item => '<option value="' + String(item.id).replace(/[^A-Za-z0-9_-]/g, '') + '"' + (item.id === activeId ? ' selected' : '') + '>' + String(item.name || 'Saved AI provider').replace(/[<>&"]/g, '') + ' · saved key</option>').join('');
-    root.innerHTML += '<div class="ovyx-connect-note"></div><label for="ovyx-ai-choice">AI provider connection</label><select id="ovyx-ai-choice"><option value="new">Add a new provider key</option>' + options + '</select><div id="ovyx-ai-new-fields"><label for="ovyx-ai-provider">Provider</label><select id="ovyx-ai-provider">' + Object.entries(PROVIDERS).map(([key, value]) => '<option value="' + key + '">' + value.label + '</option>').join('') + '</select><label for="ovyx-ai-name">Connection name</label><input id="ovyx-ai-name" maxlength="120" value="My AI Provider"><label for="ovyx-ai-endpoint">API endpoint</label><input id="ovyx-ai-endpoint" type="url" autocomplete="url" placeholder="https://api.example.com/v1"><label for="ovyx-ai-model">Model name</label><input id="ovyx-ai-model" maxlength="180" placeholder="Enter the model ID"><label for="ovyx-ai-key">API key</label><input id="ovyx-ai-key" type="password" autocomplete="new-password" maxlength="8000" placeholder="Paste your provider API key" required></div><div class="note">Cloudflare Workers AI remains first. Your personal key is used only after your OVYX monthly, booster and daily AI allowances are exhausted. The key is encrypted on the server and is never placed in your website code.</div><div class="ovyx-connect-actions"><button type="button" data-disable>Use Cloudflare only</button><button type="button" data-cancel>Cancel</button><button type="button" class="primary" data-save>Save and enable fallback</button></div>';
+    root.innerHTML += '<div class="ovyx-connect-note"></div><label for="ovyx-ai-choice">AI provider connection</label><select id="ovyx-ai-choice"><option value="new">Add a new provider key</option>' + options + '</select><div id="ovyx-ai-new-fields"><label for="ovyx-ai-provider">Provider</label><select id="ovyx-ai-provider">' + Object.entries(PROVIDERS).map(([key, value]) => '<option value="' + key + '">' + value.label + '</option>').join('') + '</select><label for="ovyx-ai-name">Connection name</label><input id="ovyx-ai-name" maxlength="120" value="My AI Provider"><label for="ovyx-ai-endpoint">API endpoint</label><input id="ovyx-ai-endpoint" type="url" autocomplete="url" placeholder="https://api.example.com/v1"><label for="ovyx-ai-model">Model name</label><input id="ovyx-ai-model" maxlength="180" placeholder="Enter the model ID"><label for="ovyx-ai-key">API key</label><input id="ovyx-ai-key" type="password" autocomplete="new-password" maxlength="8000" placeholder="Paste your provider API key" required></div><div class="note">Cloudflare Workers AI remains first. Your personal key is used only after your OVYX monthly, booster and daily AI allowances are exhausted. The key is encrypted on the server and is never placed in your website code.</div><div class="ovyx-connect-actions"><button type="button" data-disable>Use Cloudflare only</button><button type="button" data-cancel>Cancel</button><button type="button" class="primary" data-save>Save personal AI connection</button></div>';
     const choice = $('#ovyx-ai-choice', root), provider = $('#ovyx-ai-provider', root), endpoint = $('#ovyx-ai-endpoint', root), model = $('#ovyx-ai-model', root), name = $('#ovyx-ai-name', root), fields = $('#ovyx-ai-new-fields', root), key = $('#ovyx-ai-key', root);
     function applyProvider() { const p = PROVIDERS[provider.value]; endpoint.value = p.endpoint; model.value = p.model; name.value = p.label + ' personal key'; }
     provider.addEventListener('change', applyProvider); applyProvider();
@@ -58,7 +58,7 @@
     $('[data-cancel]', root).addEventListener('click', closeDialog);
     $('[data-disable]', root).addEventListener('click', async event => {
       const button = event.currentTarget; button.disabled = true;
-      try { await api('/api/settings/connections', jsonOptions({ action: 'clear-ai' })); closeDialog(); notify('Personal fallback disabled. OVYX will use its normal Cloudflare quota policy.', 'success'); }
+      try { await api('/api/settings/connections', jsonOptions({ action: 'clear-ai' })); closeDialog(); notify('Personal AI connection disabled. OVYX will use its normal Cloudflare quota policy.', 'success'); }
       catch (error) { notify(error.message || 'Could not disable the personal fallback.', 'error'); button.disabled = false; }
     });
     $('[data-save]', root).addEventListener('click', async event => {
@@ -77,13 +77,13 @@
           if (!id) throw new Error('The provider connection was saved but OVYX did not return its ID. Refresh Connections before enabling it.');
         }
         await api('/api/settings/connections', jsonOptions({ action: 'use-ai', id }));
-        closeDialog(); notify('Personal AI fallback is enabled. OVYX still uses Cloudflare first.', 'success');
+        closeDialog(); notify('Personal AI connection saved. OVYX still uses Cloudflare first.', 'success');
         window.dispatchEvent(new CustomEvent('ovyx:connections-updated'));
-      } catch (error) { notify(error.message || 'Could not save the AI connection.', 'error'); button.disabled = false; button.textContent = 'Save and enable fallback'; }
+      } catch (error) { notify(error.message || 'Could not save the AI connection.', 'error'); button.disabled = false; button.textContent = 'Save personal AI connection'; }
     });
   }
   async function openAIManager() {
-    const root = dialog('Personal AI fallback', 'Connect a provider key to your OVYX account.', '<div class="note">Loading your saved AI connections…</div>');
+    const root = dialog('Personal AI connection', 'Connect a personal AI provider key to your OVYX account.', '<div class="note">Loading your saved AI connections…</div>');
     try {
       const data = await api('/api/settings/connections');
       const existing = (data.connections || []).filter(item => item.type === 'ai' && item.hasSecret && item.active);
@@ -156,23 +156,46 @@
       button.addEventListener('click', () => openProjectGrant(id)); row.appendChild(button);
     });
   }
-  let cta = null;
-  function hasConnectionsView() {
-    const heading = Array.from(document.querySelectorAll('h1,h2,h3,h4,[role="heading"]')).some(el => visible(el) && /universal connections|connections/i.test(el.textContent || ''));
-    const action = Array.from(document.querySelectorAll('[data-v91-test], [data-v91-delete], [data-conn-test], [data-conn-delete]')).some(visible);
-    return heading || action;
-  }
   function decorate() {
     decorateProjectGrantActions();
-    if (!hasConnectionsView()) { if (cta) { cta.remove(); cta = null; } return; }
-    if (!cta) {
-      ensureStyles(); cta = document.createElement('button'); cta.className = 'ovyx-connect-cta'; cta.id = 'ovyx-connect-ai-cta'; cta.type = 'button'; cta.textContent = '＋ Personal AI fallback'; cta.addEventListener('click', openAIManager); document.body.appendChild(cta);
-    }
   }
+  // Bind the action directly to its real button as soon as the Connections
+  // renderer inserts it. Keep a delegated capture fallback for rerenders from
+  // older Settings code, and mark each event so the dialog can never open twice.
+  function bindPersonalAIButtons() {
+    document.querySelectorAll('[data-ovyx-personal-ai-manager]').forEach(trigger => {
+      if (trigger.dataset.ovyxPersonalAIActionBound === '1') return;
+      trigger.dataset.ovyxPersonalAIActionBound = '1';
+      trigger.addEventListener('click', event => {
+        if (event.__ovyxPersonalAIHandled) return;
+        event.__ovyxPersonalAIHandled = true;
+        event.preventDefault();
+        event.stopPropagation();
+        openAIManager();
+      });
+    });
+  }
+  window.addEventListener('click', event => {
+    const trigger = event.target && event.target.closest && event.target.closest('[data-ovyx-personal-ai-manager]');
+    if (!trigger || event.__ovyxPersonalAIHandled) return;
+    event.__ovyxPersonalAIHandled = true;
+    event.preventDefault();
+    event.stopPropagation();
+    openAIManager();
+  }, true);
+
   function boot() {
-    decorate();
-    const observer = new MutationObserver(decorate); observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['class','style','hidden'] });
-    window.addEventListener('ovyx:connections-updated', decorate);
+    decorateProjectGrantActions();
+    bindPersonalAIButtons();
+    const observer = new MutationObserver(() => {
+      decorateProjectGrantActions();
+      bindPersonalAIButtons();
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    window.addEventListener('ovyx:connections-updated', () => {
+      decorateProjectGrantActions();
+      bindPersonalAIButtons();
+    });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
 })();

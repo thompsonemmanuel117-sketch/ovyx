@@ -332,12 +332,12 @@ try {
     await assertSingleProfileRenderer('Profile after refresh');
     await page.evaluate(() => window.OVYXSettings.show('general'));
 
-    // Regression: Universal Connections must only occupy its own Settings
+    // Regression: Personal Connections must only occupy its own Settings
     // category and must release all special visibility state on every other tab.
     const settingsCategories = await page.locator('#view-settings [data-settings-nav]').evaluateAll(nodes =>
       Array.from(new Set(nodes.map(node => String(node.dataset.settingsNav || '').trim()).filter(Boolean)))
     );
-    assert.ok(settingsCategories.includes('connections'), '[' + target.name + '] Universal Connections must remain available as a real Settings category.');
+    assert.ok(settingsCategories.includes('connections'), '[' + target.name + '] Personal Connections must remain available as a real Settings category.');
     for (const category of settingsCategories) {
       await page.evaluate(id => window.OVYXSettings.show(id), category);
       await page.waitForTimeout(110);
@@ -359,7 +359,7 @@ try {
       const connectionShouldShow = category === 'connections';
       assert.equal(panelState.connectionHidden, !connectionShouldShow, '[' + target.name + '] Connections hidden state must match selection of ' + category + '.');
       assert.equal(panelState.connectionActiveClass, connectionShouldShow, '[' + target.name + '] Connections must not remain active beneath ' + category + '.');
-      assert.equal(panelState.connectionDisplay !== 'none', connectionShouldShow, '[' + target.name + '] Universal Connections must not remain visible outside its own category.');
+      assert.equal(panelState.connectionDisplay !== 'none', connectionShouldShow, '[' + target.name + '] Personal Connections must not remain visible outside its own category.');
       assert.equal(panelState.connectionInlineDisplayPriority, '', '[' + target.name + '] The Connections guard must not pin display with an inline !important override.');
     }
 
