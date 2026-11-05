@@ -13771,95 +13771,13 @@ function renderBrandPanel(){
     catch(error){notify(error?.message||'Brand profile reset failed.','error')}
   });
 }
-const UniversalConnections={
+const PersonalConnections={
   async list(){return api('/api/settings/connections')},
   async save(value){return api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)})},
   async remove(id){return api('/api/settings/connections?id='+encodeURIComponent(id),{method:'DELETE'})},
   async test(id){return api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id})})}
 };
-window.UniversalConnections=UniversalConnections;
-async function renderConnectionsPanel(){
-  const settings=window.OVYXSettings;
-  const panel=settings?.root?.querySelector('[data-settings-panel="connections"]');
-  if(!panel)return;
-  let data;
-  try{data=await UniversalConnections.list()}catch(error){
-    panel.innerHTML='<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / CONNECTIONS</div><h2>Personal Connections</h2><p>Real server-managed external connections for this account.</p></div><div class="ovyx-deep-status">'+String(error?.message||'Sign in to load connections.')+'</div>';
-    return;
-  }
-  const limit=data.limit==null?'Unlimited':String(data.limit);
-  const rows=Array.isArray(data.connections)?data.connections:[];
-  panel.innerHTML=
-    '<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / CONNECTIONS</div><h2>Personal Connections</h2><p>Manage approved webhooks, tools, and data services here. Available options depend on your plan.</p></div>'+
-    '<div class="ovyx-deep-grid"><div class="ovyx-pref-group"><div class="ovyx-pref-label">PLAN</div><div class="ovyx-deep-note"><b style="color:var(--app-text,#fff)">'+String(data.tier||'free').toUpperCase()+'</b> · '+String(data.activeCount||0)+' active / '+limit+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">STATUS</div><div class="ovyx-deep-note">'+String(data.totalCount||0)+' saved connection'+(Number(data.totalCount||0)===1?'':'s')+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">AI MODEL ENGINE</div><div class="ovyx-deep-note">'+'Cloudflare Workers AI · exclusive model provider'+'</div></div></div>'+
-    '<div class="ovyx-pref-group"><div class="ovyx-pref-label">ADD CONNECTION</div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Name</label><input id="deep-conn-name" placeholder="Custom AI service"></div><div class="ovyx-deep-field"><label>Type</label><select id="deep-conn-type"><option value="http">Web service</option><option value="webhook">Webhook</option><option value="tool">Service address</option><option value="database">Legacy HTTP Database</option></select></div></div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Protocol</label><select id="deep-conn-protocol"><option value="http-json">Generic JSON HTTP</option></select></div><div class="ovyx-deep-field"><label>Auth</label><select id="deep-conn-auth"><option value="bearer">Bearer token</option><option value="api-key">X-API-Key</option><option value="basic">Basic token</option><option value="none">No credential</option></select></div></div><div class="ovyx-deep-status" id="deep-conn-auth-note">Credential is optional. Leave it empty for public services.</div><div class="ovyx-deep-field"><label>Endpoint</label><input id="deep-conn-endpoint" placeholder="https://api.example.com/v1/chat/completions"></div><div class="ovyx-deep-field"><label>Credential <small>(optional; only required when the external service requires one; encrypted server-side)</small></label><input id="deep-conn-secret" type="password" autocomplete="new-password" placeholder="Access credential (optional)"></div><div class="ovyx-deep-actions"><button class="ovyx-deep-btn primary" id="deep-conn-add">Save Connection</button></div><div class="ovyx-deep-status">Personal Connections are secure account connections. Saving a connection does not claim it works until its Test/Run operation succeeds.</div></div>'+
-    '<div class="ovyx-pref-group"><div class="ovyx-pref-label">SAVED CONNECTIONS</div><div class="ovyx-deep-conn-list">'+
-      (rows.length?rows.map(row=>{const legacyAiModel=String(row.type||'').toLowerCase()==='ai'||['openai-chat','anthropic-messages','gemini-generate-content'].includes(String(row.protocol||'').toLowerCase());return '<div class="ovyx-deep-conn"><div><b>'+String(row.name||'Unnamed').replace(/[<>]/g,'')+'</b><small>'+String(row.type||'tool').toUpperCase()+' · '+String(row.endpoint||'').replace(/[<>]/g,'')+' · '+(row.active?'Enabled':'Disabled')+(legacyAiModel?' · Legacy AI model disabled':'')+'</small></div><div class="ovyx-deep-conn-actions">'+(legacyAiModel?'<span class="ovyx-deep-status">AI model disabled</span>':'<button class="ovyx-deep-btn" data-conn-test="'+String(row.id)+'">Test</button>')+'<button class="ovyx-deep-btn danger" data-conn-delete="'+String(row.id)+'">Delete</button></div></div>'}).join(''):'<div class="ovyx-deep-status">No connections have been added yet.</div>')+
-    '</div></div><div class="ovyx-deep-status" id="deep-conn-status">Usage limits follow your current account plan.</div>';
-  panel.querySelector('#deep-conn-add')?.addEventListener('click',async()=>{
-    try{
-      const name=panel.querySelector('#deep-conn-name')?.value.trim();
-      const type=panel.querySelector('#deep-conn-type')?.value;
-      const endpoint=panel.querySelector('#deep-conn-endpoint')?.value.trim();
-      if(!name||!endpoint)throw new Error('Name and endpoint are required.');
-      await UniversalConnections.save({
-        name,type,endpoint,healthUrl:endpoint,active:true,
-        protocol:panel.querySelector('#deep-conn-protocol')?.value,
-        authMode:panel.querySelector('#deep-conn-auth')?.value,
-        secret:panel.querySelector('#deep-conn-secret')?.value,
-        model:panel.querySelector('#deep-conn-model')?.value
-      });
-      notify('Universal connection saved.','success');
-      await renderConnectionsPanel();
-    }catch(error){
-      const status=panel.querySelector('#deep-conn-status');
-      if(status)status.textContent=error?.code==='CONNECTION_LIMIT_REACHED'?'Your plan has reached its active service limit. Upgrade to add another service.':String(error?.message||'These service settings could not be saved. Please try again.');
-      notify(error?.message||'These service settings could not be saved. Please try again.','error');
-    }
-  });
-  const authSelect=panel.querySelector('#deep-conn-auth'), authNote=panel.querySelector('#deep-conn-auth-note');
-  const syncAuthNote=()=>{if(authNote)authNote.textContent=authSelect?.value==='none'?'No access credential will be sent. Use this option only for services that do not require sign-in.':'Some services require an access credential. OVYX stores it securely and hides it after saving.'};
-  authSelect?.addEventListener('change',syncAuthNote);
-  syncAuthNote();
-  panel.querySelectorAll('[data-conn-test]').forEach(button=>button.addEventListener('click',async()=>{
-    button.disabled=true;
-    try{const result=await UniversalConnections.test(button.dataset.connTest);notify(result.ok?'Connection reachable.':'The service check could not be completed. Please try again.',result.ok?'success':'error');await renderConnectionsPanel()}
-    catch(error){notify(error?.message||'The service check could not be completed. Please try again.','error')}
-    finally{button.disabled=false}
-  }));
-  panel.querySelectorAll('[data-conn-use-ai]').forEach(button=>button.addEventListener('click',async()=>{
-    const id=String(button.dataset.connUseAi||'').trim();if(!id)return;
-    button.disabled=true;
-    try{
-      await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'use-ai',id})});
-      const key=window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1';let prefs={};
-      try{prefs=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}
-      prefs.provider='automatic';try{localStorage.setItem(key,JSON.stringify(prefs))}catch(_){}
-      window.OVYXAI=window.OVYXAI||{};window.OVYXAI.provider='automatic';
-      notify('AI Brain saved to your account. New AI requests will route through it automatically.','success');
-      await renderConnectionsPanel();
-    }catch(error){notify(error?.message||'Could not select this AI Brain.','error')}
-    finally{button.disabled=false}
-  }));
-  panel.querySelector('#deep-conn-clear-ai')?.addEventListener('click',async buttonEvent=>{
-    const button=buttonEvent.currentTarget;if(button)button.disabled=true;
-    try{
-      await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'clear-ai'})});
-      const key=window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1';let prefs={};
-      try{prefs=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}
-      prefs.provider='automatic';try{localStorage.setItem(key,JSON.stringify(prefs))}catch(_){}
-      if(window.OVYXAI)window.OVYXAI.provider='automatic';
-      notify('AI Brain cleared. OVYX Automatic routing is active.','success');
-      await renderConnectionsPanel();
-    }catch(error){notify(error?.message||'Could not clear the AI Brain.','error')}
-    finally{if(button)button.disabled=false}
-  });
-  panel.querySelectorAll('[data-conn-delete]').forEach(button=>button.addEventListener('click',async()=>{
-    if(!confirm('Delete this connection?'))return;
-    try{await UniversalConnections.remove(button.dataset.connDelete);notify('Connection deleted.','success');await renderConnectionsPanel()}
-    catch(error){notify(error?.message||'Could not remove this service. Please try again.','error')}
-  }));
-}
+window.PersonalConnections=PersonalConnections;
 function installSettingsRepair(){
   const S=window.OVYXSettings;
   if(!S||S.__OVYXDeepSettings)return;
@@ -14021,7 +13939,7 @@ function boot(){
   },{passive:true});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-window.OVYXDeepRepair={version:'1.0',requireAuth,projectSync:ProjectCloudSync,brand:BrandIdentityLock,connections:UniversalConnections,buildCredits:AppBuildCredits};
+window.OVYXDeepRepair={version:'1.0',requireAuth,projectSync:ProjectCloudSync,brand:BrandIdentityLock,connections:PersonalConnections,buildCredits:AppBuildCredits};
 })();</script>
 
 <style id="ovyx-deep-repair-v2-style">#ovyx-page-tabs{display:flex;align-items:center;gap:5px;min-width:0;overflow:auto;padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.055);background:rgba(5,6,7,.96)} #ovyx-page-tabs [data-page-tab]{flex:0 0 auto;border:1px solid rgba(255,255,255,.08);background:#0b0d10;color:#80858d;border-radius:7px;padding:6px 9px;font:800 8px/1 Inter,sans-serif;cursor:pointer} #ovyx-page-tabs [data-page-tab].active{color:#f3f3ef;border-color:rgba(232,182,79,.38);background:rgba(232,182,79,.07)} #ovyx-page-tabs [data-add-page]{flex:0 0 auto;border:1px dashed rgba(232,182,79,.25);background:transparent;color:#c6a35a;border-radius:7px;padding:6px 9px;font:800 8px/1 JetBrains Mono,monospace;cursor:pointer} #ovyx-page-tabs .ovyx-page-tools{margin-left:auto;display:flex;gap:5px;flex:0 0 auto} .ovyx-repair-button{border:1px solid rgba(255,255,255,.08);background:#0b0d10;color:#80858d;border-radius:7px;padding:6px 9px;font:800 8px/1 Inter,sans-serif;cursor:pointer} .ovyx-repair-button:hover{color:#f3f3ef;border-color:rgba(232,182,79,.3)} #ovyx-section-order-popover,#ovyx-asset-manager{position:fixed;z-index:120000;background:#070809;border:1px solid rgba(255,255,255,.11);box-shadow:0 25px 80px rgba(0,0,0,.65);backdrop-filter:blur(16px);border-radius:13px;color:#eaeae6} #ovyx-section-order-popover{width:min(420px,calc(100vw - 24px));right:16px;top:92px;padding:12px} #ovyx-asset-manager{inset:8vh 5vw;display:none;grid-template-rows:auto 1fr auto;padding:14px} #ovyx-asset-manager.open{display:grid} .ovyx-repair-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.07)} .ovyx-repair-head b{font:850 11px/1 Inter,sans-serif}.ovyx-repair-head button{border:0;background:transparent;color:#777;cursor:pointer} .ovyx-section-row{display:flex;align-items:center;gap:7px;padding:8px;margin-top:6px;border:1px solid rgba(255,255,255,.07);background:#0a0b0d;border-radius:8px;cursor:grab} .ovyx-section-row.dragging{opacity:.5}.ovyx-section-row .ovyx-section-grip{color:#5e646d}.ovyx-section-row b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:800 8px/1.2 Inter,sans-serif}.ovyx-section-row small{color:#666b73;font:700 7px/1 JetBrains Mono,monospace} .ovyx-section-row button{border:1px solid rgba(255,255,255,.06);background:#0d0f12;color:#8d9299;border-radius:6px;width:24px;height:22px;cursor:pointer}.ovyx-section-row button:hover{color:#fff} .ovyx-asset-grid{overflow:auto;padding:10px 2px;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}.ovyx-asset-card{border:1px solid rgba(255,255,255,.07);background:#0a0b0d;border-radius:9px;padding:9px}.ovyx-asset-card b{display:block;color:#e8e8e4;font:800 8px/1.3 Inter,sans-serif;word-break:break-word}.ovyx-asset-card small{display:block;color:#686d75;font:700 7px/1.4 JetBrains Mono,monospace;margin-top:4px}.ovyx-asset-card .asset-actions{display:flex;gap:5px;margin-top:8px}.ovyx-asset-card a,.ovyx-asset-card button{border:1px solid rgba(255,255,255,.07);background:#0d0f12;color:#a2a6ad;padding:5px 7px;border-radius:6px;font:800 7px/1 Inter,sans-serif;text-decoration:none;cursor:pointer}.ovyx-asset-card button.danger{color:#fca5a5} @media(max-width:700px){#ovyx-section-order-popover{right:8px;top:78px}#ovyx-asset-manager{inset:3vh 8px}.ovyx-page-tools{margin-left:0!important}}</style>
@@ -14907,7 +14825,7 @@ function installWebStudioSurface(){
   if(window.OVYXV67){window.OVYXV67.scanFeatures=()=>[];window.OVYXV67.scan=()=>[];window.OVYXV67.render=remove;}
 })();</script>
 <!-- OVYX FINAL STABILITY + WORKSPACE COPILOT AUTHORITY -->
-<style id="ovyx-final-stability-authority-style-v2">/* The authentication surface is a viewport-level UI, not a routed canvas child. */ body.ovx-auth-surface-ready #view-master-auth, body[data-ovyx-auth-intent="1"] #view-master-auth{ position:fixed!important; inset:0!important; width:100vw!important; height:100dvh!important; min-height:100dvh!important; max-height:none!important; z-index:2147483000!important; display:flex!important; align-items:center!important; justify-content:center!important; box-sizing:border-box!important; overflow:auto!important; overscroll-behavior:contain!important; padding:clamp(14px,3vw,36px)!important; margin:0!important; } body:not([data-ovyx-auth-intent="1"]) #view-master-auth{ display:none!important; visibility:hidden!important; opacity:0!important; pointer-events:none!important; } #view-master-auth .ovyx-master-auth-shell{ width:min(1120px,100%)!important; max-height:calc(100dvh - 28px)!important; margin:auto!important; overflow:auto!important; box-sizing:border-box!important; } #view-master-auth .ovyx-auth-layout{ min-width:0!important; } @media(max-width:760px){ #view-master-auth{padding:0!important} #view-master-auth .ovyx-master-auth-shell{ width:100%!important; max-height:100dvh!important; min-height:100dvh!important; border-radius:0!important; } } /* Universal Connections is a real settings surface; never hide it as infrastructure. */ #view-settings [data-settings-nav="connections"]{ display:flex!important; visibility:visible!important; opacity:1!important; pointer-events:auto!important; } #view-settings [data-settings-panel="connections"].active{ display:block!important; visibility:visible!important; opacity:1!important; } /* No startup typography/utility animation should move the main shell after first paint. */ html.ovx-shell-stable #app-container, html.ovx-shell-stable #view-router-viewport, html.ovx-shell-stable #app-sidebar, html.ovx-shell-stable #ovyx-topbar{ transition-property:background-color,border-color,color,opacity!important; }</style>
+<style id="ovyx-final-stability-authority-style-v2">/* The authentication surface is a viewport-level UI, not a routed canvas child. */ body.ovx-auth-surface-ready #view-master-auth, body[data-ovyx-auth-intent="1"] #view-master-auth{ position:fixed!important; inset:0!important; width:100vw!important; height:100dvh!important; min-height:100dvh!important; max-height:none!important; z-index:2147483000!important; display:flex!important; align-items:center!important; justify-content:center!important; box-sizing:border-box!important; overflow:auto!important; overscroll-behavior:contain!important; padding:clamp(14px,3vw,36px)!important; margin:0!important; } body:not([data-ovyx-auth-intent="1"]) #view-master-auth{ display:none!important; visibility:hidden!important; opacity:0!important; pointer-events:none!important; } #view-master-auth .ovyx-master-auth-shell{ width:min(1120px,100%)!important; max-height:calc(100dvh - 28px)!important; margin:auto!important; overflow:auto!important; box-sizing:border-box!important; } #view-master-auth .ovyx-auth-layout{ min-width:0!important; } @media(max-width:760px){ #view-master-auth{padding:0!important} #view-master-auth .ovyx-master-auth-shell{ width:100%!important; max-height:100dvh!important; min-height:100dvh!important; border-radius:0!important; } } /* Personal Connections is the single account connection surface. */ #view-settings [data-settings-nav="connections"]{ display:flex!important; visibility:visible!important; opacity:1!important; pointer-events:auto!important; } #view-settings [data-settings-panel="connections"].active{ display:block!important; visibility:visible!important; opacity:1!important; } /* No startup typography/utility animation should move the main shell after first paint. */ html.ovx-shell-stable #app-container, html.ovx-shell-stable #view-router-viewport, html.ovx-shell-stable #app-sidebar, html.ovx-shell-stable #ovyx-topbar{ transition-property:background-color,border-color,color,opacity!important; }</style>
 
 <script id="ovyx-workspace-copilot-advanced-tools-v1">(function(){
   'use strict';
@@ -15918,8 +15836,8 @@ window.addEventListener('pageshow',()=>setTimeout(run,0),{passive:true});
 window.addEventListener('resize',()=>setTimeout(run,0),{passive:true});
 window.addEventListener('ovyx:view-changed',()=>setTimeout(run,0),{passive:true});
 })();</script>
-<style id="ovyx-v90-splash-logo-authority-style">#ovyx-first-paint-curtain .ovyx-boot-logo-spin{display:grid!important;place-items:center!important;width:clamp(118px,17vw,190px)!important;height:auto!important;flex:0 0 auto!important;margin:0!important;padding:0!important;transform:none!important;rotate:none!important;perspective:none!important;transform-style:flat!important;backface-visibility:hidden!important;-webkit-backface-visibility:hidden!important;will-change:transform!important;animation:ovyxV90SplashSpin 4.2s linear infinite!important}#ovyx-first-paint-curtain .ovyx-boot-logo-spin>.ovyx-boot-logo-svg{display:block!important;width:100%!important;height:auto!important;margin:0!important;transform:none!important;rotate:none!important;animation:none!important;will-change:auto!important;transform-origin:50% 50%!important;transform-box:view-box!important}@keyframes ovyxV90SplashSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#ovyx-first-paint-curtain .ovyx-boot-logo-spin{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style><script id="ovyx-v90-splash-logo-authority">(function(){'use strict';if(window.__OVYX_V90_SPLASH_LOGO_AUTHORITY__)return;window.__OVYX_V90_SPLASH_LOGO_AUTHORITY__=true;function mount(){const curtain=document.getElementById('ovyx-first-paint-curtain');const svg=curtain?.querySelector('.ovyx-boot-logo-svg');if(!svg||svg.dataset.ovyxV90Wrapped)return;const wrap=document.createElement('span');wrap.className='ovyx-boot-logo-spin';wrap.setAttribute('aria-hidden','true');svg.parentNode.insertBefore(wrap,svg);wrap.appendChild(svg);svg.dataset.ovyxV90Wrapped='1'}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount()})();</script><!-- OVYX V91 · UNIVERSAL CONNECTIONS FINAL SURFACE AUTHORITY -->
-<style id="ovyx-v91-universal-connections-style">
+<style id="ovyx-v90-splash-logo-authority-style">#ovyx-first-paint-curtain .ovyx-boot-logo-spin{display:grid!important;place-items:center!important;width:clamp(118px,17vw,190px)!important;height:auto!important;flex:0 0 auto!important;margin:0!important;padding:0!important;transform:none!important;rotate:none!important;perspective:none!important;transform-style:flat!important;backface-visibility:hidden!important;-webkit-backface-visibility:hidden!important;will-change:transform!important;animation:ovyxV90SplashSpin 4.2s linear infinite!important}#ovyx-first-paint-curtain .ovyx-boot-logo-spin>.ovyx-boot-logo-svg{display:block!important;width:100%!important;height:auto!important;margin:0!important;transform:none!important;rotate:none!important;animation:none!important;will-change:auto!important;transform-origin:50% 50%!important;transform-box:view-box!important}@keyframes ovyxV90SplashSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#ovyx-first-paint-curtain .ovyx-boot-logo-spin{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style><script id="ovyx-v90-splash-logo-authority">(function(){'use strict';if(window.__OVYX_V90_SPLASH_LOGO_AUTHORITY__)return;window.__OVYX_V90_SPLASH_LOGO_AUTHORITY__=true;function mount(){const curtain=document.getElementById('ovyx-first-paint-curtain');const svg=curtain?.querySelector('.ovyx-boot-logo-svg');if(!svg||svg.dataset.ovyxV90Wrapped)return;const wrap=document.createElement('span');wrap.className='ovyx-boot-logo-spin';wrap.setAttribute('aria-hidden','true');svg.parentNode.insertBefore(wrap,svg);wrap.appendChild(svg);svg.dataset.ovyxV90Wrapped='1'}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount()})();</script><!-- OVYX V91 · PERSONAL CONNECTIONS SINGLE SURFACE AUTHORITY -->
+<style id="ovyx-v91-personal-connections-style">
 #view-settings [data-settings-panel="connections"].ovyx-v91-connection-panel{
   width:100%!important;max-width:920px!important;margin:0 auto!important;
   display:none!important;visibility:hidden!important;opacity:0!important;
@@ -15987,9 +15905,9 @@ window.addEventListener('ovyx:view-changed',()=>setTimeout(run,0),{passive:true}
   .ovyx-v91-mini{flex:1}
 }
 </style>
-<script id="ovyx-v91-universal-connections-runtime">(function(){
+<script id="ovyx-v91-personal-connections-runtime">(function(){
 'use strict';
-if(window.__OVYX_V91_CONNECTION_AUTHORITY__)return;
+if(window.__OVYX_V91_PERSONAL_CONNECTIONS_AUTHORITY__)return;
 window.__OVYX_V91_CONNECTION_AUTHORITY__=true;
 const $=id=>document.getElementById(id);
 const api=async(path,opts={})=>{const u=window.firebase?.auth?.().currentUser;const authHeaders=u?{Authorization:'Bearer '+await u.getIdToken(false)}:{};const r=await fetch(path,{...opts,credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...authHeaders,...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(d.message||d.error||('HTTP '+r.status)),{code:d.code||'REQUEST_FAILED',status:r.status,data:d});return d};
