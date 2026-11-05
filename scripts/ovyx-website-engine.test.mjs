@@ -46,7 +46,7 @@ assert.deepEqual(germanyPayments.recommendedProviders, [], 'Do not recommend a p
 const explicitGermanyOverridesMarket = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { country: 'Germany', market: 'Nigeria' }).integrations.find(item => item.capability === 'payments');
 assert.deepEqual(explicitGermanyOverridesMarket.recommendedProviders, [], 'An explicit non-Nigerian country must not inherit a Nigerian provider recommendation or assume Stripe eligibility.');
 assert.match(germanyPayments.recommendation, /settlement country/i);
-assert.match(germanyPayments.recommendation, /not default recommendations outside Nigeria/i);
+assert.match(germanyPayments.recommendation, /Do not assume Stripe, Paystack, OPay or any other provider is available/i);
 const unspecifiedMarketPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.').integrations.find(item => item.capability === 'payments');
 assert.deepEqual(unspecifiedMarketPayments.recommendedProviders, [], 'An unspecified target market must not silently select any payment provider.');
 assert.match(unspecifiedMarketPayments.recommendation, /No payment provider is selected by default/i);
