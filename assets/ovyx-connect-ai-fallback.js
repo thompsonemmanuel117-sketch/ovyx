@@ -159,13 +159,26 @@
   function decorate() {
     decorateProjectGrantActions();
   }
-  // Listen at the window capture boundary so unrelated document-level
-  // click guards cannot swallow this Settings action before it reaches us.
-  // Stop propagation only for this dedicated button; all other OVYX clicks
-  // continue through the existing application handlers.
+  // Bind the action directly to its real button as soon as the Connections
+  // renderer inserts it. Keep a delegated capture fallback for rerenders from
+  // older Settings code, and mark each event so the dialog can never open twice.
+  function bindPersonalAIButtons() {
+    document.querySelectorAll('[data-ovyx-personal-ai-manager]').forEach(trigger => {
+      if (trigger.dataset.ovyxPersonalAIActionBound === '1') return;
+      trigger.dataset.ovyxPersonalAIActionBound = '1';
+      trigger.addEventListener('click', event => {
+        if (event.__ovyxPersonalAIHandled) return;
+        event.__ovyxPersonalAIHandled = true;
+        event.preventDefault();
+        event.stopPropagation();
+        openAIManager();
+      });
+    });
+  }
   window.addEventListener('click', event => {
     const trigger = event.target && event.target.closest && event.target.closest('[data-ovyx-personal-ai-manager]');
-    if (!trigger) return;
+    if (!trigger || event.__ovyxPersonalAIHandled) return;
+    event.__ovyxPersonalAIHandled = true;
     event.preventDefault();
     event.stopPropagation();
     openAIManager();
@@ -173,9 +186,16 @@
 
   function boot() {
     decorateProjectGrantActions();
-    const observer = new MutationObserver(decorateProjectGrantActions);
+    bindPersonalAIButtons();
+    const observer = new MutationObserver(() => {
+      decorateProjectGrantActions();
+      bindPersonalAIButtons();
+    });
     observer.observe(document.documentElement, { childList: true, subtree: true });
-    window.addEventListener('ovyx:connections-updated', decorateProjectGrantActions);
+    window.addEventListener('ovyx:connections-updated', () => {
+      decorateProjectGrantActions();
+      bindPersonalAIButtons();
+    });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
 })();
