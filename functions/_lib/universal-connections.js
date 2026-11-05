@@ -150,7 +150,7 @@ async function encryptionKey(env) {
   const raw = clean(env?.OVYX_CONNECTION_ENCRYPTION_KEY, 400);
   if (!raw) {
     throw Object.assign(
-      new Error('Universal Connection secret encryption is not configured on the server.'),
+      new Error('Personal Connection secret encryption is not configured on the server.'),
       { status: 503, code: 'CONNECTION_SECRETS_NOT_CONFIGURED' }
     );
   }
@@ -175,7 +175,7 @@ async function decryptSecret(env, encrypted) {
   if (!encrypted) return '';
   if (!String(encrypted).startsWith('v1.')) {
     throw Object.assign(
-      new Error('Stored universal connection secret uses an unsupported format.'),
+      new Error('Stored Personal Connection secret uses an unsupported format.'),
       { status: 500, code: 'CONNECTION_SECRET_FORMAT_INVALID' }
     );
   }
@@ -332,7 +332,7 @@ export async function getConnection(env, user, id, { requireActive = true } = {}
 
   if (requireActive && record.active !== true) {
     throw Object.assign(
-      new Error('This Universal Connection is inactive.'),
+      new Error('This Personal Connection is inactive.'),
       { status: 409, code: 'CONNECTION_INACTIVE' }
     );
   }
@@ -510,7 +510,7 @@ async function responseJson(response) {
   const text = await response.text();
   if (text.length > MAX_RESPONSE_BYTES) {
     throw Object.assign(
-      new Error('Universal Connection response is too large.'),
+      new Error('Personal Connection response is too large.'),
       { status: 502, code: 'CONNECTION_RESPONSE_TOO_LARGE' }
     );
   }
@@ -584,7 +584,7 @@ async function requestConnection(record, input, env) {
         new Error(
           parsed?.data?.error?.message ||
           parsed?.data?.message ||
-          'Universal Connection upstream request failed with HTTP ' + response.status
+          'Personal Connection upstream request failed with HTTP ' + response.status
         ),
         {
           status: response.status,
@@ -602,7 +602,7 @@ async function requestConnection(record, input, env) {
   } catch (error) {
     if (error?.name === 'AbortError') {
       throw Object.assign(
-        new Error('Universal Connection request timed out.'),
+        new Error('Personal Connection request timed out.'),
         { status: 504, code: 'CONNECTION_TIMEOUT' }
       );
     }

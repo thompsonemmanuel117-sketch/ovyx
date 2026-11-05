@@ -203,7 +203,7 @@ async function changeActiveCount(
 
   throw Object.assign(
     new Error(
-      'The universal connection limit changed concurrently. Please retry.'
+      'The Personal Connections limit changed concurrently. Please retry.'
     ),
     {
       status: 409,
@@ -260,7 +260,7 @@ async function onRequest(context) {
           return errorResponse(
             409,
             'CONNECTION_LIMIT_CONFLICT',
-            'The universal connection state changed concurrently. Please retry.'
+            'The Personal Connections state changed concurrently. Please retry.'
           );
         }
       }
@@ -422,7 +422,7 @@ async function onRequest(context) {
         return jsonResponse({
           ok: false,
           error: 'CONNECTION_LIMIT_REACHED',
-          message: `Your ${state.tier === 'free' ? 'Free Trial' : state.tier === 'pro' ? 'Pro Plan' : 'Max Plan'} allows ${limit === Infinity ? 'unlimited' : limit} active universal connections.`,
+          message: `Your ${state.tier === 'free' ? 'Free Trial' : state.tier === 'pro' ? 'Pro Plan' : 'Max Plan'} allows ${limit === Infinity ? 'unlimited' : limit} active Personal Connections.`,
           tier: state.tier,
           limit: limit === Infinity ? null : limit,
           activeCount: reservation.count,
@@ -518,7 +518,7 @@ async function onRequest(context) {
     return errorResponse(
       error?.status || 500,
       error?.code || 'UNIVERSAL_CONNECTIONS_FAILED',
-      error?.message || 'Universal connection operation failed.'
+      error?.message || 'Personal Connection operation failed.'
     );
   }
 }
