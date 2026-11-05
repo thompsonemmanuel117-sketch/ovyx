@@ -16,6 +16,12 @@ Universal Connections remain available for approved non-AI HTTP, webhook, databa
 
 The read-only Test action is available for supported non-AI service connections. Saved AI-protocol records are deliberately excluded from health checks so the application cannot accidentally contact an external model endpoint.
 
+## Project connection permissions
+
+A user can grant an active non-AI connection to one of their own saved projects through `POST /api/settings/connection-grants`, list grants through `GET /api/settings/connection-grants?projectId=...`, and revoke access with the same POST endpoint using `action: "revoke"`. Each grant is project-specific and can allow only `read`, `write`, `delete`, and/or `execute` actions. The server verifies project ownership, connection ownership, active state, and the grant on every invocation.
+
+A generated project invokes an approved connection through `POST /api/projects/connection-action`. The request must include its project ID, connection ID, HTTP method, and JSON payload where required. AI Brain credentials are deliberately excluded from project grants. Calls create a minimal audit record containing the project, connection, method, result and error code, never the request body or saved credential.
+
 ## Encryption configuration
 
 Configure this Cloudflare secret before saving credential-bearing service connections:

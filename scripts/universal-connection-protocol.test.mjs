@@ -5,6 +5,7 @@ import {
   buildConnectionRecord,
   buildUniversalConnectionPayload,
   callUserUniversalConnection,
+  hasConnectionPermission,
   getActiveBrainConnectionId,
   getActiveWebStudioConnectionId,
   publicConnection,
@@ -130,6 +131,11 @@ assert.match(connectionsRouteSource, /AI_CONNECTION_NOT_READY/);
 assert.match(connectionsRouteSource, /action === 'clear-ai'/);
 assert.match(connectionsRouteSource, /action === 'use-webstudio'/);
 assert.match(connectionsRouteSource, /action === 'clear-webstudio'/);
+const grantRouteSource = readFileSync(new URL('../functions/api/settings/connection-grants.js', import.meta.url), 'utf8');
+const projectActionSource = readFileSync(new URL('../functions/api/projects/connection-action.js', import.meta.url), 'utf8');
+assert.match(grantRouteSource, /ownerUid !== uid/);
+assert.match(grantRouteSource, /connection_grants/);
+assert.match(projectActionSource, /callProjectUniversalConnection/);
 assert.match(universalSource, /name: 'AES-GCM'/);
 assert.match(universalSource, /delete copy\.encryptedSecret/);
 assert.match(universalSource, /delete copy\.secret/);

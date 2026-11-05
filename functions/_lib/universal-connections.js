@@ -605,8 +605,35 @@ export async function callUserUniversalConnection(env, input = {}) {
   const result = await requestConnection(record, input, env);
   if (!result.text) throw Object.assign(new Error('The connected AI provider returned no text response.'), { status: 502, code: 'AI_PROVIDER_EMPTY_RESPONSE' });
   const owner = ownerOf(user); const usage = result.data?.usage || result.data?.usageMetadata || null;
-  await setFirestoreDocumentAtPath(env, ['users', owner.email, 'personal_ai_usage', crypto.randomUUID().replace(/-/g, '')], { ownerUid: owner.uid, provider: clean(record.name, 120), protocol: record.protocol, model: clean(record.model, 180) || null, usage: usage && typeof usage === 'object' ? usage : null, status: 'success', createdAt: new Date().toISOString() }, { merge: false });
+  try { await setFirestoreDocumentAtPath(env, ['users', owner.email, 'personal_ai_usage', crypto.randomUUID().replace(/-/g, '')], { ownerUid: owner.uid, provider: clean(record.name, 120), protocol: record.protocol, model: clean(record.model, 180) || null, usage: usage && typeof usage === 'object' ? usage : null, status: 'success', createdAt: new Date().toISOString() }, { merge: false }); } catch (error) { console.warn('[OVYX PERSONAL AI USAGE]', error?.message || error); }
   return { text: result.text, provider: record.name, model: record.model || null, rawUsage: usage, requestedProvider: 'personal-connection', routedProvider: 'personal-connection' };
+}
+
+export function hasConnectionPermission(method, type, permissions) {
+  const verb = clean(method, 10).toUpperCase();
+  if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(verb)) return false;
+  const granted = new Set(Array.isArray(permissions) ? permissions : []);
+  if (verb === 'GET') return granted.has('read');
+  if (verb === 'DELETE') return granted.has('delete');
+  return granted.has('write') || (type === 'tool' && granted.has('execute'));
+}
+
+export async function callProjectUniversalConnection(env, user, input = {}) {
+  const owner = ownerOf(user); const projectId = clean(input.projectId, 120); const connectionId = clean(input.connectionId, 100);
+  if (!owner.uid || !owner.email) throw Object.assign(new Error('Authenticated workspace identity is required.'), { status: 401, code: 'AUTH_IDENTITY_REQUIRED' });
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(projectId) || !/^[A-Za-z0-9_-]{1,100}$/.test(connectionId)) throw Object.assign(new Error('Project or connection ID is invalid.'), { status: 400, code: 'INVALID_CONNECTION_GRANT_TARGET' });
+  const project = await getFirestoreDataAtPath(env, ['users', owner.email, 'projects', projectId]);
+  if (!project || project.ownerUid !== owner.uid || String(project.ownerEmail || '').toLowerCase() !== owner.email) throw Object.assign(new Error('Project not found.'), { status: 404, code: 'PROJECT_NOT_FOUND' });
+  const grant = await getFirestoreDataAtPath(env, ['users', owner.email, 'projects', projectId, 'connection_grants', connectionId]);
+  if (!grant || grant.active !== true || grant.ownerUid !== owner.uid || grant.connectionId !== connectionId) throw Object.assign(new Error('This project has not been granted access to that connection.'), { status: 403, code: 'PROJECT_CONNECTION_NOT_GRANTED' });
+  const { record } = await getConnection(env, user, connectionId);
+  if (record.type === 'ai' || supportsAIProtocol(record.protocol)) throw Object.assign(new Error('Personal AI Brain credentials cannot be exposed as general project service credentials.'), { status: 403, code: 'AI_CONNECTION_PROJECT_SCOPE_BLOCKED' });
+  const method = clean(input.method || 'POST', 10).toUpperCase();
+  if (!hasConnectionPermission(method, record.type, grant.permissions)) throw Object.assign(new Error('The project connection grant does not allow this operation.'), { status: 403, code: 'PROJECT_CONNECTION_PERMISSION_DENIED' });
+  if (method !== 'GET' && method !== 'DELETE' && (!input.payload || typeof input.payload !== 'object' || Array.isArray(input.payload))) throw Object.assign(new Error('A JSON object payload is required for this operation.'), { status: 400, code: 'CONNECTION_PAYLOAD_REQUIRED' });
+  const audit = async (status, code = null) => { try { await setFirestoreDocumentAtPath(env, ['users', owner.email, 'projects', projectId, 'connection_audit', crypto.randomUUID().replace(/-/g, '')], { ownerUid: owner.uid, projectId, connectionId, method, status, code, createdAt: new Date().toISOString() }, { merge: false }); } catch (error) { console.warn('[OVYX CONNECTION AUDIT]', error?.message || error); } };
+  try { const result = await requestConnection(record, { method, payload: input.payload }, env); await audit('success'); return { ok: true, status: result.status, data: result.data }; }
+  catch (error) { await audit('failed', clean(error?.code || 'UPSTREAM_FAILED', 80)); throw error; }
 }
 
 export async function testUserConnection(env, user, id) {
