@@ -7,6 +7,8 @@ const nativeSource = read('functions/_lib/ovyx-native-ai.js');
 const assistantSource = read('functions/api/ai/assistant.js');
 const gatewaySource = read('functions/api/ai/gateway.js');
 const nativeRoute = read('functions/api/ai/ovyx.js');
+const agentRoute = read('functions/api/generate.js');
+const orchestrator = read('functions/_lib/orchestrator.js');
 const connectionsApi = read('functions/api/settings/connections.js');
 const docs = read('docs/UNIVERSAL-CONNECTIONS.md');
 
@@ -40,6 +42,10 @@ assert.match(nativeRoute, /getActiveBrainConnectionId/);
 assert.match(nativeRoute, /DAILY_RATION_EXHAUSTED/);
 assert.match(nativeRoute, /personalAIConnectionActive/);
 assert.match(nativeRoute, /externalApiKeysRequired: result\.personalConnectionUsed === true/);
+assert.match(agentRoute, /callJsonModelOverride/);
+assert.match(agentRoute, /DAILY_RATION_EXHAUSTED/);
+assert.match(agentRoute, /callUserUniversalConnection/);
+assert.match(orchestrator, /const invokeJsonModel = typeof callJsonModelOverride/);
 assert.match(assistantSource, /webStudioRequest: isWebStudio/);
 assert.match(assistantSource, /appStudioRequest: isAppStudio/);
 assert.match(gatewaySource, /webStudioRequest: isWebStudio/);
@@ -55,4 +61,4 @@ assert.match(docs, /AES-GCM encrypted connection storage/);
 assert.doesNotMatch(docs, /Automatic uses the selected AI Brain exclusively/i);
 assert.doesNotMatch(docs, /Platform Automatic routing[\\s\\S]*tries the providers in/i);
 
-console.log('OVYX AI routing tests passed: Cloudflare stays first and a selected encrypted personal Brain is used only after quota exhaustion.');
+console.log('OVYX AI routing tests passed: Cloudflare stays first and a selected encrypted personal Brain is used only after quota exhaustion across assistant, studio and Agent routes.');

@@ -84,7 +84,9 @@ assert.match(assistantRoute, /cloudflareOnlyModelOptions\(options\)/);
 assert.match(gatewayRoute, /cloudflareOnlyModelOptions\(options\)/);
 assert.match(generationRoute, /runAgent/);
 assert.match(generationRoute, /withCloudflareAIOnly\(context\.env\)/);
-assert.match(generationRoute, /requestedProvider:\s*OVYX_CLOUDFLARE_ONLY_PROVIDER/);
+assert.match(generationRoute, /personalAIConnectionActive \? 'personal-connection' : OVYX_CLOUDFLARE_ONLY_PROVIDER/);
+assert.match(generationRoute, /callJsonModelOverride/);
+assert.match(generationRoute, /DAILY_RATION_EXHAUSTED/);
 assert.match(orchestrator, /callJsonModel\(/);
 
 // Website/App Studio architecture, acceptance and guarded quota behaviour stay
