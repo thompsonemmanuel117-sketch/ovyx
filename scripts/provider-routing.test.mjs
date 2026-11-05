@@ -100,7 +100,9 @@ const callback = await readFile(new URL('../functions/api/agent/callback.js', im
 const native = await readFile(new URL('../functions/_lib/ovyx-native-ai.js', import.meta.url), 'utf8');
 assert.match(assistant, /cloudflareOnlyModelOptions\(options\)/);
 assert.match(gateway, /cloudflareOnlyModelOptions\(options\)/);
-assert.match(agent, /requestedProvider:\s*OVYX_CLOUDFLARE_ONLY_PROVIDER/);
+assert.match(agent, /personalAIConnectionActive \? 'personal-connection' : OVYX_CLOUDFLARE_ONLY_PROVIDER/);
+assert.match(agent, /callJsonModelOverride/);
+assert.match(agent, /DAILY_RATION_EXHAUSTED/);
 assert.match(agent, /withCloudflareAIOnly\(context\.env\)/);
 assert.match(callback, /withCloudflareAIOnly\(context\.env\)/);
 assert.match(native, /withCloudflareAIOnly\(env\)/);
