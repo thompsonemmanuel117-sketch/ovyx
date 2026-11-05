@@ -59,4 +59,4 @@ assert.ok(center.includes('/api/settings/connections'));
 assert.match(center, /data-pc-toggle/);
 assert.match(center, /data-pc-delete/);
 assert.match(center, /window\\.addEventListener\\('ovyx-settings-rendered'/);
-console.log('OVYX Connect UI checks passed: authenticated Personal Connections management, inline AI-key access and non-obstructive project grant controls are integrated into the existing app shell.');
+console.log('OVYX Personal Connections checks passed: secure account centre, AI setup, service management, editing, health tests and project-level access are integrated into the existing app shell.');
