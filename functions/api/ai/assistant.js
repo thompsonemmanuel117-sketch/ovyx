@@ -13,6 +13,7 @@ import { isWebStudioPrompt } from '../../_lib/experience.js';
 import { buildWebStudioSourceInspection, isScopedWebStudioEdit, normalizeScopedWebStudioFiles } from '../../_lib/webstudio-source.js';
 import { buildPromptContract, WEB_STUDIO_PROMPT_MAX_CHARS } from '../../_lib/prompt-contract.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
+import { callUserUniversalConnection, getActiveBrainConnectionId } from '../../_lib/universal-connections.js';
 import {
   saveChatTurn,
   resolveConversationId,
@@ -165,14 +166,19 @@ export async function onRequestPost(context) {
     const submittedFiles = payload.files || payload.context?.files || null;
     const scopedWebStudioEdit = isWebStudio && mode === 'build' &&
       isScopedWebStudioEdit(promptText, !!(submittedFiles && typeof submittedFiles === 'object' && Object.keys(submittedFiles).length));
-    const routeCallModel = (env, options = {}) => callModel(env, {
+    let personalAIConnectionId = null;
+    let personalAIConnectionActive = false;
+    const routeCallModel = async (env, options = {}) => {
+      if (personalAIConnectionActive) return callUserUniversalConnection(env, { ...options, authUser: user, connectionId: personalAIConnectionId });
+      return callModel(env, {
       ...cloudflareOnlyModelOptions(options),
       authUser: user,
       // These server-derived flags preserve the existing Studio boundaries;
       // neither view can select a personal or third-party model provider.
       webStudioRequest: isWebStudio,
       appStudioRequest: isAppStudio,
-    });
+      });
+    };
 
     if (isAppStudio) {
       const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
@@ -307,7 +313,14 @@ When discussing project changes, distinguish recommendations from changes actual
     );
 
     let quotaReservation = null;
-    quotaReservation = await beginAIQuota(context.env, user);
+    try {
+      quotaReservation = await beginAIQuota(context.env, user);
+    } catch (quotaError) {
+      if (quotaError?.code !== 'DAILY_RATION_EXHAUSTED') throw quotaError;
+      personalAIConnectionId = await getActiveBrainConnectionId(context.env, user);
+      if (!personalAIConnectionId) throw quotaError;
+      personalAIConnectionActive = true;
+    }
 
     let result;
     let multiPageBuild = false;
@@ -392,7 +405,7 @@ When discussing project changes, distinguish recommendations from changes actual
       quotaInputText = generation.quotaInputText;
       quotaOutputText = generation.quotaOutputText;
     } catch (providerError) {
-      if (providerError?.partialUsage) {
+      if (providerError?.partialUsage && quotaReservation) {
         await finalizeAIQuota(
           context.env,
           quotaReservation,
@@ -402,19 +415,13 @@ When discussing project changes, distinguish recommendations from changes actual
         ).catch(quotaError => {
           console.error('[OVYX PARTIAL AI USAGE]', quotaError?.message || quotaError);
         });
-      } else {
+      } else if (quotaReservation) {
         await refundDailyPrompt(context.env, quotaReservation);
       }
       throw providerError;
     }
 
-    const quota = await finalizeAIQuota(
-      context.env,
-      quotaReservation,
-      result.rawUsage || null,
-      quotaInputText,
-      quotaOutputText || result.text || ''
-    );
+    const quota = personalAIConnectionActive ? { mode: 'personal-provider', chargedToOVYX: false, provider: 'personal-connection' } : await finalizeAIQuota(context.env, quotaReservation, result.rawUsage || null, quotaInputText, quotaOutputText || result.text || '');
 
     let historySaved = false;
 

@@ -4,11 +4,11 @@ Universal Connections are account-owned server integrations. Existing credential
 
 ## AI model provider policy
 
-**Cloudflare Workers AI is OVYX's only supported AI model provider.** The ordinary assistant, Web Studio, App Studio, OVYX Agent, automatic repair and other platform model-generation routes use the authenticated Cloudflare Pages Workers AI binding named \`AI\`.
+Cloudflare Workers AI remains OVYX's default inference provider. Users may optionally save one supported personal AI provider connection (OpenAI-compatible, Anthropic, or Gemini) and explicitly select it as their personal Brain fallback. OVYX continues to use Cloudflare while the user's monthly, booster, or daily OVYX allowance is available. Only after the quota service returns `DAILY_RATION_EXHAUSTED` does an enabled personal Brain connection take over. If no personal connection is selected, the original quota error is returned.
 
-OVYX does not call Gemini, Claude/Anthropic, DeepSeek, OpenAI, Groq, OpenRouter, or a user-saved AI Brain as alternate model providers. Browser-supplied provider/model preferences, old global provider-order settings and stale personal-Brain selections are ignored at the server boundary. If the Cloudflare binding is unavailable or its guarded quota is exhausted, OVYX returns an explicit error instead of silently switching providers.
+Personal provider credentials use the existing AES-GCM encrypted connection storage and are decrypted only inside server-side request handling. They are never returned by connection listing APIs, sent to browser code, inserted into generated sites, or written into usage logs. Personal-provider inference does not consume OVYX token allowance; a minimal usage record stores provider/model and upstream usage metadata. Provider failures do not trigger retry loops or silently fall back to another external provider. Web Studio and App Studio follow the same quota-exhaustion policy; Cloudflare remains the first route.
 
-Older encrypted AI connection records are retained for account-data compatibility. They are not used for model inference, cannot be newly created or selected as an OVYX AI Brain, and are not tested against their remote AI endpoint. Users can still remove an old record themselves. A change in this routing policy does not require deleting or rotating any saved credential.
+Supported personal AI protocols are OpenAI-compatible Chat Completions, Anthropic Messages, and Gemini Generate Content. Credential-bearing endpoints must use HTTPS and are revalidated before every outbound call. Redirects are not followed. A saved AI connection must be active, owned by the signed-in account, and explicitly selected as the personal Brain.
 
 ## Non-AI service connections
 

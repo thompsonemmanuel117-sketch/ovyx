@@ -47,22 +47,14 @@ await assert.rejects(
     system: 'system prompt',
     user: 'user prompt',
   }),
-  error => error.code === 'AI_PROVIDER_DISABLED' && error.status === 409,
-  'The library-level model call must fail before it can read credentials or send a request.',
+  error => error.code === 'AUTH_IDENTITY_REQUIRED' && error.status === 401,
+  'Personal AI calls require an authenticated account identity.',
 );
 
-// Attempts to create or edit an external AI model connection are rejected at
-// the connection-record boundary, before encryption or endpoint validation.
-for (const input of [
-  { name: 'Legacy AI', type: 'ai', endpoint: 'https://example.test/v1', protocol: 'openai-chat', authMode: 'none' },
-  { name: 'Gemini Brain', type: 'tool', endpoint: 'https://example.test/v1', protocol: 'gemini-generate-content', authMode: 'bearer' },
-  { name: 'Claude Brain', type: 'http', endpoint: 'https://example.test/v1', protocol: 'anthropic-messages', authMode: 'bearer' },
-]) {
-  await assert.rejects(
-    () => buildConnectionRecord({}, input, { uid: 'owner-1', email: 'owner@example.test' }),
-    error => error.code === 'AI_PROVIDER_DISABLED' && error.status === 409,
-  );
-}
+// AI provider credentials can be saved as encrypted account-owned connections.
+const personalAI = await buildConnectionRecord({ OVYX_CONNECTION_ENCRYPTION_KEY: 'test-encryption-key-for-connection-tests' }, { name: 'Personal OpenAI', type: 'ai', protocol: 'openai-chat', endpoint: 'https://api.openai.com/v1', authMode: 'bearer', secret: 'sk-test-personal-key', model: 'gpt-4o-mini' }, { uid: 'owner-1', email: 'owner@example.test' });
+assert.equal(personalAI.type, 'ai'); assert.equal(personalAI.protocol, 'openai-chat'); assert.ok(personalAI.encryptedSecret); assert.notEqual(personalAI.encryptedSecret, 'sk-test-personal-key'); assert.equal(publicConnection(personalAI, 'personal-ai').capabilities.canUseAsBrain, true);
+for (const input of [{ name: 'Gemini on tool type', type: 'tool', endpoint: 'https://example.test/v1', protocol: 'gemini-generate-content', authMode: 'bearer', secret: 'test' }, { name: 'Claude on http type', type: 'http', endpoint: 'https://example.test/v1', protocol: 'anthropic-messages', authMode: 'bearer', secret: 'test' }]) await assert.rejects(() => buildConnectionRecord({ OVYX_CONNECTION_ENCRYPTION_KEY: 'test-encryption-key' }, input, { uid: 'owner-1', email: 'owner@example.test' }), error => error.code === 'AI_CONNECTION_PROTOCOL_INVALID' && error.status === 400);
 
 // Non-AI HTTP/webhook/database/tool connections remain creatable and keep their
 // explicit generic JSON protocol without being mistaken for model providers.
@@ -130,8 +122,9 @@ const testStart = universalSource.indexOf('export async function testUserConnect
 const aiGuard = universalSource.indexOf('if (supportsAIProtocol(record.protocol))', testStart);
 const firstFetch = universalSource.indexOf('await fetch(', testStart);
 assert.ok(testStart >= 0 && aiGuard > testStart && firstFetch > aiGuard);
-assert.match(connectionsRouteSource, /if \(supportsAIProtocol\(record\.protocol\)\)[\s\S]{0,300}AI_PROVIDER_DISABLED/);
+assert.match(connectionsRouteSource, /aiRoutingPolicy: state\.activeBrainConnectionId \? 'cloudflare-then-personal-key' : 'cloudflare-only'/);
 assert.match(connectionsRouteSource, /action === 'use-ai'/);
+assert.match(connectionsRouteSource, /AI_CONNECTION_NOT_READY/);
 assert.match(connectionsRouteSource, /action === 'clear-ai'/);
 assert.match(connectionsRouteSource, /action === 'use-webstudio'/);
 assert.match(connectionsRouteSource, /action === 'clear-webstudio'/);
@@ -139,4 +132,4 @@ assert.match(universalSource, /name: 'AES-GCM'/);
 assert.match(universalSource, /delete copy\.encryptedSecret/);
 assert.match(universalSource, /delete copy\.secret/);
 
-console.log('Universal Connection tests passed: legacy AI credentials preserved but blocked from routing, while non-AI service connections remain supported.');
+console.log('Universal Connection tests passed: encrypted personal AI credentials can be configured for quota-exhaustion fallback, while non-AI connections remain supported.');
