@@ -92,7 +92,17 @@ export function resolveGlobalReadiness({ request, env = {} } = {}) {
   const cf = request?.cf && typeof request.cf === 'object' ? request.cf : {};
   const countryCode = cleanCountry(cf.country);
   const defaults = COUNTRY_DEFAULTS[countryCode] || null;
-  const locale = preferredLanguage(request?.headers?.get?.('Accept-Language'), defaults?.locale || 'en');
+  let detectedCountryName = defaults?.name || null;
+  if (countryCode && !detectedCountryName) {
+    try {
+      const displayName = new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode);
+      if (displayName && displayName !== countryCode) detectedCountryName = displayName;
+    } catch {}
+  }
+  // Country identity is broadly available from ISO region codes. Currency is
+  // intentionally narrower: never infer a currency without a verified mapping.
+  const localeFallback = defaults?.locale || (countryCode ? 'en-' + countryCode : 'en');
+  const locale = preferredLanguage(request?.headers?.get?.('Accept-Language'), localeFallback);
   const isNigeria = countryCode === 'NG';
   const opayConfigured = configured(env, 'OPAY_CASHIER_PUBLIC_KEY') &&
     configured(env, 'OPAY_CASHIER_SECRET_KEY');
@@ -109,7 +119,7 @@ export function resolveGlobalReadiness({ request, env = {} } = {}) {
     detected: Boolean(countryCode),
     country: countryCode ? {
       code: countryCode,
-      name: defaults?.name || null,
+      name: detectedCountryName,
       currency: defaults?.currency || null,
       currencyKnown: Boolean(defaults),
     } : null,
