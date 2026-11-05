@@ -184,17 +184,99 @@
     openAIManager();
   }, true);
 
+  function upgradePersonalConnectionsForm() {
+    const form = document.querySelector('.ovyx-v91-conn-form');
+    const type = form && form.querySelector('#ovyx-v91-conn-type');
+    if (!form || !type || form.dataset.personalFlowReady === '1') return;
+    form.dataset.personalFlowReady = '1';
+
+    const typeField = type.closest('.ovyx-v91-field');
+    if (!typeField) return;
+    const nameField = form.querySelector('#ovyx-v91-conn-name')?.closest('.ovyx-v91-field');
+    if (nameField) form.insertBefore(typeField, nameField);
+
+    type.innerHTML = '<option value="">Choose what you want to connect</option>' +
+      '<option value="ai">AI provider — personal API key</option>' +
+      '<option value="tool">App or service — connect an endpoint</option>' +
+      '<option value="http">API connection</option>' +
+      '<option value="webhook">Webhook</option>' +
+      '<option value="database">Database service</option>';
+    type.value = '';
+
+    const fields = Array.from(form.querySelectorAll('.ovyx-v91-field'));
+    const typeLabel = typeField.querySelector('label');
+    if (typeLabel) typeLabel.textContent = 'CONNECTION TYPE';
+    const protocolField = form.querySelector('#ovyx-v91-conn-protocol')?.closest('.ovyx-v91-field');
+    const endpoint = form.querySelector('#ovyx-v91-conn-endpoint');
+    const name = form.querySelector('#ovyx-v91-conn-name');
+    const secret = form.querySelector('#ovyx-v91-conn-secret');
+    const auth = form.querySelector('#ovyx-v91-conn-auth');
+    const status = document.querySelector('#ovyx-v91-conn-status') || form.parentElement?.querySelector('.ovyx-v91-status');
+    const add = form.querySelector('#ovyx-v91-add');
+    const actions = form.querySelector('.ovyx-v91-actions');
+    const intro = document.createElement('div');
+    intro.className = 'ovyx-personal-flow-note';
+    intro.textContent = 'Choose a connection type first. AI providers use the secure provider setup; apps and services use their supported API or webhook endpoint.';
+    typeField.insertAdjacentElement('afterend', intro);
+
+    fields.forEach(field => { if (field !== typeField) field.hidden = true; });
+    if (protocolField) protocolField.hidden = true;
+    if (endpoint) { endpoint.value = ''; endpoint.placeholder = 'https://api.example.com/v1'; }
+    if (name) name.placeholder = 'e.g. My CRM';
+    if (secret) secret.placeholder = 'Paste an API key or access token';
+    const secretLabel = secret?.closest('.ovyx-v91-field')?.querySelector('label');
+    if (secretLabel) secretLabel.textContent = 'API KEY / ACCESS TOKEN';
+
+    function showFor(value) {
+      fields.forEach(field => { field.hidden = field !== typeField && !!value; });
+      if (!value) {
+        fields.forEach(field => { if (field !== typeField) field.hidden = true; });
+        intro.textContent = 'Choose a connection type first. AI providers use the secure provider setup; apps and services use their supported API or webhook endpoint.';
+        return;
+      }
+      fields.forEach(field => { if (field !== typeField) field.hidden = false; });
+      if (protocolField) protocolField.hidden = true;
+      const labels = {
+        tool: ['APP / SERVICE NAME', 'https://api.your-service.com/v1', 'Connect a service endpoint. Use its API credentials if authentication is required.'],
+        http: ['API CONNECTION NAME', 'https://api.example.com/v1', 'Connect an API endpoint. Credentials are encrypted and sent only from the server.'],
+        webhook: ['WEBHOOK NAME', 'https://your-service.com/webhook', 'Connect a secure webhook endpoint. Use HTTPS when sending credentials.'],
+        database: ['DATABASE CONNECTION NAME', 'https://your-database-api.com', 'Connect through a supported HTTPS database service API; direct database ports are not exposed.']
+      };
+      const config = labels[value] || labels.http;
+      if (name) { name.closest('.ovyx-v91-field')?.querySelector('label')?.replaceChildren(document.createTextNode(config[0])); name.placeholder = value === 'webhook' ? 'e.g. Order notifications' : 'e.g. My ' + (value === 'tool' ? 'CRM' : value === 'database' ? 'database service' : 'API'); }
+      if (endpoint) { endpoint.value = ''; endpoint.placeholder = config[1]; }
+      intro.textContent = config[2];
+      if (add) add.textContent = value === 'webhook' ? 'Add Webhook' : value === 'database' ? 'Add Database Service' : value === 'tool' ? 'Connect App / Service' : 'Add API Connection';
+      if (auth) auth.value = 'none';
+      if (secret) secret.value = '';
+    }
+
+    type.addEventListener('change', () => {
+      if (type.value === 'ai') {
+        type.value = '';
+        showFor('');
+        openAIManager();
+        return;
+      }
+      showFor(type.value);
+    });
+    showFor('');
+  }
+
   function boot() {
     decorateProjectGrantActions();
     bindPersonalAIButtons();
+    upgradePersonalConnectionsForm();
     const observer = new MutationObserver(() => {
       decorateProjectGrantActions();
       bindPersonalAIButtons();
+      upgradePersonalConnectionsForm();
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
     window.addEventListener('ovyx:connections-updated', () => {
       decorateProjectGrantActions();
       bindPersonalAIButtons();
+      upgradePersonalConnectionsForm();
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
