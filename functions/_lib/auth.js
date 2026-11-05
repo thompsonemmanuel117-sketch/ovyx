@@ -17,9 +17,9 @@ export async function verifyFirebaseIdToken(request, env) {
     return {
       ok: false,
       response: errorResponse(
+        'A valid Firebase ID token is required.',
         401,
-        'AUTH_REQUIRED',
-        'A valid Firebase ID token is required.'
+        'AUTH_REQUIRED'
       )
     };
   }
@@ -30,9 +30,9 @@ export async function verifyFirebaseIdToken(request, env) {
     return {
       ok: false,
       response: errorResponse(
+        'Firebase server authentication is not configured.',
         500,
-        'AUTH_CONFIGURATION_ERROR',
-        'Firebase server authentication is not configured.'
+        'AUTH_CONFIGURATION_ERROR'
       )
     };
   }
@@ -57,9 +57,9 @@ export async function verifyFirebaseIdToken(request, env) {
     return {
       ok: false,
       response: errorResponse(
+        'Firebase authentication service is temporarily unavailable.',
         503,
-        'AUTH_UPSTREAM_UNAVAILABLE',
-        'Firebase authentication service is temporarily unavailable.'
+        'AUTH_UPSTREAM_UNAVAILABLE'
       )
     };
   }
@@ -76,9 +76,9 @@ export async function verifyFirebaseIdToken(request, env) {
     return {
       ok: false,
       response: errorResponse(
+        'The Firebase authentication session is invalid or expired.',
         401,
-        'INVALID_SESSION',
-        'The Firebase authentication session is invalid or expired.'
+        'INVALID_SESSION'
       )
     };
   }
@@ -91,9 +91,9 @@ export async function verifyFirebaseIdToken(request, env) {
     return {
       ok: false,
       response: errorResponse(
+        'Firebase did not return a valid authenticated account.',
         401,
-        'INVALID_SESSION',
-        'Firebase did not return a valid authenticated account.'
+        'INVALID_SESSION'
       )
     };
   }
@@ -102,9 +102,9 @@ export async function verifyFirebaseIdToken(request, env) {
     return {
       ok: false,
       response: errorResponse(
+        'This OVYX account has been disabled.',
         403,
-        'ACCOUNT_DISABLED',
-        'This OVYX account has been disabled.'
+        'ACCOUNT_DISABLED'
       )
     };
   }
@@ -116,9 +116,9 @@ export async function verifyFirebaseIdToken(request, env) {
     return {
       ok: false,
       response: errorResponse(
+        'The authenticated identity is incomplete.',
         401,
-        'INVALID_IDENTITY',
-        'The authenticated identity is incomplete.'
+        'INVALID_IDENTITY'
       )
     };
   }
