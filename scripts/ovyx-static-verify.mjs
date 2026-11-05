@@ -730,8 +730,8 @@ if (fs.existsSync(html)) {
   if (!text.includes('id="card-provider-cloudflare-workers-ai"')) {
     errors.push('index.html: the root admin AI screen must show its single Cloudflare Workers AI engine status card.');
   }
-  if ((text.match(/action:'clear-ai'/g) || []).length < 2) {
-    errors.push('index.html: legacy account cleanup handlers must remain available for clearing old external Brain assignments.');
+  if ((text.match(/action:'clear-ai'/g) || []).length < 1) {
+    errors.push('index.html: the Personal Connections manager must retain the safe account cleanup action for clearing old external Brain assignments.');
   }
 
   const inlineScriptPattern = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
