@@ -121,7 +121,7 @@ assert.equal(geminiHeaders.Authorization, undefined);
 const testStart = universalSource.indexOf('export async function testUserConnection(');
 const firstFetch = universalSource.indexOf('await fetch(', testStart);
 assert.ok(testStart >= 0 && firstFetch > testStart);
-assert.match(universalSource, /const url = assertSafeUrl\(universalConnectionEndpoint\(record, input\?\.model\), \{ requireHttps: true \}\)/);
+assert.match(universalSource, /const url = assertSafeUrl\(universalConnectionEndpoint\(record, input\?\.model\), \{ requireHttps: record\.authMode !== 'none' \|\| supportsAIProtocol\(record\.protocol\) \}\)/);
 const openAiHeaders = {};
 applyConnectionAuth(openAiHeaders, 'api-key', 'test-openai-key', 'openai-chat');
 assert.equal(openAiHeaders.Authorization, 'Bearer test-openai-key');
