@@ -214,10 +214,9 @@ export function publicConnection(record, id) {
   copy.healthUrl = redactSensitiveEndpoint(copy.healthUrl);
   copy.hasSecret = !!record?.encryptedSecret;
   copy.requiresSecret = copy.authMode !== 'none';
-  // AI protocols may remain on legacy encrypted records for migration
-  // visibility, but this release never exposes them as assignable model engines.
+  // Only an active, encrypted account-owned AI connection can be selected as fallback.
   copy.capabilities = {
-    canUseAsBrain: copy.type === 'ai' && supportsAIProtocol(copy.protocol),
+    canUseAsBrain: copy.type === 'ai' && supportsAIProtocol(copy.protocol) && copy.active === true && !!record?.encryptedSecret,
     canUseForWebStudio: false,
   };
   return copy;
