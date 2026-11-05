@@ -480,6 +480,7 @@ export function buildUniversalConnectionPayload(record, input = {}) {
     };
   }
   const messages = Array.isArray(input.messages) && input.messages.length ? input.messages.filter(item => item && ['system','user','assistant'].includes(item.role)).slice(-20).map(item => ({ role: item.role, content: clean(item.content, 50000) })) : [...(system ? [{ role: 'system', content: system }] : []), ...(user ? [{ role: 'user', content: user }] : [])];
+  if (system && !messages.some(item => item.role === 'system')) messages.unshift({ role: 'system', content: system });
   return { messages, ...(model ? { model } : {}), max_tokens: Number(input.maxTokens) > 0 ? Math.min(Number(input.maxTokens), 24000) : undefined, temperature };
 }
 
