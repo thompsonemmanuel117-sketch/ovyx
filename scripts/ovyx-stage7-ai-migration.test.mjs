@@ -87,7 +87,8 @@ assert.match(generationRoute, /withCloudflareAIOnly\(context\.env\)/);
 assert.match(generationRoute, /personalAIConnectionActive \? 'personal-connection' : OVYX_CLOUDFLARE_ONLY_PROVIDER/);
 assert.match(generationRoute, /callJsonModelOverride/);
 assert.match(generationRoute, /DAILY_RATION_EXHAUSTED/);
-assert.match(orchestrator, /callJsonModel\(/);
+assert.match(orchestrator, /const invokeJsonModel = typeof callJsonModelOverride/);
+assert.match(orchestrator, /invokeJsonModel\(/);
 
 // Website/App Studio architecture, acceptance and guarded quota behaviour stay
 // distinct from ordinary assistant chat.
