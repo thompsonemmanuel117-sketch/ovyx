@@ -40,8 +40,8 @@ assert.match(lib, /export async function callProjectUniversalConnection/);
 assert.match(grants, /connection_grants/);
 assert.match(action, /callProjectUniversalConnection/);
 const center = read('assets/ovyx-personal-connections-center.js');
-assert.match(middleware, /ovyx-personal-connections-center\\.js/);
-assert.match(center, /Your connections\\. One secure home\\./);
+assert.ok(middleware.includes('ovyx-personal-connections-center.js'));
+assert.ok(center.includes('Your connections. One secure home.'));
 assert.match(center, /Add a Personal Connection/);
 assert.match(center, /data-ovyx-personal-ai-manager/);
 assert.match(center, /data-pc-filter/);
@@ -58,5 +58,5 @@ assert.match(center, /OAuth is offered only for services with a verified connect
 assert.ok(center.includes('/api/settings/connections'));
 assert.match(center, /data-pc-toggle/);
 assert.match(center, /data-pc-delete/);
-assert.match(center, /window\\.addEventListener\\('ovyx-settings-rendered'/);
+assert.ok(center.includes("window.addEventListener('ovyx-settings-rendered'"));
 console.log('OVYX Personal Connections checks passed: secure account centre, AI setup, service management, editing, health tests and project-level access are integrated into the existing app shell.');
