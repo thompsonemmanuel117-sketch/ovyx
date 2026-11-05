@@ -27,7 +27,7 @@ assert.match(html, /S\.current=id;window\.dispatchEvent\(new CustomEvent\('ovyx-
 assert.doesNotMatch(html, /Universal Connections &amp; Tier Limits/);
 assert.doesNotMatch(html, /Universal Connections|UniversalConnections|renderConnectionsPanel/);
 assert.match(html, /const PersonalConnections=/);
-assert.match(html, /window\\.PersonalConnections=PersonalConnections/);
+assert.ok(html.includes('window.PersonalConnections=PersonalConnections'));
 assert.match(html, /connections:PersonalConnections/);
 assert.match(html, /ovyx-v91-personal-connections-runtime/);
 assert.doesNotMatch(html, /ovyx-v91-universal-connections-runtime|UNIVERSAL CONNECTIONS FINAL SURFACE AUTHORITY/);
