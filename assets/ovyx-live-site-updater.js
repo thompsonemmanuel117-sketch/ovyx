@@ -7,7 +7,6 @@
   var MODAL = ROOT + '-modal';
   var activeResolution = null;
   var busy = false;
-  var launcher = null;
 
   function clean(value, max) {
     return String(value == null ? '' : value).replace(/[\\u0000-\\u001f\\u007f]/g, ' ').trim().slice(0, max || 500);
@@ -262,15 +261,6 @@
     if (modal) modal.hidden = true;
   }
   function ensureUI() {
-    var headerActions = document.querySelector('#view-webstudio .ovyx-ws-header-actions');
-    if (!document.getElementById(ROOT + '-launcher')) {
-      launcher = el('button', '', 'Update live website');
-      launcher.id = ROOT + '-launcher';
-      launcher.type = 'button';
-      launcher.addEventListener('click', openModal);
-    } else launcher = document.getElementById(ROOT + '-launcher');
-    if (headerActions && launcher.parentNode !== headerActions) headerActions.appendChild(launcher);
-    else if (!launcher.parentNode) document.body.appendChild(launcher);
     if (!document.getElementById(MODAL)) {
       var overlay = el('div');
       overlay.id = MODAL;
@@ -300,15 +290,6 @@
       });
     }
     styles();
-    syncVisibility();
-  }
-  function syncVisibility() {
-    if (!launcher) launcher = document.getElementById(ROOT + '-launcher');
-    if (!launcher) return;
-    var active = String(state().activeView || window.activeView || '').replace(/^view-/, '').toLowerCase();
-    var view = document.getElementById('view-webstudio');
-    var visible = active ? active === 'webstudio' : !!(view && view.getClientRects && view.getClientRects().length);
-    launcher.hidden = !visible;
   }
   async function findWebsite() {
     if (busy) return;
@@ -420,21 +401,8 @@
   }
   function boot() {
     ensureUI();
-    window.addEventListener('ovyx:view-changed', syncVisibility);
-    window.addEventListener('ovyx:project-loaded', syncVisibility);
-    window.addEventListener('firebase-auth-state-ready', syncVisibility);
-    var view = document.getElementById('view-webstudio');
-    if (view && !window.__OVYX_LIVE_SITE_VISIBILITY_OBSERVER__ && typeof MutationObserver === 'function') {
-      window.__OVYX_LIVE_SITE_VISIBILITY_OBSERVER__ = new MutationObserver(syncVisibility);
-      window.__OVYX_LIVE_SITE_VISIBILITY_OBSERVER__.observe(view, { attributes: true, attributeFilter: ['class', 'style', 'aria-hidden'] });
-    }
-    var attempts = 0;
-    var timer = window.setInterval(function () {
-      if (document.getElementById('view-webstudio') || ++attempts > 50) {
-        ensureUI();
-        window.clearInterval(timer);
-      }
-    }, 500);
+    window.OVYXOpenLiveSiteUpdater = openModal;
+    window.addEventListener('ovyx:open-live-site-updater', openModal);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
