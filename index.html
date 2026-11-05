@@ -15908,7 +15908,7 @@ window.addEventListener('ovyx:view-changed',()=>setTimeout(run,0),{passive:true}
 <script id="ovyx-v91-personal-connections-runtime">(function(){
 'use strict';
 if(window.__OVYX_V91_PERSONAL_CONNECTIONS_AUTHORITY__)return;
-window.__OVYX_V91_CONNECTION_AUTHORITY__=true;
+window.__OVYX_V91_PERSONAL_CONNECTIONS_AUTHORITY__=true;
 const $=id=>document.getElementById(id);
 const api=async(path,opts={})=>{const u=window.firebase?.auth?.().currentUser;const authHeaders=u?{Authorization:'Bearer '+await u.getIdToken(false)}:{};const r=await fetch(path,{...opts,credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...authHeaders,...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(d.message||d.error||('HTTP '+r.status)),{code:d.code||'REQUEST_FAILED',status:r.status,data:d});return d};
 function getPanel(){
