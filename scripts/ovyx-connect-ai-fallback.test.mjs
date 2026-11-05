@@ -16,7 +16,7 @@ assert.match(ui, /action: 'use-ai'/);
 assert.match(ui, /api\/settings\/connection-grants/);
 assert.match(ui, /Grant to project/);
 assert.match(ui, /data-ovyx-personal-ai-manager/);
-assert.match(ui, /document\.addEventListener\('click'/);
+assert.match(ui, /window\.addEventListener\('click'/);
 assert.doesNotMatch(ui, /\.ovyx-connect-cta\{position:fixed/);
 assert.doesNotMatch(ui, /function hasConnectionsView/);
 assert.match(html, /class="ovyx-v91-personal-ai-btn" data-ovyx-personal-ai-manager/);
