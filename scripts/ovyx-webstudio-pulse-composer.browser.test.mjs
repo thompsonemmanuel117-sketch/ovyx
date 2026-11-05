@@ -122,7 +122,7 @@ try {
     await liveUpdater.waitFor({ state: 'hidden' });
     await pulse.click();
     await popover.waitFor({ state: 'visible' });
-    assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must remain accessible inside Pulse.');');
+    assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must remain accessible inside Pulse.');
 
     lastCheckpoint = target.name + ': mode selection';
     console.log('[' + target.name + '] checkpoint: mode selection');
