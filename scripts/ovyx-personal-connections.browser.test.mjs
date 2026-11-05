@@ -48,7 +48,27 @@ try {
     await page.waitForFunction(() => window.OVYXSettings?.current === 'connections', null, { timeout: 10000 });
 
     const personalAction = page.locator('#view-settings [data-ovyx-personal-ai-manager]');
-    await personalAction.waitFor({ state: 'visible', timeout: 10000 });
+    try {
+      await personalAction.waitFor({ state: 'visible', timeout: 10000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => {
+        const root = document.getElementById('view-settings');
+        return {
+          current: String(window.OVYXSettings?.current || ''),
+          settingsRoot: String(window.OVYXSettings?.root?.id || ''),
+          panels: Array.from(root?.querySelectorAll('[data-settings-panel="connections"]') || []).map(panel => ({
+            id: panel.id,
+            className: panel.className,
+            hidden: panel.hidden,
+            display: getComputedStyle(panel).display,
+            hasAction: !!panel.querySelector('[data-ovyx-personal-ai-manager]'),
+            html: panel.innerHTML.slice(0, 420)
+          })),
+          actionOutsideSettings: !!document.querySelector('body > [data-ovyx-personal-ai-manager]')
+        };
+      });
+      throw new Error('Personal Connections panel did not render its inline AI action: ' + JSON.stringify(diagnostic) + ' | ' + error.message);
+    }
     await personalAction.scrollIntoViewIfNeeded();
     const bounds = await personalAction.boundingBox();
     assert.ok(bounds && bounds.width >= 40 && bounds.height >= 36, '[' + target.name + '] Personal AI connection action must have a usable touch target.');
