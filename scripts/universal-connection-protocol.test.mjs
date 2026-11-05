@@ -6,6 +6,7 @@ import {
   buildUniversalConnectionPayload,
   callUserUniversalConnection,
   hasConnectionPermission,
+  buildConnectionRequestUrl,
   getActiveBrainConnectionId,
   getActiveWebStudioConnectionId,
   publicConnection,
@@ -121,7 +122,16 @@ assert.equal(geminiHeaders.Authorization, undefined);
 const testStart = universalSource.indexOf('export async function testUserConnection(');
 const firstFetch = universalSource.indexOf('await fetch(', testStart);
 assert.ok(testStart >= 0 && firstFetch > testStart);
-assert.match(universalSource, /const url = assertSafeUrl\(universalConnectionEndpoint\(record, input\?\.model\), \{ requireHttps: record\.authMode !== 'none' \|\| supportsAIProtocol\(record\.protocol\) \}\)/);
+assert.match(universalSource, /const url = buildConnectionRequestUrl\(record, input\)/);
+assert.equal(hasConnectionPermission('GET', 'http', ['read']), true);
+assert.equal(hasConnectionPermission('POST', 'http', ['read']), false);
+assert.equal(hasConnectionPermission('POST', 'tool', ['execute']), true);
+assert.equal(hasConnectionPermission('DELETE', 'tool', ['execute']), false);
+const requestUrl = buildConnectionRequestUrl({ endpoint: 'https://api.example.test/v1', protocol: 'http-json', authMode: 'bearer' }, { path: '/customers', query: { limit: 10, active: true } });
+assert.equal(requestUrl, 'https://api.example.test/v1/customers?limit=10&active=true');
+assert.throws(() => buildConnectionRequestUrl({ endpoint: 'https://api.example.test/v1', protocol: 'http-json', authMode: 'bearer' }, { path: '//evil.example/steal' }), error => error.code === 'CONNECTION_PATH_INVALID');
+assert.throws(() => buildConnectionRequestUrl({ endpoint: 'https://api.example.test/v1', protocol: 'http-json', authMode: 'bearer' }, { path: '/../admin' }), error => error.code === 'CONNECTION_PATH_INVALID');
+assert.throws(() => buildConnectionRequestUrl({ endpoint: 'https://api.example.test/v1', protocol: 'http-json', authMode: 'bearer' }, { query: { api_key: 'secret' } }), error => error.code === 'CONNECTION_SECRET_IN_QUERY_BLOCKED');
 const openAiHeaders = {};
 applyConnectionAuth(openAiHeaders, 'api-key', 'test-openai-key', 'openai-chat');
 assert.equal(openAiHeaders.Authorization, 'Bearer test-openai-key');

@@ -521,6 +521,34 @@ async function responseJson(response) {
   }
 }
 
+export function buildConnectionRequestUrl(record, input = {}) {
+  const url = new URL(universalConnectionEndpoint(record, input?.model));
+  if (input.path !== undefined && input.path !== null && input.path !== '') {
+    const path = clean(input.path, 512);
+    if (!path.startsWith('/') || path.startsWith('//') || path.includes('?') || path.includes('#') || path.includes('\\') || /[\x00-\x1f]/.test(path) || /%(?:2e|2f|5c)/i.test(path)) {
+      throw Object.assign(new Error('Use a relative API path under the saved connection endpoint.'), { status: 400, code: 'CONNECTION_PATH_INVALID' });
+    }
+    let segments;
+    try { segments = path.split('/').filter(Boolean).map(decodeURIComponent); }
+    catch { throw Object.assign(new Error('The API path encoding is invalid.'), { status: 400, code: 'CONNECTION_PATH_INVALID' }); }
+    if (segments.some(segment => segment === '.' || segment === '..' || /[\\/\x00-\x1f]/.test(segment))) {
+      throw Object.assign(new Error('Path traversal is not allowed in a connection request.'), { status: 400, code: 'CONNECTION_PATH_INVALID' });
+    }
+    url.pathname = url.pathname.replace(/\/+$/, '') + path;
+  }
+  if (input.query !== undefined && input.query !== null) {
+    if (!input.query || typeof input.query !== 'object' || Array.isArray(input.query)) throw Object.assign(new Error('Query parameters must be a JSON object.'), { status: 400, code: 'CONNECTION_QUERY_INVALID' });
+    const entries = Object.entries(input.query);
+    if (entries.length > 30) throw Object.assign(new Error('A connection request supports up to 30 query parameters.'), { status: 400, code: 'CONNECTION_QUERY_LIMIT' });
+    for (const [key, value] of entries) {
+      if (!/^[A-Za-z0-9_.-]{1,80}$/.test(key) || /^(?:key|api[_-]?key|token|access[_-]?token|secret|password|authorization)$/i.test(key)) throw Object.assign(new Error('Credential-like query parameters are blocked. Keep API credentials in the encrypted connection settings.'), { status: 400, code: 'CONNECTION_SECRET_IN_QUERY_BLOCKED' });
+      if (!['string', 'number', 'boolean'].includes(typeof value)) throw Object.assign(new Error('Query parameter values must be strings, numbers or booleans.'), { status: 400, code: 'CONNECTION_QUERY_INVALID' });
+      url.searchParams.set(key, String(value).slice(0, 2000));
+    }
+  }
+  return assertSafeUrl(url.toString(), { requireHttps: record.authMode !== 'none' || supportsAIProtocol(record.protocol) });
+}
+
 async function requestConnection(record, input, env) {
   const timeoutMs = Math.min(
     Math.max(Number(env?.OVYX_CONNECTION_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS, 5000),
@@ -538,7 +566,7 @@ async function requestConnection(record, input, env) {
 
   try {
     const payload = buildUniversalConnectionPayload(record, input);
-    const url = assertSafeUrl(universalConnectionEndpoint(record, input?.model), { requireHttps: record.authMode !== 'none' || supportsAIProtocol(record.protocol) });
+    const url = buildConnectionRequestUrl(record, input);
 
     const method = clean(input?.method || 'POST', 10).toUpperCase();
     const response = await fetch(url, {
@@ -632,7 +660,7 @@ export async function callProjectUniversalConnection(env, user, input = {}) {
   if (!hasConnectionPermission(method, record.type, grant.permissions)) throw Object.assign(new Error('The project connection grant does not allow this operation.'), { status: 403, code: 'PROJECT_CONNECTION_PERMISSION_DENIED' });
   if (method !== 'GET' && method !== 'DELETE' && (!input.payload || typeof input.payload !== 'object' || Array.isArray(input.payload))) throw Object.assign(new Error('A JSON object payload is required for this operation.'), { status: 400, code: 'CONNECTION_PAYLOAD_REQUIRED' });
   const audit = async (status, code = null) => { try { await setFirestoreDocumentAtPath(env, ['users', owner.email, 'projects', projectId, 'connection_audit', crypto.randomUUID().replace(/-/g, '')], { ownerUid: owner.uid, projectId, connectionId, method, status, code, createdAt: new Date().toISOString() }, { merge: false }); } catch (error) { console.warn('[OVYX CONNECTION AUDIT]', error?.message || error); } };
-  try { const result = await requestConnection(record, { method, payload: input.payload }, env); await audit('success'); return { ok: true, status: result.status, data: result.data }; }
+  try { const result = await requestConnection(record, { method, payload: input.payload, path: input.path, query: input.query }, env); await audit('success'); return { ok: true, status: result.status, data: result.data }; }
   catch (error) { await audit('failed', clean(error?.code || 'UPSTREAM_FAILED', 80)); throw error; }
 }
 
