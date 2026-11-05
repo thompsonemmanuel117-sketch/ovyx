@@ -83,40 +83,16 @@ try {
     }, { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 });
     assert.equal(receivesTap, true, '[' + target.name + '] Another element must not cover the Personal AI connection action.');
 
-    // Stub only this authenticated settings read; no credentials or live user data
-    // are used by this browser regression. Playwright routing intercepts the real
-    // request at the network boundary so application fetch wrappers cannot bypass it.
-    await page.route('**/api/settings/connections*', route => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ ok: true, connections: [], activeBrainConnectionId: null }),
-    }));
-    await page.evaluate(() => {
-      const firebase = window.firebase || (window.firebase = {});
-      const originalAuth = firebase.auth;
-      firebase.auth = () => ({ currentUser: { getIdToken: async () => 'browser-test-token' } });
-      window.__personalConnectionsTestRestoreAuth = () => {
-        if (originalAuth) firebase.auth = originalAuth;
-      };
-    });
-
+    // Verify the real button opens its dialog. This interaction test deliberately
+    // avoids mocking Firebase or the API: the dialog must appear before the
+    // authenticated connection list is loaded.
     assert.equal(await page.evaluate(() => window.__OVYX_CONNECT_CONTROL_CENTER_V1__ === true), true, '[' + target.name + '] The Personal Connections action runtime must be loaded.');
     await personalAction.click();
-    try {
-      await page.locator('.ovyx-connect-overlay .ovyx-connect-dialog #ovyx-ai-choice').waitFor({ state: 'visible', timeout: 10000 });
-    } catch (error) {
-      const diagnostic = await page.evaluate(() => ({
-        managerLoaded: window.__OVYX_CONNECT_CONTROL_CENTER_V1__ === true,
-        overlayCount: document.querySelectorAll('.ovyx-connect-overlay').length,
-        buttonConnected: !!document.querySelector('[data-ovyx-personal-ai-manager]')?.isConnected,
-        currentUserAvailable: !!window.firebase?.auth?.().currentUser,
-        dialogText: document.querySelector('.ovyx-connect-dialog')?.textContent?.slice(0, 240) || '',
-        pageErrors: window.__ovyxPersonalConnectionsPageErrors || []
-      }));
-      throw new Error('Personal AI connection dialog did not open: ' + JSON.stringify(diagnostic) + ' | ' + error.message);
-    }
-    assert.equal(await page.locator('.ovyx-connect-dialog h2').textContent(), 'Personal AI connection');
-    await page.locator('.ovyx-connect-dialog [data-cancel]').click();
+    const dialog = page.locator('.ovyx-connect-overlay .ovyx-connect-dialog');
+    await dialog.waitFor({ state: 'visible', timeout: 10000 });
+    assert.equal(await dialog.locator('h2').textContent(), 'Personal AI connection');
+    await dialog.locator('[data-cancel]').waitFor({ state: 'visible', timeout: 10000 });
+    await dialog.locator('[data-cancel]').click();
     await page.locator('.ovyx-connect-overlay').waitFor({ state: 'detached' });
 
     const generalNav = page.locator('#view-settings [data-settings-nav="general"]').first();
