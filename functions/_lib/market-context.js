@@ -1,21 +1,21 @@
 import { COUNTRY_DEFAULTS } from './global-readiness.js';
 
 const PROFILES = [
-  { code: 'NG', country: 'Nigeria', re: /\\b(?:nigeria|nigerian|lagos|abuja|port harcourt|naira|ngn)\\b|₦/i, locale: 'en-NG', currency: 'NGN', timeZone: 'Africa/Lagos', language: 'en' },
-  { code: 'US', country: 'United States', re: /\\b(?:united states|u\\.s\\.a?\\.?|american|usa|new york|california)\\b/i, locale: 'en-US', currency: 'USD', timeZone: 'America/New_York', language: 'en' },
-  { code: 'GB', country: 'United Kingdom', re: /\\b(?:united kingdom|britain|british|england|london|uk)\\b/i, locale: 'en-GB', currency: 'GBP', timeZone: 'Europe/London', language: 'en' },
-  { code: 'CA', country: 'Canada', re: /\\b(?:canada|canadian|toronto|vancouver)\\b/i, locale: 'en-CA', currency: 'CAD', timeZone: 'America/Toronto', language: 'en' },
-  { code: 'AU', country: 'Australia', re: /\\b(?:australia|australian|sydney|melbourne)\\b/i, locale: 'en-AU', currency: 'AUD', timeZone: 'Australia/Sydney', language: 'en' },
-  { code: 'GH', country: 'Ghana', re: /\\b(?:ghana|ghanaian|accra|cedi|ghs)\\b/i, locale: 'en-GH', currency: 'GHS', timeZone: 'Africa/Accra', language: 'en' },
-  { code: 'KE', country: 'Kenya', re: /\\b(?:kenya|kenyan|nairobi|kes)\\b/i, locale: 'en-KE', currency: 'KES', timeZone: 'Africa/Nairobi', language: 'en' },
-  { code: 'ZA', country: 'South Africa', re: /\\b(?:south africa|south african|johannesburg|cape town|zar)\\b/i, locale: 'en-ZA', currency: 'ZAR', timeZone: 'Africa/Johannesburg', language: 'en' },
-  { code: 'IN', country: 'India', re: /\\b(?:india|indian|mumbai|delhi|rupee|inr)\\b|₹/i, locale: 'en-IN', currency: 'INR', timeZone: 'Asia/Kolkata', language: 'en' },
-  { code: 'JP', country: 'Japan', re: /\\b(?:japan|japanese|tokyo|yen|jpy)\\b|¥/i, locale: 'ja-JP', currency: 'JPY', timeZone: 'Asia/Tokyo', language: 'ja' },
-  { code: 'FR', country: 'France', re: /\\b(?:france|french|paris)\\b|€/i, locale: 'fr-FR', currency: 'EUR', timeZone: 'Europe/Paris', language: 'fr' },
-  { code: 'DE', country: 'Germany', re: /\\b(?:germany|german|berlin)\\b/i, locale: 'de-DE', currency: 'EUR', timeZone: 'Europe/Berlin', language: 'de' },
-  { code: 'ES', country: 'Spain', re: /\\b(?:spain|spanish|madrid|barcelona)\\b/i, locale: 'es-ES', currency: 'EUR', timeZone: 'Europe/Madrid', language: 'es' },
-  { code: 'AE', country: 'United Arab Emirates', re: /\\b(?:united arab emirates|uae|dubai|abu dhabi|aed)\\b/i, locale: 'en-AE', currency: 'AED', timeZone: 'Asia/Dubai', language: 'en' },
-  { code: 'BR', country: 'Brazil', re: /\\b(?:brazil|brazilian|são paulo|sao paulo|brl)\\b/i, locale: 'pt-BR', currency: 'BRL', timeZone: 'America/Sao_Paulo', language: 'pt' },
+  { code: 'NG', country: 'Nigeria', re: /\b(?:nigeria|nigerian|lagos|abuja|port harcourt|naira|ngn)\b|₦/i, locale: 'en-NG', currency: 'NGN', timeZone: 'Africa/Lagos', language: 'en' },
+  { code: 'US', country: 'United States', re: /\b(?:united states|u\.s\.a?\.?|american|usa|new york|california)\b/i, locale: 'en-US', currency: 'USD', timeZone: 'America/New_York', language: 'en' },
+  { code: 'GB', country: 'United Kingdom', re: /\b(?:united kingdom|britain|british|england|london|uk)\b/i, locale: 'en-GB', currency: 'GBP', timeZone: 'Europe/London', language: 'en' },
+  { code: 'CA', country: 'Canada', re: /\b(?:canada|canadian|toronto|vancouver)\b/i, locale: 'en-CA', currency: 'CAD', timeZone: 'America/Toronto', language: 'en' },
+  { code: 'AU', country: 'Australia', re: /\b(?:australia|australian|sydney|melbourne)\b/i, locale: 'en-AU', currency: 'AUD', timeZone: 'Australia/Sydney', language: 'en' },
+  { code: 'GH', country: 'Ghana', re: /\b(?:ghana|ghanaian|accra|cedi|ghs)\b/i, locale: 'en-GH', currency: 'GHS', timeZone: 'Africa/Accra', language: 'en' },
+  { code: 'KE', country: 'Kenya', re: /\b(?:kenya|kenyan|nairobi|kes)\b/i, locale: 'en-KE', currency: 'KES', timeZone: 'Africa/Nairobi', language: 'en' },
+  { code: 'ZA', country: 'South Africa', re: /\b(?:south africa|south african|johannesburg|cape town|zar)\b/i, locale: 'en-ZA', currency: 'ZAR', timeZone: 'Africa/Johannesburg', language: 'en' },
+  { code: 'IN', country: 'India', re: /\b(?:india|indian|mumbai|delhi|rupee|inr)\b|₹/i, locale: 'en-IN', currency: 'INR', timeZone: 'Asia/Kolkata', language: 'en' },
+  { code: 'JP', country: 'Japan', re: /\b(?:japan|japanese|tokyo|yen|jpy)\b|¥/i, locale: 'ja-JP', currency: 'JPY', timeZone: 'Asia/Tokyo', language: 'ja' },
+  { code: 'FR', country: 'France', re: /\b(?:france|french|paris)\b|€/i, locale: 'fr-FR', currency: 'EUR', timeZone: 'Europe/Paris', language: 'fr' },
+  { code: 'DE', country: 'Germany', re: /\b(?:germany|german|berlin)\b/i, locale: 'de-DE', currency: 'EUR', timeZone: 'Europe/Berlin', language: 'de' },
+  { code: 'ES', country: 'Spain', re: /\b(?:spain|spanish|madrid|barcelona)\b/i, locale: 'es-ES', currency: 'EUR', timeZone: 'Europe/Madrid', language: 'es' },
+  { code: 'AE', country: 'United Arab Emirates', re: /\b(?:united arab emirates|uae|dubai|abu dhabi|aed)\b/i, locale: 'en-AE', currency: 'AED', timeZone: 'Asia/Dubai', language: 'en' },
+  { code: 'BR', country: 'Brazil', re: /\b(?:brazil|brazilian|são paulo|sao paulo|brl)\b/i, locale: 'pt-BR', currency: 'BRL', timeZone: 'America/Sao_Paulo', language: 'pt' },
 ];
 const clean = (value, max = 100) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 
@@ -76,7 +76,7 @@ export function buildMarketContext(prompt = '', context = {}) {
   const currency = suppliedCurrency || profile?.currency || countryDefaults?.currency || '';
   const suppliedTimeZone = clean(market.timeZone || market.timezone || supplied.timeZone || supplied.timezone, 80);
   const timeZone = suppliedTimeZone || profile?.timeZone || '';
-  const languageMatch = /\\b(?:in|language(?: should be)?|written in)\\s+(French|Spanish|German|Japanese|Portuguese|Arabic|Hindi|English)\\b/i.exec(brief);
+  const languageMatch = /\b(?:in|language(?: should be)?|written in)\s+(French|Spanish|German|Japanese|Portuguese|Arabic|Hindi|English)\b/i.exec(brief);
   const languageFromBrief = languageMatch
     ? ({ french:'fr', spanish:'es', german:'de', japanese:'ja', portuguese:'pt', arabic:'ar', hindi:'hi', english:'en' })[languageMatch[1].toLowerCase()]
     : '';
