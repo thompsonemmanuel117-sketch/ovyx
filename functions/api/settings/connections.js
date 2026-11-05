@@ -485,17 +485,12 @@ async function onRequest(context) {
         [...base, id]
       );
 
-    // Legacy external-AI assignment IDs are no longer active routing settings.
-    let activeBrainConnectionId = null;
-    let activeWebStudioConnectionId = null;
+    let activeBrainConnectionId = state.activeBrainConnectionId;
+    const activeWebStudioConnectionId = null;
     const clearInvalidSelections = {};
-    if (activeBrainConnectionId === id && (!record.active || !supportsAIProtocol(record.protocol))) {
+    if (activeBrainConnectionId === id && (!record.active || record.type !== 'ai' || !supportsAIProtocol(record.protocol) || !record.encryptedSecret)) {
       activeBrainConnectionId = null;
       clearInvalidSelections.activeBrainConnectionId = null;
-    }
-    if (activeWebStudioConnectionId === id && (!record.active || !supportsAIProtocol(record.protocol))) {
-      activeWebStudioConnectionId = null;
-      clearInvalidSelections.activeWebStudioConnectionId = null;
     }
     if (Object.keys(clearInvalidSelections).length) {
       await setFirestoreDocumentAtPath(context.env, ['users', auth.uid], clearInvalidSelections, { merge: true });
