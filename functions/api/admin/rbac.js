@@ -1,51 +1,20 @@
 /**
- * OVYX (ForgeOS) - Phase 8 Server-Authoritative RBAC Authority
- * Fixed folder routing pathways for Cloudflare V8 runtime engine compatibility.
+ * OVYX server-authoritative capability check.
+ *
+ * The live entitlement resolver is the single source of truth for account
+ * tier, subscription state, expiry, owner-managed plan features and global
+ * feature locks. This endpoint must never make its own paid-plan decision.
  */
-
-import {
-  jsonResponse,
-  errorResponse,
-  getRequestId,
-  getBearerToken,
-  enforceSameOrigin,
-  isValidCapabilityName
-} from '../../_lib/http.js';
-
-import {
-  verifyFirebaseIdToken,
-  normalizeEmail
-} from '../../_lib/auth.js';
-
-import { getFirestoreDocument } from '../../_lib/firebase-admin.js';
+import { jsonResponse, errorResponse, getRequestId, getBearerToken, enforceSameOrigin, isValidCapabilityName } from '../../_lib/http.js';
+import { verifyFirebaseIdToken, normalizeEmail } from '../../_lib/auth.js';
+import { resolveEntitlements } from '../entitlements.js';
 import { ROOT_EMAIL } from '../../_lib/brain/registry.js';
 
-
-
-const CAPABILITIES = Object.freeze({
-  FREE_USER: Object.freeze({
-    webStudio: false, advancedWebStudio: false, appStudio: false, gameStudio: false,
-    aiGeneration: true, github: true, cloudflareDeploy: false, teamWorkspace: false
-  }),
-  PRO_USER: Object.freeze({
-    webStudio: true, advancedWebStudio: true, appStudio: false, gameStudio: false,
-    aiGeneration: true, github: true, cloudflareDeploy: true, teamWorkspace: false
-  }),
-  MAX_USER: Object.freeze({
-    webStudio: true, advancedWebStudio: true, appStudio: true, gameStudio: true,
-    aiGeneration: true, github: true, cloudflareDeploy: true, teamWorkspace: true
-  }),
-  ROOT_SUPERUSER: Object.freeze({
-    webStudio: true, advancedWebStudio: true, appStudio: true, gameStudio: true,
-    aiGeneration: true, github: true, cloudflareDeploy: true, teamWorkspace: true
-  })
-});
-
+// Retained as a compatibility/display helper for older imports. It is not
+// used to authorize requests; authorization always uses resolveEntitlements.
 export function resolveRole(profile, email) {
   if (normalizeEmail(email) === ROOT_EMAIL) return 'ROOT_SUPERUSER';
   const role = String(profile?.role || '').trim().toUpperCase();
-  // Plan labels may be stored in the user profile, but ROOT_SUPERUSER is never
-  // accepted from a profile. Root authority requires the canonical verified email.
   if (role === 'MAX_USER' || role === 'PRO_USER') return role;
   const plan = String(profile?.planTier ?? profile?.tier ?? profile?.plan ?? 'free').trim().toLowerCase();
   if (plan === 'max' || plan === 'maximum') return 'MAX_USER';
@@ -53,58 +22,47 @@ export function resolveRole(profile, email) {
   return 'FREE_USER';
 }
 
+function roleForEntitlements(entitlements, email) {
+  if (normalizeEmail(email) === ROOT_EMAIL) return 'ROOT_SUPERUSER';
+  const tier = String(entitlements?.planTier || 'free').trim().toLowerCase();
+  if (tier === 'max') return 'MAX_USER';
+  if (tier === 'pro') return 'PRO_USER';
+  return 'FREE_USER';
+}
+
 export async function onRequestPost(context) {
   const request = context.request;
-  const requestId = getRequestId(request);
-
-  if (!enforceSameOrigin(request)) {
-    return errorResponse(403, 'ORIGIN_REJECTED', 'Cross-origin RBAC requests are not permitted.', requestId);
-  }
-
-  if (!getBearerToken(request)) {
-    return errorResponse(401, 'AUTH_REQUIRED', 'Authentication is required.', requestId);
-  }
+  const id = getRequestId(request);
+  if (!enforceSameOrigin(request)) return errorResponse(403, 'ORIGIN_REJECTED', 'Cross-origin RBAC requests are not permitted.', id);
+  if (!getBearerToken(request)) return errorResponse(401, 'AUTH_REQUIRED', 'Authentication is required.', id);
 
   let body;
-  try {
-    body = await request.json();
-  } catch {
-    return errorResponse(400, 'INVALID_JSON', 'Request body must be valid JSON.', requestId);
-  }
+  try { body = await request.json(); }
+  catch { return errorResponse(400, 'INVALID_JSON', 'Request body must be valid JSON.', id); }
 
   const capability = String(body?.capability || '');
-
-  if (!isValidCapabilityName(capability)) {
-    return errorResponse(400, 'INVALID_CAPABILITY', 'The requested capability is not recognized.', requestId);
-  }
+  if (!isValidCapabilityName(capability)) return errorResponse(400, 'INVALID_CAPABILITY', 'The requested capability is not recognized.', id);
 
   const auth = await verifyFirebaseIdToken(request, context.env);
-  if (!auth.ok) {
-    return auth.response;
-  }
+  if (!auth.ok) return auth.response;
 
   try {
-    let profile = null;
-    if (normalizeEmail(auth.user.email) !== ROOT_EMAIL) {
-      profile = await getFirestoreDocument(context.env, 'users', auth.user.uid);
-    }
-    const role = resolveRole(profile, auth.user.email);
-    const allowed = CAPABILITIES[role]?.[capability] === true;
-
-    return jsonResponse(
-      {
-        ok: true,
-        allowed,
-        capability,
-        role,
-        authority: 'SERVER'
-      },
-      200,
-      { 'X-OVYX-Request-ID': requestId }
-    );
+    const entitlements = await resolveEntitlements(context.env, auth.user);
+    const role = roleForEntitlements(entitlements, auth.user.email);
+    const allowed = entitlements?.capabilities?.[capability] === true;
+    return jsonResponse({
+      ok: true,
+      allowed,
+      capability,
+      role,
+      planTier: entitlements?.planTier || 'free',
+      planTierState: entitlements?.planTierState || 'expired',
+      accessActive: entitlements?.accessActive === true || entitlements?.bypass === true,
+      authority: 'SERVER'
+    }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
   } catch (error) {
-    console.error(`[OVYX RBAC ${requestId}]`, error?.message || error);
-    return errorResponse(503, 'RBAC_EVALUATION_FAILED', 'Authorization could not be safely evaluated.', requestId);
+    console.error('[OVYX RBAC ' + id + ']', error?.code || error?.message || 'evaluation failed');
+    return errorResponse(503, 'RBAC_EVALUATION_FAILED', 'Authorization could not be safely evaluated.', id);
   }
 }
 

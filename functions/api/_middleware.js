@@ -90,6 +90,16 @@ export async function onRequest(context) {
     context.data.user = user;
     context.data.requestId = id;
 
+    // Every route with a plan capability requirement is a protected account
+    // operation. Hidden or disabled UI controls are not an authorization boundary.
+    const requiredFeatures = FEATURE_REQUIREMENTS_BY_PATH.get(url.pathname);
+    if (requiredFeatures && !user) {
+      return withCors(
+        errorResponse(401, 'AUTH_REQUIRED', 'Sign in before using this OVYX feature.', id),
+        req
+      );
+    }
+
     if (INTEGRATION_GATED_PATHS.has(url.pathname)) {
       let integrationState;
       try {
@@ -103,8 +113,7 @@ export async function onRequest(context) {
       }
     }
 
-    const requiredFeatures = FEATURE_REQUIREMENTS_BY_PATH.get(url.pathname);
-    if (user && requiredFeatures) {
+    if (requiredFeatures) {
       let resolved;
       try {
         resolved = await resolveEntitlements(context.env, user);

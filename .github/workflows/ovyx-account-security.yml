@@ -1,0 +1,50 @@
+name: OVYX Account Security
+
+on:
+  pull_request:
+    paths:
+      - 'functions/api/_middleware.js'
+      - 'functions/api/admin/rbac.js'
+      - 'functions/api/entitlements.js'
+      - 'functions/_lib/firebase.js'
+      - 'functions/_lib/token-quota.js'
+      - 'firestore.rules'
+      - 'scripts/ovyx-account-security.test.mjs'
+      - 'scripts/ovyx-auth-blocking.test.mjs'
+      - 'scripts/ovyx-plan-connection-gates.test.mjs'
+      - 'scripts/ovyx-payment-webhook-safety.test.mjs'
+      - '.github/workflows/ovyx-account-security.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'functions/api/_middleware.js'
+      - 'functions/api/admin/rbac.js'
+      - 'functions/api/entitlements.js'
+      - 'functions/_lib/firebase.js'
+      - 'functions/_lib/token-quota.js'
+      - 'firestore.rules'
+      - 'scripts/ovyx-account-security.test.mjs'
+      - '.github/workflows/ovyx-account-security.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  account-security:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out OVYX
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify account and authorization boundaries
+        run: node scripts/ovyx-account-security.test.mjs
+      - name: Verify registration and email-authentication policy
+        run: node scripts/ovyx-auth-blocking.test.mjs
+      - name: Verify plan and quota compatibility
+        run: node scripts/ovyx-plan-connection-gates.test.mjs
+      - name: Verify payment webhook replay protection
+        run: node scripts/ovyx-payment-webhook-safety.test.mjs
