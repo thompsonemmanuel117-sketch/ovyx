@@ -159,16 +159,20 @@
   function decorate() {
     decorateProjectGrantActions();
   }
+  // Listen at the window capture boundary so unrelated document-level
+  // click guards cannot swallow this Settings action before it reaches us.
+  // Stop propagation only for this dedicated button; all other OVYX clicks
+  // continue through the existing application handlers.
+  window.addEventListener('click', event => {
+    const trigger = event.target && event.target.closest && event.target.closest('[data-ovyx-personal-ai-manager]');
+    if (!trigger) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openAIManager();
+  }, true);
+
   function boot() {
     decorateProjectGrantActions();
-    // Keep the Personal AI action inside the Connections screen. A fixed
-    // floating control can overlap unrelated app buttons on small touch screens.
-    document.addEventListener('click', event => {
-      const trigger = event.target && event.target.closest && event.target.closest('[data-ovyx-personal-ai-manager]');
-      if (!trigger) return;
-      event.preventDefault();
-      openAIManager();
-    });
     const observer = new MutationObserver(decorateProjectGrantActions);
     observer.observe(document.documentElement, { childList: true, subtree: true });
     window.addEventListener('ovyx:connections-updated', decorateProjectGrantActions);
