@@ -24,7 +24,7 @@ async function edit(id,button){const item=rows.find(x=>x.id===id);if(!item)retur
 async function test(id,b){b.disabled=true;try{const d=await api('/api/settings/connections',post({action:'test',id}));toast(d.test?.ok?'Service is reachable.':'Service test failed.');await load()}catch(e){toast(e.message,'error')}finally{b.disabled=false}}
 async function toggle(id,active,b){b.disabled=true;try{await api('/api/settings/connections',post({id,active}));toast(active?'Connection enabled.':'Connection paused.','success');await load()}catch(e){toast(e.message,'error');b.disabled=false}}
 async function remove(id,b){if(!confirm('Remove this connection? Projects using it will lose access.'))return;b.disabled=true;try{await api('/api/settings/connections?id='+encodeURIComponent(id),{method:'DELETE'});toast('Connection removed.','success');await load()}catch(e){toast(e.message,'error');b.disabled=false}}
-function mount(){const panel=$('[data-settings-panel="connections"]');if(!panel||panel.dataset.pcCenterV2==='1')return;panel.dataset.pcCenterV2='1';css();panel.innerHTML='<div class="ovyx-pc-root"></div>';load()}
+function mount(){const panel=$('[data-settings-panel="connections"]');if(!panel)return;if(panel.dataset.pcCenterV2==='1'&&$('.ovyx-pc-root',panel))return;panel.dataset.pcCenterV2='1';css();panel.innerHTML='<div class="ovyx-pc-root"></div>';load()}
 function boot(){mount();new MutationObserver(mount).observe(document.documentElement,{childList:true,subtree:true});window.addEventListener('ovyx-settings-rendered',mount);window.addEventListener('ovyx:connections-updated',load)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
