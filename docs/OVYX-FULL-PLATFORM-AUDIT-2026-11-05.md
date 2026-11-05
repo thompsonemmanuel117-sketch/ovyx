@@ -196,6 +196,10 @@ A successful unit/build stage is not equivalent to a completed browser or produc
 
 **No product code, logo, Web Studio code, configuration or runtime behaviour was changed by this audit.**
 
+## Stage 1 completion supplement
+
+The screen-by-screen workspace/action inventory, design/motion/responsive evidence, issue register and feature-to-preservation traceability are completed in [OVYX Stage 1 — Screen, Action, Design and Preservation Register](OVYX-STAGE-1-SCREEN-ACTION-DESIGN-PRESERVATION-REGISTER.md). Read that supplement together with the Settings control inventory. It records source-level ownership and explicitly separates it from browser/live-service verification.
+
 ## 10. Stage 2 entry requirements
 
 Stage 2 may begin with an architecture proposal only. Before implementation, produce a page/navigation blueprint that:
