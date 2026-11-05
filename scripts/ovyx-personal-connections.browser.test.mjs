@@ -42,10 +42,14 @@ try {
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
-    const connectionsNav = page.locator('#view-settings [data-settings-nav="connections"]').first();
+    const connectionNavItems = page.locator('#view-settings [data-settings-nav="connections"]');
+    assert.equal(await connectionNavItems.count(), 1, '[' + target.name + '] Personal Connections must have exactly one Settings navigation item.');
+    const connectionsNav = connectionNavItems.first();
     await connectionsNav.waitFor({ state: 'visible' });
+    assert.match(await connectionsNav.innerText(), /Personal Connections/);
     await connectionsNav.click();
     await page.waitForFunction(() => window.OVYXSettings?.current === 'connections', null, { timeout: 10000 });
+    assert.equal(await page.locator('#view-settings [data-settings-panel="connections"]').count(), 1, '[' + target.name + '] Exactly one Personal Connections panel must exist.');
 
     const personalAction = page.locator('#view-settings [data-ovyx-personal-ai-manager]');
     try {
