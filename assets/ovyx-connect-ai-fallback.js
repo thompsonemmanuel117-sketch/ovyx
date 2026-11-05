@@ -12,7 +12,7 @@
     openrouter: { label: 'OpenRouter', protocol: 'openai-chat', endpoint: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini' },
     custom: { label: 'Custom OpenAI-compatible API', protocol: 'openai-chat', endpoint: '', model: '' }
   });
-  const $ = (root, selector) => root.querySelector(selector);
+  const $ = (selector, root = document) => root.querySelector(selector);
   const notify = (message, kind) => {
     try { const fn = window.showToast || window.toast; if (typeof fn === 'function') fn(message, kind || 'info'); } catch (_) {}
   };
