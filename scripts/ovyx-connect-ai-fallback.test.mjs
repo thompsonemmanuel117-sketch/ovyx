@@ -14,6 +14,8 @@ assert.match(ui, /type: 'ai'/);
 assert.match(ui, /action: 'use-ai'/);
 assert.match(ui, /api\/settings\/connection-grants/);
 assert.match(ui, /Grant to project/);
+assert.match(ui, /Revoke access/);
+assert.match(ui, /Use Cloudflare only/);
 assert.match(ui, /https:/);
 assert.match(api, /activeBrainConnectionId: state\.activeBrainConnectionId/);
 assert.match(lib, /export async function callUserUniversalConnection/);

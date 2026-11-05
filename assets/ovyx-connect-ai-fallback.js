@@ -48,14 +48,19 @@
     document.addEventListener('keydown', function escape(event) { if (event.key === 'Escape') { closeDialog(); document.removeEventListener('keydown', escape); } }, { once: true });
     document.body.appendChild(overlay); return $('.ovyx-connect-dialog', overlay);
   }
-  function renderAIForm(root, existing) {
-    const options = existing.map(item => '<option value="' + String(item.id).replace(/[^A-Za-z0-9_-]/g, '') + '">' + String(item.name || 'Saved AI provider').replace(/[<>&"]/g, '') + ' · saved key</option>').join('');
+  function renderAIForm(root, existing, activeId) {
+    const options = existing.map(item => '<option value="' + String(item.id).replace(/[^A-Za-z0-9_-]/g, '') + '"' + (item.id === activeId ? ' selected' : '') + '>' + String(item.name || 'Saved AI provider').replace(/[<>&"]/g, '') + ' · saved key</option>').join('');
     root.innerHTML += '<div class="ovyx-connect-note"></div><label for="ovyx-ai-choice">AI provider connection</label><select id="ovyx-ai-choice"><option value="new">Add a new provider key</option>' + options + '</select><div id="ovyx-ai-new-fields"><label for="ovyx-ai-provider">Provider</label><select id="ovyx-ai-provider">' + Object.entries(PROVIDERS).map(([key, value]) => '<option value="' + key + '">' + value.label + '</option>').join('') + '</select><label for="ovyx-ai-name">Connection name</label><input id="ovyx-ai-name" maxlength="120" value="My AI Provider"><label for="ovyx-ai-endpoint">API endpoint</label><input id="ovyx-ai-endpoint" type="url" autocomplete="url" placeholder="https://api.example.com/v1"><label for="ovyx-ai-model">Model name</label><input id="ovyx-ai-model" maxlength="180" placeholder="Enter the model ID"><label for="ovyx-ai-key">API key</label><input id="ovyx-ai-key" type="password" autocomplete="new-password" maxlength="8000" placeholder="Paste your provider API key" required></div><div class="note">Cloudflare Workers AI remains first. Your personal key is used only after your OVYX monthly, booster and daily AI allowances are exhausted. The key is encrypted on the server and is never placed in your website code.</div><div class="ovyx-connect-actions"><button type="button" data-cancel>Cancel</button><button type="button" class="primary" data-save>Save and enable fallback</button></div>';
     const choice = $('#ovyx-ai-choice', root), provider = $('#ovyx-ai-provider', root), endpoint = $('#ovyx-ai-endpoint', root), model = $('#ovyx-ai-model', root), name = $('#ovyx-ai-name', root), fields = $('#ovyx-ai-new-fields', root), key = $('#ovyx-ai-key', root);
     function applyProvider() { const p = PROVIDERS[provider.value]; endpoint.value = p.endpoint; model.value = p.model; name.value = p.label + ' personal key'; }
     provider.addEventListener('change', applyProvider); applyProvider();
     choice.addEventListener('change', () => { fields.hidden = choice.value !== 'new'; });
     $('[data-cancel]', root).addEventListener('click', closeDialog);
+    $('[data-disable]', root).addEventListener('click', async event => {
+      const button = event.currentTarget; button.disabled = true;
+      try { await api('/api/settings/connections', jsonOptions({ action: 'clear-ai' })); closeDialog(); notify('Personal fallback disabled. OVYX will use its normal Cloudflare quota policy.', 'success'); }
+      catch (error) { notify(error.message || 'Could not disable the personal fallback.', 'error'); button.disabled = false; }
+    });
     $('[data-save]', root).addEventListener('click', async event => {
       const button = event.currentTarget; button.disabled = true; button.textContent = 'Saving securely…';
       try {
@@ -83,7 +88,7 @@
       const data = await api('/api/settings/connections');
       const existing = (data.connections || []).filter(item => item.type === 'ai' && item.hasSecret && item.active);
       root.innerHTML = '';
-      renderAIForm(root, existing);
+      renderAIForm(root, existing, data.activeBrainConnectionId);
     } catch (error) { root.innerHTML = '<div class="note">' + String(error.message || 'Unable to load connections.').replace(/[<>&"]/g, '') + '</div><div class="ovyx-connect-actions"><button type="button" data-cancel>Close</button></div>'; $('[data-cancel]', root).addEventListener('click', closeDialog); }
   }
   async function openProjectGrant(connectionId) {
@@ -92,15 +97,42 @@
       const data = await api('/api/projects');
       const projects = Array.isArray(data.projects) ? data.projects : [];
       if (!projects.length) { root.innerHTML = '<div class="note">Save a project in OVYX first. It will appear here.</div><div class="ovyx-connect-actions"><button type="button" data-cancel>Close</button></div>'; $('[data-cancel]', root).addEventListener('click', closeDialog); return; }
-      root.innerHTML = '<label for="ovyx-grant-project">Project</label><select id="ovyx-grant-project">' + projects.map(p => '<option value="' + String(p.id).replace(/[^A-Za-z0-9_-]/g, '') + '">' + String(p.name || p.title || 'Untitled project').replace(/[<>&"]/g, '') + '</option>').join('') + '</select><div class="ovyx-connect-perms"><label><input type="checkbox" value="read" checked> Read</label><label><input type="checkbox" value="write"> Write</label><label><input type="checkbox" value="delete"> Delete</label><label><input type="checkbox" value="execute"> Execute tools</label></div><div class="note">Only selected permissions are granted. You can revoke access later from this same connection manager.</div><div class="ovyx-connect-actions"><button type="button" data-cancel>Cancel</button><button type="button" class="primary" data-grant>Grant access</button></div>';
+      const grantByProject = new Map();
+      await Promise.all(projects.map(async project => {
+        try {
+          const grants = await api('/api/settings/connection-grants?projectId=' + encodeURIComponent(project.id));
+          const current = (grants.grants || []).find(item => item.connectionId === connectionId && item.active);
+          if (current) grantByProject.set(String(project.id), current);
+        } catch (_) {}
+      }));
+      root.innerHTML = '<label for="ovyx-grant-project">Project</label><select id="ovyx-grant-project">' + projects.map(p => '<option value="' + String(p.id).replace(/[^A-Za-z0-9_-]/g, '') + '">' + String(p.name || p.title || 'Untitled project').replace(/[<>&"]/g, '') + '</option>').join('') + '</select><div id="ovyx-grant-state" class="note"></div><div class="ovyx-connect-perms"><label><input type="checkbox" value="read" checked> Read</label><label><input type="checkbox" value="write"> Write</label><label><input type="checkbox" value="delete"> Delete</label><label><input type="checkbox" value="execute"> Execute tools</label></div><div class="note">Only selected permissions are granted. Project access is checked on every server request.</div><div class="ovyx-connect-actions"><button type="button" data-cancel>Cancel</button><button type="button" data-revoke hidden>Revoke access</button><button type="button" class="primary" data-grant>Grant access</button></div>';
+      const projectSelect = $('#ovyx-grant-project', root);
+      const stateLabel = $('#ovyx-grant-state', root);
+      const revokeButton = $('[data-revoke]', root);
+      function renderGrantState() {
+        const current = grantByProject.get(projectSelect.value);
+        stateLabel.textContent = current ? 'This project currently has: ' + current.permissions.join(', ') + '.' : 'This project has not been granted access yet.';
+        revokeButton.hidden = !current;
+        root.querySelectorAll('.ovyx-connect-perms input').forEach(input => { input.checked = current ? current.permissions.includes(input.value) : input.value === 'read'; });
+      }
+      renderGrantState();
+      projectSelect.addEventListener('change', renderGrantState);
       $('[data-cancel]', root).addEventListener('click', closeDialog);
+      revokeButton.addEventListener('click', async event => {
+        const button = event.currentTarget; button.disabled = true;
+        try {
+          const projectId = projectSelect.value;
+          await api('/api/settings/connection-grants', jsonOptions({ action: 'revoke', projectId, connectionId }));
+          grantByProject.delete(projectId); renderGrantState(); notify('Project access revoked.', 'success'); button.disabled = false;
+        } catch (error) { notify(error.message || 'Could not revoke project access.', 'error'); button.disabled = false; }
+      });
       $('[data-grant]', root).addEventListener('click', async event => {
         const button = event.currentTarget; button.disabled = true;
         try {
-          const projectId = $('#ovyx-grant-project', root).value;
+          const projectId = projectSelect.value;
           const permissions = Array.from(root.querySelectorAll('.ovyx-connect-perms input:checked')).map(input => input.value);
           await api('/api/settings/connection-grants', jsonOptions({ action: 'grant', projectId, connectionId, permissions }));
-          closeDialog(); notify('Project access saved with the selected permissions.', 'success');
+          grantByProject.set(projectId, { connectionId, permissions, active: true }); renderGrantState(); notify('Project access saved with the selected permissions.', 'success'); button.disabled = false;
         } catch (error) { notify(error.message || 'Could not grant project access.', 'error'); button.disabled = false; }
       });
     } catch (error) { root.innerHTML = '<div class="note">' + String(error.message || 'Unable to load projects.').replace(/[<>&"]/g, '') + '</div><div class="ovyx-connect-actions"><button type="button" data-cancel>Close</button></div>'; $('[data-cancel]', root).addEventListener('click', closeDialog); }
