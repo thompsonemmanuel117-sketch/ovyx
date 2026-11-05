@@ -125,3 +125,6 @@
 
 /assets/ovyx-connect-brand-icons.js
   Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-connect-ai-fallback.js
+  Cache-Control: no-store, no-cache, must-revalidate
