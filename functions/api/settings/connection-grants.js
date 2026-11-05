@@ -1,5 +1,5 @@
-import { authenticateRequest } from '../_lib/firebase.js';
-import { readJson, jsonResponse } from '../_lib/http.js';
+import { authenticateRequest } from '../../_lib/firebase.js';
+import { readJson, jsonResponse } from '../../_lib/http.js';
 import { getFirestoreDataAtPath, setFirestoreDocumentAtPath, listFirestoreSubcollectionDocumentsAtPath } from '../../_lib/firebase-admin.js';
 const ALLOWED = new Set(['read', 'write', 'delete', 'execute']);
 const clean = (value, max = 320) => String(value ?? '').trim().slice(0, max);

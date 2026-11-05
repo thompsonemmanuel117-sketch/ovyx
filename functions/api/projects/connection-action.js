@@ -1,5 +1,5 @@
-import { authenticateRequest } from '../_lib/firebase.js';
-import { readJson, jsonResponse } from '../_lib/http.js';
+import { authenticateRequest } from '../../_lib/firebase.js';
+import { readJson, jsonResponse } from '../../_lib/http.js';
 import { callProjectUniversalConnection } from '../../_lib/universal-connections.js';
 export async function onRequestPost(context) {
   try {
