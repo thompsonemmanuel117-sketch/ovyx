@@ -34,7 +34,7 @@ assert.equal(legacyPublicRecord.hasSecret, true);
 assert.equal(legacyPublicRecord.secret, undefined);
 assert.equal(legacyPublicRecord.encryptedSecret, undefined);
 assert.deepEqual(legacyPublicRecord.capabilities, {
-  canUseAsBrain: false,
+  canUseAsBrain: true,
   canUseForWebStudio: false,
 });
 
@@ -116,12 +116,14 @@ applyConnectionAuth(geminiHeaders, 'bearer', 'test-gemini-key', 'gemini-generate
 assert.equal(geminiHeaders['x-goog-api-key'], 'test-gemini-key');
 assert.equal(geminiHeaders.Authorization, undefined);
 
-// Both the route and the underlying library reject AI-protocol readiness checks
-// before any fetch call, while still allowing safe HTTP/webhook checks.
+// AI-protocol health checks now use the authenticated server-side credential path.
 const testStart = universalSource.indexOf('export async function testUserConnection(');
-const aiGuard = universalSource.indexOf('if (supportsAIProtocol(record.protocol))', testStart);
 const firstFetch = universalSource.indexOf('await fetch(', testStart);
-assert.ok(testStart >= 0 && aiGuard > testStart && firstFetch > aiGuard);
+assert.ok(testStart >= 0 && firstFetch > testStart);
+assert.match(universalSource, /const url = assertSafeUrl\(universalConnectionEndpoint\(record, input\?\.model\), \{ requireHttps: true \}\)/);
+const openAiHeaders = {};
+applyConnectionAuth(openAiHeaders, 'api-key', 'test-openai-key', 'openai-chat');
+assert.equal(openAiHeaders.Authorization, 'Bearer test-openai-key');
 assert.match(connectionsRouteSource, /aiRoutingPolicy: state\.activeBrainConnectionId \? 'cloudflare-then-personal-key' : 'cloudflare-only'/);
 assert.match(connectionsRouteSource, /action === 'use-ai'/);
 assert.match(connectionsRouteSource, /AI_CONNECTION_NOT_READY/);
