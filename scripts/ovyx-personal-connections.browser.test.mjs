@@ -88,9 +88,12 @@ try {
     // authenticated connection list is loaded.
     assert.equal(await page.evaluate(() => window.__OVYX_CONNECT_CONTROL_CENTER_V1__ === true), true, '[' + target.name + '] The Personal Connections action runtime must be loaded.');
     await personalAction.click();
-    const dialog = page.locator('.ovyx-connect-overlay .ovyx-connect-dialog');
+    const dialog = page.locator('.ovyx-connect-overlay .ovyx-connect-dialog[aria-label="Personal AI connection"]');
     await dialog.waitFor({ state: 'visible', timeout: 10000 });
-    assert.equal(await dialog.locator('h2').textContent(), 'Personal AI connection');
+    // In the unauthenticated local test shell, the dialog keeps its accessible
+    // identity while replacing the heading with the sign-in-required message.
+    await dialog.locator('.note').waitFor({ state: 'visible', timeout: 10000 });
+    assert.match(await dialog.locator('.note').textContent(), /Sign in to manage your Personal Connections/);
     await page.keyboard.press('Escape');
     await page.locator('.ovyx-connect-overlay').waitFor({ state: 'detached' });
 
