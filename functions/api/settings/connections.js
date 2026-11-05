@@ -422,7 +422,7 @@ async function onRequest(context) {
         return jsonResponse({
           ok: false,
           error: 'CONNECTION_LIMIT_REACHED',
-          message: `Your ${state.tier === 'free' ? 'Free Trial' : state.tier === 'pro' ? 'Pro Plan' : 'Max Plan'} allows ${limit === Infinity ? 'unlimited' : limit} active universal connections.`,
+          message: `Your ${state.tier === 'free' ? 'Free Trial' : state.tier === 'pro' ? 'Pro Plan' : 'Max Plan'} allows ${limit === Infinity ? 'unlimited' : limit} active Personal Connections.`,
           tier: state.tier,
           limit: limit === Infinity ? null : limit,
           activeCount: reservation.count,
