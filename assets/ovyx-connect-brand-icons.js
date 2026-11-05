@@ -9,7 +9,7 @@
     'google docs':'googledocs','google forms':'googleforms','github':'github','gitlab':'gitlab',
     'stripe':'stripe','paypal':'paypal','paystack':'paystack','flutterwave':'flutterwave',
     'opay':'opay','whatsapp':'whatsapp','twilio':'twilio','resend':'resend',
-    'sendgrid':'twilio','mailgun':'mailgun','brevo':'brevo','slack':'slack','discord':'discord',
+    'sendgrid':'sendgrid','mailgun':'mailgun','brevo':'brevo','slack':'slack','discord':'discord',
     'notion':'notion','airtable':'airtable','hubspot':'hubspot','salesforce':'salesforce',
     'shopify':'shopify','woocommerce':'woocommerce','wordpress':'wordpress','webflow':'webflow',
     'supabase':'supabase','firebase':'firebase','cloudflare':'cloudflare','vercel':'vercel',
