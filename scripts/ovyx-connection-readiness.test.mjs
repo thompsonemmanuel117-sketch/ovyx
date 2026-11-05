@@ -40,7 +40,7 @@ assert.match(api, /aiRoutingPolicy: state\.activeBrainConnectionId \? 'cloudflar
 assert.match(api, /action === 'use-ai'/);
 assert.match(api, /AI_CONNECTION_NOT_READY/);
 assert.match(api, /activeBrainConnectionId: state\.activeBrainConnectionId/);
-assert.match(controlCenter, /Personal AI fallback/);
+assert.match(controlCenter, /Personal AI connection/);
 assert.match(controlCenter, /type: 'ai'/);
 assert.match(controlCenter, /api\.openai\.com/);
 assert.match(controlCenter, /api\.anthropic\.com/);
