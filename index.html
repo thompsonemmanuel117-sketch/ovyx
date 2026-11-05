@@ -13877,11 +13877,14 @@ function installSettingsRepair(){
     button.addEventListener('click',()=>S.show(id));
   }
   addNav('brand-identity','Brand Identity Lock','Logo, colors and layout rules','fa-gem');
-  addNav('connections','External Services & Plan Limits','Secure external integrations','fa-plug');
-  main.insertAdjacentHTML('beforeend','<section class="ovyx-settings-panel ovyx-deep-settings-panel" data-settings-panel="brand-identity"></section><section class="ovyx-settings-panel ovyx-deep-settings-panel" data-settings-panel="connections"></section>');
+  // Personal Connections is owned by the later V91 account-scoped renderer.
+  // This legacy repair layer must not create a second navigation item or panel.
+  if(!main.querySelector('[data-settings-panel="brand-identity"]')){
+    main.insertAdjacentHTML('beforeend','<section class="ovyx-settings-panel ovyx-deep-settings-panel" data-settings-panel="brand-identity"></section>');
+  }
   const originalShow=S.show.bind(S);
   S.show=function(id){
-    if(id==='brand-identity'||id==='connections'){
+    if(id==='brand-identity'){
       S.current=id;
       main.querySelectorAll('[data-settings-panel]').forEach(panel=>{
         const active=panel.dataset.settingsPanel===id;
@@ -13889,8 +13892,7 @@ function installSettingsRepair(){
         
       });
       sidebar.querySelectorAll('[data-settings-nav]').forEach(button=>button.classList.toggle('active',button.dataset.settingsNav===id));
-      if(id==='brand-identity')setTimeout(renderBrandPanel,0);
-      if(id==='connections')setTimeout(()=>renderConnectionsPanel(),0);
+      setTimeout(renderBrandPanel,0);
       return true;
     }
     return originalShow(id);
@@ -13899,7 +13901,6 @@ function installSettingsRepair(){
     if(!event.detail?.user)return;
     setTimeout(()=>{
       if(S.current==='brand-identity')renderBrandPanel();
-      if(S.current==='connections')renderConnectionsPanel();
     },100);
   },{passive:true});
 }
