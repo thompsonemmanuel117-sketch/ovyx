@@ -1,6 +1,6 @@
-# OVYX Universal Connections
+# OVYX Personal Connections
 
-Universal Connections are account-owned server integrations. Existing credentials are encrypted with AES-GCM in Firestore and remain server-side; public listing responses never reveal saved secrets.
+Personal Connections are account-owned server integrations. Existing credentials are encrypted with AES-GCM in Firestore and remain server-side; public listing responses never reveal saved secrets.
 
 ## AI model provider policy
 
@@ -12,7 +12,7 @@ Supported personal AI protocols are OpenAI-compatible Chat Completions, Anthropi
 
 ## Non-AI service connections
 
-Universal Connections remain available for approved non-AI HTTP, webhook, database and tool integrations. These integrations are not model providers and are not automatically wired to business workflows. A feature-specific adapter and explicit purpose mapping are required before OVYX sends business data to them.
+Personal Connections support for approved non-AI HTTP, webhook, database and tool integrations. These integrations are not model providers and are not automatically wired to business workflows. A feature-specific adapter and explicit purpose mapping are required before OVYX sends business data to them.
 
 The read-only Test action is available for supported non-AI service connections. Saved AI-protocol records are deliberately excluded from health checks so the application cannot accidentally contact an external model endpoint.
 
@@ -39,3 +39,10 @@ Older profiles may still contain \`activeBrainConnectionId\` or \`activeWebStudi
 ## Cloudflare AI readiness
 
 The admin AI health endpoint reports the Cloudflare Workers AI binding only. A successful binding check confirms that the Pages Function has an \`AI.run\` binding available; it does not make a paid inference request or prove that a particular prompt will succeed. Actual inference remains subject to the guarded per-user and daily budget controls.
+
+
+## Product boundary and integration readiness
+
+The Personal Connections screen is the account-level control centre. A saved endpoint is a securely stored credential and service address; it is not, by itself, a completed native OAuth connector or an automatic business-workflow integration. OVYX must only advertise a native app connection when its OAuth registration, callback, token refresh/revocation, scopes, provider API adapter, and end-to-end tests are implemented. For other services, users may connect an official HTTPS API endpoint and explicitly grant it to a project. Database products are connected through a supported HTTPS API or gateway, never by exposing raw database ports.
+
+The Firestore collection and legacy profile counter fields retain their historical universal_connections names for backwards compatibility. They are internal storage identifiers, not the product name shown to users. Existing saved records and encrypted credentials must not be renamed or migrated as part of a visual refresh.
