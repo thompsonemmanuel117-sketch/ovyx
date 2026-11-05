@@ -332,12 +332,12 @@ try {
     await assertSingleProfileRenderer('Profile after refresh');
     await page.evaluate(() => window.OVYXSettings.show('general'));
 
-    // Regression: Universal Connections must only occupy its own Settings
+    // Regression: Personal Connections must only occupy its own Settings
     // category and must release all special visibility state on every other tab.
     const settingsCategories = await page.locator('#view-settings [data-settings-nav]').evaluateAll(nodes =>
       Array.from(new Set(nodes.map(node => String(node.dataset.settingsNav || '').trim()).filter(Boolean)))
     );
-    assert.ok(settingsCategories.includes('connections'), '[' + target.name + '] Universal Connections must remain available as a real Settings category.');
+    assert.ok(settingsCategories.includes('connections'), '[' + target.name + '] Personal Connections must remain available as a real Settings category.');
     for (const category of settingsCategories) {
       await page.evaluate(id => window.OVYXSettings.show(id), category);
       await page.waitForTimeout(110);
@@ -359,9 +359,32 @@ try {
       const connectionShouldShow = category === 'connections';
       assert.equal(panelState.connectionHidden, !connectionShouldShow, '[' + target.name + '] Connections hidden state must match selection of ' + category + '.');
       assert.equal(panelState.connectionActiveClass, connectionShouldShow, '[' + target.name + '] Connections must not remain active beneath ' + category + '.');
-      assert.equal(panelState.connectionDisplay !== 'none', connectionShouldShow, '[' + target.name + '] Universal Connections must not remain visible outside its own category.');
+      assert.equal(panelState.connectionDisplay !== 'none', connectionShouldShow, '[' + target.name + '] Personal Connections must not remain visible outside its own category.');
       assert.equal(panelState.connectionInlineDisplayPriority, '', '[' + target.name + '] The Connections guard must not pin display with an inline !important override.');
     }
+
+    // Exercise real touch/click navigation instead of relying only on the
+    // programmatic Settings controller. The Personal AI action must be tappable
+    // inside its panel and must not be covered by a floating fixed-position CTA.
+    const connectionsNav = page.locator('#view-settings [data-settings-nav="connections"]').first();
+    await connectionsNav.click();
+    await page.waitForFunction(() => window.OVYXSettings?.current === 'connections', null, { timeout: 10000 });
+    const personalAIAction = page.locator('#view-settings [data-ovyx-personal-ai-manager]');
+    await personalAIAction.waitFor({ state: 'visible', timeout: 10000 });
+    const actionBounds = await personalAIAction.boundingBox();
+    assert.ok(actionBounds && actionBounds.width > 0 && actionBounds.height > 0, '[' + target.name + '] Personal AI connection action must have a real touch target.');
+    const topmostAction = await page.evaluate(({ x, y }) => {
+      const top = document.elementFromPoint(x, y);
+      return !!top?.closest?.('[data-ovyx-personal-ai-manager]');
+    }, { x: actionBounds.x + actionBounds.width / 2, y: actionBounds.y + actionBounds.height / 2 });
+    assert.equal(topmostAction, true, '[' + target.name + '] The Personal AI action must not be covered by another floating control.');
+    await personalAIAction.click();
+    await page.locator('.ovyx-connect-overlay .ovyx-connect-dialog').waitFor({ state: 'visible', timeout: 10000 });
+    await page.keyboard.press('Escape');
+    await page.locator('.ovyx-connect-overlay').waitFor({ state: 'detached', timeout: 5000 });
+    const generalNav = page.locator('#view-settings [data-settings-nav="general"]').first();
+    await generalNav.click();
+    await page.waitForFunction(() => window.OVYXSettings?.current === 'general', null, { timeout: 10000 });
 
     await page.evaluate(() => window.OVYXSettings.show('appearance'));
     // Appearance: one click must have one canonical owner, one preview, and no premature storage write.
