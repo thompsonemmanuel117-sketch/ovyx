@@ -375,9 +375,19 @@ try {
     assert.ok(actionBounds && actionBounds.width > 0 && actionBounds.height > 0, '[' + target.name + '] Personal AI connection action must have a real touch target.');
     const topmostAction = await page.evaluate(({ x, y }) => {
       const top = document.elementFromPoint(x, y);
-      return !!top?.closest?.('[data-ovyx-personal-ai-manager]');
+      const style = top ? getComputedStyle(top) : null;
+      return {
+        receivesTap: !!top?.closest?.('[data-ovyx-personal-ai-manager]'),
+        tag: top?.tagName || '',
+        id: top?.id || '',
+        className: typeof top?.className === 'string' ? top.className : '',
+        text: String(top?.textContent || '').trim().slice(0, 100),
+        pointerEvents: style?.pointerEvents || '',
+        position: style?.position || '',
+        zIndex: style?.zIndex || ''
+      };
     }, { x: actionBounds.x + actionBounds.width / 2, y: actionBounds.y + actionBounds.height / 2 });
-    assert.equal(topmostAction, true, '[' + target.name + '] The Personal AI action must not be covered by another floating control.');
+    assert.equal(topmostAction.receivesTap, true, '[' + target.name + '] The Personal AI action must not be covered by another element: ' + JSON.stringify(topmostAction));
     await personalAIAction.click();
     await page.locator('.ovyx-connect-overlay .ovyx-connect-dialog').waitFor({ state: 'visible', timeout: 10000 });
     await page.keyboard.press('Escape');
