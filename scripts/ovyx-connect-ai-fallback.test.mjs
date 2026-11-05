@@ -58,5 +58,11 @@ assert.match(center, /OAuth is offered only for services with a verified connect
 assert.ok(center.includes('/api/settings/connections'));
 assert.match(center, /data-pc-toggle/);
 assert.match(center, /data-pc-delete/);
+assert.match(center, /function brandIcon/);
+assert.match(center, /google\\.com\\/s2\\/favicons/);
+assert.match(center, /function connectionNotice/);
+assert.match(center, /Successfully connected/);
+assert.match(center, /Connection saved securely/);
+assert.match(center, /role=\\\"status\\\"/);
 assert.ok(center.includes("window.addEventListener('ovyx-settings-rendered'"));
 console.log('OVYX Personal Connections checks passed: secure account centre, AI setup, service management, editing, health tests and project-level access are integrated into the existing app shell.');
