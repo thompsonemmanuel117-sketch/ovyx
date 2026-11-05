@@ -201,6 +201,11 @@ try {
   });
   assert.equal(activated.state, 'active');
   assert.equal(activated.tier, 'pro');
+  // The payment webhook is responsible for assigning the paid-through date.
+  // Seed that verified webhook result in this isolated profile fixture.
+  await setFirestoreDocument(env, 'users', uid, {
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  }, { merge: true });
 
   let entitlements = await resolveEntitlements(env, { uid, email });
   assert.equal(entitlements.accessActive, true);
