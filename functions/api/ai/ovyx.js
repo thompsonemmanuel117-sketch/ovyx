@@ -4,6 +4,7 @@ import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/tok
 import { saveChatTurn, resolveConversationId } from '../../_lib/chat-history.js';
 import { generateOvyxNativeAI } from '../../_lib/ovyx-native-ai.js';
 import { withCloudflareAIOnly } from '../../_lib/cloudflare-routing.js';
+import { callUserUniversalConnection, getActiveBrainConnectionId } from '../../_lib/universal-connections.js';
 import { getAIIdentityDirective } from '../../_lib/ai-identity.js';
 
 function normalizeMessages(payload) {
@@ -24,6 +25,8 @@ function normalizeMessages(payload) {
 export async function onRequestPost(context) {
   let reservation = null;
   let quotaInputText = '';
+  let personalAIConnectionId = null;
+  let personalAIConnectionActive = false;
   try {
     const user = assertAuthenticated(context.data?.user);
     const payload = await readJson(context.request, 180_000);
@@ -39,7 +42,14 @@ export async function onRequestPost(context) {
     quotaInputText = messages.map(message => message.role.toUpperCase() + ': ' + message.content).join('\n\n') +
       (contextText ? '\n\nWORKSPACE CONTEXT:\n' + contextText : '');
 
-    reservation = await beginAIQuota(context.env, user);
+    try {
+      reservation = await beginAIQuota(context.env, user);
+    } catch (quotaError) {
+      if (quotaError?.code !== 'DAILY_RATION_EXHAUSTED') throw quotaError;
+      personalAIConnectionId = await getActiveBrainConnectionId(context.env, user);
+      if (!personalAIConnectionId) throw quotaError;
+      personalAIConnectionActive = true;
+    }
     let result;
     try {
       const globalIdentityDirective = await getAIIdentityDirective(context.env);
@@ -54,9 +64,18 @@ export async function onRequestPost(context) {
         model: undefined,
         mode: payload.mode,
         authUser: user,
+        cloudflareInference: personalAIConnectionActive ? async (_secureEnv, inferenceOptions = {}) => {
+          const sourceMessages = Array.isArray(inferenceOptions.messages) ? inferenceOptions.messages : [];
+          const systemText = sourceMessages.filter(item => item?.role === 'system').map(item => String(item.content || '')).join('\n\n');
+          const chatMessages = sourceMessages.filter(item => item && (item.role === 'user' || item.role === 'assistant'));
+          const personal = await callUserUniversalConnection(context.env, { authUser: user, connectionId: personalAIConnectionId, messages: chatMessages, system: systemText, maxTokens: inferenceOptions.maxTokens });
+          return { text: personal.text, result: { usage: personal.rawUsage } };
+        } : undefined,
       });
     } catch (aiError) {
-      if (aiError?.partialUsage) {
+      if (personalAIConnectionActive) {
+        reservation = null;
+      } else if (aiError?.partialUsage) {
         await finalizeAIQuota(
           context.env,
           reservation,
@@ -73,13 +92,14 @@ export async function onRequestPost(context) {
       throw aiError;
     }
 
-    const quota = await finalizeAIQuota(
-      context.env,
-      reservation,
-      result.rawUsage,
-      quotaInputText,
-      result.text
-    );
+    if (personalAIConnectionActive) {
+      result.provider = 'personal-connection';
+      result.routedProvider = 'personal-connection';
+      result.personalConnectionUsed = true;
+    }
+    const quota = personalAIConnectionActive
+      ? { mode: 'personal-provider', chargedToOVYX: false, provider: 'personal-connection' }
+      : await finalizeAIQuota(context.env, reservation, result.rawUsage, quotaInputText, result.text);
     reservation = null;
 
     let historySaved = false;
