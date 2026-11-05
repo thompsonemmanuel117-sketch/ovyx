@@ -39,6 +39,7 @@ try {
       null,
       { timeout: 45000 },
     );
+    await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
     const connectionsNav = page.locator('#view-settings [data-settings-nav="connections"]').first();
