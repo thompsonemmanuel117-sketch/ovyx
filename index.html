@@ -14507,7 +14507,7 @@ function installSettingsSurface(){
   const root=S.root, sidebar=root?.querySelector('.ovyx-settings-sidebar'), main=root?.querySelector('#ovyx-settings-main');if(!sidebar||!main)return;
   const addNav=(id,label,desc,icon)=>{if(sidebar.querySelector('[data-settings-nav="'+id+'"]'))return;const b=document.createElement('button');b.type='button';b.className='ovyx-settings-nav';b.dataset.settingsNav=id;b.innerHTML='<i class="fa-solid '+icon+'"></i><span>'+label+'<small>'+desc+'</small></span>';sidebar.appendChild(b);b.addEventListener('click',()=>S.show(id))};
   addNav('brand-identity','Brand Identity Lock','Logo, corporate color and layout rules','fa-gem');
-  addNav('connections','External Services & Plan Limits','External integrations with plan limits','fa-plug');
+  addNav('connections','Personal Connections','Your apps, APIs and personal AI keys','fa-plug');
   if(!main.querySelector('[data-settings-panel="brand-identity"]')){const p=document.createElement('section');p.className='ovyx-settings-panel ovyx-strict-settings-panel';p.dataset.settingsPanel='brand-identity';main.appendChild(p)}
   if(!main.querySelector('[data-settings-panel="connections"]')){const p=document.createElement('section');p.className='ovyx-settings-panel ovyx-strict-settings-panel';p.dataset.settingsPanel='connections';main.appendChild(p)}
   const old=typeof S.show==='function'&&S.show.__OVYXStrictWrapped?null:S.show?.bind(S);
