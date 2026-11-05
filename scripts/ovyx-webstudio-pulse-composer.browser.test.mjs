@@ -109,9 +109,20 @@ try {
     assert.equal(await popover.locator('#ws-attach-btn').isVisible(), true, '[' + target.name + '] upload control must be inside the pulse menu.');
     assert.equal(await popover.locator('#ws-brain-btn').isVisible(), true, '[' + target.name + '] AI brain selector must be inside the pulse menu.');
     assert.equal(await popover.locator('#ws-context-btn').isVisible(), true, '[' + target.name + '] project context control must be inside the pulse menu.');
-    assert.equal(await popover.locator('[data-ws-pulse-action="code"]').isVisible(), true, '[' + target.name + '] Open Code editor must be accessible inside Pulse.');
-    assert.equal(await popover.locator('[data-ws-pulse-action="selection"]').isVisible(), true, '[' + target.name + '] selected-element helper must be accessible inside Pulse.');
-    assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must be accessible inside Pulse.');
+    assert.equal(await popover.locator('[data-ws-pulse-action="live-update"]').isVisible(), true, '[' + target.name + '] Update live website must be accessible inside Pulse.');
+    assert.equal(await popover.locator('[data-ws-pulse-action="code"]').count(), 0, '[' + target.name + '] Code Editor must not be duplicated inside Pulse.');
+    assert.equal(await popover.locator('[data-ws-pulse-action="selection"]').count(), 0, '[' + target.name + '] Select Element must not be duplicated inside Pulse.');
+    assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must remain accessible inside Pulse.');
+    assert.equal(await page.locator('#ovyx-live-site-updater-launcher').count(), 0, '[' + target.name + '] the old header launcher must be removed.');
+    await popover.locator('[data-ws-pulse-action="live-update"]').click();
+    const liveUpdater = page.locator('#ovyx-live-site-updater-modal');
+    await liveUpdater.waitFor({ state: 'visible' });
+    assert.match(await liveUpdater.locator('#ovyx-live-title').innerText(), /Update an existing live website/);
+    await liveUpdater.locator('[data-live-close]').click();
+    await liveUpdater.waitFor({ state: 'hidden' });
+    await pulse.click();
+    await popover.waitFor({ state: 'visible' });
+    assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must remain accessible inside Pulse.');
 
     lastCheckpoint = target.name + ': mode selection';
     console.log('[' + target.name + '] checkpoint: mode selection');
@@ -201,26 +212,6 @@ try {
     await page.locator('#ovyx-code-back').click();
     await page.waitForFunction(() => document.getElementById('ws-code-workspace')?.hidden === true);
 
-    lastCheckpoint = target.name + ': selected-element actions';
-    console.log('[' + target.name + '] checkpoint: selected-element actions');
-    // Without a selection the tool activates the existing Visual Select flow;
-    // with a selection it prepares a prompt targeted at that element.
-    await page.evaluate(() => { window.WebStudio.selectedElement = null; });
-    await pulse.click();
-    await popover.locator('[data-ws-pulse-action="selection"]').click();
-    await page.waitForFunction(() => (document.getElementById('ws-agent-thread')?.innerText || '').includes('Visual Select is active'));
-    await page.evaluate(() => {
-      const W = window.WebStudio;
-      W.selectedElement = { title: 'Hero heading', file: W.entryFile(), id: 'hero-heading' };
-    });
-    await pulse.click();
-    await popover.locator('[data-ws-pulse-action="selection"]').click();
-    assert.match(await input.inputValue(), /^Improve Hero heading/,
-      '[' + target.name + '] selected-element action must prepare a real targeted edit prompt.');
-    assert.equal(await page.evaluate(() => window.WebStudio.mode), 'build',
-      '[' + target.name + '] selected-element action must switch to Build mode.');
-
-
     lastCheckpoint = target.name + ': image and clear actions';
     console.log('[' + target.name + '] checkpoint: image and clear actions');
     // Menu actions close Pulse when selected, so reopen it before testing
@@ -233,17 +224,6 @@ try {
       '[' + target.name + '] Create image must prepare a usable image prompt in the composer.');
     assert.equal(await page.locator('#ws-mode-menu [data-ws-mode="build"]').getAttribute('class').then(v => (v || '').includes('active')), true,
       '[' + target.name + '] Create image must select Build mode.');
-
-    await input.fill('temporary draft that should be replaced');
-    await page.evaluate(() => {
-      window.WebStudio.selectedElement = { title: 'Hero section' };
-    });
-    await pulse.click();
-    await popover.locator('[data-ws-pulse-action="selection"]').click();
-    assert.match(await input.inputValue(), /Improve Hero section/,
-      '[' + target.name + '] Use selected element must turn the current selection into a real prompt.');
-    assert.match(await input.inputValue(), /responsive behavior/,
-      '[' + target.name + '] selected-element prompt must preserve responsive/project constraints.');
 
     await input.fill('draft to clear');
     lastCheckpoint = target.name + ': clear-draft reopening menu';
@@ -810,17 +790,6 @@ try {
     assert.equal(await page.locator('#ws-mode-trigger-label').textContent(), 'Build',
       '[' + target.name + '] using the image must return the composer to Build mode.');
 
-    lastCheckpoint = target.name + ': embedded code editor';
-    console.log('[' + target.name + '] checkpoint: embedded code editor');
-    await pulse.click();
-    await popover.locator('[data-ws-pulse-action="code"]').click();
-    await page.waitForFunction(() => {
-      const code = document.getElementById('ws-code-workspace');
-      return code && !code.hidden && document.getElementById('ovyx-code-back');
-    });
-    assert.equal(await page.locator('#view-webstudio').getAttribute('data-ws-code-open'), '1',
-      '[' + target.name + '] Open Code editor must open the embedded Code workspace.');
-    await page.locator('#ovyx-code-back').click();
     await page.waitForFunction(() => document.getElementById('ws-code-workspace')?.hidden === true);
     lastCheckpoint = target.name + ': all viewport assertions passed; closing page';
     await page.close();

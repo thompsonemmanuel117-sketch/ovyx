@@ -82,10 +82,11 @@ assert.ok(html.includes("var dataMatch=dataUrl.match(/^data:(image\\/"), 'Use in
 assert.doesNotMatch(html, /fetch\(asset\.dataUrl\)\.blob\(\)/, 'Use in website must not refetch its own generated data URL.');
 assert.match(html, /currentAttachments\.length>=6/, 'The generated image action must retain the six-attachment limit.');
 assert.match(html, /attachInput\.removeAttribute\('accept'\)/, 'The upload picker must accept any file type instead of limiting uploads to images.');
-assert.match(html, /addPulseTool\('code','fa-code','Open Code editor'\)/, 'The Code editor menu tool must be wired.');
-assert.match(html, /addPulseTool\('selection','fa-wand-magic-sparkles','Use selected element'\)/, 'Selected-element helper must be available in Pulse.');
+assert.match(html, /addPulseTool\('live-update','fa-cloud-arrow-up','Update live website'\)/, 'The live website updater must be available inside Pulse.');
+assert.match(html, /new CustomEvent\('ovyx:open-live-site-updater'\)/, 'Pulse must open the existing live website updater.');
+assert.doesNotMatch(runtime[1], /addPulseTool\('(code|selection)'/, 'Code Editor and Select Element must not be duplicated inside chat Pulse.');
+assert.doesNotMatch(runtime[1], /data-ws-pulse-action="(code|selection)"/, 'Pulse must not expose duplicate Code Editor or Select Element actions.');
 assert.match(html, /addPulseTool\('clear','fa-eraser','Clear draft and attachments'\)/, 'Clear draft must have a real action.');
-assert.match(html, /W\.openCodeEditor\(typeof W\.entryFile==='function'\?W\.entryFile\(\):undefined\)/, 'Open Code editor must call the real Web Studio code editor.');
 assert.ok(html.includes("function closePulsePopover(){var pulseMenu=document.getElementById('ws-pulse-popover'),trigger=document.getElementById('ws-pulse-trigger')"),
   'Opening Agent Settings or the Project Node Map must close Pulse instead of stacking overlapping menus.');
 assert.ok(html.includes('function openSettings(ev){ev.preventDefault();ev.stopImmediatePropagation();closePulsePopover();closeOthers(settings);'),
@@ -114,8 +115,6 @@ assert.ok(html.includes("localStorage.setItem(depthKey,String(depth))"),
   'The response-depth preference must persist.');
 assert.ok(html.includes('Response depth preference: ${responseDepthInstruction}'),
   'The stored response-depth choice must change the actual Engineering Brain system instruction.');
-assert.ok(html.includes("W.handlePreviewMenu==='function')W.handlePreviewMenu('visual')"),
-  'Use selected element must activate the existing Visual Select flow when there is no active selection.');
 assert.ok(html.includes("setTimeout(function(){attachInput.value=''},0)"),
   'The file picker must reset after a selection so the same file can be attached again.');
 assert.ok(html.includes("camera.addEventListener('change',function(){var files=[...(camera.files||[])];camera.value=''"),
