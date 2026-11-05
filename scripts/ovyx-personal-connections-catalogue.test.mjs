@@ -33,7 +33,7 @@ assert.match(catalogue, /data-pc-add/, 'Non-AI services must reuse the existing 
 assert.match(catalogue, /endpoint\.value = ''/, 'The catalogue must not invent or prefill a provider endpoint.');
 assert.match(catalogue, /Saving the connection does not create a native provider adapter/);
 assert.match(catalogue, /new MutationObserver/, 'The catalogue must remount after the existing settings panel rerenders.');
-assert.match(catalogue, /aria-label="Service catalogue"/);
+assert.match(catalogue, /setAttribute\('aria-label', 'Service catalogue'\)/);
 assert.match(center, /Your connections\. One secure home\./, 'The existing Personal Connections centre must remain intact.');
 assert.match(center, /function grant\(/, 'Existing project permission management must remain intact.');
 assert.match(center, /async function test\(/, 'Existing connection verification must remain intact.');
