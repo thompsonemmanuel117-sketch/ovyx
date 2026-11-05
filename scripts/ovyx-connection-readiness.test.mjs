@@ -22,6 +22,8 @@ assert.doesNotMatch(html, /Universal Connections|UniversalConnections|renderConn
 assert.doesNotMatch(html, /ovyx-v91-universal-connections-runtime|UNIVERSAL CONNECTIONS FINAL SURFACE AUTHORITY/);
 
 assert.ok(api.includes("if (request.method === 'GET')"), 'Authenticated connection reads must remain.');
+assert.match(api, /active Personal Connections\\./, 'Plan-limit copy must use the Personal Connections name.');
+assert.doesNotMatch(api, /active universal connections/i, 'Legacy Universal Connections wording must not be user-facing.');
 assert.ok(api.includes("if (request.method === 'DELETE')"), 'User-owned connection deletion must remain.');
 assert.ok(api.includes("if (action === 'test')"), 'Per-connection health tests must remain.');
 assert.ok(api.includes("lastTestStatus: result.ok ? 'reachable' : 'unreachable'"), 'Service test status must persist.');
