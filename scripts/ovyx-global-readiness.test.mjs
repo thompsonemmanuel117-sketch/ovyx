@@ -53,6 +53,18 @@ function request(country, language = 'en-US,en;q=0.9', timezone = 'Etc/UTC') {
 
 {
   const result = resolveGlobalReadiness({
+    request: request('IS', 'en-IS'),
+    env: {},
+  });
+  assert.equal(result.country.code, 'IS');
+  assert.equal(result.country.name, 'Iceland');
+  assert.equal(result.country.currency, null, 'Unknown currencies must remain unknown.');
+  assert.equal(result.country.currencyKnown, false);
+  assert.equal(result.locale, 'en-IS');
+}
+
+{
+  const result = resolveGlobalReadiness({
     request: request('ZZ', 'not_a_locale;q=1,en;q=0.5'),
     env: {},
   });

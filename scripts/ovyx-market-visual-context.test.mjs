@@ -23,6 +23,22 @@ assert.equal(override.locale, 'fr-FR');
 assert.equal(override.currency, 'EUR');
 assert.equal(override.timeZone, 'Europe/Paris');
 
+const japan = buildMarketContext('Build a customer portal.', { countryCode: 'JP' });
+assert.equal(japan.country, 'Japan');
+assert.equal(japan.countryCode, 'JP');
+assert.equal(japan.locale, 'ja-JP');
+assert.equal(japan.currency, 'JPY');
+assert.equal(japan.currencyNeedsConfirmation, false);
+assert.equal(japan.timeZone, 'Asia/Tokyo');
+
+const iceland = buildMarketContext('Build a booking platform.', { countryCode: 'IS' });
+assert.equal(iceland.country, 'Iceland');
+assert.equal(iceland.countryCode, 'IS');
+assert.equal(iceland.currency, null, 'Unknown country currencies must not be guessed.');
+assert.equal(iceland.currencyNeedsConfirmation, true);
+assert.equal(formatMarketCurrency(100, iceland), null);
+assert.ok(iceland.implementationRules.some(rule => /confirm the ISO 4217 currency/i.test(rule)));
+
 const unspecified = buildMarketContext('Build a website for a new business.');
 assert.equal(unspecified.country, null);
 assert.equal(unspecified.locale, null);
