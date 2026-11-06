@@ -209,6 +209,7 @@ function redactSensitiveEndpoint(value) {
 export function publicConnection(record, id) {
   const copy = { ...(record || {}) };
   delete copy.encryptedSecret;
+  delete copy.encryptedRefreshToken;
   delete copy.secret;
   copy.id = clean(id || copy.id, 100);
   copy.endpoint = redactSensitiveEndpoint(copy.endpoint);
