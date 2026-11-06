@@ -344,6 +344,14 @@
       return /^[A-Za-z0-9_-]{1,120}$/.test(value) ? value : 'personal';
     }
 
+    function projectActivityTimestamp(project) {
+      const value = project?.updatedAt || project?.createdAt || '';
+      if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+      const raw = String(value);
+      const parsed = /^\d{10,13}$/.test(raw) ? Number(raw) : Date.parse(raw);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
     async function workspaceRequest(method = 'GET', body = null) {
       const user = authUser();
       if (!user || typeof user.getIdToken !== 'function') throw new Error('Sign in to manage multiple workspaces.');
@@ -427,7 +435,8 @@
 
     function render() {
       const all = typeof STORE()?.list === 'function' ? STORE().list() : [];
-      const inWorkspace = all.filter(project => projectWorkspace(project) === selectedWorkspaceId);
+      const inWorkspace = all.filter(project => projectWorkspace(project) === selectedWorkspaceId)
+        .sort((a, b) => projectActivityTimestamp(b) - projectActivityTimestamp(a));
       const query = search.value.trim().toLocaleLowerCase();
       const filtered = inWorkspace.filter(project => {
         const haystack = [project?.name, project?.description, project?.status]
@@ -476,14 +485,8 @@
         name.textContent = escapeLabel(project.name);
         const pages = Array.isArray(project.pages) ? project.pages.length : 0;
         const status = String(project.status || 'draft').toUpperCase();
-        const activityValue = project.updatedAt || project.createdAt || '';
-        const activityText = String(activityValue);
-        const updated = typeof activityValue === 'number'
-          ? activityValue
-          : /^\d{10,13}$/.test(activityText)
-            ? Number(activityText)
-            : Date.parse(activityText);
-        const activity = Number.isFinite(updated) ? new Date(updated).toLocaleDateString() : 'No activity date';
+        const updated = projectActivityTimestamp(project);
+        const activity = updated ? new Date(updated).toLocaleDateString() : 'No activity date';
         const meta = document.createElement('span');
         meta.className = 'ovx-picker-meta';
         meta.textContent = status + ' · ' + pages + (pages === 1 ? ' PAGE' : ' PAGES') + ' · UPDATED ' + activity;
