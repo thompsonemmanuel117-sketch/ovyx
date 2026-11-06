@@ -6,7 +6,7 @@ import {
   listFirestoreSubcollectionDocuments,
   deleteFirestoreDocumentAtPath
 } from '../../_lib/firebase-admin.js';
-import { buildConnectionRecord, encryptSecret } from '../../_lib/universal-connections.js';
+import { buildConnectionRecord, encryptSecret, decryptSecret } from '../../_lib/universal-connections.js';
 import {
   getOAuthService,
   getOAuthClientConfig,
@@ -72,8 +72,8 @@ async function readiness(context) {
     const config = getOAuthClientConfig(service.provider, context.env);
     services[id] = {
       supported:true,
-      configured:config.configured,
-      missing:config.missing,
+      configured:config.configured && !!clean(context.env?.OVYX_CONNECTION_ENCRYPTION_KEY, 400),
+      missing:[...config.missing, ...(!clean(context.env?.OVYX_CONNECTION_ENCRYPTION_KEY, 400) ? ['OVYX_CONNECTION_ENCRYPTION_KEY'] : [])],
       provider:service.provider,
       refreshSupported:service.provider !== 'notion'
     };
@@ -91,7 +91,8 @@ async function start(context) {
   const service = getOAuthService(serviceId);
   if (!service) return jsonResponse({ ok:false, code:'OAUTH_SERVICE_UNSUPPORTED', error:'This service does not have an OAuth connector yet.' }, 400);
   const config = getOAuthClientConfig(service.provider, env);
-  if (!config.configured) return jsonResponse({ ok:false, code:'OAUTH_PROVIDER_NOT_CONFIGURED', error:'This OAuth provider is not configured on the OVYX server yet.', missing:config.missing }, 503);
+  const missing = [...config.missing, ...(!clean(env?.OVYX_CONNECTION_ENCRYPTION_KEY, 400) ? ['OVYX_CONNECTION_ENCRYPTION_KEY'] : [])];
+  if (missing.length) return jsonResponse({ ok:false, code:'OAUTH_PROVIDER_NOT_CONFIGURED', error:'This OAuth provider is not fully configured on the OVYX server yet.', missing }, 503);
   const origin = new URL(request.url).origin;
   if (new URL(config.redirectUri).origin !== origin) return jsonResponse({ ok:false, code:'OAUTH_REDIRECT_ORIGIN_MISMATCH', error:'The configured OAuth callback must use this OVYX application origin.' }, 409);
   const state = randomState();
@@ -105,7 +106,7 @@ async function start(context) {
     ownerEmail:auth.email,
     origin,
     redirectUri:config.redirectUri,
-    codeVerifier:pair?.verifier || null,
+    encryptedCodeVerifier:pair?.verifier ? await encryptSecret(env, pair.verifier) : null,
     createdAt:new Date(now).toISOString(),
     expiresAt:new Date(now + 10 * 60 * 1000).toISOString()
   }, { merge:false });
@@ -136,7 +137,8 @@ export async function handleConnectionOAuthCallback(context) {
   let reservation = null;
   let limit = UNIVERSAL_CONNECTION_LIMITS.free;
   try {
-    const token = await exchangeOAuthCode(service.id, config, code, stateRecord.codeVerifier || '');
+    const codeVerifier = stateRecord.encryptedCodeVerifier ? await decryptSecret(env, stateRecord.encryptedCodeVerifier) : '';
+    const token = await exchangeOAuthCode(service.id, config, code, codeVerifier);
     const identity = await identifyOAuthAccount(service.id, token);
     const profile = await getFirestoreDataAtPath(env, ['users', stateRecord.ownerUid]) || {};
     const tier = resolveConnectionTier(profile, stateRecord.ownerEmail);
