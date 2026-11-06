@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'assets/ovyx-account-notifications.js'
       - 'assets/ovyx-command-centre.js'
       - 'assets/css/ovyx-command-centre.css'
       - 'assets/ovyx-admin-controls.js'
