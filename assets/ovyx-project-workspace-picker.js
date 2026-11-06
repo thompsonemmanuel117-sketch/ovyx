@@ -516,6 +516,7 @@
       search.value = '';
       renderWorkspaceControls();
       render();
+      refreshProjectListing();
     });
     dialog.querySelector('[data-workspace-new]').addEventListener('click', () => {
       if (!workspaceApiReady) return;
