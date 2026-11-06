@@ -309,6 +309,18 @@
     let workspaceAccountKey = '';
     let workspaceLoadGeneration = 0;
     let authListenerInstalled = false;
+    let pendingSearchFocus = false;
+
+    function focusSearch() {
+      if (!dialog.open || !search.isConnected || search.disabled) return;
+      try { search.focus({ preventScroll: true }); } catch (_) { search.focus(); }
+      if (document.activeElement !== search) search.focus();
+    }
+
+    dialog.addEventListener('pointerdown', () => { pendingSearchFocus = false; }, true);
+    dialog.addEventListener('keydown', event => {
+      if (event.key === 'Tab' || event.target !== search) pendingSearchFocus = false;
+    }, true);
 
     function authUser() {
       try { return window.firebase && typeof window.firebase.auth === 'function' ? window.firebase.auth().currentUser : null; }
@@ -397,6 +409,13 @@
       renderWorkspaceControls();
       render();
       refreshProjectListing();
+      // Keep the initial search focus after the asynchronous workspace inventory
+      // refresh. Only do this while the open action still owns focus; pointer or
+      // keyboard interaction by the user cancels the pending handoff.
+      if (pendingSearchFocus && dialog.open) {
+        focusSearch();
+        pendingSearchFocus = false;
+      }
     }
 
     function refreshProjectListing() {
@@ -667,14 +686,9 @@
       renderWorkspaceControls();
       render();
       if (!dialog.open) dialog.showModal();
-      // The dialog's native autofocus handoff can initially land on an earlier
-      // workspace control in some Chromium/mobile contexts. Reassert search
-      // focus after the modal has entered the top layer and its focus cycle ran.
-      const focusSearch = () => {
-        if (!dialog.open || !search.isConnected || search.disabled) return;
-        try { search.focus({ preventScroll: true }); } catch (_) { search.focus(); }
-        if (document.activeElement !== search) search.focus();
-      };
+      // Reassert search focus after the modal enters the top layer, then once
+      // more after the workspace inventory refresh completes.
+      pendingSearchFocus = true;
       focusSearch();
       requestAnimationFrame(focusSearch);
       setTimeout(focusSearch, 0);
