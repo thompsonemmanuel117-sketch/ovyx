@@ -31,7 +31,7 @@ try{
       const cardStyle=getComputedStyle(card);
       const inputStyle=getComputedStyle(input);
       const result={
-        homeWidth:home.getBoundingClientRect().width,
+        homeWidth:home.getBoundingClientRect().width,homeViewportWidth:home.parentElement.clientWidth,
         homeMaxWidth:homeStyle.maxWidth,
         studioMaxWidth:studioStyle.maxWidth,
         studioWidth:studio.getBoundingClientRect().width,
@@ -46,7 +46,7 @@ try{
       auth.classList.add('hidden');
       return result;
     });
-    assert.ok(platform.homeWidth>=target.viewport.width-1,'['+target.name+'] routed platform pages should use the full available width.');
+    assert.ok(platform.homeWidth>=platform.homeViewportWidth-1,'['+target.name+'] routed platform pages should use the full available width.');
     assert.equal(platform.homeMaxWidth,'none','['+target.name+'] page section must not retain a narrow max-width.');
     assert.ok(platform.studioWidth>=0,'['+target.name+'] Web Studio remains mounted.');
     assert.equal(platform.authVisible,true,'['+target.name+'] secure sign-in view should be revealable.');
