@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'assets/css/ovyx-premium-experience.css'
+      - 'assets/css/ovyx-platform-design-system.css'
       - 'package.json'
       - 'scripts/ovyx-premium-experience.test.mjs'
       - 'scripts/ovyx-premium-experience.browser.test.mjs'

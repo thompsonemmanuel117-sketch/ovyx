@@ -13,7 +13,7 @@ try{
     const pageErrors=[];
     page.on('pageerror',error=>pageErrors.push(String(error?.stack||error?.message||error)));
     await page.goto(baseURL,{waitUntil:'domcontentloaded',timeout:60000});
-    await page.waitForFunction(()=>!!document.querySelector('link[href*="ovyx-premium-experience.css"]'));
+    await page.waitForFunction(()=>{const link=document.querySelector('link[href*="ovyx-platform-design-system.css"]');if(!link?.sheet)return false;try{return Array.from(link.sheet.cssRules).some(rule=>String(rule.href||rule.cssText||'').includes('ovyx-premium-experience.css'))}catch{return false}});
     await page.waitForFunction(()=>!!document.getElementById('view-master-auth')&&!!document.getElementById('view-home'));
     const platform=await page.evaluate(()=>{
       const home=document.getElementById('view-home');
