@@ -144,7 +144,9 @@
       if (window.OVYXAccountNotifications?.open) window.OVYXAccountNotifications.open();
       else byId('ovyx-notification-bell')?.click();
     }, 'ovyx-cc-action-quiet');
-    notifications.append(notificationHead, notificationCopy, openNotifications);
+    const notificationList = element('div', 'ovyx-cc-notification-list');
+    notificationList.id = 'ovyx-cc-notification-list';
+    notifications.append(notificationHead, notificationCopy, notificationList, openNotifications);
     side.append(status, notifications);
     lower.append(activity, side);
 
@@ -218,6 +220,22 @@
     const count = window.OVYXAccountNotifications?.unreadCount?.();
     node.textContent = Number.isFinite(Number(count)) ? String(Math.max(0, Number(count))) : '—';
     node.setAttribute('aria-label', Number.isFinite(Number(count)) ? String(Math.max(0, Number(count))) + ' unread notifications' : 'Notification count unavailable');
+    const list = byId('ovyx-cc-notification-list');
+    if (!list) return;
+    list.replaceChildren();
+    const recent = window.OVYXAccountNotifications?.recent?.();
+    if (!Array.isArray(recent) || !recent.length) {
+      list.appendChild(element('div', 'ovyx-cc-notification-empty', 'No recent announcements to show.'));
+      return;
+    }
+    recent.slice(0, 2).forEach(item => {
+      const row = element('div', 'ovyx-cc-notification-item' + (item.unread ? ' is-unread' : ''));
+      const title = element('strong', '', clean(item.title, 'OVYX Update'));
+      const body = element('span', '', clean(item.body, 'New account update'));
+      const meta = element('small', '', clean(item.category, 'product').toUpperCase() + ' · ' + relativeDate(item.createdAt));
+      row.append(title, body, meta);
+      list.appendChild(row);
+    });
   }
 
   function renderWorkspace() {
@@ -228,7 +246,7 @@
   }
 
   async function checkPlatformHealth(force) {
-    if (healthRequest && !force) return healthRequest;
+    if (healthRequest) return healthRequest;
     const status = byId('ovyx-cc-status-value');
     const detail = byId('ovyx-cc-status-detail');
     const dot = byId('ovyx-cc-status-dot');
