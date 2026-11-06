@@ -57,6 +57,9 @@ on:
       - 'manifest.json'
       - '_routes.json'
       - 'functions/_middleware.js'
+      - 'assets/css/ovyx-platform-motion.css'
+      - 'assets/ovyx-platform-motion.js'
+      - 'scripts/ovyx-platform-motion.browser.test.mjs'
       - 'functions/api/payments/opay-webhook.js'
       - 'functions/api/payments/paystack-webhook.js'
       - 'functions/_lib/fullstack-architecture.js'
@@ -178,6 +181,8 @@ jobs:
           exit 1
       # Run the composer regression first so the most important interactive
       # Web Studio controls produce evidence even if an unrelated shell probe stalls.
+      - name: Test OVYX platform motion and reduced-motion behavior in Chromium
+        run: node scripts/ovyx-platform-motion.browser.test.mjs
       - name: Test Web Studio static regression contract
         run: node scripts/ovyx-webstudio-quality.test.mjs
       - name: Test Web Studio pulse composer in Chromium
