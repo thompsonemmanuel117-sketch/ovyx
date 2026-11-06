@@ -22,7 +22,9 @@ assert.match(asset, /__OVYXWorkspaceRenderProjectsV1/, 'The existing Projects pa
 assert.match(asset, /__OVYXWorkspaceOpenV1/, 'Opening a saved project must restore its owning workspace selection.');
 assert.match(asset, /__OVYXWorkspaceSaveV1/, 'New projects must inherit the selected workspace.');
 assert.match(asset, /activeProjectInSelectedWorkspace/, 'An active project must not be stranded by archiving its workspace.');
+assert.match(asset, /workspaceLoadGeneration/, 'Late workspace responses must not cross Firebase account switches.');
+assert.match(asset, /ovyx\.active-workspace\.v1\./, 'Workspace selection must be scoped to the signed-in account.');
 assert.doesNotMatch(asset, /window\.prompt\s*\(/, 'The new project picker must not use a browser prompt.');
-assert.match(middleware, /ovyx-project-workspace-picker\.js\?v=20261106-9/, 'The project picker runtime must be injected into the production app shell.');
+assert.match(middleware, /ovyx-project-workspace-picker\.js\?v=20261106-10/, 'The project picker runtime must be injected into the production app shell.');
 
 console.log('OVYX project workspace picker contract tests passed.');
