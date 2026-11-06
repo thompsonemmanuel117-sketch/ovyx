@@ -23,10 +23,10 @@ function projectWorkspaceId(project) {
 function ownedWorkspace(workspace, uid, email) {
   return Boolean(workspace && String(workspace.ownerUid || '').trim() === uid && String(workspace.ownerEmail || '').trim().toLowerCase() === email);
 }
-async function assertWorkspaceAccess(env, uid, email, workspaceId) {
+async function assertWorkspaceAccess(env, uid, email, workspaceId, { allowArchived = true } = {}) {
   if (workspaceId === DEFAULT_WORKSPACE_ID) return;
   const workspace = await getFirestoreDataAtPath(env, ['users', uid, 'workspaces', workspaceId]);
-  if (!ownedWorkspace(workspace, uid, email) || workspace.status === 'archived') {
+  if (!ownedWorkspace(workspace, uid, email) || (!allowArchived && workspace.status === 'archived')) {
     throw Object.assign(new Error('Workspace not found or unavailable.'), { status: 404, code: 'WORKSPACE_NOT_FOUND' });
   }
 }
@@ -91,7 +91,7 @@ export async function onRequest(context){
       const existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]):null;
       if(existing && (clean(existing.ownerUid)!==uid||clean(existing.ownerEmail).toLowerCase()!==email))throw Object.assign(new Error('This app cannot be saved under the current account.'),{status:409,code:'PROJECT_OWNERSHIP_CONFLICT'});
       const workspaceId=cleanWorkspaceId(body.workspaceId||project.workspaceId||existing?.workspaceId||DEFAULT_WORKSPACE_ID);
-      await assertWorkspaceAccess(context.env,uid,email,workspaceId);
+      await assertWorkspaceAccess(context.env,uid,email,workspaceId,{allowArchived:false});
       const now=new Date().toISOString();
       const brandProfile=await getFirestoreDataAtPath(context.env,['users',email,'brand_profile','config']).catch(()=>null);
       const stored={
