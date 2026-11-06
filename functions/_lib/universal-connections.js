@@ -711,7 +711,7 @@ export async function testUserConnection(env, user, id) {
   const { record } = await getConnection(env, user, id, { requireActive: false });
   const started = Date.now();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), record.oauthProvider ? 20_000 : 8000);
   const headers = {
     Accept: 'application/json',
     'User-Agent': 'OVYX-Connection-Check/1.0'
