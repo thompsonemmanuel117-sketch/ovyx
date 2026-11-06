@@ -9,7 +9,7 @@ import {
 } from '../functions/_lib/connection-oauth.js';
 import { onRequest } from '../functions/api/settings/connection-oauth.js';
 
-const redirectUri = 'https://app.ovyx.example/api/settings/connection-oauth';
+const redirectUri = 'https://app.ovyx.example/api/settings/connection-oauth?action=callback';
 const env = {
   OVYX_CONNECTION_OAUTH_REDIRECT_URI:redirectUri,
   OVYX_CONNECTION_OAUTH_GOOGLE_CLIENT_ID:'google-client-id',
