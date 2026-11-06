@@ -14,7 +14,7 @@ Existing routed platform sections (except Web Studio and the dedicated sign-in v
 - No Firebase auth, profile schema, permissions, AI routing, provider keys, data models or backend behavior changes.
 - No global element resets or new dependencies.
 - Honors reduced-motion preferences.
-- CSS is loaded through the existing Cloudflare Pages HTML middleware.
+- CSS is imported by the existing shared platform design-system stylesheet; the Cloudflare middleware remains unchanged.
 
 ## Verification
 - `scripts/ovyx-premium-experience.test.mjs`: source contract for scope, brand/auth boundaries, middleware loading and npm test registration.

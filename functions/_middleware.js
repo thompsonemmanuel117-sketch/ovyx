@@ -43,7 +43,7 @@ export async function onRequest(context) {
         // application scripts can reintroduce an old favicon during boot.
         element.prepend('<link rel="icon" type="image/svg+xml" href="/ovyx-tab-v7.svg?v=20261022-7"><script src="/assets/ovyx-shell-favicon-lock.js?v=20261021-3"></script>', { html: true });
         element.append('<link rel="stylesheet" href="/assets/css/ovyx-platform-design-system.css?v=20261106-1">', { html: true });
-        element.append('<link rel="stylesheet" href="/assets/css/ovyx-platform-motion.css?v=20261106-1"><link rel="stylesheet" href="/assets/css/ovyx-premium-experience.css?v=20261106-1">', { html: true });
+        element.append('<link rel="stylesheet" href="/assets/css/ovyx-platform-motion.css?v=20261106-1">', { html: true });
         element.append('<link rel="stylesheet" href="/assets/css/ovyx-command-centre.css?v=20261106-1">', { html: true });
         element.append('<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#111827"><link rel="apple-touch-icon" href="/assets/ovyx-brand-mark.png">', { html: true });
       },

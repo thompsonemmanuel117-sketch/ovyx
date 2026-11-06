@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const css=fs.readFileSync(path.join(root,'assets/css/ovyx-premium-experience.css'),'utf8');
-const middleware=fs.readFileSync(path.join(root,'functions/_middleware.js'),'utf8');
+const designSystem=fs.readFileSync(path.join(root,'assets/css/ovyx-platform-design-system.css'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 assert.ok(css.includes(':not(#view-webstudio)'),'Platform page styling must explicitly exclude Web Studio.');
 assert.ok(css.includes('#view-router-viewport > section[id^="view-"]'),'Full-width styling must be scoped to routed platform pages.');
@@ -14,6 +14,6 @@ assert.ok(!/\.ovyx-auth-(?:diamond|brand)(?:\W|\s*\{)/.test(css),'The OVYX sign-
 assert.ok(!/ovyx-master-auth-form|signInWith|createUserWith|onAuthStateChanged|firebase/i.test(css),'Presentation layer must not own or alter authentication behavior.');
 assert.match(css,/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
 assert.match(css,/:focus-visible/);
-assert.ok(middleware.includes('/assets/css/ovyx-premium-experience.css?v=20261106-1'),'Cloudflare HTML shell must load the premium experience layer.');
+assert.ok(designSystem.startsWith("@import url('/assets/css/ovyx-premium-experience.css?v=20261106-1');"),'The existing shared design system must load the premium experience layer.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-premium-experience.test.mjs'),'Premium experience contract must run in npm test.');
 console.log('OVYX premium platform experience contract: all checks passed.');
