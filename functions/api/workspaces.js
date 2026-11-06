@@ -156,6 +156,7 @@ export async function onRequest(context) {
 
     if (method === 'POST') {
       const body = await readJson(context.request, 16_000);
+      await ensurePersonalWorkspace(context.env, user, uid, email);
       const action = clean(body.action, 24).toLowerCase();
       const now = new Date().toISOString();
 
