@@ -20,6 +20,7 @@ assert.match(asset, /data-workspace-archive/, 'Users must be able to archive a n
 assert.match(asset, /projectWorkspace\(project\) === selectedWorkspaceId/, 'Project listings must be scoped to the selected workspace.');
 assert.match(asset, /__OVYXWorkspaceOpenV1/, 'Opening a saved project must restore its owning workspace selection.');
 assert.match(asset, /__OVYXWorkspaceSaveV1/, 'New projects must inherit the selected workspace.');
+assert.match(asset, /activeProjectInSelectedWorkspace/, 'An active project must not be stranded by archiving its workspace.');
 assert.doesNotMatch(asset, /window\.prompt\s*\(/, 'The new project picker must not use a browser prompt.');
 assert.match(middleware, /ovyx-project-workspace-picker\.js\?v=20261106-4/, 'The project picker runtime must be injected into the production app shell.');
 
