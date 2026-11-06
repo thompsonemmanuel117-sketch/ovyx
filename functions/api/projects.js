@@ -59,20 +59,21 @@ export async function onRequest(context){
     if(method==='GET'){
       const url=new URL(context.request.url);
       const requestedWorkspace=url.searchParams.get('workspaceId');
+      const workspaceFilter=requestedWorkspace===null?null:cleanWorkspaceId(requestedWorkspace);
       const requestedProject=url.searchParams.get('projectId');
-      if(requestedWorkspace!==null)await assertWorkspaceAccess(context.env,uid,email,cleanWorkspaceId(requestedWorkspace));
+      if(workspaceFilter!==null)await assertWorkspaceAccess(context.env,uid,email,workspaceFilter);
       if(requestedProject){
         const pid=projectId(requestedProject);
         const project=await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]);
         if(!project||clean(project.ownerUid)!==uid||clean(project.ownerEmail).toLowerCase()!==email)throw Object.assign(new Error('Project not found.'),{status:404,code:'PROJECT_NOT_FOUND'});
         const normalized={...project,id:pid,workspaceId:projectWorkspaceId(project)};
-        if(requestedWorkspace!==null&&normalized.workspaceId!==requestedWorkspace)throw Object.assign(new Error('Project not found in this workspace.'),{status:404,code:'PROJECT_NOT_FOUND'});
+        if(requestedWorkspace!==null&&normalized.workspaceId!==workspaceFilter)throw Object.assign(new Error('Project not found in this workspace.'),{status:404,code:'PROJECT_NOT_FOUND'});
         return jsonResponse({ok:true,project:normalized,owner:{uid,email}},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
       }
       const rows=await listFirestoreSubcollectionDocuments(context.env,'users',email,'projects',1000);
       let projects=rows.map(item=>{const p=item.data||{};return {...p,id:item.id,workspaceId:projectWorkspaceId(p)};}).filter(p=>clean(p.ownerUid)===uid&&clean(p.ownerEmail).toLowerCase()===email);
-      if(requestedWorkspace!==null)projects=projects.filter(project=>project.workspaceId===requestedWorkspace);
-      return jsonResponse({ok:true,projects,owner:{uid,email},workspaceId:requestedWorkspace||null},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
+      if(workspaceFilter!==null)projects=projects.filter(project=>project.workspaceId===workspaceFilter);
+      return jsonResponse({ok:true,projects,owner:{uid,email},workspaceId:workspaceFilter},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
     }
     if(method==='DELETE'){
       const url=new URL(context.request.url);const pid=projectId(url.searchParams.get('projectId'));
