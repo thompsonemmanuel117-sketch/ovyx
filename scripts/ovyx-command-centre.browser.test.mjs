@@ -46,7 +46,10 @@ try {
     assert.equal((await page.locator('#ovyx-cc-activity-list').innerText()).includes('Aurora Commerce'), true, '[' + target.name + '] activity must reflect the latest saved project.');
     assert.equal((await page.locator('#ovyx-cc-activity-list').innerText()).includes('Project updated'), true, '[' + target.name + '] activity must use the truthful project update event.');
     await page.waitForFunction(() => document.getElementById('ovyx-cc-status-value')?.textContent === 'Platform available');
-    await page.waitForFunction(() => document.getElementById('ovyx-cc-unread')?.textContent === '2');
+    await page.waitForFunction(() => document.getElementById('ovyx-cc-unread')?.textContent === '2'
+      && document.querySelector('#ovyx-cc-notification-list')?.textContent.includes('Workspace update'));
+    assert.equal((await page.locator('#ovyx-cc-notification-list').innerText()).includes('Platform news'), true,
+      '[' + target.name + '] the dashboard must preview recent announcements from the existing inbox.');
     assert.equal(await page.locator('#ovyx-cc-metric-projects').textContent(), '2');
     assert.equal(await page.locator('#ovyx-cc-metric-pages').textContent(), '3');
     await page.locator('[data-ovyx-cc-action="open-projects"]').click();
