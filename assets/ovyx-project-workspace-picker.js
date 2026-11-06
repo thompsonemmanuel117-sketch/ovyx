@@ -466,7 +466,7 @@
         const activityText = String(activityValue);
         const updated = typeof activityValue === 'number'
           ? activityValue
-          : /^\\d{10,13}$/.test(activityText)
+          : /^\d{10,13}$/.test(activityText)
             ? Number(activityText)
             : Date.parse(activityText);
         const activity = Number.isFinite(updated) ? new Date(updated).toLocaleDateString() : 'No activity date';
