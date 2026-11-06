@@ -462,7 +462,13 @@
         name.textContent = escapeLabel(project.name);
         const pages = Array.isArray(project.pages) ? project.pages.length : 0;
         const status = String(project.status || 'draft').toUpperCase();
-        const updated = Date.parse(project.updatedAt || project.createdAt || '');
+        const activityValue = project.updatedAt || project.createdAt || '';
+        const activityText = String(activityValue);
+        const updated = typeof activityValue === 'number'
+          ? activityValue
+          : /^\\d{10,13}$/.test(activityText)
+            ? Number(activityText)
+            : Date.parse(activityText);
         const activity = Number.isFinite(updated) ? new Date(updated).toLocaleDateString() : 'No activity date';
         const meta = document.createElement('span');
         meta.className = 'ovx-picker-meta';
