@@ -115,7 +115,7 @@ async function start(context) {
   });
 }
 
-async function callback(context) {
+export async function handleConnectionOAuthCallback(context) {
   const { request, env } = context;
   const url = new URL(request.url);
   const state = clean(url.searchParams.get('state'), 64);
@@ -181,7 +181,7 @@ export async function onRequest(context) {
   const { request } = context;
   const method = String(request.method || '').toUpperCase();
   const action = new URL(request.url).searchParams.get('action') || '';
-  if (method === 'GET' && action === 'callback') return callback(context);
+  if (method === 'GET' && action === 'callback') return handleConnectionOAuthCallback(context);
   if (method === 'GET' && action === 'readiness') return readiness(context);
   if (method === 'POST' && !action) {
     try { return await start(context); }
