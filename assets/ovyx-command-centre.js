@@ -342,13 +342,11 @@
 
   function installProjectRefreshHook() {
     const store = window.ProjectStore;
-    if (!store || typeof store.save !== 'function' || store.__ovyxCommandCentreHook) return;
-    const original = store.save.bind(store);
-    store.save = function () {
+    if (!store || typeof store.renderHome !== 'function' || store.__ovyxCommandCentreHook) return;
+    const original = store.renderHome.bind(store);
+    store.renderHome = function () {
       const result = original();
-      window.requestAnimationFrame(() => {
-        renderWorkspace();
-      });
+      window.requestAnimationFrame(renderWorkspace);
       return result;
     };
     store.__ovyxCommandCentreHook = true;
