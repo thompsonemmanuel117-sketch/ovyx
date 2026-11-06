@@ -101,6 +101,8 @@ try {
     await page.waitForFunction(() => !document.getElementById('ovyx-project-workspace-picker')?.open);
 
     await page.evaluate(() => window.ProjectStore.showWorkspacePicker());
+    assert.equal(await dialog.locator('[data-workspace-archive]').isDisabled(), true,
+      '[' + target.name + '] an active project must prevent archiving its workspace.');
     await dialog.locator('.ovx-picker-search').fill('');
     await dialog.locator('[data-workspace-new]').click();
     await dialog.locator('[data-workspace-create-form] [name="name"]').fill('Campaign workspace');
