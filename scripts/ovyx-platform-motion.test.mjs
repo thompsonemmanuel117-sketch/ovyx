@@ -6,6 +6,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const css=fs.readFileSync(path.join(root,'assets/css/ovyx-platform-motion.css'),'utf8');
 const js=fs.readFileSync(path.join(root,'assets/ovyx-platform-motion.js'),'utf8');
 const middleware=fs.readFileSync(path.join(root,'functions/_middleware.js'),'utf8');
+const browserWorkflow=fs.readFileSync(path.join(root,'.github/workflows/ovyx-webstudio-quality-browser.yml'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 for(const token of ['--ovyx-motion-instant:','--ovyx-motion-micro:','--ovyx-motion-standard:','--ovyx-motion-emphasis:','--ovyx-motion-ease:']) assert.ok(css.includes(token),`Missing motion token ${token}`);
 assert.match(css,/@media\s*\(prefers-reduced-motion:\s*no-preference\)/);
@@ -24,4 +25,5 @@ assert.match(js,/document\.body\.classList\.contains\('ovyx-webstudio-active'\)\
 assert.ok(middleware.includes('/assets/css/ovyx-platform-motion.css?v=20261106-1'),'Motion stylesheet must load in the shell.');
 assert.ok(middleware.includes('/assets/ovyx-platform-motion.js?v=20261106-1'),'Motion coordinator must load in the shell.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-platform-motion.test.mjs'),'Motion contract must run in npm test.');
+assert.ok(browserWorkflow.includes('scripts/ovyx-platform-motion.browser.test.mjs'),'Chromium motion regression must run in browser quality CI.');
 console.log('OVYX platform motion contract: all checks passed.');
