@@ -652,7 +652,10 @@
       renderWorkspaceControls();
       render();
       if (!dialog.open) dialog.showModal();
-      requestAnimationFrame(() => search.focus());
+      search.focus({ preventScroll: true });
+      requestAnimationFrame(() => {
+        if (dialog.open && !dialog.contains(document.activeElement)) search.focus({ preventScroll: true });
+      });
       installAuthListener();
       loadWorkspaces();
     };
