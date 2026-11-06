@@ -7,7 +7,6 @@
   const HEALTH_TIMEOUT_MS = 5000;
   let healthRequest = null;
   let lastHealth = null;
-  let refreshTimer = null;
 
   const byId = id => document.getElementById(id);
   const clean = (value, fallback) => {
@@ -373,11 +372,11 @@
     window.addEventListener('focus', () => {
       if (window.KernelState?.activeView === 'home') renderNotifications();
     }, { passive: true });
-    refreshTimer = window.setInterval(() => {
+    window.addEventListener('ovyx:notifications-updated', renderNotifications, { passive: true });
+    window.setInterval(() => {
       if (document.hidden || window.KernelState?.activeView !== 'home') return;
-      renderNotifications();
       if (!lastHealth || Date.now() - lastHealth.checkedAt > 60000) void checkPlatformHealth(false);
-    }, 15000);
+    }, 60000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
