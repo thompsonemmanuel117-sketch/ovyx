@@ -323,6 +323,14 @@
     dialog.addEventListener('keydown', event => {
       if (event.key === 'Tab' || event.target !== search) pendingSearchFocus = false;
     }, true);
+    // A Projects-page refresh or browser dialog focus adjustment can move focus
+    // outside the search field. Keep the opening handoff until the user interacts.
+    document.addEventListener('focusin', event => {
+      if (!pendingSearchFocus || !dialog.open || event.target === search) return;
+      requestAnimationFrame(() => {
+        if (pendingSearchFocus && dialog.open && document.activeElement !== search) focusSearch();
+      });
+    }, true);
 
     function authUser() {
       try { return window.firebase && typeof window.firebase.auth === 'function' ? window.firebase.auth().currentUser : null; }
