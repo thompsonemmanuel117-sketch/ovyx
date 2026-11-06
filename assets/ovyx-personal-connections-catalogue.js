@@ -158,6 +158,7 @@
     if (!root || !$('.pc-hero', root) || $('.pc-catalogue', root)) return;
     styles();
     catalogue(root);
+    if (window.__OVYX_CONNECTION_OAUTH_READINESS__) { oauthReadiness = window.__OVYX_CONNECTION_OAUTH_READINESS__; render(root); }
     window.addEventListener('ovyx:connection-oauth-readiness', event => { oauthReadiness = event.detail || {}; render(root); });
   }
 
