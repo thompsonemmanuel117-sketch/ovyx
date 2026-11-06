@@ -457,7 +457,9 @@
         const detail = document.createElement('span');
         detail.textContent = inWorkspace.length
           ? 'Try another search term or clear your search.'
-          : 'Create a project here, or switch to another workspace.';
+          : archivedWorkspace
+            ? 'Restore this workspace before opening or creating projects.'
+            : 'Create a project here, or switch to another workspace.';
         empty.append(title, detail);
         list.appendChild(empty);
         return;
