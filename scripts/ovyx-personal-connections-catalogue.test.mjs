@@ -28,6 +28,8 @@ assert.match(catalogue, /OVYX platform checkout routes are separate from project
 assert.match(catalogue, /OAuth-enabled services use a real consent and callback flow/);
 for (const service of ['notion','slack','discord','googledrive','googlesheets','googlecalendar']) assert.ok(catalogue.includes("oauthService:'" + service + "'"), 'OAuth service must be registered: ' + service);
 assert.match(catalogue, /ovyx:connection-oauth-readiness/);
+assert.match(catalogue, /__OVYX_CONNECTION_OAUTH_READINESS__/);
+assert.match(center, /__OVYX_CONNECTION_OAUTH_READINESS__/);
 assert.match(catalogue, /ovyx:connection-oauth-start/);
 assert.match(catalogue, /enabled:false/, 'OAuth-only or unsupported signed integrations must not offer a misleading Connect action.');
 assert.match(catalogue, /if \(service\.type === 'ai'\)/, 'AI providers must use their dedicated secure Personal AI flow.');
