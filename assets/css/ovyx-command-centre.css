@@ -84,3 +84,11 @@
   .ovyx-cc-action { transition:none; }
   .ovyx-cc-action:hover,.ovyx-cc-action:active { transform:none; }
 }
+.ovyx-cc-notification-list { display:grid; gap:8px; margin-top:11px; }
+.ovyx-cc-notification-item { min-width:0; padding:9px 10px; border:1px solid rgba(255,255,255,.06); border-radius:9px; background:rgba(255,255,255,.018); }
+.ovyx-cc-notification-item.is-unread { border-color:rgba(232,182,79,.19); background:rgba(232,182,79,.035); }
+.ovyx-cc-notification-item strong,.ovyx-cc-notification-item span,.ovyx-cc-notification-item small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ovyx-cc-notification-item strong { color:var(--ovyx-cc-text); font:700 9px/1.4 Inter,system-ui,sans-serif; }
+.ovyx-cc-notification-item span { margin-top:3px; color:var(--ovyx-cc-muted); font:500 8px/1.4 Inter,system-ui,sans-serif; }
+.ovyx-cc-notification-item small,.ovyx-cc-notification-empty { margin-top:5px; color:var(--ovyx-cc-muted); font:700 7px/1.4 'JetBrains Mono',monospace; letter-spacing:.06em; }
+.ovyx-cc-notification-empty { padding:8px 2px; }
