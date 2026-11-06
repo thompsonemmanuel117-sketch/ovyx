@@ -594,7 +594,42 @@
       loadWorkspaces();
     };
     dialog._ovyxRender = render;
+    installProjectStoreHooks(STORE());
     return dialog;
+
+    function installProjectStoreHooks(projectStore) {
+      if (!projectStore) return;
+      if (typeof projectStore.open === 'function' && !projectStore.__OVYXWorkspaceOpenV1) {
+        const originalOpen = projectStore.open;
+        projectStore.open = function (projectId, ...args) {
+          const project = (typeof projectStore.list === 'function' ? projectStore.list() : [])
+            .find(item => String(item?.id || '') === String(projectId || ''));
+          if (project) {
+            selectedWorkspaceId = projectWorkspace(project);
+            persistWorkspaceSelection();
+            if (!project.workspaceId) project.workspaceId = selectedWorkspaceId;
+          }
+          return originalOpen.call(this, projectId, ...args);
+        };
+        projectStore.open.__original = originalOpen;
+        projectStore.__OVYXWorkspaceOpenV1 = true;
+      }
+      if (typeof projectStore.save === 'function' && !projectStore.__OVYXWorkspaceSaveV1) {
+        const originalSave = projectStore.save;
+        projectStore.save = function (...args) {
+          const active = state().activeProject;
+          if (active && typeof active === 'object') {
+            if (!active.workspaceId) active.workspaceId = selectedWorkspaceId || 'personal';
+            const projects = Array.isArray(state().projects) ? state().projects : [];
+            const stored = projects.find(item => String(item?.id || '') === String(active.id || ''));
+            if (stored && !stored.workspaceId) stored.workspaceId = active.workspaceId;
+          }
+          return originalSave.apply(this, args);
+        };
+        projectStore.save.__original = originalSave;
+        projectStore.__OVYXWorkspaceSaveV1 = true;
+      }
+    }
   }
 
   function install() {
@@ -607,36 +642,6 @@
       return true;
     };
     projectStore.showWorkspacePicker.__original = original;
-    if (typeof projectStore.open === 'function' && !projectStore.__OVYXWorkspaceOpenV1) {
-      const originalOpen = projectStore.open;
-      projectStore.open = function (projectId, ...args) {
-        const project = (typeof projectStore.list === 'function' ? projectStore.list() : [])
-          .find(item => String(item?.id || '') === String(projectId || ''));
-        if (project) {
-          selectedWorkspaceId = projectWorkspace(project);
-          persistWorkspaceSelection();
-          if (!project.workspaceId) project.workspaceId = selectedWorkspaceId;
-        }
-        return originalOpen.call(this, projectId, ...args);
-      };
-      projectStore.open.__original = originalOpen;
-      projectStore.__OVYXWorkspaceOpenV1 = true;
-    }
-    if (typeof projectStore.save === 'function' && !projectStore.__OVYXWorkspaceSaveV1) {
-      const originalSave = projectStore.save;
-      projectStore.save = function (...args) {
-        const active = state().activeProject;
-        if (active && typeof active === 'object') {
-          if (!active.workspaceId) active.workspaceId = selectedWorkspaceId || 'personal';
-          const projects = Array.isArray(state().projects) ? state().projects : [];
-          const stored = projects.find(item => String(item?.id || '') === String(active.id || ''));
-          if (stored && !stored.workspaceId) stored.workspaceId = active.workspaceId;
-        }
-        return originalSave.apply(this, args);
-      };
-      projectStore.save.__original = originalSave;
-      projectStore.__OVYXWorkspaceSaveV1 = true;
-    }
     projectStore.__OVYXWorkspacePickerV1 = true;
     window.OVYXWorkspacePicker = {
       open: () => projectStore.showWorkspacePicker(),
