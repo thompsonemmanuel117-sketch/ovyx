@@ -38,7 +38,7 @@ export function getOAuthClientConfig(providerId, env = {}) {
   if (redirectUri) {
     try {
       const parsed = new URL(redirectUri);
-      if (parsed.protocol !== 'https:' || parsed.pathname !== '/api/settings/connection-oauth' || parsed.searchParams.get('action') !== 'callback') missing.push('OVYX_CONNECTION_OAUTH_REDIRECT_URI (must be the HTTPS callback URL ending in ?action=callback)');
+      if (parsed.protocol !== 'https:' || parsed.pathname !== '/api/settings/connection-oauth/callback') missing.push('OVYX_CONNECTION_OAUTH_REDIRECT_URI (must be the HTTPS /api/settings/connection-oauth/callback URL)');
     } catch { missing.push('OVYX_CONNECTION_OAUTH_REDIRECT_URI (invalid URL)'); }
   }
   return { configured:missing.length===0, missing, clientId, clientSecret, redirectUri, provider };
