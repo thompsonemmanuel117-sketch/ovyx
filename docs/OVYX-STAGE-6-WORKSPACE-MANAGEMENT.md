@@ -42,7 +42,7 @@ The existing accessible project picker is extended into a workspace-aware switch
 - Users can create, rename, archive and restore workspaces from the same dialog.
 - Existing project creation is reused. New projects inherit the selected workspace through the existing `ProjectStore.save()` path.
 - Opening a project restores the selected workspace from that project's association.
-- Archived workspaces remain selectable for inspection, but project creation is disabled there.
+- Archived workspaces remain selectable for inspection; project metadata stays visible, but opening/creating projects is disabled until the workspace is restored.
 - The UI uses the existing ProjectStore open/create/save operations rather than a second project database.
 
 ## Collaboration boundary
