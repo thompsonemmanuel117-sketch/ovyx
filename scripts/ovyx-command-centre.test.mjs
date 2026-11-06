@@ -9,6 +9,7 @@ const css = fs.readFileSync(path.join(root, 'assets/css/ovyx-command-centre.css'
 const middleware = fs.readFileSync(path.join(root, 'functions/_middleware.js'), 'utf8');
 const headers = fs.readFileSync(path.join(root, '_headers'), 'utf8');
 const admin = fs.readFileSync(path.join(root, 'assets/ovyx-admin-controls.js'), 'utf8');
+const notifications = fs.readFileSync(path.join(root, 'assets/ovyx-account-notifications.js'), 'utf8');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
 for (const selector of ['#view-home .ovyx-command-centre', '.ovyx-cc-metrics', '.ovyx-cc-lower', '.ovyx-cc-activity-item', '.ovyx-cc-status-dot', '#view-admin-overview.ovyx-cc-admin-view']) {
@@ -20,6 +21,8 @@ assert.match(js, /ProjectStore\?\.list\?\.\(\)/, 'Workspace metrics must come fr
 assert.match(js, /project\.pages\.length/, 'Page counts must be derived from saved project pages.');
 assert.match(js, /Project updated/, 'Activity must be described as project updates, not fabricated events.');
 assert.match(js, /OVYXAccountNotifications\?\.unreadCount/, 'The dashboard must reuse the existing notifications runtime.');
+assert.match(js, /OVYXAccountNotifications\?\.recent/, 'The dashboard must preview notifications from the existing inbox.');
+assert.match(notifications, /recent: \(\) => currentNotifications\.slice\(0, 3\)/, 'The notification runtime must expose only a small sanitized preview.');
 assert.match(js, /fetch\('\/api\/health'/, 'Platform status must use the health endpoint.');
 assert.match(js, /payload\?\.ok === true/, 'Platform health must require an explicit successful response.');
 assert.match(js, /This is a platform check, not an integration test/, 'The UI must clearly scope what the status check proves.');
