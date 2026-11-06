@@ -108,6 +108,7 @@
     activityTitle.id = 'ovyx-cc-activity-title';
     const viewAll = element('button', 'ovyx-cc-text-action', 'View all projects');
     viewAll.type = 'button';
+    viewAll.setAttribute('data-ovyx-cc-action', 'open-projects');
     viewAll.addEventListener('click', () => window.Router?.go?.('projects'));
     activityHead.append(activityTitle, viewAll);
     const activityList = element('div', 'ovyx-cc-activity-list');
