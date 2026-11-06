@@ -84,7 +84,7 @@
       ['projects', 'Your projects', 'fa-folder-open'],
       ['drafts', 'Drafts', 'fa-file-pen'],
       ['pages', 'Pages across projects', 'fa-layer-group'],
-      ['latest', 'Latest project update', 'fa-clock']
+      ['latest', 'Latest project activity', 'fa-clock']
     ];
     metricSpecs.forEach(([key, label, icon]) => {
       const card = element('article', 'ovyx-cc-metric');
@@ -201,7 +201,7 @@
       marker.setAttribute('aria-hidden', 'true');
       const copy = element('div', 'ovyx-cc-activity-copy');
       const title = element('strong', '', clean(project.name, 'Untitled project'));
-      const meta = element('span', '', 'Project updated · ' + relativeDate(project.updatedAt));
+      const meta = element('span', '', 'Last active · ' + relativeDate(project.updatedAt));
       const open = element('button', 'ovyx-cc-open-project', 'Open');
       open.type = 'button';
       open.addEventListener('click', () => {
