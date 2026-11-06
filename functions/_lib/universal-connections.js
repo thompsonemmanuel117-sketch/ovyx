@@ -2,6 +2,7 @@ import {
   getFirestoreDataAtPath,
   setFirestoreDocumentAtPath
 } from './firebase-admin.js';
+import { getOAuthClientConfig, refreshOAuthCredential } from './connection-oauth.js';
 
 const TYPES = new Set(['ai', 'http', 'webhook', 'tool', 'database']);
 const AI_PROTOCOLS = new Set(['openai-chat', 'anthropic-messages', 'gemini-generate-content']);
@@ -337,7 +338,7 @@ export async function getConnection(env, user, id, { requireActive = true } = {}
     );
   }
 
-  return { id: safeId, record };
+  return { id: safeId, record: { ...record, id: safeId } };
 }
 
 export function applyConnectionAuth(headers, authMode, secret, protocol) {
@@ -549,6 +550,31 @@ export function buildConnectionRequestUrl(record, input = {}) {
   return assertSafeUrl(url.toString(), { requireHttps: record.authMode !== 'none' || supportsAIProtocol(record.protocol) });
 }
 
+
+async function connectionAccessToken(env, record) {
+  const accessToken = await decryptSecret(env, record.encryptedSecret);
+  if (!record?.oauthProvider || !record?.oauthTokenExpiresAt) return accessToken;
+  const expiresAt = Date.parse(record.oauthTokenExpiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt > Date.now() + 60_000) return accessToken;
+  const refreshToken = record.encryptedRefreshToken ? await decryptSecret(env, record.encryptedRefreshToken) : '';
+  if (!refreshToken) {
+    await setFirestoreDocumentAtPath(env, ['users', record.ownerEmail, 'universal_connections', record.id], { oauthStatus:'expired', updatedAt:new Date().toISOString() }, { merge:true });
+    throw Object.assign(new Error('This OAuth connection expired. Reconnect the service to continue.'), { status:409, code:'OAUTH_RECONNECT_REQUIRED' });
+  }
+  const config = getOAuthClientConfig(record.oauthProvider, env);
+  const refreshed = await refreshOAuthCredential(record.oauthProvider, config, refreshToken);
+  const encryptedSecret = await encryptSecret(env, refreshed.access_token);
+  const patch = {
+    encryptedSecret,
+    oauthTokenExpiresAt: Number(refreshed.expires_in) > 0 ? new Date(Date.now() + Number(refreshed.expires_in) * 1000).toISOString() : null,
+    oauthStatus:'connected',
+    updatedAt:new Date().toISOString()
+  };
+  if (refreshed.refresh_token) patch.encryptedRefreshToken = await encryptSecret(env, refreshed.refresh_token);
+  await setFirestoreDocumentAtPath(env, ['users', record.ownerEmail, 'universal_connections', record.id], patch, { merge:true });
+  return refreshed.access_token;
+}
+
 async function requestConnection(record, input, env) {
   const timeoutMs = Math.min(
     Math.max(Number(env?.OVYX_CONNECTION_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS, 5000),
@@ -561,7 +587,8 @@ async function requestConnection(record, input, env) {
     'Content-Type': 'application/json',
     'User-Agent': 'OVYX-Universal-Connection/1.0'
   };
-  const secret = await decryptSecret(env, record.encryptedSecret);
+  if (record.oauthProvider === 'notion') headers['Notion-Version'] = '2022-06-28';
+  const secret = await connectionAccessToken(env, record);
   applyConnectionAuth(headers, record.authMode, secret, record.protocol);
 
   try {
@@ -579,7 +606,7 @@ async function requestConnection(record, input, env) {
 
     const parsed = await responseJson(response);
 
-    if (!response.ok) {
+    if (!response.ok || (record.oauthProvider === 'slack' && parsed?.data?.ok === false)) {
       throw Object.assign(
         new Error(
           parsed?.data?.error?.message ||
@@ -673,7 +700,8 @@ export async function testUserConnection(env, user, id) {
     Accept: 'application/json',
     'User-Agent': 'OVYX-Connection-Check/1.0'
   };
-  const secret = await decryptSecret(env, record.encryptedSecret);
+  if (record.oauthProvider === 'notion') headers['Notion-Version'] = '2022-06-28';
+  const secret = await connectionAccessToken(env, record);
   applyConnectionAuth(headers, record.authMode, secret, record.protocol);
 
   try {
