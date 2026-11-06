@@ -44,7 +44,7 @@ try {
       && document.getElementById('ovyx-cc-metric-drafts')?.textContent === '1'
       && document.getElementById('ovyx-cc-metric-pages')?.textContent === '3');
     assert.equal((await page.locator('#ovyx-cc-activity-list').innerText()).includes('Aurora Commerce'), true, '[' + target.name + '] activity must reflect the latest saved project.');
-    assert.equal((await page.locator('#ovyx-cc-activity-list').innerText()).includes('Project updated'), true, '[' + target.name + '] activity must use the truthful project update event.');
+    assert.equal((await page.locator('#ovyx-cc-activity-list').innerText()).includes('Last active'), true, '[' + target.name + '] activity must use the truthful project update event.');
     await page.waitForFunction(() => document.getElementById('ovyx-cc-status-value')?.textContent === 'Platform available');
     await page.waitForFunction(() => document.getElementById('ovyx-cc-unread')?.textContent === '2'
       && document.querySelector('#ovyx-cc-notification-list')?.textContent.includes('Workspace update'));
