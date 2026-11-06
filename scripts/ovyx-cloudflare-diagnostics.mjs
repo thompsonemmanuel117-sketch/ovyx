@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { findCloudflareLogErrors } from './cloudflare-diagnostics-log-filter.mjs';
+import { findCloudflareLogErrors, sanitizeCloudflareLogContext } from './cloudflare-diagnostics-log-filter.mjs';
 import { probeApplicationShell } from './cloudflare-application-shell.mjs';
 
 const BASE = 'https://api.cloudflare.com/client/v4';
@@ -84,7 +84,11 @@ function newestFirst(items) {
 function sanitizeLine(line) {
   let output = String(line ?? '')
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
-    .replace(/(api[_-]?key|access[_-]?token|client[_-]?secret|password|private[_-]?key)\s*[:=]\s*[^\s]+/gi, '$1=[REDACTED]');
+    .replace(/([\"']?(?:api[_-]?key|access[_-]?token|client[_-]?secret|password|private[_-]?key|secret|authorization|credential)[\"']?\\s*[:=]\\s*[\"']?)[^\\s,;\"'}]+/gi, '$1[REDACTED]')
+    .replace(/([?&](?:token|key|secret|password|signature|auth)=)[^&#\\s]+/gi, '$1[REDACTED]')
+    .replace(/\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\b/g, '[REDACTED_JWT]')
+    .replace(/\\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|AIza[A-Za-z0-9_-]{30,})\\b/g, '[REDACTED_TOKEN]')
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----/g, '[REDACTED_PRIVATE_KEY]');
   for (const value of [...diagnosticSensitiveValues].sort((a, b) => b.length - a.length)) {
     if (value && value.length >= 4) output = output.split(value).join('[REDACTED_VALUE]');
   }
@@ -209,6 +213,8 @@ const result = {
   projectInfo: null,
   deployment: null,
   logErrors: [],
+  logContext: [],
+  logLineCount: 0,
   apiErrors: [],
 };
 
@@ -255,7 +261,12 @@ try {
   );
 
   const lines = Array.isArray(logs?.data) ? logs.data : [];
-  result.logErrors = findCloudflareLogErrors(lines, sanitizeLine);
+  result.logLineCount = lines.length;
+  // Preserve the sanitized deployment transcript, not only matching error lines.
+  // This makes the build/Functions publish sequence diagnosable while keeping
+  // environment values and common credential formats out of uploaded artifacts.
+  result.logContext = sanitizeCloudflareLogContext(lines, sanitizeLine, { limit: 500 });
+  result.logErrors = findCloudflareLogErrors(result.logContext, sanitizeLine);
   result.runtimeHealth = await probeApplicationHealth(deployment.url);
 
   // Also probe the stable Pages project hostname users commonly bookmark.
@@ -329,6 +340,7 @@ try {
   console.log(`Deployment: ${deployment.id}`);
   console.log(`Stage: ${deployment.latest_stage?.name || 'unknown'} / ${deployment.latest_stage?.status || 'unknown'}`);
   console.log(`URL: ${deployment.url || 'n/a'}`);
+  console.log(`Cloudflare log lines captured: ${result.logContext.length} of ${result.logLineCount}`);
   console.log(`Detected log errors: ${result.logErrors.length}`);
   console.log(`Runtime API health: ${result.runtimeHealth?.status || 'unknown'} (HTTP ${result.runtimeHealth?.httpStatus || 'n/a'})`);
   const deploymentShell = result.runtimeHealth?.applicationShell;
@@ -339,7 +351,7 @@ try {
 
   if (result.logErrors.length) {
     console.log('--- Relevant Cloudflare log lines ---');
-    for (const line of result.logErrors.slice(-50)) console.log(line);
+    for (const line of result.logErrors.slice(-80)) console.log(line);
   }
 
   if (result.status === 'error') process.exit(1);
