@@ -626,6 +626,7 @@
         const data = await workspaceRequest('POST', { action: 'restore', workspaceId: targetWorkspaceId });
         workspaces = workspaces.map(item => item.id === targetWorkspaceId ? data.workspace : item);
         renderWorkspaceControls();
+        render();
         refreshProjectListing();
       } catch (error) {
         workspaceNote.textContent = error?.message || 'Workspace could not be restored.';
