@@ -372,6 +372,9 @@
       const requestAccountKey = syncWorkspaceAccount();
       workspaceApiReady = false;
       workspaceLoadMessage = '';
+      renderWorkspaceControls();
+      render();
+      refreshProjectListing();
       try {
         const data = await workspaceRequest('GET');
         if (generation !== workspaceLoadGeneration || requestAccountKey !== workspaceStorageKey()) return;
