@@ -731,13 +731,14 @@ export async function testUserConnection(env, user, id) {
         signal: controller.signal
       }
     );
+    let providerOk = true;
+    if (record.oauthProvider === 'slack') {
+      const payload = await response.clone().json().catch(() => null);
+      providerOk = payload?.ok === true;
+    }
     return {
-      ok:
-        (response.status >= 200 && response.status < 400) ||
-        response.status === 405,
-      authenticated:
-        response.status !== 401 &&
-        response.status !== 403,
+      ok: ((response.status >= 200 && response.status < 400) || response.status === 405) && providerOk,
+      authenticated: response.status !== 401 && response.status !== 403 && providerOk,
       status: response.status,
       latencyMs: Date.now() - started
     };
