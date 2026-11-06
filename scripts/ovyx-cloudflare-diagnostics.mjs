@@ -84,10 +84,9 @@ function newestFirst(items) {
 function sanitizeLine(line) {
   let output = String(line ?? '')
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
-    .replace(/([\"']?(?:api[_-]?key|access[_-]?token|client[_-]?secret|password|private[_-]?key|secret|authorization|credential)[\"']?\\s*[:=]\\s*[\"']?)[^\\s,;\"'}]+/gi, '$1[REDACTED]')
-    .replace(/([?&](?:token|key|secret|password|signature|auth)=)[^&#\\s]+/gi, '$1[REDACTED]')
-    .replace(/\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\b/g, '[REDACTED_JWT]')
-    .replace(/\\b(?:sk-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|AIza[A-Za-z0-9_-]{30,})\\b/g, '[REDACTED_TOKEN]')
+    .replace(/(api[_-]?key|access[_-]?token|client[_-]?secret|password|private[_-]?key|secret|authorization|credential)\s*[:=]\s*["']?[^,\s;"'}]+/gi, '$1=[REDACTED]')
+    .replace(/([?&](?:token|key|secret|password|signature|auth)=)[^&#\s]+/gi, '$1[REDACTED]')
+    .replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, '[REDACTED_JWT]')
     .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----/g, '[REDACTED_PRIVATE_KEY]');
   for (const value of [...diagnosticSensitiveValues].sort((a, b) => b.length - a.length)) {
     if (value && value.length >= 4) output = output.split(value).join('[REDACTED_VALUE]');
