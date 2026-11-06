@@ -597,7 +597,7 @@ async function requestConnection(record, input, env) {
     'Content-Type': 'application/json',
     'User-Agent': 'OVYX-Universal-Connection/1.0'
   };
-  if (record.oauthProvider === 'notion') headers['Notion-Version'] = '2022-06-28';
+  if (record.oauthProvider === 'notion') headers['Notion-Version'] = '2026-03-11';
   const secret = await connectionAccessToken(env, record);
   applyConnectionAuth(headers, record.authMode, secret, record.protocol);
 
@@ -716,7 +716,7 @@ export async function testUserConnection(env, user, id) {
     Accept: 'application/json',
     'User-Agent': 'OVYX-Connection-Check/1.0'
   };
-  if (record.oauthProvider === 'notion') headers['Notion-Version'] = '2022-06-28';
+  if (record.oauthProvider === 'notion') headers['Notion-Version'] = '2026-03-11';
   const secret = await connectionAccessToken(env, record);
   applyConnectionAuth(headers, record.authMode, secret, record.protocol);
 
