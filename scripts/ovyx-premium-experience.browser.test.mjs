@@ -20,7 +20,12 @@ try{
       const studio=document.getElementById('view-webstudio');
       const auth=document.getElementById('view-master-auth');
       const lockup=auth.querySelector('.ovyx-auth-diamond');
+      // This is a presentation fixture, not a router test: reveal the existing
+      // routed sign-in section even when the shell initially hides inactive views.
+      auth.hidden=false;
+      auth.removeAttribute('hidden');
       auth.classList.remove('hidden');
+      auth.style.display='block';
       const layout=auth.querySelector('.ovyx-auth-layout');
       const card=auth.querySelector('.ovyx-master-auth-card');
       const input=auth.querySelector('#ovyx-master-auth-email');
