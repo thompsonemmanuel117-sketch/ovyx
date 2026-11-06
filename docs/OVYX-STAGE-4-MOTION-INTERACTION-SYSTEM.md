@@ -31,4 +31,4 @@ A restrained, consistent interaction language for platform pages that feels resp
 - Existing toast/notification stacks are preserved and continue to own their real operation feedback.
 
 ## Verification
-The Stage 4 contract test checks tokens, reduced-motion handling, focus-visible support, route event coordination, Web Studio exclusion, middleware loading, and inclusion in the full npm test chain. Browser workflow checks remain responsible for real navigation, dialogs, touch, and keyboard behavior.
+The Stage 4 contract test checks tokens, reduced-motion handling, focus-visible support, route event coordination, Web Studio exclusion, middleware loading, and inclusion in the full npm test chain. A dedicated Chromium test exercises initial and subsequent page transitions, keyboard focus, reduced-motion behavior, and the Web Studio no-touch boundary. Existing desktop/mobile browser workflows continue to cover platform navigation and settings regressions.
