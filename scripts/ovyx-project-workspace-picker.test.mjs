@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 const asset = await readFile(new URL('../assets/ovyx-project-workspace-picker.js', import.meta.url), 'utf8');
 const middleware = await readFile(new URL('../functions/_middleware.js', import.meta.url), 'utf8');
 
+assert.doesNotThrow(() => new Function(asset), 'The project picker runtime must parse as JavaScript.');
+
 assert.match(asset, /showWorkspacePicker\s*=\s*function/);
 assert.match(asset, /ProjectStore\.list|STORE\(\)\.list/);
 assert.match(asset, /STORE\(\)\.open\(selectedId\)/);
