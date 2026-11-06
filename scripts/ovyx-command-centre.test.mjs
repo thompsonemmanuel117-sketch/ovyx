@@ -23,6 +23,7 @@ assert.match(js, /Last active/, 'Activity must be described as project activity,
 assert.match(js, /OVYXAccountNotifications\?\.unreadCount/, 'The dashboard must reuse the existing notifications runtime.');
 assert.match(js, /OVYXAccountNotifications\?\.recent/, 'The dashboard must preview notifications from the existing inbox.');
 assert.match(notifications, /recent: \(\) => currentNotifications\.slice\(0, 3\)/, 'The notification runtime must expose only a small sanitized preview.');
+assert.match(notifications, /ovyx:notifications-updated/, 'Inbox refreshes must notify dashboard widgets without a second polling API.');
 assert.match(js, /fetch\('\/api\/health'/, 'Platform status must use the health endpoint.');
 assert.match(js, /payload\?\.ok === true/, 'Platform health must require an explicit successful response.');
 assert.match(js, /This is a platform check, not an integration test/, 'The UI must clearly scope what the status check proves.');
