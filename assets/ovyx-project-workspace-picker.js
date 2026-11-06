@@ -582,15 +582,16 @@
     renameForm.addEventListener('submit', async event => {
       event.preventDefault();
       const submit = renameForm.querySelector('[type="submit"]');
+      const targetWorkspaceId = selectedWorkspaceId;
       submit.disabled = true;
       try {
         const data = await workspaceRequest('POST', {
           action: 'update',
-          workspaceId: selectedWorkspaceId,
+          workspaceId: targetWorkspaceId,
           name: renameForm.querySelector('[name="name"]').value,
           description: renameForm.querySelector('[name="description"]').value
         });
-        workspaces = workspaces.map(item => item.id === selectedWorkspaceId ? data.workspace : item);
+        workspaces = workspaces.map(item => item.id === targetWorkspaceId ? data.workspace : item);
         renameForm.hidden = true;
         renderWorkspaceControls();
       } catch (error) {
@@ -600,12 +601,15 @@
     dialog.querySelector('[data-workspace-archive]').addEventListener('click', async () => {
       if (!workspaceApiReady || selectedWorkspaceId === 'personal') return;
       const button = dialog.querySelector('[data-workspace-archive]');
+      const targetWorkspaceId = selectedWorkspaceId;
       button.disabled = true;
       try {
-        const data = await workspaceRequest('POST', { action: 'archive', workspaceId: selectedWorkspaceId });
-        workspaces = workspaces.map(item => item.id === selectedWorkspaceId ? data.workspace : item);
-        selectedWorkspaceId = 'personal';
-        persistWorkspaceSelection();
+        const data = await workspaceRequest('POST', { action: 'archive', workspaceId: targetWorkspaceId });
+        workspaces = workspaces.map(item => item.id === targetWorkspaceId ? data.workspace : item);
+        if (selectedWorkspaceId === targetWorkspaceId) {
+          selectedWorkspaceId = 'personal';
+          persistWorkspaceSelection();
+        }
         renderWorkspaceControls();
         render();
         refreshProjectListing();
@@ -616,10 +620,11 @@
     dialog.querySelector('[data-workspace-restore]').addEventListener('click', async () => {
       if (!workspaceApiReady) return;
       const button = dialog.querySelector('[data-workspace-restore]');
+      const targetWorkspaceId = selectedWorkspaceId;
       button.disabled = true;
       try {
-        const data = await workspaceRequest('POST', { action: 'restore', workspaceId: selectedWorkspaceId });
-        workspaces = workspaces.map(item => item.id === selectedWorkspaceId ? data.workspace : item);
+        const data = await workspaceRequest('POST', { action: 'restore', workspaceId: targetWorkspaceId });
+        workspaces = workspaces.map(item => item.id === targetWorkspaceId ? data.workspace : item);
         renderWorkspaceControls();
         refreshProjectListing();
       } catch (error) {
