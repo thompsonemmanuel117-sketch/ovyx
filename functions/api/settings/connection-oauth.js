@@ -172,7 +172,7 @@ export async function handleConnectionOAuthCallback(context) {
     record.oauthAccount = { id:identity.id, name:identity.name, email:identity.email || null };
     record.oauthScopes = clean(token.scope || (Array.isArray(token.scope) ? token.scope.join(' ') : ''), 2000).split(/[ ,]+/).filter(Boolean).slice(0, 80);
     record.oauthTokenExpiresAt = Number(token.expires_in) > 0 ? new Date(Date.now() + Number(token.expires_in) * 1000).toISOString() : null;
-    record.encryptedRefreshToken = token.refresh_token ? await encryptSecret(env, token.refresh_token) : null;
+    record.encryptedRefreshToken = token.refresh_token ? await encryptSecret(env, token.refresh_token) : (existing?.data?.encryptedRefreshToken || null);
     record.oauthConnectedAt = now;
     record.oauthStatus = 'connected';
     await setFirestoreDocumentAtPath(env, ['users', stateRecord.ownerEmail, 'universal_connections', id], record, { merge:false });
