@@ -43,7 +43,7 @@ assert.equal(googleUrl.searchParams.get('code_challenge'), 'challenge-1');
 assert.equal(googleUrl.searchParams.get('code_challenge_method'), 'S256');
 assert.equal(googleUrl.searchParams.get('access_type'), 'offline');
 assert.ok(googleUrl.searchParams.get('scope').includes('drive.file'));
-assert.ok(!googleUrl.searchParams.get('scope').includes('drive'));
+assert.ok(!googleUrl.searchParams.get('scope').split(' ').includes('https://www.googleapis.com/auth/drive'));
 
 const discordUrl = new URL(buildOAuthAuthorizationUrl('discord', getOAuthClientConfig('discord', env), 'state-2', 'challenge-2'));
 assert.equal(discordUrl.origin, 'https://discord.com');
