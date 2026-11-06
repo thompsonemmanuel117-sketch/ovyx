@@ -66,8 +66,10 @@ try {
     const dialog = page.locator('#ovyx-project-workspace-picker');
     await dialog.waitFor({ state: 'visible' });
     assert.equal(await dialog.getAttribute('open') !== null, true, '[' + target.name + '] picker must use a real modal dialog.');
-    assert.equal(await dialog.locator('[data-project-id]').count(), 3, '[' + target.name + '] picker must list all current saved projects.');
+    assert.equal(await dialog.locator('[data-project-id]').count(), 2, '[' + target.name + '] picker must initially show every project in the personal workspace.');
     assert.equal(await dialog.locator('[data-project-id="picker-project-aurora"]').getAttribute('aria-current'), 'true');
+    assert.match(await dialog.locator('[data-project-id="picker-project-aurora"] .ovx-picker-meta').innerText(), /DRAFT.*2 PAGES.*UPDATED/);
+    assert.equal(await dialog.locator('[data-project-id="picker-project-aurora"] .ovx-picker-project-description').innerText(), 'Commerce project');
     assert.equal(await dialog.locator('.ovx-picker-search').evaluate(el => document.activeElement === el), true,
       '[' + target.name + '] opening the picker must move focus to search.');
     await dialog.locator('#ovx-picker-workspace-select').waitFor();
