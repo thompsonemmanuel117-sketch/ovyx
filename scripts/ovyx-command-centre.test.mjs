@@ -16,10 +16,10 @@ for (const selector of ['#view-home .ovyx-command-centre', '.ovyx-cc-metrics', '
 }
 assert.match(css, /@media\s*\(max-width:\s*760px\)/, 'The dashboard must adapt to mobile widths.');
 assert.match(css, /prefers-reduced-motion:\s*reduce/, 'Dashboard motion must respect reduced-motion preferences.');
-assert.match(js, /ProjectStore\\?\.list\\?\.\\(\\)/, 'Workspace metrics must come from the signed-in account project store.');
+assert.match(js, /ProjectStore\\?\\.list\\?\\.\\(\\)/, 'Workspace metrics must come from the signed-in account project store.');
 assert.match(js, /project\\.pages\\.length/, 'Page counts must be derived from saved project pages.');
 assert.match(js, /Project updated/, 'Activity must be described as project updates, not fabricated events.');
-assert.match(js, /OVYXAccountNotifications\\?\.unreadCount/, 'The dashboard must reuse the existing notifications runtime.');
+assert.match(js, /OVYXAccountNotifications\\?\\.unreadCount/, 'The dashboard must reuse the existing notifications runtime.');
 assert.match(js, /fetch\\('\\/api\\/health'/, 'Platform status must use the health endpoint.');
 assert.match(js, /payload\\?\\.ok === true/, 'Platform health must require an explicit successful response.');
 assert.match(js, /This is a platform check, not an integration test/, 'The UI must clearly scope what the status check proves.');
