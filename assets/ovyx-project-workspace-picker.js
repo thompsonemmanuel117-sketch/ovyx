@@ -709,15 +709,17 @@
             : (typeof projectStore.list === 'function' ? projectStore.list() : []);
           const project = projectInventory.find(item => String(item?.id || '') === String(projectId || ''));
           if (project) {
-            selectedWorkspaceId = projectWorkspace(project);
-            persistWorkspaceSelection();
-            if (!project.workspaceId) project.workspaceId = selectedWorkspaceId;
-            const owningWorkspace = workspaces.find(item => String(item.id) === selectedWorkspaceId);
-            if (owningWorkspace?.status === 'archived') {
+            const projectWorkspaceId = projectWorkspace(project);
+            const owningWorkspace = workspaces.find(item => String(item.id) === projectWorkspaceId);
+            const selectedWorkspace = currentWorkspace();
+            if (owningWorkspace?.status === 'archived' || selectedWorkspace?.status === 'archived') {
               projectStore.showWorkspacePicker?.(document.activeElement);
               workspaceNote.textContent = 'This workspace is archived. Restore it before opening or editing its projects.';
               return false;
             }
+            selectedWorkspaceId = projectWorkspaceId;
+            persistWorkspaceSelection();
+            if (!project.workspaceId) project.workspaceId = selectedWorkspaceId;
           }
           const result = originalOpen.call(this, projectId, ...args);
           const syncActiveProjectWorkspace = () => {
