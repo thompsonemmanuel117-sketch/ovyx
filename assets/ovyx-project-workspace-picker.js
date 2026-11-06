@@ -711,7 +711,7 @@
             persistWorkspaceSelection();
             if (!project.workspaceId) project.workspaceId = selectedWorkspaceId;
             const owningWorkspace = workspaces.find(item => String(item.id) === selectedWorkspaceId);
-            if (workspaceApiReady && owningWorkspace?.status === 'archived') {
+            if (owningWorkspace?.status === 'archived') {
               projectStore.showWorkspacePicker?.(document.activeElement);
               workspaceNote.textContent = 'This workspace is archived. Restore it before opening or editing its projects.';
               return false;
