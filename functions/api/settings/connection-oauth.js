@@ -9,6 +9,7 @@ import {
 import { buildConnectionRecord, encryptSecret, decryptSecret } from '../../_lib/universal-connections.js';
 import {
   getOAuthService,
+  getOAuthProvider,
   getOAuthClientConfig,
   buildOAuthAuthorizationUrl,
   exchangeOAuthCode,
@@ -79,7 +80,7 @@ async function readiness(context) {
       configured:missing.length === 0,
       missing,
       provider:service.provider,
-      refreshSupported:service.provider !== 'notion'
+      refreshSupported:getOAuthProvider(service.provider)?.refresh === true
     };
   }
   return jsonResponse({ ok:true, services });
