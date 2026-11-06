@@ -1,5 +1,5 @@
 const SERVICES = Object.freeze({
-  notion: { id:'notion', provider:'notion', name:'Notion', endpoint:'https://api.notion.com/v1', healthUrl:'https://api.notion.com/v1/users/me', scopes:[], version:'2022-06-28' },
+  notion: { id:'notion', provider:'notion', name:'Notion', endpoint:'https://api.notion.com/v1', healthUrl:'https://api.notion.com/v1/users/me', scopes:[], version:'2026-03-11' },
   slack: { id:'slack', provider:'slack', name:'Slack', endpoint:'https://slack.com/api', healthUrl:'https://slack.com/api/auth.test', scopes:['chat:write','channels:read','users:read'] },
   discord: { id:'discord', provider:'discord', name:'Discord', endpoint:'https://discord.com/api/v10', healthUrl:'https://discord.com/api/v10/users/@me', scopes:['identify','guilds'] },
   googledrive: { id:'googledrive', provider:'google', name:'Google Drive', endpoint:'https://www.googleapis.com/drive/v3', healthUrl:'https://openidconnect.googleapis.com/v1/userinfo', scopes:['https://www.googleapis.com/auth/drive.file','openid','email','profile'] },
@@ -8,7 +8,7 @@ const SERVICES = Object.freeze({
 });
 
 const PROVIDERS = Object.freeze({
-  notion: { prefix:'NOTION', authorize:'https://api.notion.com/v1/oauth/authorize', token:'https://api.notion.com/v1/oauth/token', tokenAuth:'basic', identity:'token-owner', refresh:false, pkce:false },
+  notion: { prefix:'NOTION', authorize:'https://api.notion.com/v1/oauth/authorize', token:'https://api.notion.com/v1/oauth/token', tokenAuth:'basic', identity:'token-owner', refresh:true, pkce:false },
   slack: { prefix:'SLACK', authorize:'https://slack.com/oauth/v2/authorize', token:'https://slack.com/api/oauth.v2.access', tokenAuth:'basic', identity:'token-team', refresh:true, pkce:false },
   discord: { prefix:'DISCORD', authorize:'https://discord.com/oauth2/authorize', token:'https://discord.com/api/oauth2/token', tokenAuth:'body', identity:'https://discord.com/api/v10/users/@me', refresh:true, pkce:true },
   google: { prefix:'GOOGLE', authorize:'https://accounts.google.com/o/oauth2/v2/auth', token:'https://oauth2.googleapis.com/token', tokenAuth:'body', identity:'https://openidconnect.googleapis.com/v1/userinfo', refresh:true, pkce:true }
@@ -92,20 +92,32 @@ export async function exchangeOAuthCode(serviceId, config, code, codeVerifier = 
   const service = getOAuthService(serviceId);
   if (!service || !config?.configured) throw new Error('OAuth service is not configured.');
   const provider = config.provider;
-  const body = new URLSearchParams();
-  body.set('grant_type', 'authorization_code');
-  body.set('client_id', config.clientId);
-  body.set('client_secret', config.clientSecret);
-  body.set('code', clean(code, 2048));
-  body.set('redirect_uri', config.redirectUri);
-  if (codeVerifier) body.set('code_verifier', codeVerifier);
-  const headers = { Accept:'application/json', 'Content-Type':'application/x-www-form-urlencoded' };
+  const headers = { Accept:'application/json' };
+  let body;
+  if (service.provider === 'notion') {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify({ grant_type:'authorization_code', code:clean(code, 2048), redirect_uri:config.redirectUri });
+  } else {
+    const form = new URLSearchParams();
+    form.set('grant_type', 'authorization_code');
+    form.set('client_id', config.clientId);
+    form.set('client_secret', config.clientSecret);
+    form.set('code', clean(code, 2048));
+    form.set('redirect_uri', config.redirectUri);
+    if (codeVerifier) form.set('code_verifier', codeVerifier);
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    body = form.toString();
+  }
   if (provider.tokenAuth === 'basic') {
     headers.Authorization = 'Basic ' + btoa(config.clientId + ':' + config.clientSecret);
-    body.delete('client_id');
-    body.delete('client_secret');
+    if (typeof body === 'string' && body.startsWith('grant_type=') && provider.prefix !== 'NOTION') {
+      const form = new URLSearchParams(body);
+      form.delete('client_id');
+      form.delete('client_secret');
+      body = form.toString();
+    }
   }
-  const payload = await requestJson(provider.token, { method:'POST', headers, body:body.toString() });
+  const payload = await requestJson(provider.token, { method:'POST', headers, body });
   if (payload.error || payload.ok === false || !clean(payload.access_token, 8000)) {
     throw Object.assign(new Error('OAuth provider did not issue an access token.'), { code:'OAUTH_TOKEN_EXCHANGE_FAILED', status:502 });
   }
@@ -140,14 +152,23 @@ export async function refreshOAuthCredential(providerId, config, refreshToken) {
   if (!provider?.refresh || !config?.configured || !refreshToken) {
     throw Object.assign(new Error('This OAuth connection cannot refresh its token. Reconnect the service.'), { code:'OAUTH_RECONNECT_REQUIRED', status:409 });
   }
-  const body = new URLSearchParams({ grant_type:'refresh_token', refresh_token:clean(refreshToken, 8000), client_id:config.clientId, client_secret:config.clientSecret });
-  const headers = { Accept:'application/json', 'Content-Type':'application/x-www-form-urlencoded' };
-  if (provider.tokenAuth === 'basic') {
-    headers.Authorization = 'Basic ' + btoa(config.clientId + ':' + config.clientSecret);
-    body.delete('client_id');
-    body.delete('client_secret');
+  const headers = { Accept:'application/json' };
+  let body;
+  if (provider.prefix === 'NOTION') {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify({ grant_type:'refresh_token', refresh_token:clean(refreshToken, 8000) });
+  } else {
+    const form = new URLSearchParams({ grant_type:'refresh_token', refresh_token:clean(refreshToken, 8000), client_id:config.clientId, client_secret:config.clientSecret });
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    if (provider.tokenAuth === 'basic') {
+      headers.Authorization = 'Basic ' + btoa(config.clientId + ':' + config.clientSecret);
+      form.delete('client_id');
+      form.delete('client_secret');
+    }
+    body = form.toString();
   }
-  const payload = await requestJson(provider.token, { method:'POST', headers, body:body.toString() });
+  if (provider.prefix === 'NOTION') headers.Authorization = 'Basic ' + btoa(config.clientId + ':' + config.clientSecret);
+  const payload = await requestJson(provider.token, { method:'POST', headers, body });
   if (payload.error || payload.ok === false || !clean(payload.access_token, 8000)) {
     throw Object.assign(new Error('OAuth token refresh failed. Reconnect the service.'), { code:'OAUTH_REFRESH_FAILED', status:409 });
   }
