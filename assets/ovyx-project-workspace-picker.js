@@ -702,6 +702,12 @@
             selectedWorkspaceId = projectWorkspace(project);
             persistWorkspaceSelection();
             if (!project.workspaceId) project.workspaceId = selectedWorkspaceId;
+            const owningWorkspace = workspaces.find(item => String(item.id) === selectedWorkspaceId);
+            if (workspaceApiReady && owningWorkspace?.status === 'archived') {
+              projectStore.showWorkspacePicker?.(document.activeElement);
+              workspaceNote.textContent = 'This workspace is archived. Restore it before opening or editing its projects.';
+              return false;
+            }
           }
           const result = originalOpen.call(this, projectId, ...args);
           refreshProjectListing();
