@@ -376,6 +376,11 @@
       }
       renderWorkspaceControls();
       render();
+      refreshProjectListing();
+    }
+
+    function refreshProjectListing() {
+      try { STORE()?.renderProjects?.(); } catch (_) {}
     }
 
     function renderWorkspaceControls() {
@@ -536,6 +541,7 @@
         createForm.hidden = true;
         renderWorkspaceControls();
         render();
+        refreshProjectListing();
       } catch (error) {
         workspaceNote.textContent = error?.message || 'Workspace could not be created.';
       } finally { submit.disabled = false; }
@@ -579,6 +585,7 @@
         persistWorkspaceSelection();
         renderWorkspaceControls();
         render();
+        refreshProjectListing();
       } catch (error) {
         workspaceNote.textContent = error?.message || 'Workspace could not be archived.';
       } finally { renderWorkspaceControls(); }
@@ -591,6 +598,7 @@
         const data = await workspaceRequest('POST', { action: 'restore', workspaceId: selectedWorkspaceId });
         workspaces = workspaces.map(item => item.id === selectedWorkspaceId ? data.workspace : item);
         renderWorkspaceControls();
+        refreshProjectListing();
       } catch (error) {
         workspaceNote.textContent = error?.message || 'Workspace could not be restored.';
       } finally { renderWorkspaceControls(); }
@@ -625,6 +633,32 @@
 
     function installProjectStoreHooks(projectStore) {
       if (!projectStore) return;
+      if (typeof projectStore.renderProjects === 'function' && !projectStore.__OVYXWorkspaceRenderProjectsV1) {
+        const originalRenderProjects = projectStore.renderProjects;
+        projectStore.renderProjects = function (...args) {
+          const currentState = state();
+          const originalProjects = currentState.projects;
+          if (!workspaceApiReady || !Array.isArray(originalProjects)) return originalRenderProjects.apply(this, args);
+          const filteredProjects = originalProjects.filter(project => projectWorkspace(project) === selectedWorkspaceId);
+          currentState.projects = filteredProjects;
+          let result;
+          try {
+            result = originalRenderProjects.apply(this, args);
+          } catch (error) {
+            if (currentState.projects === filteredProjects) currentState.projects = originalProjects;
+            throw error;
+          }
+          if (result && typeof result.then === 'function') {
+            return result.finally(() => {
+              if (currentState.projects === filteredProjects) currentState.projects = originalProjects;
+            });
+          }
+          if (currentState.projects === filteredProjects) currentState.projects = originalProjects;
+          return result;
+        };
+        projectStore.renderProjects.__original = originalRenderProjects;
+        projectStore.__OVYXWorkspaceRenderProjectsV1 = true;
+      }
       if (typeof projectStore.open === 'function' && !projectStore.__OVYXWorkspaceOpenV1) {
         const originalOpen = projectStore.open;
         projectStore.open = function (projectId, ...args) {
@@ -635,7 +669,9 @@
             persistWorkspaceSelection();
             if (!project.workspaceId) project.workspaceId = selectedWorkspaceId;
           }
-          return originalOpen.call(this, projectId, ...args);
+          const result = originalOpen.call(this, projectId, ...args);
+          refreshProjectListing();
+          return result;
         };
         projectStore.open.__original = originalOpen;
         projectStore.__OVYXWorkspaceOpenV1 = true;
