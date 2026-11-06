@@ -69,7 +69,7 @@
     const ready = service.adapter === 'Generic HTTPS adapter ready';
     const limited = service.adapter === 'AI Brain only' || service.adapter === 'Platform payments only';
     const oauthConfigured = !service.oauthService || oauthReadiness[service.oauthService]?.configured === true;
-    const oauthLabel = service.oauthService ? (oauthConfigured ? 'Configured' : 'Setup required') : service.oauth;
+    const oauthLabel = service.oauthService ? (oauthConfigured ? 'Server keys present' : 'Setup required') : service.oauth;
     const canConnect = service.enabled !== false && oauthConfigured;
     const buttonLabel = service.type === 'ai' ? 'Open AI setup' : service.oauthService ? (oauthConfigured ? 'Connect with OAuth' : 'OAuth setup required') : canConnect ? 'Connect' : 'Not available yet';
     return '<article class="pc-cat-card" data-pc-cat-card data-pc-cat-name="' + esc((service.name + ' ' + service.category + ' ' + service.method).toLowerCase()) + '">' +
