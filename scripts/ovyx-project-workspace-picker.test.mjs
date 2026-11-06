@@ -18,6 +18,7 @@ assert.match(asset, /\/api\/workspaces/, 'The workspace switcher must use the au
 assert.match(asset, /data-workspace-new/, 'Users must be able to create a workspace from the picker.');
 assert.match(asset, /data-workspace-archive/, 'Users must be able to archive a non-default workspace.');
 assert.match(asset, /button.disabled = archivedWorkspace/, 'Archived workspace projects must not open until the workspace is restored.');
+assert.match(asset, /owningWorkspace\?\.status === 'archived'/, 'ProjectStore.open must block archived projects from all entry points.');
 assert.match(asset, /projectWorkspace\(project\) === selectedWorkspaceId/, 'Project listings must be scoped to the selected workspace.');
 assert.match(asset, /projectActivityTimestamp\(b\) - projectActivityTimestamp\(a\)/, 'Project listings must be ordered by recent activity.');
 assert.match(asset, /__OVYXWorkspaceRenderProjectsV1/, 'The existing Projects page must render only the selected workspace projects.');
