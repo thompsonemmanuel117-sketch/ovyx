@@ -389,6 +389,9 @@
       renderWorkspaceControls();
       render();
       refreshProjectListing();
+      // The Projects renderer may move focus while refreshing its inventory.
+      // Reassert the picker handoff immediately, without waiting for the API.
+      if (pendingSearchFocus && dialog.open) focusSearch();
       try {
         const data = await workspaceRequest('GET');
         if (generation !== workspaceLoadGeneration || requestAccountKey !== workspaceStorageKey()) return;
