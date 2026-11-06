@@ -51,15 +51,16 @@ async function authenticated(request, env) {
 }
 
 function popupResponse(origin, payload) {
+  const nonce = base64Url(crypto.getRandomValues(new Uint8Array(18)));
   const safePayload = JSON.stringify(payload).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026');
   const safeOrigin = JSON.stringify(origin || '');
-  const html = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OVYX connection</title><body style="margin:0;background:#08090b;color:#f4f4f5;font:14px system-ui;display:grid;min-height:100vh;place-items:center"><main style="max-width:420px;padding:32px;text-align:center"><h1 style="font-size:22px">OVYX · Personal Connections</h1><p id="status" style="color:#a1a1aa">Finishing your secure connection…</p></main><script>const message=' + safePayload + ';const target=' + safeOrigin + ';if(window.opener&&target){window.opener.postMessage(message,target);window.close()}else{document.getElementById("status").textContent=message.ok?"Connection saved. You can close this window.":"Connection could not be completed. Return to OVYX and try again."}</script></body></html>';
+  const html = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OVYX connection</title><body style="margin:0;background:#08090b;color:#f4f4f5;font:14px system-ui;display:grid;min-height:100vh;place-items:center"><main style="max-width:420px;padding:32px;text-align:center"><h1 style="font-size:22px">OVYX · Personal Connections</h1><p id="status" style="color:#a1a1aa">Finishing your secure connection…</p></main><script nonce="' + nonce + '">const message=' + safePayload + ';const target=' + safeOrigin + ';if(window.opener&&target){window.opener.postMessage(message,target);window.close()}else{document.getElementById("status").textContent=message.ok?"Connection saved. You can close this window.":"Connection could not be completed. Return to OVYX and try again."}</script></body></html>';
   return new Response(html, { status:200, headers:{
     'Content-Type':'text/html; charset=utf-8',
     'Cache-Control':'no-store, no-cache, must-revalidate',
     'Referrer-Policy':'no-referrer',
     'X-Content-Type-Options':'nosniff',
-    'Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"
+    'Content-Security-Policy':"default-src 'none'; script-src 'nonce-" + nonce + "'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"
   }});
 }
 
