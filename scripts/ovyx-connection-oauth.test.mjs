@@ -3,6 +3,7 @@ import {
   buildOAuthAuthorizationUrl,
   exchangeOAuthCode,
   getOAuthClientConfig,
+  getOAuthProvider,
   getOAuthService,
   identifyOAuthAccount,
   refreshOAuthCredential,
@@ -29,6 +30,7 @@ assert.equal(getOAuthService('googledrive').provider, 'google');
 assert.equal(getOAuthService('googlesheets').endpoint, 'https://sheets.googleapis.com/v4');
 assert.equal(getOAuthService('googlecalendar').endpoint, 'https://www.googleapis.com/calendar/v3');
 assert.equal(getOAuthService('salesforce'), null);
+assert.equal(getOAuthProvider('notion').refresh, true);
 assert.equal(getOAuthClientConfig('google', {}).configured, false);
 assert.ok(getOAuthClientConfig('google', {}).missing.includes('OVYX_CONNECTION_OAUTH_GOOGLE_CLIENT_ID'));
 assert.equal(getOAuthClientConfig('google', env).configured, true);
@@ -86,6 +88,26 @@ try {
   assert.equal(refreshForm.get('grant_type'), 'refresh_token');
   assert.equal(refreshForm.get('refresh_token'), 'provider-refresh-token');
   assert.equal(refreshForm.get('client_secret'), 'google-client-secret');
+  globalThis.fetch = async (url, options) => {
+    captured = { url:String(url), options };
+    return new Response(JSON.stringify({ access_token:'notion-access-token', refresh_token:'notion-refresh-token', workspace_id:'workspace-1', workspace_name:'Workspace', owner:{ user:{ id:'notion-user' } } }), { status:200, headers:{ 'Content-Type':'application/json' } });
+  };
+  const notionToken = await exchangeOAuthCode('notion', getOAuthClientConfig('notion', env), 'notion-code');
+  assert.equal(notionToken.access_token, 'notion-access-token');
+  assert.match(captured.options.headers.Authorization, /^Basic /);
+  assert.equal(captured.options.headers['Content-Type'], 'application/json');
+  assert.equal(JSON.parse(captured.options.body).grant_type, 'authorization_code');
+  assert.equal(JSON.parse(captured.options.body).redirect_uri, redirectUri);
+  globalThis.fetch = async (url, options) => {
+    captured = { url:String(url), options };
+    return new Response(JSON.stringify({ access_token:'notion-access-refreshed', refresh_token:'notion-refresh-rotated' }), { status:200, headers:{ 'Content-Type':'application/json' } });
+  };
+  const notionRefresh = await refreshOAuthCredential('notion', getOAuthClientConfig('notion', env), 'notion-refresh-token');
+  assert.equal(notionRefresh.access_token, 'notion-access-refreshed');
+  assert.match(captured.options.headers.Authorization, /^Basic /);
+  assert.equal(captured.options.headers['Content-Type'], 'application/json');
+  assert.equal(JSON.parse(captured.options.body).grant_type, 'refresh_token');
+  assert.equal(JSON.parse(captured.options.body).refresh_token, 'notion-refresh-token');
   globalThis.fetch = async (url, options) => {
     captured = { url:String(url), options };
     return new Response(JSON.stringify({ ok:true, access_token:'slack-access-token', team:{ id:'T1', name:'Workspace' } }), { status:200, headers:{ 'Content-Type':'application/json' } });
