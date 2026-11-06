@@ -9,8 +9,9 @@ import {
   OAUTH_SERVICE_IDS
 } from '../functions/_lib/connection-oauth.js';
 import { onRequest } from '../functions/api/settings/connection-oauth.js';
+import { onRequest as oauthCallbackRoute } from '../functions/api/settings/connection-oauth/callback.js';
 
-const redirectUri = 'https://app.ovyx.example/api/settings/connection-oauth?action=callback';
+const redirectUri = 'https://app.ovyx.example/api/settings/connection-oauth/callback';
 const env = {
   OVYX_CONNECTION_OAUTH_REDIRECT_URI:redirectUri,
   OVYX_CONNECTION_OAUTH_GOOGLE_CLIENT_ID:'google-client-id',
@@ -91,5 +92,8 @@ assert.equal(denied.headers.get('Allow'), 'GET, POST');
 const invalidCallback = await onRequest({ request:new Request('https://app.ovyx.example/api/settings/connection-oauth?action=callback&state=invalid'), env:{} });
 assert.equal(invalidCallback.status, 200);
 assert.match(await invalidCallback.text(), /OVYX/);
+const callbackMethod = await oauthCallbackRoute({ request:new Request('https://app.ovyx.example/api/settings/connection-oauth/callback', { method:'POST' }), env:{} });
+assert.equal(callbackMethod.status, 405);
+assert.equal(callbackMethod.headers.get('Allow'), 'GET');
 
 console.log('Connection OAuth tests passed: provider registry, least-privilege service scopes, PKCE, server-side token exchange, identity verification and route method guards.');
