@@ -46,6 +46,12 @@ try {
     await page.waitForFunction(() => document.getElementById('ovyx-cc-metric-projects')?.textContent === '2'
       && document.getElementById('ovyx-cc-metric-drafts')?.textContent === '1'
       && document.getElementById('ovyx-cc-metric-pages')?.textContent === '3');
+    await page.evaluate(() => {
+      window.KernelState.projects.push({ id: 'cc-project-c', name: 'Meridian Portfolio', status: 'draft', updatedAt: Date.now(), pages: [{ name: 'Home' }] });
+      window.ProjectStore.renderHome();
+    });
+    await page.waitForFunction(() => document.getElementById('ovyx-cc-metric-projects')?.textContent === '3'
+      && document.getElementById('ovyx-cc-metric-pages')?.textContent === '4');
     assert.equal((await page.locator('#ovyx-cc-activity-list').innerText()).includes('Aurora Commerce'), true, '[' + target.name + '] activity must reflect the latest saved project.');
     assert.equal((await page.locator('#ovyx-cc-activity-list').innerText()).includes('Last active'), true, '[' + target.name + '] activity must use the truthful project update event.');
     await page.waitForFunction(() => document.getElementById('ovyx-cc-status-value')?.textContent === 'Platform available');
