@@ -71,10 +71,13 @@ async function readiness(context) {
   for (const id of OAUTH_SERVICE_IDS) {
     const service = getOAuthService(id);
     const config = getOAuthClientConfig(service.provider, context.env);
+    const appOrigin = new URL(context.request.url).origin;
+    const callbackMatchesOrigin = config.configured && new URL(config.redirectUri).origin === appOrigin;
+    const missing = [...config.missing, ...(!clean(context.env?.OVYX_CONNECTION_ENCRYPTION_KEY, 400) ? ['OVYX_CONNECTION_ENCRYPTION_KEY'] : []), ...(config.configured && !callbackMatchesOrigin ? ['OVYX_CONNECTION_OAUTH_REDIRECT_URI (origin must match this OVYX domain)'] : [])];
     services[id] = {
       supported:true,
-      configured:config.configured && !!clean(context.env?.OVYX_CONNECTION_ENCRYPTION_KEY, 400),
-      missing:[...config.missing, ...(!clean(context.env?.OVYX_CONNECTION_ENCRYPTION_KEY, 400) ? ['OVYX_CONNECTION_ENCRYPTION_KEY'] : [])],
+      configured:missing.length === 0,
+      missing,
       provider:service.provider,
       refreshSupported:service.provider !== 'notion'
     };
