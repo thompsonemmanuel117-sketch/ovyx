@@ -175,6 +175,18 @@ try {
   assert.equal(restored.status, 200);
   assert.equal(restored.body.workspace.status, 'active');
 
+  documents.set('users/owner@example.test/projects/stage6-legacy-project', firestoreDocument(
+    'users/owner@example.test/projects/stage6-legacy-project',
+    {
+      id: 'stage6-legacy-project',
+      name: 'Legacy personal project',
+      status: 'draft',
+      pages: [{ name: 'Home' }],
+      ownerUid: integrationOwner.uid,
+      ownerEmail: integrationOwner.email,
+    },
+  ));
+
   const saved = await invoke(handleProjects, '/api/projects', 'POST', {
     workspaceId,
     project: { id: 'stage6-workspace-project', name: 'Workspace scoped site', status: 'draft', pages: [{ name: 'Home' }] },
@@ -189,7 +201,8 @@ try {
 
   const inPersonal = await invoke(handleProjects, '/api/projects?workspaceId=personal');
   assert.equal(inPersonal.status, 200);
-  assert.equal(inPersonal.body.projects.length, 0, 'A project must not leak into the personal workspace inventory.');
+  assert.equal(inPersonal.body.projects.length, 1, 'Legacy projects without workspaceId must remain in the personal workspace.');
+  assert.equal(inPersonal.body.projects[0].id, 'stage6-legacy-project');
 
   const details = await invoke(handleProjects, '/api/projects?projectId=stage6-workspace-project');
   assert.equal(details.status, 200);
