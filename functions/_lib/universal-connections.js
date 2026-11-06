@@ -598,10 +598,10 @@ async function requestConnection(record, input, env) {
     'User-Agent': 'OVYX-Universal-Connection/1.0'
   };
   if (record.oauthProvider === 'notion') headers['Notion-Version'] = '2026-03-11';
-  const secret = await connectionAccessToken(env, record);
-  applyConnectionAuth(headers, record.authMode, secret, record.protocol);
 
   try {
+    const secret = await connectionAccessToken(env, record);
+    applyConnectionAuth(headers, record.authMode, secret, record.protocol);
     const payload = buildUniversalConnectionPayload(record, input);
     const url = buildConnectionRequestUrl(record, input);
 
@@ -717,10 +717,10 @@ export async function testUserConnection(env, user, id) {
     'User-Agent': 'OVYX-Connection-Check/1.0'
   };
   if (record.oauthProvider === 'notion') headers['Notion-Version'] = '2026-03-11';
-  const secret = await connectionAccessToken(env, record);
-  applyConnectionAuth(headers, record.authMode, secret, record.protocol);
 
   try {
+    const secret = await connectionAccessToken(env, record);
+    applyConnectionAuth(headers, record.authMode, secret, record.protocol);
     const healthUrl = record.healthUrl && record.healthUrl !== record.endpoint
       ? record.healthUrl
       : (() => {
