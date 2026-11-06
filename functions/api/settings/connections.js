@@ -92,7 +92,7 @@ async function loadContext(env, uid, email) {
   };
 }
 
-async function changeActiveCount(
+export async function changeActiveCount(
   env,
   uid,
   email,
