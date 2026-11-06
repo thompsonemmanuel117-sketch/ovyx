@@ -20,7 +20,7 @@ The read-only Test action is available for supported non-AI service connections.
 
 The Personal Connections centre supports account-bound OAuth authorization-code connections for Notion, Slack, Discord, Google Drive, Google Sheets and Google Calendar. OAuth uses a one-time 256-bit state stored server-side, a ten-minute expiry, and PKCE (S256) for Google and Discord. The callback consumes state before exchanging the code, verifies the provider account identity, encrypts access and refresh tokens with the existing \`OVYX_CONNECTION_ENCRYPTION_KEY\`, and stores the resulting connection in the same account-owned \`universal_connections\` collection. Provider tokens and client secrets never enter browser storage or project source.
 
-The OAuth callback is \`/api/settings/connection-oauth?action=callback\`. Configure the exact HTTPS callback URL as \`OVYX_CONNECTION_OAUTH_REDIRECT_URI\` in Cloudflare Pages. Configure these Cloudflare secrets for each provider you intend to enable:
+The OAuth callback is \`https://your-ovyx-domain/api/settings/connection-oauth/callback\`. Configure that exact HTTPS URL as \`OVYX_CONNECTION_OAUTH_REDIRECT_URI\` in Cloudflare Pages. Configure these Cloudflare secrets for each provider you intend to enable:
 
 - \`OVYX_CONNECTION_OAUTH_NOTION_CLIENT_ID\` and \`OVYX_CONNECTION_OAUTH_NOTION_CLIENT_SECRET\`
 - \`OVYX_CONNECTION_OAUTH_SLACK_CLIENT_ID\` and \`OVYX_CONNECTION_OAUTH_SLACK_CLIENT_SECRET\`
