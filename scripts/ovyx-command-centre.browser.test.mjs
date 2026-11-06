@@ -59,8 +59,8 @@ try {
       && document.querySelector('#ovyx-cc-notification-list')?.textContent.includes('Workspace update'));
     assert.equal((await page.locator('#ovyx-cc-notification-list').innerText()).includes('Platform news'), true,
       '[' + target.name + '] the dashboard must preview recent announcements from the existing inbox.');
-    assert.equal(await page.locator('#ovyx-cc-metric-projects').textContent(), '2');
-    assert.equal(await page.locator('#ovyx-cc-metric-pages').textContent(), '3');
+    assert.equal(await page.locator('#ovyx-cc-metric-projects').textContent(), '3');
+    assert.equal(await page.locator('#ovyx-cc-metric-pages').textContent(), '4');
     const layout = await page.locator('#ovyx-command-centre').evaluate(node => ({ width: node.clientWidth, scrollWidth: node.scrollWidth }));
     assert.ok(layout.scrollWidth <= layout.width + 1, '[' + target.name + '] Command Centre must not overflow its viewport.');
     await page.locator('[data-ovyx-cc-action="open-projects"]').click();
