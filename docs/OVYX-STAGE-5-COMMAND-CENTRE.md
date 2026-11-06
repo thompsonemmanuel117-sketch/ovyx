@@ -11,8 +11,8 @@ The existing OVYX logo and the complete Web Studio surface remain unchanged.
 The Home dashboard now adds a responsive overview after the existing build composer:
 
 - Project count, draft count and saved page count are derived from the current account's existing \`ProjectStore.list()\` data.
-- Latest project update is derived from the saved project's \`updatedAt\` timestamp.
-- Recent activity lists saved projects with timestamps as **project updates**. It does not invent edits, publishes, deployments or user actions.
+- Latest project activity is derived from the saved project's \`updatedAt\` timestamp.
+- Recent activity lists saved projects with timestamps as **project activitys**. It does not invent edits, publishes, deployments or user actions.
 - Notification count reuses the existing \`OVYXAccountNotifications\` runtime and its authenticated broadcast inbox; it does not create a second notification store.
 - Platform status reads only the public health endpoint's \`ok\` and \`status\` fields. The interface explicitly states that this is a platform health check, not proof that every integration works.
 - Create Project, Projects, Web Studio and App Studio actions use existing project and router APIs.
