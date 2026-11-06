@@ -530,6 +530,14 @@
     }
 
     search.addEventListener('input', render);
+    // Escape should close the modal even when the search field contains text;
+    // the native search input otherwise consumes Escape to clear its value.
+    search.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || !dialog.open) return;
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    });
     workspaceSelect.addEventListener('change', () => {
       selectedWorkspaceId = String(workspaceSelect.value || 'personal');
       // Reassert the guard after workspace changes in case another project-page
