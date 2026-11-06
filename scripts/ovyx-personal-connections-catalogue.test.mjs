@@ -21,6 +21,7 @@ assert.match(catalogue, /cdn\.simpleicons\.org\//, 'Recognizable services must u
 assert.match(catalogue, /referrerpolicy="no-referrer"/i, 'Logo requests must not leak the OVYX page referrer.');
 assert.match(catalogue, /OAuth:/, 'Every service card must disclose OAuth availability.');
 assert.match(catalogue, /Project adapter:/, 'Every service card must disclose project-adapter readiness.');
+assert.match(catalogue, /Refresh: supported|Refresh: reconnect required/, 'OAuth cards must disclose token refresh readiness.');
 assert.match(catalogue, /Generic HTTPS adapter ready/, 'The generic project adapter must be identified accurately.');
 assert.match(catalogue, /0 native provider adapters/, 'The catalogue must not invent provider-specific project adapters.');
 assert.match(catalogue, /The separate GitHub account OAuth flow is not a project connection adapter/);
