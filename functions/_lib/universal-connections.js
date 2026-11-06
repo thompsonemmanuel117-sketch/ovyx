@@ -552,11 +552,7 @@ export function buildConnectionRequestUrl(record, input = {}) {
 }
 
 
-async function connectionAccessToken(env, record) {
-  const accessToken = await decryptSecret(env, record.encryptedSecret);
-  if (!record?.oauthProvider || !record?.oauthTokenExpiresAt) return accessToken;
-  const expiresAt = Date.parse(record.oauthTokenExpiresAt);
-  if (!Number.isFinite(expiresAt) || expiresAt > Date.now() + 60_000) return accessToken;
+async function refreshConnectionAccessToken(env, record) {
   const refreshToken = record.encryptedRefreshToken ? await decryptSecret(env, record.encryptedRefreshToken) : '';
   if (!refreshToken) {
     await setFirestoreDocumentAtPath(env, ['users', record.ownerEmail, 'universal_connections', record.id], { oauthStatus:'expired', updatedAt:new Date().toISOString() }, { merge:true });
@@ -565,15 +561,28 @@ async function connectionAccessToken(env, record) {
   const config = getOAuthClientConfig(record.oauthProvider, env);
   const refreshed = await refreshOAuthCredential(record.oauthProvider, config, refreshToken);
   const encryptedSecret = await encryptSecret(env, refreshed.access_token);
+  const encryptedRefreshToken = refreshed.refresh_token ? await encryptSecret(env, refreshed.refresh_token) : record.encryptedRefreshToken;
   const patch = {
     encryptedSecret,
+    encryptedRefreshToken,
     oauthTokenExpiresAt: Number(refreshed.expires_in) > 0 ? new Date(Date.now() + Number(refreshed.expires_in) * 1000).toISOString() : null,
     oauthStatus:'connected',
     updatedAt:new Date().toISOString()
   };
-  if (refreshed.refresh_token) patch.encryptedRefreshToken = await encryptSecret(env, refreshed.refresh_token);
   await setFirestoreDocumentAtPath(env, ['users', record.ownerEmail, 'universal_connections', record.id], patch, { merge:true });
+  record.encryptedSecret = encryptedSecret;
+  record.encryptedRefreshToken = encryptedRefreshToken;
+  record.oauthTokenExpiresAt = patch.oauthTokenExpiresAt;
+  record.oauthStatus = 'connected';
   return refreshed.access_token;
+}
+
+async function connectionAccessToken(env, record) {
+  const accessToken = await decryptSecret(env, record.encryptedSecret);
+  if (!record?.oauthProvider || !record?.oauthTokenExpiresAt) return accessToken;
+  const expiresAt = Date.parse(record.oauthTokenExpiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt > Date.now() + 60_000) return accessToken;
+  return refreshConnectionAccessToken(env, record);
 }
 
 async function requestConnection(record, input, env) {
@@ -597,13 +606,19 @@ async function requestConnection(record, input, env) {
     const url = buildConnectionRequestUrl(record, input);
 
     const method = clean(input?.method || 'POST', 10).toUpperCase();
-    const response = await fetch(url, {
+    const requestOptions = {
       method,
       headers,
       body: method === 'GET' || method === 'HEAD' ? undefined : JSON.stringify(payload),
       signal: controller.signal,
       redirect: 'manual'
-    });
+    };
+    let response = await fetch(url, requestOptions);
+    if (response.status === 401 && record.oauthProvider && record.encryptedRefreshToken) {
+      const refreshedToken = await refreshConnectionAccessToken(env, record);
+      applyConnectionAuth(headers, record.authMode, refreshedToken, record.protocol);
+      response = await fetch(url, requestOptions);
+    }
 
     const parsed = await responseJson(response);
 
@@ -722,15 +737,13 @@ export async function testUserConnection(env, user, id) {
           }
           return parsed.toString();
         })();
-    const response = await fetch(
-      healthUrl,
-      {
-        method: 'GET',
-        headers,
-        redirect: 'manual',
-        signal: controller.signal
-      }
-    );
+    const healthOptions = { method:'GET', headers, redirect:'manual', signal:controller.signal };
+    let response = await fetch(healthUrl, healthOptions);
+    if (response.status === 401 && record.oauthProvider && record.encryptedRefreshToken) {
+      const refreshedToken = await refreshConnectionAccessToken(env, record);
+      applyConnectionAuth(headers, record.authMode, refreshedToken, record.protocol);
+      response = await fetch(healthUrl, healthOptions);
+    }
     let providerOk = true;
     if (record.oauthProvider === 'slack') {
       const payload = await response.clone().json().catch(() => null);
