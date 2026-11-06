@@ -3,6 +3,7 @@ import { jsonResponse, readJson, enforceSameOrigin } from '../_lib/http.js';
 import {
   getFirestoreDataAtPath,
   setFirestoreDocumentAtPath,
+  listFirestoreSubcollectionDocuments,
   deleteFirestoreDocumentAtPath
 } from '../../_lib/firebase-admin.js';
 import { buildConnectionRecord, encryptSecret } from '../../_lib/universal-connections.js';
@@ -140,8 +141,14 @@ export async function handleConnectionOAuthCallback(context) {
     const profile = await getFirestoreDataAtPath(env, ['users', stateRecord.ownerUid]) || {};
     const tier = resolveConnectionTier(profile, stateRecord.ownerEmail);
     limit = UNIVERSAL_CONNECTION_LIMITS[tier] ?? UNIVERSAL_CONNECTION_LIMITS.free;
-    reservation = await changeActiveCount(env, stateRecord.ownerUid, stateRecord.ownerEmail, 1, limit);
-    if (!reservation.ok) throw Object.assign(new Error('Your Personal Connections plan limit has been reached.'), { code:'CONNECTION_LIMIT_REACHED', status:409 });
+    const savedRows = await listFirestoreSubcollectionDocuments(env, 'users', stateRecord.ownerEmail, 'universal_connections', 100);
+    const existing = savedRows.find(row => row?.data?.oauthProvider === service.provider && row?.data?.oauthService === service.id && String(row?.data?.oauthAccount?.id || '') === identity.id);
+    const id = existing?.id || crypto.randomUUID().replace(/-/g, '').slice(0, 28);
+    const wasActive = existing?.data?.active === true;
+    if (!wasActive) {
+      reservation = await changeActiveCount(env, stateRecord.ownerUid, stateRecord.ownerEmail, 1, limit);
+      if (!reservation.ok) throw Object.assign(new Error('Your Personal Connections plan limit has been reached.'), { code:'CONNECTION_LIMIT_REACHED', status:409 });
+    }
     const record = await buildConnectionRecord(env, {
       name:service.name + ' · ' + identity.name,
       type:'http',
@@ -150,7 +157,7 @@ export async function handleConnectionOAuthCallback(context) {
       authMode:'bearer',
       secret:token.access_token,
       active:true
-    }, { uid:stateRecord.ownerUid, email:stateRecord.ownerEmail });
+    }, { uid:stateRecord.ownerUid, email:stateRecord.ownerEmail }, existing?.data || {});
     const now = new Date().toISOString();
     record.oauthProvider = service.provider;
     record.oauthService = service.id;
@@ -160,7 +167,6 @@ export async function handleConnectionOAuthCallback(context) {
     record.encryptedRefreshToken = token.refresh_token ? await encryptSecret(env, token.refresh_token) : null;
     record.oauthConnectedAt = now;
     record.oauthStatus = 'connected';
-    const id = crypto.randomUUID().replace(/-/g, '').slice(0, 28);
     await setFirestoreDocumentAtPath(env, ['users', stateRecord.ownerEmail, 'universal_connections', id], record, { merge:false });
     return popupResponse(origin, { type:'ovyx-connection-oauth', ok:true, service:service.id, connection:{ id, name:record.name, account:identity.name } });
   } catch (error) {
