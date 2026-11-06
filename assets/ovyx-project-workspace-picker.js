@@ -138,6 +138,7 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      #ovyx-project-workspace-picker .ovx-picker-project-description{display:block;margin-top:4px;overflow:hidden;color:#8b8b91;font:500 9px/1.4 Inter,ui-sans-serif,sans-serif;text-overflow:ellipsis;white-space:nowrap}
       #ovyx-project-workspace-picker .ovx-picker-current {
         color: #e8b64f;
         font: 800 7px/1.3 'JetBrains Mono',monospace;
@@ -305,6 +306,7 @@
     let workspaceApiReady = false;
     let workspaceLoadMessage = '';
     let selectedWorkspaceId = 'personal';
+    let workspaceAccountKey = '';
 
     function authUser() {
       try { return window.firebase && typeof window.firebase.auth === 'function' ? window.firebase.auth().currentUser : null; }
@@ -316,8 +318,15 @@
       return 'ovyx.active-workspace.v1.' + String(user?.uid || 'guest');
     }
 
+    function syncWorkspaceAccount() {
+      const key = workspaceStorageKey();
+      if (workspaceAccountKey && workspaceAccountKey !== key) selectedWorkspaceId = 'personal';
+      workspaceAccountKey = key;
+      return key;
+    }
+
     function persistWorkspaceSelection() {
-      try { localStorage.setItem(workspaceStorageKey(), selectedWorkspaceId); } catch (_) {}
+      try { localStorage.setItem(syncWorkspaceAccount(), selectedWorkspaceId); } catch (_) {}
     }
 
     function currentWorkspace() {
@@ -345,6 +354,7 @@
     }
 
     async function loadWorkspaces() {
+      syncWorkspaceAccount();
       workspaceApiReady = false;
       workspaceLoadMessage = '';
       try {
@@ -354,7 +364,7 @@
           : [{ id: 'personal', name: 'Personal workspace', status: 'active', isDefault: true }];
         workspaceApiReady = true;
         let stored = '';
-        try { stored = localStorage.getItem(workspaceStorageKey()) || ''; } catch (_) {}
+        try { stored = localStorage.getItem(syncWorkspaceAccount()) || ''; } catch (_) {}
         const available = workspaces.find(item => String(item.id) === stored);
         selectedWorkspaceId = available ? String(available.id) : 'personal';
         if (!workspaces.some(item => item.id === selectedWorkspaceId)) selectedWorkspaceId = String(workspaces[0]?.id || 'personal');
@@ -452,8 +462,13 @@
         const meta = document.createElement('span');
         meta.className = 'ovx-picker-meta';
         meta.textContent = status + ' · ' + pages + (pages === 1 ? ' PAGE' : ' PAGES') + ' · UPDATED ' + activity;
-
         copy.append(name, meta);
+        if (String(project.description || '').trim()) {
+          const description = document.createElement('span');
+          description.className = 'ovx-picker-project-description';
+          description.textContent = String(project.description).trim();
+          copy.appendChild(description);
+        }
         button.append(mark, copy);
         if (active) {
           const current = document.createElement('span');
