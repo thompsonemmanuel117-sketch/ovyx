@@ -87,6 +87,8 @@ try {
     assert.equal(await dialog.locator('[data-project-id]').count(), 1, '[' + target.name + '] switching workspaces must filter the project inventory.');
     assert.equal(await page.evaluate(() => window.__workspaceRenderCalls.some(ids => ids.length === 1 && ids[0] === 'picker-project-northstar')), true,
       '[' + target.name + '] the existing Projects page renderer must receive only projects from the selected workspace.');
+    assert.equal(await page.evaluate(() => window.KernelState.projects.length), 3,
+      '[' + target.name + '] filtered rendering must restore the complete project store after rendering.');
     assert.equal(await dialog.locator('[data-project-id]').first().getAttribute('data-project-id'), 'picker-project-northstar');
     await dialog.locator('[data-workspace-rename]').click();
     await dialog.locator('[data-workspace-rename-form] [name="name"]').fill('Studio HQ');
