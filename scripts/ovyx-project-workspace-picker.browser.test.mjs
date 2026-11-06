@@ -58,12 +58,19 @@ try {
       const third = { id: 'picker-project-meridian', name: 'Meridian Portfolio', description: 'Portfolio website', status: 'draft', workspaceId: 'personal', updatedAt: now - 120000, pages: [{ name: 'Home' }] };
       window.KernelState.projects = [third, second, first];
       window.KernelState.activeProject = first;
-      const originalRenderProjects = window.ProjectStore.renderProjects;
       window.__workspaceRenderCalls = [];
-      window.ProjectStore.renderProjects = function (...args) {
-        window.__workspaceRenderCalls.push(window.KernelState.projects.map(project => project.id));
-        return originalRenderProjects.apply(this, args);
-      };
+      let projectInventory = window.KernelState.projects;
+      Object.defineProperty(window.KernelState, 'projects', {
+        configurable: true,
+        enumerable: true,
+        get() { return projectInventory; },
+        set(nextProjects) {
+          if (Array.isArray(nextProjects)) {
+            window.__workspaceRenderCalls.push(nextProjects.map(project => project.id));
+          }
+          projectInventory = nextProjects;
+        }
+      });
       window.ProjectStore.renderHome();
       window.ProjectStore.renderProjects();
     });
