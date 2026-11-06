@@ -339,7 +339,7 @@
       installProjectRefreshHook();
       void refreshAll(false);
     }
-    if (route === 'admin-overview') enhanceAdminOverview();
+    if (route === 'admin-overview') { enhanceAdminOverview(); window.setTimeout(enhanceAdminOverview, 180); }
   }
 
   function boot() {
@@ -347,7 +347,7 @@
     installProjectRefreshHook();
     window.addEventListener('ovyx:view-changed', onViewChanged, { passive: true });
     window.addEventListener('ovyx-owner-state', () => {
-      if (window.OVYXAdminWorkspace?.isAuthorized?.()) enhanceAdminOverview();
+      if (window.OVYXAdminWorkspace?.isAuthorized?.()) window.setTimeout(enhanceAdminOverview, 120);
     }, { passive: true });
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && window.KernelState?.activeView === 'home') void refreshAll(false);
