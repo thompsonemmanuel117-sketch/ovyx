@@ -665,7 +665,8 @@
           const currentState = state();
           const originalProjects = currentState.projects;
           if (!workspaceApiReady || !Array.isArray(originalProjects)) return originalRenderProjects.apply(this, args);
-          const filteredProjects = originalProjects.filter(project => projectWorkspace(project) === selectedWorkspaceId);
+          const filteredProjects = originalProjects.filter(project => projectWorkspace(project) === selectedWorkspaceId)
+            .sort((a, b) => projectActivityTimestamp(b) - projectActivityTimestamp(a));
           currentState.projects = filteredProjects;
           let result;
           try {
