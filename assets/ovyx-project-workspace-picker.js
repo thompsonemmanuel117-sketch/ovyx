@@ -712,15 +712,17 @@
             ? state().projects
             : (typeof projectStore.list === 'function' ? projectStore.list() : []);
           const project = projectInventory.find(item => String(item?.id || '') === String(projectId || ''));
+          const selectedWorkspace = currentWorkspace();
+          const projectWorkspaceId = project ? projectWorkspace(project) : '';
+          const owningWorkspace = projectWorkspaceId
+            ? workspaces.find(item => String(item.id) === projectWorkspaceId)
+            : null;
+          if (selectedWorkspace?.status === 'archived' || owningWorkspace?.status === 'archived') {
+            projectStore.showWorkspacePicker?.(document.activeElement);
+            workspaceNote.textContent = 'This workspace is archived. Restore it before opening or editing its projects.';
+            return false;
+          }
           if (project) {
-            const projectWorkspaceId = projectWorkspace(project);
-            const owningWorkspace = workspaces.find(item => String(item.id) === projectWorkspaceId);
-            const selectedWorkspace = currentWorkspace();
-            if (owningWorkspace?.status === 'archived' || selectedWorkspace?.status === 'archived') {
-              projectStore.showWorkspacePicker?.(document.activeElement);
-              workspaceNote.textContent = 'This workspace is archived. Restore it before opening or editing its projects.';
-              return false;
-            }
             selectedWorkspaceId = projectWorkspaceId;
             persistWorkspaceSelection();
             if (!project.workspaceId) project.workspaceId = selectedWorkspaceId;
