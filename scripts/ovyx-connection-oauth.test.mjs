@@ -5,6 +5,7 @@ import {
   getOAuthClientConfig,
   getOAuthService,
   identifyOAuthAccount,
+  refreshOAuthCredential,
   OAUTH_SERVICE_IDS
 } from '../functions/_lib/connection-oauth.js';
 import { onRequest } from '../functions/api/settings/connection-oauth.js';
@@ -74,6 +75,12 @@ try {
   assert.equal(form.get('code_verifier'), 'pkce-verifier');
   assert.equal(form.get('redirect_uri'), redirectUri);
   assert.equal(form.get('client_secret'), 'google-client-secret');
+  const refreshed = await refreshOAuthCredential('google', getOAuthClientConfig('google', env), 'provider-refresh-token');
+  assert.equal(refreshed.access_token, 'provider-access-token');
+  const refreshForm = new URLSearchParams(captured.options.body);
+  assert.equal(refreshForm.get('grant_type'), 'refresh_token');
+  assert.equal(refreshForm.get('refresh_token'), 'provider-refresh-token');
+  assert.equal(refreshForm.get('client_secret'), 'google-client-secret');
 } finally {
   globalThis.fetch = originalFetch;
 }
