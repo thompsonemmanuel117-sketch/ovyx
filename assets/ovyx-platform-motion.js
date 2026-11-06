@@ -6,7 +6,9 @@
 
   var activeViewId = '';
   var scheduled = false;
-  var observer = null;
+  var bodyObserver = null;
+  var viewObserver = null;
+  var observedViews = new WeakSet();
   var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
 
   function isWebStudio(view) {
@@ -51,21 +53,41 @@
   }
 
   function scheduleSync() {
+    // Web Studio is deliberately outside this system; do not even queue frames there.
+    if (document.body && document.body.classList.contains('ovyx-webstudio-active')) return;
     if (scheduled) return;
     scheduled = true;
     window.requestAnimationFrame(syncView);
   }
 
-  function boot() {
-    if (!document.body) return;
-    if (!observer && typeof MutationObserver === 'function') {
-      observer = new MutationObserver(scheduleSync);
-      observer.observe(document.body, {
-        subtree: true,
-        childList: true,
+  function observeViewRoots() {
+    if (!viewObserver) return;
+    document.querySelectorAll('[id^="view-"]').forEach(function (view) {
+      if (isWebStudio(view) || observedViews.has(view)) return;
+      observedViews.add(view);
+      viewObserver.observe(view, {
         attributes: true,
         attributeFilter: ['class', 'style', 'hidden', 'aria-hidden']
       });
+    });
+  }
+
+  function boot() {
+    if (!document.body) return;
+    if (typeof MutationObserver === 'function') {
+      if (!viewObserver) {
+        viewObserver = new MutationObserver(scheduleSync);
+        observeViewRoots();
+      }
+      if (!bodyObserver) {
+        bodyObserver = new MutationObserver(function () {
+          observeViewRoots();
+          scheduleSync();
+        });
+        // Only direct shell changes are relevant. Avoid watching the full app
+        // subtree so rich editors and live previews incur zero observer churn.
+        bodyObserver.observe(document.body, { childList: true, attributes: true, attributeFilter: ['class'] });
+      }
     }
     scheduleSync();
   }
