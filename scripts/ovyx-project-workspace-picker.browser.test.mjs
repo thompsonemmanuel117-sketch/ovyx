@@ -114,6 +114,7 @@ try {
       window.ProjectStore.save();
     });
     await page.waitForFunction(() => window.KernelState.projects.some(project => project.id === 'picker-created-project' && project.workspaceId === 'ws-created'));
+    await page.evaluate(() => window.OVYXWorkspacePicker.render());
     await dialog.locator('.ovx-picker-search').fill('');
     assert.equal(await dialog.locator('[data-project-id="picker-created-project"]').count(), 1,
       '[' + target.name + '] newly saved projects must inherit the selected workspace.');
