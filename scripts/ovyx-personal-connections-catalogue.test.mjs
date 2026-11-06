@@ -25,7 +25,10 @@ assert.match(catalogue, /Generic HTTPS adapter ready/, 'The generic project adap
 assert.match(catalogue, /0 native provider adapters/, 'The catalogue must not invent provider-specific project adapters.');
 assert.match(catalogue, /The separate GitHub account OAuth flow is not a project connection adapter/);
 assert.match(catalogue, /OVYX platform checkout routes are separate from project adapters/);
-assert.match(catalogue, /OAuth-only services stay unavailable here/);
+assert.match(catalogue, /OAuth-enabled services use a real consent and callback flow/);
+for (const service of ['notion','slack','discord','googledrive','googlesheets','googlecalendar']) assert.ok(catalogue.includes("oauthService:'" + service + "'"), 'OAuth service must be registered: ' + service);
+assert.match(catalogue, /ovyx:connection-oauth-readiness/);
+assert.match(catalogue, /ovyx:connection-oauth-start/);
 assert.match(catalogue, /enabled:false/, 'OAuth-only or unsupported signed integrations must not offer a misleading Connect action.');
 assert.match(catalogue, /if \(service\.type === 'ai'\)/, 'AI providers must use their dedicated secure Personal AI flow.');
 assert.match(catalogue, /data-ovyx-personal-ai-manager/, 'AI catalogue entries must reuse the existing Personal AI manager.');
