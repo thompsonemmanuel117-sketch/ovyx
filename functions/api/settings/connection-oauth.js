@@ -131,7 +131,8 @@ export async function handleConnectionOAuthCallback(context) {
   if (!stateRecord) return popupResponse('', { type:'ovyx-connection-oauth', ok:false, error:'OAUTH_STATE_EXPIRED' });
   const origin = clean(stateRecord.origin, 500);
   await deleteFirestoreDocumentAtPath(env, statePath(state));
-  if (Date.parse(stateRecord.expiresAt || '') <= Date.now()) return popupResponse(origin, { type:'ovyx-connection-oauth', ok:false, error:'OAUTH_STATE_EXPIRED' });
+  const expiresAt = Date.parse(stateRecord.expiresAt || '');
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now() || !clean(stateRecord.ownerUid, 180) || !clean(stateRecord.ownerEmail, 320)) return popupResponse(origin, { type:'ovyx-connection-oauth', ok:false, error:'OAUTH_STATE_EXPIRED' });
   if (url.searchParams.get('error')) return popupResponse(origin, { type:'ovyx-connection-oauth', ok:false, error:'OAUTH_ACCESS_DENIED' });
   const code = clean(url.searchParams.get('code'), 2048);
   if (!code) return popupResponse(origin, { type:'ovyx-connection-oauth', ok:false, error:'OAUTH_CODE_MISSING' });
