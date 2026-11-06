@@ -70,11 +70,12 @@
     const limited = service.adapter === 'AI Brain only' || service.adapter === 'Platform payments only';
     const oauthConfigured = !service.oauthService || oauthReadiness[service.oauthService]?.configured === true;
     const oauthLabel = service.oauthService ? (oauthConfigured ? 'Server keys present' : 'Setup required') : service.oauth;
+    const refreshLabel = service.oauthService ? (oauthReadiness[service.oauthService]?.refreshSupported ? 'Refresh: supported' : 'Refresh: reconnect required') : '';
     const canConnect = service.enabled !== false && oauthConfigured;
     const buttonLabel = service.type === 'ai' ? 'Open AI setup' : service.oauthService ? (oauthConfigured ? 'Connect with OAuth' : 'OAuth setup required') : canConnect ? 'Connect' : 'Not available yet';
     return '<article class="pc-cat-card" data-pc-cat-card data-pc-cat-name="' + esc((service.name + ' ' + service.category + ' ' + service.method).toLowerCase()) + '">' +
       '<div class="pc-cat-card-top">' + logo(service) + '<div style="min-width:0"><div class="pc-cat-name">' + esc(service.name) + '</div><div class="pc-cat-kind">' + esc(service.category) + '</div></div></div>' +
-      '<div class="pc-cat-tags"><span class="pc-cat-tag">' + esc(service.method) + '</span><span class="pc-cat-tag ' + (service.oauth.toLowerCase().includes('not available') || service.oauth.toLowerCase().includes('not yet') ? 'limited' : '') + '">OAuth: ' + esc(oauthLabel) + '</span><span class="pc-cat-tag ' + (ready ? 'ready' : limited ? 'limited' : '') + '">Project adapter: ' + esc(service.adapter) + '</span></div>' +
+      '<div class="pc-cat-tags"><span class="pc-cat-tag">' + esc(service.method) + '</span><span class="pc-cat-tag ' + (service.oauth.toLowerCase().includes('not available') || service.oauth.toLowerCase().includes('not yet') ? 'limited' : '') + '">OAuth: ' + esc(oauthLabel) + '</span>' + (service.oauthService ? '<span class="pc-cat-tag">' + esc(refreshLabel) + '</span>' : '') + '<span class="pc-cat-tag ' + (ready ? 'ready' : limited ? 'limited' : '') + '">Project adapter: ' + esc(service.adapter) + '</span></div>' +
       '<div class="pc-cat-detail">' + esc(service.detail) + '</div>' +
       '<div class="pc-cat-action"><button class="pc-cat-connect" type="button" data-pc-cat-connect="' + esc(service.id) + '"' + (canConnect ? '' : ' disabled') + '>' + esc(buttonLabel) + '</button></div></article>';
   }
