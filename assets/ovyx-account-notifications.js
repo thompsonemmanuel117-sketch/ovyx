@@ -285,7 +285,15 @@
     window.OVYXAccountNotifications = Object.freeze({
       refresh: () => refreshNotifications(true),
       open: () => { const root = createWidget(); root.hidden = false; const panel = $('#ovyx-notification-panel', root); panel.hidden = false; void refreshNotifications(true); void refreshPushButton(); },
-      unreadCount: () => currentNotifications.filter(item => item.unread).length
+      unreadCount: () => currentNotifications.filter(item => item.unread).length,
+      recent: () => currentNotifications.slice(0, 3).map(item => ({
+        id: String(item.id || ''),
+        title: clean(item.title || 'OVYX Update', 120),
+        body: clean(item.body || '', 180),
+        category: clean(item.category || 'product', 40),
+        createdAt: item.createdAt || null,
+        unread: item.unread === true
+      }))
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
