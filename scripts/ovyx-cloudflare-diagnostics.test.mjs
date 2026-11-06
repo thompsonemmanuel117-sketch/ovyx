@@ -12,7 +12,7 @@ const deploymentTranscript = sanitizeCloudflareLogContext([
   { timestamp: '2026-11-06T10:00:05Z', level: 'info', line: 'Building Pages Functions...' },
   { timestamp: '2026-11-06T10:00:10Z', level: 'error', line: 'Failed to publish your Function. Got error: Unknown internal error occurred.' },
   { timestamp: '2026-11-06T10:00:11Z', line: 'secret=should-not-be-retained' },
-], value => String(value).replace(/secret=[^\\s]+/gi, 'secret=[REDACTED]'), { limit: 3 });
+], value => String(value).split('secret=should-not-be-retained').join('secret=[REDACTED]'), { limit: 3 });
 assert.equal(deploymentTranscript.length, 3, 'diagnostics must preserve surrounding build and publish context.');
 assert.match(deploymentTranscript[1].line, /Failed to publish your Function/i);
 assert.equal(deploymentTranscript[2].line, 'secret=[REDACTED]');
