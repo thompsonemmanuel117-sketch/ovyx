@@ -100,7 +100,9 @@ try {
     assert.equal(await dialog.locator('[data-project-id="picker-project-northstar"]').isDisabled(), true,
       '[' + target.name + '] archived workspace projects must remain visible but cannot be opened before restore.');
     assert.match(await dialog.locator('[data-workspace-note]').innerText(), /Restore it before opening or editing/);
+    const workspaceReload = page.waitForResponse(response => response.url().includes('/api/workspaces') && response.request().method() === 'GET');
     await page.evaluate(() => window.ProjectStore.open('picker-project-northstar'));
+    await workspaceReload;
     assert.equal(await page.evaluate(() => window.KernelState.activeProject.id), 'picker-project-aurora',
       '[' + target.name + '] opening an archived project from the main Projects page must be blocked.');
     await dialog.locator('[data-workspace-restore]').click();
