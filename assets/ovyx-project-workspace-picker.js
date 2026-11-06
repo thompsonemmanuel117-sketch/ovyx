@@ -713,7 +713,20 @@
             }
           }
           const result = originalOpen.call(this, projectId, ...args);
-          refreshProjectListing();
+          const syncActiveProjectWorkspace = () => {
+            const activeProject = state().activeProject;
+            if (activeProject && String(activeProject.id || '') === String(projectId || '') && !activeProject.workspaceId) {
+              activeProject.workspaceId = selectedWorkspaceId;
+            }
+            refreshProjectListing();
+          };
+          if (result && typeof result.then === 'function') {
+            return result.then(value => {
+              syncActiveProjectWorkspace();
+              return value;
+            });
+          }
+          syncActiveProjectWorkspace();
           return result;
         };
         projectStore.open.__original = originalOpen;
