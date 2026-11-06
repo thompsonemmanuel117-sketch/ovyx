@@ -97,8 +97,13 @@ try {
     await dialog.locator('[data-workspace-archive]').click();
     await page.waitForFunction(() => document.querySelector('#ovx-picker-workspace-select')?.value === 'personal');
     await dialog.locator('#ovx-picker-workspace-select').selectOption('ws-studio');
+    assert.equal(await dialog.locator('[data-project-id="picker-project-northstar"]').isDisabled(), true,
+      '[' + target.name + '] archived workspace projects must remain visible but cannot be opened before restore.');
+    assert.match(await dialog.locator('[data-workspace-note]').innerText(), /Restore it before opening or editing/);
     await dialog.locator('[data-workspace-restore]').click();
     await page.waitForFunction(() => document.querySelector('[data-workspace-restore]')?.hidden === true);
+    assert.equal(await dialog.locator('[data-project-id="picker-project-northstar"]').isDisabled(), false,
+      '[' + target.name + '] restoring a workspace must re-enable project access.');
     await dialog.locator('.ovx-picker-search').fill('northstar');
     assert.equal(await dialog.locator('[data-project-id]').count(), 1, '[' + target.name + '] search must filter the project list.');
     assert.equal(await dialog.locator('[data-project-id]').first().getAttribute('data-project-id'), 'picker-project-northstar');
