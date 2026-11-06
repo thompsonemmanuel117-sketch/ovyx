@@ -1,0 +1,21 @@
+# OVYX Premium Platform Experience
+
+## Scope
+A presentation-only upgrade to the OVYX platform shell and routed workspace pages. It intentionally excludes Web Studio and does not replace the shared design system or motion coordinator.
+
+## Sign-in
+The existing `#view-master-auth` page receives a wider editorial layout, refined glass card, more legible fields and polished responsive spacing. The existing OVYX sign-in lockup/diamond, Firebase authentication handlers, password controls, OAuth buttons, account activation and route guards remain owned by the existing application.
+
+## Platform pages
+Existing routed platform sections (except Web Studio and the dedicated sign-in view) receive full-width page foundations, improved component surfaces, consistent control transitions and visible keyboard focus. Existing page components continue to own their layout, state, data and interactions.
+
+## Safety boundaries
+- No edits to `index.html`, the OVYX brand mark, Web Studio assets or Web Studio runtime.
+- No Firebase auth, profile schema, permissions, AI routing, provider keys, data models or backend behavior changes.
+- No global element resets or new dependencies.
+- Honors reduced-motion preferences.
+- CSS is loaded through the existing Cloudflare Pages HTML middleware.
+
+## Verification
+- `scripts/ovyx-premium-experience.test.mjs`: source contract for scope, brand/auth boundaries, middleware loading and npm test registration.
+- `scripts/ovyx-premium-experience.browser.test.mjs`: desktop/mobile checks for page width, Web Studio exclusion boundary, sign-in layout and retained auth controls.
