@@ -30,11 +30,13 @@ const legacyPublicRecord = publicConnection({
   protocol: 'openai-chat',
   active: true,
   encryptedSecret: 'encrypted-placeholder',
+  encryptedRefreshToken: 'encrypted-refresh-placeholder',
   secret: 'must-not-leak',
 }, 'legacy-ai-1');
 assert.equal(legacyPublicRecord.hasSecret, true);
 assert.equal(legacyPublicRecord.secret, undefined);
 assert.equal(legacyPublicRecord.encryptedSecret, undefined);
+assert.equal(legacyPublicRecord.encryptedRefreshToken, undefined, 'OAuth refresh credentials must never be returned to the browser.');
 assert.deepEqual(legacyPublicRecord.capabilities, {
   canUseAsBrain: true,
   canUseForWebStudio: false,
