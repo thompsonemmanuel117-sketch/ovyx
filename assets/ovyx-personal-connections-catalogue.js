@@ -68,11 +68,13 @@
   function card(service) {
     const ready = service.adapter === 'Generic HTTPS adapter ready';
     const limited = service.adapter === 'AI Brain only' || service.adapter === 'Platform payments only';
-    const canConnect = service.enabled !== false;
-    const buttonLabel = service.type === 'ai' ? 'Open AI setup' : canConnect ? 'Connect' : 'Not available yet';
+    const oauthConfigured = !service.oauthService || oauthReadiness[service.oauthService]?.configured === true;
+    const oauthLabel = service.oauthService ? (oauthConfigured ? 'OAuth: configured' : 'OAuth: setup required') : service.oauth;
+    const canConnect = service.enabled !== false && oauthConfigured;
+    const buttonLabel = service.type === 'ai' ? 'Open AI setup' : service.oauthService ? (oauthConfigured ? 'Connect with OAuth' : 'OAuth setup required') : canConnect ? 'Connect' : 'Not available yet';
     return '<article class="pc-cat-card" data-pc-cat-card data-pc-cat-name="' + esc((service.name + ' ' + service.category + ' ' + service.method).toLowerCase()) + '">' +
       '<div class="pc-cat-card-top">' + logo(service) + '<div style="min-width:0"><div class="pc-cat-name">' + esc(service.name) + '</div><div class="pc-cat-kind">' + esc(service.category) + '</div></div></div>' +
-      '<div class="pc-cat-tags"><span class="pc-cat-tag">' + esc(service.method) + '</span><span class="pc-cat-tag ' + (service.oauth.toLowerCase().includes('not available') || service.oauth.toLowerCase().includes('not yet') ? 'limited' : '') + '">OAuth: ' + esc(service.oauth) + '</span><span class="pc-cat-tag ' + (ready ? 'ready' : limited ? 'limited' : '') + '">Project adapter: ' + esc(service.adapter) + '</span></div>' +
+      '<div class="pc-cat-tags"><span class="pc-cat-tag">' + esc(service.method) + '</span><span class="pc-cat-tag ' + (service.oauth.toLowerCase().includes('not available') || service.oauth.toLowerCase().includes('not yet') ? 'limited' : '') + '">OAuth: ' + esc(oauthLabel) + '</span><span class="pc-cat-tag ' + (ready ? 'ready' : limited ? 'limited' : '') + '">Project adapter: ' + esc(service.adapter) + '</span></div>' +
       '<div class="pc-cat-detail">' + esc(service.detail) + '</div>' +
       '<div class="pc-cat-action"><button class="pc-cat-connect" type="button" data-pc-cat-connect="' + esc(service.id) + '"' + (canConnect ? '' : ' disabled') + '>' + esc(buttonLabel) + '</button></div></article>';
   }
@@ -99,7 +101,7 @@
     section.innerHTML = '<div class="pc-cat-head"><div><div class="pc-cat-title">Service catalogue</div><div class="pc-cat-subtitle">Browse recognizable services, see the connection method OVYX can accept today, and check OAuth and project-adapter readiness before connecting.</div></div><span class="pc-cat-summary">1 generic project adapter · 0 native provider adapters</span></div>' +
       '<div class="pc-cat-tools"><div class="pc-cat-filters">' + CATEGORIES.map(item => '<button type="button" class="pc-cat-filter" data-pc-cat-filter="' + esc(item) + '" aria-pressed="' + String(item === category) + '">' + esc(item) + '</button>').join('') + '</div><input class="pc-cat-search" type="search" data-pc-cat-search placeholder="Find a service…" aria-label="Search service catalogue"></div>' +
       '<div class="pc-cat-grid" data-pc-cat-grid></div>' +
-      '<div class="pc-cat-footnote"><b>What “ready” means:</b> the generic HTTPS adapter can call an owner-supplied endpoint after a project is explicitly granted permission. It does not provide provider-specific workflows. AI keys are for the personal Brain fallback only. OVYX platform payment routes and the separate GitHub account OAuth flow are not counted as generated-project adapters. OAuth-only services stay unavailable here until their full consent, callback, token-refresh and revocation flow is implemented.</div>';
+      '<div class="pc-cat-footnote"><b>What “ready” means:</b> the generic HTTPS adapter can call an owner-supplied endpoint after a project is explicitly granted permission. It does not provide provider-specific workflows. AI keys are for the personal Brain fallback only. OVYX platform payment routes and the separate GitHub account OAuth flow are not counted as generated-project adapters. OAuth-enabled services use a real consent and callback flow when the server app credentials are configured. They still use the generic HTTPS adapter; native provider workflows are shown only after separately verified adapters are implemented.</div>';
     panel.insertBefore(section, $('.pc-stats', panel));
     section.querySelectorAll('[data-pc-cat-filter]').forEach(button => button.addEventListener('click', () => { category = button.dataset.pcCatFilter; render(panel); }));
     $('[data-pc-cat-search]', section).addEventListener('input', event => { query = event.target.value.toLowerCase().trim(); render(panel); const input = $('[data-pc-cat-search]', section); input.focus(); input.setSelectionRange(query.length, query.length); });
@@ -109,6 +111,10 @@
   function connect(id, panel) {
     const service = SERVICES.find(item => item.id === id);
     if (!service || service.enabled === false) return;
+    if (service.oauthService) {
+      window.dispatchEvent(new CustomEvent('ovyx:connection-oauth-start', { detail:{ service:service.oauthService } }));
+      return;
+    }
     if (service.type === 'ai') {
       const button = $('[data-ovyx-personal-ai-manager]', panel);
       if (!button) return;
@@ -152,6 +158,7 @@
     if (!root || !$('.pc-hero', root) || $('.pc-catalogue', root)) return;
     styles();
     catalogue(root);
+    window.addEventListener('ovyx:connection-oauth-readiness', event => { oauthReadiness = event.detail || {}; render(root); });
   }
 
   function boot() {
