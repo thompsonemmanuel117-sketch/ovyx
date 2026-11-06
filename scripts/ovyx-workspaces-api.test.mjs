@@ -127,9 +127,9 @@ globalThis.fetch = async (input, init = {}) => {
 };
 
 const env = { FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify(serviceAccount) };
-const owner = { uid: 'workspace-owner-1', email: 'owner@example.test', displayName: 'Workspace Owner' };
+const integrationOwner = { uid: 'workspace-owner-1', email: 'owner@example.test', displayName: 'Workspace Owner' };
 const otherIdentity = { uid: 'workspace-owner-2', email: 'owner@example.test', displayName: 'Different UID' };
-async function invoke(handler, path, method = 'GET', body = null, user = owner) {
+async function invoke(handler, path, method = 'GET', body = null, user = integrationOwner) {
   const request = new Request('https://ovyx.test' + path, {
     method,
     headers: body === null ? {} : { 'content-type': 'application/json' },
