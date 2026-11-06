@@ -279,7 +279,7 @@
           <p class="ovx-picker-workspace-note" data-workspace-note aria-live="polite"></p>
         </header>
         <div class="ovx-picker-search-wrap">
-          <input class="ovx-picker-search" type="search" autocomplete="off" placeholder="Search your projects…" aria-label="Search projects" />
+          <input class="ovx-picker-search" type="search" autocomplete="off" placeholder="Search your projects…" aria-label="Search projects" autofocus />
         </div>
         <div class="ovx-picker-list" role="listbox" aria-label="Saved projects"></div>
         <footer class="ovx-picker-foot">
