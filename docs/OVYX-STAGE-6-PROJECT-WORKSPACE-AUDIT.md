@@ -94,7 +94,8 @@ The Stage 6 branch now adds a separate owner-managed workspace entity without re
 - Workspace documents live at `users/{firebaseUid}/workspaces/{workspaceId}`; reads and writes require both the authenticated UID and normalized email to match the stored owner.
 - The existing `functions/api/projects.js` contract now associates projects with a workspace. Legacy projects without an association are treated as personal, avoiding a bulk migration or destructive rewrite.
 - Workspace-scoped project inventory and project-detail reads remain owner-verified. Archived workspace projects remain readable, but new writes to archived workspaces are rejected.
-- The existing project picker now includes workspace selection, workspace creation/rename/archive/restore, project filtering/search and project status/page-count/description/last-updated metadata. Existing ProjectStore create/open/save methods remain the execution path.
+- The existing project picker and the existing Projects page renderer now both use the selected workspace. Workspace selection, create/rename/archive/restore, project filtering/search and project status/page-count/description/last-updated metadata are integrated while the full project store is restored after filtered rendering. Existing ProjectStore create/open/save methods remain the execution path.
+- Workspace state is loaded at app startup and refreshed on Firebase auth changes; late responses from a previous account are ignored, and the preference is stored per Firebase UID.
 - The active workspace preference is scoped to the signed-in Firebase UID. Opening a project restores its workspace; newly saved projects inherit the selected workspace.
 
 ### Collaboration boundary
