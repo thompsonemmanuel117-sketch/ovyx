@@ -9,7 +9,7 @@ const SERVICES = Object.freeze({
 
 const PROVIDERS = Object.freeze({
   notion: { prefix:'NOTION', authorize:'https://api.notion.com/v1/oauth/authorize', token:'https://api.notion.com/v1/oauth/token', tokenAuth:'basic', identity:'token-owner', refresh:false, pkce:false },
-  slack: { prefix:'SLACK', authorize:'https://slack.com/oauth/v2/authorize', token:'https://slack.com/api/oauth.v2.access', tokenAuth:'body', identity:'token-team', refresh:true, pkce:false },
+  slack: { prefix:'SLACK', authorize:'https://slack.com/oauth/v2/authorize', token:'https://slack.com/api/oauth.v2.access', tokenAuth:'basic', identity:'token-team', refresh:true, pkce:false },
   discord: { prefix:'DISCORD', authorize:'https://discord.com/oauth2/authorize', token:'https://discord.com/api/oauth2/token', tokenAuth:'body', identity:'https://discord.com/api/v10/users/@me', refresh:true, pkce:true },
   google: { prefix:'GOOGLE', authorize:'https://accounts.google.com/o/oauth2/v2/auth', token:'https://oauth2.googleapis.com/token', tokenAuth:'body', identity:'https://openidconnect.googleapis.com/v1/userinfo', refresh:true, pkce:true }
 });
@@ -142,6 +142,11 @@ export async function refreshOAuthCredential(providerId, config, refreshToken) {
   }
   const body = new URLSearchParams({ grant_type:'refresh_token', refresh_token:clean(refreshToken, 8000), client_id:config.clientId, client_secret:config.clientSecret });
   const headers = { Accept:'application/json', 'Content-Type':'application/x-www-form-urlencoded' };
+  if (provider.tokenAuth === 'basic') {
+    headers.Authorization = 'Basic ' + btoa(config.clientId + ':' + config.clientSecret);
+    body.delete('client_id');
+    body.delete('client_secret');
+  }
   const payload = await requestJson(provider.token, { method:'POST', headers, body:body.toString() });
   if (payload.error || payload.ok === false || !clean(payload.access_token, 8000)) {
     throw Object.assign(new Error('OAuth token refresh failed. Reconnect the service.'), { code:'OAUTH_REFRESH_FAILED', status:409 });
