@@ -95,6 +95,8 @@
         border-radius: 10px;
         cursor: pointer;
       }
+      /* The project row owns pointer interaction; decorative descendants must not become hit targets. */
+      #ovyx-project-workspace-picker .ovx-picker-project > * { pointer-events: none; }
       #ovyx-project-workspace-picker .ovx-picker-project:hover,
       #ovyx-project-workspace-picker .ovx-picker-project:focus-visible {
         background: rgba(255,255,255,.045);
