@@ -767,7 +767,7 @@
       plans.ok ? money(pricing.pro?.usd, 'USD') + ' · current plan details' : 'Current plan details could not be loaded.', plans.ok ? 'ok' : 'bad');
     add('Global Max price', plans.ok ? money(pricing.max?.ngn, 'NGN') : 'Unavailable',
       plans.ok ? money(pricing.max?.usd, 'USD') + ' · current plan details' : 'Current plan details could not be loaded.', plans.ok ? 'ok' : 'bad');
-    add('Accounts', registry.ok ? 'Available' : 'Unavailable',
+    add('Account sample', registry.ok ? 'Available' : 'Unavailable',
       registry.ok ? 'Reviewed ' + String(registry.data.users?.length || 0) + ' account record(s) in ' + registry.duration + ' ms. This is a sample, not a total count.' : 'The account list could not be loaded.', registry.ok ? 'ok' : 'bad');
     const report = sentinel.data?.latestReport || {};
     const critical = safeNumber(report.criticalCount ?? report.summary?.critical ?? report.counts?.critical, NaN);
