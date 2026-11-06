@@ -646,15 +646,15 @@
           try {
             result = originalRenderProjects.apply(this, args);
           } catch (error) {
-            if (currentState.projects === filteredProjects) currentState.projects = originalProjects;
+            currentState.projects = originalProjects;
             throw error;
           }
           if (result && typeof result.then === 'function') {
             return result.finally(() => {
-              if (currentState.projects === filteredProjects) currentState.projects = originalProjects;
+              currentState.projects = originalProjects;
             });
           }
-          if (currentState.projects === filteredProjects) currentState.projects = originalProjects;
+          currentState.projects = originalProjects;
           return result;
         };
         projectStore.renderProjects.__original = originalRenderProjects;
