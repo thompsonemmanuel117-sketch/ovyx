@@ -1,10 +1,32 @@
 import assert from 'node:assert/strict';
-import { findCloudflareLogErrors, isInformationalVcsLine } from './cloudflare-diagnostics-log-filter.mjs';
+import { findCloudflareLogErrors, isInformationalVcsLine, sanitizeCloudflareLogContext } from './cloudflare-diagnostics-log-filter.mjs';
 import { probeApplicationShell } from './cloudflare-application-shell.mjs';
 
 const commitCheckout = 'HEAD is now at bba6b90 fix: harden provider availability error responses';
 assert.equal(isInformationalVcsLine(commitCheckout), true, 'Git checkout metadata must not be classified as a deployment error just because the commit subject contains the word error.');
 assert.deepEqual(findCloudflareLogErrors([{ line: commitCheckout }]), [], 'a clean checkout notice must not fail Cloudflare diagnostics.');
+
+
+const deploymentTranscript = sanitizeCloudflareLogContext([
+  { timestamp: '2026-11-06T10:00:00Z', level: 'info', line: 'Installing dependencies...' },
+  { timestamp: '2026-11-06T10:00:05Z', level: 'info', line: 'Building Pages Functions...' },
+  { timestamp: '2026-11-06T10:00:10Z', level: 'error', line: 'Failed to publish your Function. Got error: Unknown internal error occurred.' },
+  { timestamp: '2026-11-06T10:00:11Z', line: 'secret=should-not-be-retained' },
+], value => String(value).split('secret=should-not-be-retained').join('secret=[REDACTED]'), { limit: 3 });
+assert.equal(deploymentTranscript.length, 3, 'diagnostics must preserve surrounding build and publish context.');
+assert.match(deploymentTranscript[1].line, /Failed to publish your Function/i);
+assert.equal(deploymentTranscript[2].line, 'secret=[REDACTED]');
+assert.equal(deploymentTranscript[0].timestamp, '2026-11-06T10:00:05Z');
+assert.deepEqual(
+  findCloudflareLogErrors(deploymentTranscript),
+  ['Failed to publish your Function. Got error: Unknown internal error occurred.'],
+  'error extraction must continue to work from the sanitized contextual transcript.',
+);
+assert.equal(
+  sanitizeCloudflareLogContext([{ line: 'a' }, { line: 'b' }, { line: 'c' }], String, { limit: 2 }).length,
+  2,
+  'the contextual transcript must remain bounded.',
+);
 
 const cases = [
   'Error: Cannot find module "example-package"',
