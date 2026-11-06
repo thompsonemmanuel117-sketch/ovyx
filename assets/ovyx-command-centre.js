@@ -316,6 +316,11 @@
     const description = view.querySelector(':scope > div p');
     if (heading) heading.textContent = 'Platform Command Centre';
     if (description) description.textContent = 'Owner-only operational overview. Live checks below report only the services and records they actually verify.';
+    const headingWrap = heading?.parentElement;
+    if (headingWrap) {
+      headingWrap.classList.add('ovyx-cc-admin-heading');
+      if (view.firstElementChild !== headingWrap) view.insertBefore(headingWrap, view.firstElementChild);
+    }
     const projectStat = byId('adm-stat-projects');
     const metrics = projectStat?.closest('.grid');
     if (metrics) {
