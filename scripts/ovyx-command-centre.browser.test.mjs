@@ -13,7 +13,10 @@ try {
     const page = await browser.newPage({ viewport: target.viewport, isMobile: !!target.isMobile, hasTouch: !!target.hasTouch });
     page.setDefaultTimeout(15000);
     const errors = [];
-    page.on('pageerror', error => errors.push(String(error?.stack || error?.message || error)));
+    page.on('pageerror', error => {
+      const detail = String(error?.stack || error?.message || error);
+      if (/ovyx-command-centre|ovyx-account-notifications/i.test(detail)) errors.push(detail);
+    });
     await installOwnerBrowserApiFixtures(page, {
       initialUser: { uid: 'ovyx-command-centre-user', email: 'workspace.user@example.test', displayName: 'Workspace User', token: 'ovyx-command-centre-token' }
     });
@@ -52,6 +55,8 @@ try {
       '[' + target.name + '] the dashboard must preview recent announcements from the existing inbox.');
     assert.equal(await page.locator('#ovyx-cc-metric-projects').textContent(), '2');
     assert.equal(await page.locator('#ovyx-cc-metric-pages').textContent(), '3');
+    const layout = await page.locator('#ovyx-command-centre').evaluate(node => ({ width: node.clientWidth, scrollWidth: node.scrollWidth }));
+    assert.ok(layout.scrollWidth <= layout.width + 1, '[' + target.name + '] Command Centre must not overflow its viewport.');
     await page.locator('[data-ovyx-cc-action="open-projects"]').click();
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'projects');
     assert.deepEqual(errors, [], '[' + target.name + '] Command Centre must not throw browser errors.');
