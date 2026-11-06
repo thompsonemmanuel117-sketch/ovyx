@@ -655,7 +655,7 @@
       if (!dialog.open) dialog.showModal();
       search.focus({ preventScroll: true });
       requestAnimationFrame(() => {
-        if (dialog.open && !dialog.contains(document.activeElement)) search.focus({ preventScroll: true });
+        if (dialog.open) search.focus({ preventScroll: true });
       });
       installAuthListener();
       loadWorkspaces();
