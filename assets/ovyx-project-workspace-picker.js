@@ -307,6 +307,7 @@
     let workspaceLoadMessage = '';
     let selectedWorkspaceId = 'personal';
     let workspaceAccountKey = '';
+    let authListenerInstalled = false;
 
     function authUser() {
       try { return window.firebase && typeof window.firebase.auth === 'function' ? window.firebase.auth().currentUser : null; }
@@ -630,7 +631,19 @@
     };
     dialog._ovyxRender = render;
     installProjectStoreHooks(STORE());
+    installAuthListener();
+    loadWorkspaces();
     return dialog;
+
+    function installAuthListener() {
+      if (authListenerInstalled) return;
+      try {
+        const auth = window.firebase && typeof window.firebase.auth === 'function' ? window.firebase.auth() : null;
+        if (!auth || typeof auth.onAuthStateChanged !== 'function') return;
+        authListenerInstalled = true;
+        auth.onAuthStateChanged(() => loadWorkspaces());
+      } catch (_) {}
+    }
 
     function installProjectStoreHooks(projectStore) {
       if (!projectStore) return;
@@ -706,6 +719,7 @@
     };
     projectStore.showWorkspacePicker.__original = original;
     projectStore.__OVYXWorkspacePickerV1 = true;
+    createPicker();
     window.OVYXWorkspacePicker = {
       open: () => projectStore.showWorkspacePicker(),
       close: () => document.getElementById('ovyx-project-workspace-picker')?.close(),
