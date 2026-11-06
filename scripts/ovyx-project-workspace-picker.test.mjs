@@ -14,6 +14,12 @@ assert.match(asset, /showModal\(\)/);
 assert.match(asset, /aria-labelledby/);
 assert.match(asset, /aria-live="polite"/);
 assert.match(asset, /prefers-reduced-motion/);
+assert.match(asset, /\/api\/workspaces/, 'The workspace switcher must use the authenticated workspace API.');
+assert.match(asset, /data-workspace-new/, 'Users must be able to create a workspace from the picker.');
+assert.match(asset, /data-workspace-archive/, 'Users must be able to archive a non-default workspace.');
+assert.match(asset, /projectWorkspace\(project\) === selectedWorkspaceId/, 'Project listings must be scoped to the selected workspace.');
+assert.match(asset, /__OVYXWorkspaceOpenV1/, 'Opening a saved project must restore its owning workspace selection.');
+assert.match(asset, /__OVYXWorkspaceSaveV1/, 'New projects must inherit the selected workspace.');
 assert.doesNotMatch(asset, /window\.prompt\s*\(/, 'The new project picker must not use a browser prompt.');
 assert.match(middleware, /ovyx-project-workspace-picker\.js\?v=20261106-1/, 'The project picker runtime must be injected into the production app shell.');
 
