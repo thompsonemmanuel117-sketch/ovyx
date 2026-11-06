@@ -85,6 +85,10 @@ try {
       '[' + target.name + '] workspace projects must be ordered by most recent activity.');
     assert.match(await dialog.locator('[data-project-id="picker-project-aurora"] .ovx-picker-meta').innerText(), /DRAFT.*2 PAGES.*UPDATED/);
     assert.equal(await dialog.locator('[data-project-id="picker-project-aurora"] .ovx-picker-project-description').innerText(), 'Commerce project');
+    await page.waitForFunction(() => {
+      const search = document.querySelector('#ovyx-project-workspace-picker .ovx-picker-search');
+      return Boolean(search && document.activeElement === search);
+    }, null, { timeout: 3000 });
     assert.equal(await dialog.locator('.ovx-picker-search').evaluate(el => document.activeElement === el), true,
       '[' + target.name + '] opening the picker must move focus to search.');
     await dialog.locator('#ovx-picker-workspace-select').waitFor();
