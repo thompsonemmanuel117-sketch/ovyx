@@ -667,10 +667,17 @@
       renderWorkspaceControls();
       render();
       if (!dialog.open) dialog.showModal();
-      search.focus({ preventScroll: true });
-      requestAnimationFrame(() => {
-        if (dialog.open) search.focus({ preventScroll: true });
-      });
+      // The dialog's native autofocus handoff can initially land on an earlier
+      // workspace control in some Chromium/mobile contexts. Reassert search
+      // focus after the modal has entered the top layer and its focus cycle ran.
+      const focusSearch = () => {
+        if (!dialog.open || !search.isConnected || search.disabled) return;
+        try { search.focus({ preventScroll: true }); } catch (_) { search.focus(); }
+        if (document.activeElement !== search) search.focus();
+      };
+      focusSearch();
+      requestAnimationFrame(focusSearch);
+      setTimeout(focusSearch, 0);
       installAuthListener();
       loadWorkspaces();
     };
