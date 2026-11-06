@@ -34,7 +34,22 @@
       #ovyx-project-workspace-picker .ovx-picker-shell {
         display: flex;
         flex-direction: column;
+        height: min(78dvh, 680px);
         max-height: min(78dvh, 680px);
+      }
+      #ovyx-project-workspace-picker .ovx-picker-head,
+      #ovyx-project-workspace-picker .ovx-picker-search-wrap,
+      #ovyx-project-workspace-picker .ovx-picker-foot {
+        position: relative;
+        z-index: 1;
+        flex: 0 0 auto;
+      }
+      #ovyx-project-workspace-picker .ovx-picker-list {
+        position: relative;
+        z-index: 0;
+        flex: 1 1 auto;
+        min-height: 90px;
+        overflow-y: auto;
       }
       #ovyx-project-workspace-picker .ovx-picker-head {
         padding: 19px 20px 15px;
@@ -202,6 +217,7 @@
           border-radius: 14px;
         }
         #ovyx-project-workspace-picker .ovx-picker-shell {
+          height: min(82dvh, 720px);
           max-height: min(82dvh, 720px);
         }
         #ovyx-project-workspace-picker .ovx-picker-head {
