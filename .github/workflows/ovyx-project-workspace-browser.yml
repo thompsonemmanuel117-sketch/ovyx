@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'assets/ovyx-project-workspace-picker.js'
+      - 'functions/api/workspaces.js'
+      - 'functions/api/projects.js'
+      - 'scripts/ovyx-workspaces-api.test.mjs'
       - 'functions/_middleware.js'
       - 'scripts/ovyx-project-workspace-picker.test.mjs'
       - 'scripts/ovyx-project-workspace-picker.browser.test.mjs'
@@ -46,6 +49,7 @@ jobs:
       - name: Run project workspace contract and static validation
         run: |
           node scripts/ovyx-project-workspace-picker.test.mjs
+          node scripts/ovyx-workspaces-api.test.mjs
           npm run validate
       - name: Start local Cloudflare Pages app shell
         run: |
