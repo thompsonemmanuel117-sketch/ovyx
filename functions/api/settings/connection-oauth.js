@@ -21,7 +21,7 @@ import {
 } from './connections.js';
 
 const clean = (value, max = 500) => String(value ?? '').trim().slice(0, max);
-const statePath = (email, state) => ['users', email, 'connection_oauth_states', state];
+const statePath = state => ['connection_oauth_states', state];
 
 function randomState() {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
@@ -96,7 +96,7 @@ async function start(context) {
   const state = randomState();
   const pair = service.provider === 'google' || service.provider === 'discord' ? await pkcePair() : null;
   const now = Date.now();
-  await setFirestoreDocumentAtPath(env, statePath(auth.email, state), {
+  await setFirestoreDocumentAtPath(env, statePath(state), {
     state,
     serviceId,
     provider:service.provider,
@@ -124,7 +124,7 @@ async function callback(context) {
   const stateRecord = await findState(env, state);
   if (!stateRecord) return popupResponse('', { type:'ovyx-connection-oauth', ok:false, error:'OAUTH_STATE_EXPIRED' });
   const origin = clean(stateRecord.origin, 500);
-  await deleteFirestoreDocumentAtPath(env, statePath(stateRecord.ownerEmail, state));
+  await deleteFirestoreDocumentAtPath(env, statePath(state));
   if (Date.parse(stateRecord.expiresAt || '') <= Date.now()) return popupResponse(origin, { type:'ovyx-connection-oauth', ok:false, error:'OAUTH_STATE_EXPIRED' });
   if (url.searchParams.get('error')) return popupResponse(origin, { type:'ovyx-connection-oauth', ok:false, error:'OAUTH_ACCESS_DENIED' });
   const code = clean(url.searchParams.get('code'), 2048);
@@ -133,12 +133,13 @@ async function callback(context) {
   const config = getOAuthClientConfig(stateRecord.provider, env);
   if (!service || !config.configured || config.redirectUri !== stateRecord.redirectUri) return popupResponse(origin, { type:'ovyx-connection-oauth', ok:false, error:'OAUTH_CONFIGURATION_CHANGED' });
   let reservation = null;
+  let limit = UNIVERSAL_CONNECTION_LIMITS.free;
   try {
     const token = await exchangeOAuthCode(service.id, config, code, stateRecord.codeVerifier || '');
     const identity = await identifyOAuthAccount(service.id, token);
     const profile = await getFirestoreDataAtPath(env, ['users', stateRecord.ownerUid]) || {};
     const tier = resolveConnectionTier(profile, stateRecord.ownerEmail);
-    const limit = UNIVERSAL_CONNECTION_LIMITS[tier] ?? UNIVERSAL_CONNECTION_LIMITS.free;
+    limit = UNIVERSAL_CONNECTION_LIMITS[tier] ?? UNIVERSAL_CONNECTION_LIMITS.free;
     reservation = await changeActiveCount(env, stateRecord.ownerUid, stateRecord.ownerEmail, 1, limit);
     if (!reservation.ok) throw Object.assign(new Error('Your Personal Connections plan limit has been reached.'), { code:'CONNECTION_LIMIT_REACHED', status:409 });
     const record = await buildConnectionRecord(env, {
@@ -164,7 +165,7 @@ async function callback(context) {
     return popupResponse(origin, { type:'ovyx-connection-oauth', ok:true, service:service.id, connection:{ id, name:record.name, account:identity.name } });
   } catch (error) {
     if (reservation?.changed) {
-      try { await changeActiveCount(env, stateRecord.ownerUid, stateRecord.ownerEmail, -1, limitForUser(env, stateRecord.ownerUid, stateRecord.ownerEmail)); } catch (_) {}
+      try { await changeActiveCount(env, stateRecord.ownerUid, stateRecord.ownerEmail, -1, limit); } catch (_) {}
     }
     console.error('[OVYX CONNECTION OAUTH]', clean(error?.code || 'OAUTH_CALLBACK_FAILED', 80));
     return popupResponse(origin, { type:'ovyx-connection-oauth', ok:false, error:clean(error?.code || 'OAUTH_CALLBACK_FAILED', 80) });
@@ -172,26 +173,8 @@ async function callback(context) {
 }
 
 async function findState(env, state) {
-  // State lookup is account-scoped. The initiating UID/email are stored only
-  // in Firestore; the browser receives only the opaque random state value.
-  const candidates = await listOAuthStateOwners(env);
-  for (const owner of candidates) {
-    const record = await getFirestoreDataAtPath(env, statePath(owner.email, state));
-    if (record?.state === state && record.ownerUid === owner.uid) return record;
-  }
-  return null;
-}
-
-async function listOAuthStateOwners(env) {
-  // The callback has no Firebase bearer token. A short-lived index makes
-  // the opaque state resolvable without scanning user collections.
-  return [];
-}
-
-async function limitForUser(env, uid, email) {
-  const profile = await getFirestoreDataAtPath(env, ['users', uid]) || {};
-  const tier = resolveConnectionTier(profile, email);
-  return UNIVERSAL_CONNECTION_LIMITS[tier] ?? UNIVERSAL_CONNECTION_LIMITS.free;
+  const record = await getFirestoreDataAtPath(env, statePath(state));
+  return record?.state === state ? record : null;
 }
 
 export async function onRequest(context) {
