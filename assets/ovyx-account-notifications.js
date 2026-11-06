@@ -159,6 +159,7 @@
         currentNotifications = Array.isArray(data.notifications) ? data.notifications : [];
         setUnreadCount(data.unreadCount); renderItems(currentNotifications);
         setStatus(currentNotifications.length ? (Number(data.unreadCount || 0) ? 'You have ' + data.unreadCount + ' unread update(s).' : 'No unread messages.') : 'No broadcasts yet.');
+        window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: currentNotifications.filter(item => item.unread).length } }));
       } catch (error) { setStatus(error.message || 'Notifications are temporarily unavailable.'); }
     })();
     refreshInFlight = task; try { await task; } finally { if (refreshInFlight === task) refreshInFlight = null; }
@@ -166,7 +167,7 @@
   async function openNotification(item) {
     if (!getUser()) return;
     if (item.unread) {
-      try { await api(API_NOTIFICATIONS, 'POST', { action: 'read', notificationId: String(item.id || '') }); item.unread = false; item.readAt = new Date().toISOString(); setUnreadCount(currentNotifications.filter(entry => entry.unread).length); renderItems(currentNotifications); }
+      try { await api(API_NOTIFICATIONS, 'POST', { action: 'read', notificationId: String(item.id || '') }); item.unread = false; item.readAt = new Date().toISOString(); setUnreadCount(currentNotifications.filter(entry => entry.unread).length); renderItems(currentNotifications); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: currentNotifications.filter(entry => entry.unread).length } })); }
       catch (_) { setStatus('This message could not be marked as read. The link will still open.'); }
     }
     closePanel();
