@@ -704,8 +704,10 @@
       if (typeof projectStore.open === 'function' && !projectStore.__OVYXWorkspaceOpenV1) {
         const originalOpen = projectStore.open;
         projectStore.open = function (projectId, ...args) {
-          const project = (typeof projectStore.list === 'function' ? projectStore.list() : [])
-            .find(item => String(item?.id || '') === String(projectId || ''));
+          const projectInventory = Array.isArray(state().projects)
+            ? state().projects
+            : (typeof projectStore.list === 'function' ? projectStore.list() : []);
+          const project = projectInventory.find(item => String(item?.id || '') === String(projectId || ''));
           if (project) {
             selectedWorkspaceId = projectWorkspace(project);
             persistWorkspaceSelection();
