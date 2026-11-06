@@ -95,6 +95,7 @@ try {
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.getElementById('ovyx-project-workspace-picker')?.open);
     await page.evaluate(() => window.ProjectStore.showWorkspacePicker());
+    await dialog.locator('#ovx-picker-workspace-select').selectOption('ws-studio');
     await dialog.locator('[data-project-id="picker-project-northstar"]').click();
     await page.waitForFunction(() => window.KernelState?.activeProject?.id === 'picker-project-northstar');
     await page.waitForFunction(() => !document.getElementById('ovyx-project-workspace-picker')?.open);
