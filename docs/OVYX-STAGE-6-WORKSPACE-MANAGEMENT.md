@@ -35,8 +35,8 @@ Projects remain stored in the existing account-scoped Firestore collection at `u
 
 The existing accessible project picker is extended into a workspace-aware switcher.
 
-- Workspace selection is stored per Firebase UID, never as one global account-agnostic preference.
-- The project list is filtered to the selected workspace.
+- Workspace selection is stored per Firebase UID, never as one global account-agnostic preference. The workspace list loads at app startup and refreshes on Firebase auth changes; stale responses from a previous account are ignored.
+- The project list in the picker and the existing Projects page renderer are both filtered to the selected workspace; the original full project store is restored after rendering so switching views never discards other workspaces' projects.
 - Project search includes project name, description and status.
 - Project rows expose status, page count, description and last saved/updated date.
 - Users can create, rename, archive and restore workspaces from the same dialog.
