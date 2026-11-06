@@ -532,6 +532,9 @@
     search.addEventListener('input', render);
     workspaceSelect.addEventListener('change', () => {
       selectedWorkspaceId = String(workspaceSelect.value || 'personal');
+      // Reassert the guard after workspace changes in case another project-page
+      // initializer replaced a ProjectStore method after the picker first loaded.
+      installProjectStoreHooks(STORE());
       persistWorkspaceSelection();
       createForm.hidden = true;
       renameForm.hidden = true;
@@ -708,9 +711,9 @@
         projectStore.renderProjects.__original = originalRenderProjects;
         projectStore.__OVYXWorkspaceRenderProjectsV1 = true;
       }
-      if (typeof projectStore.open === 'function' && !projectStore.__OVYXWorkspaceOpenV1) {
+      if (typeof projectStore.open === 'function' && projectStore.open !== projectStore.__OVYXWorkspaceOpenWrapperV1) {
         const originalOpen = projectStore.open;
-        projectStore.open = function (projectId, ...args) {
+        const guardedOpen = function (projectId, ...args) {
           const projectInventory = Array.isArray(state().projects)
             ? state().projects
             : (typeof projectStore.list === 'function' ? projectStore.list() : []);
@@ -747,7 +750,9 @@
           syncActiveProjectWorkspace();
           return result;
         };
-        projectStore.open.__original = originalOpen;
+        guardedOpen.__original = originalOpen;
+        projectStore.open = guardedOpen;
+        projectStore.__OVYXWorkspaceOpenWrapperV1 = guardedOpen;
         projectStore.__OVYXWorkspaceOpenV1 = true;
       }
       if (typeof projectStore.save === 'function' && !projectStore.__OVYXWorkspaceSaveV1) {
