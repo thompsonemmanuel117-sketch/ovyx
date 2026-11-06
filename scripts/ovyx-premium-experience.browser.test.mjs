@@ -25,7 +25,7 @@ try{
       auth.hidden=false;
       auth.removeAttribute('hidden');
       auth.classList.remove('hidden');
-      auth.style.display='block';
+      auth.style.setProperty('display','block','important');
       const layout=auth.querySelector('.ovyx-auth-layout');
       const card=auth.querySelector('.ovyx-master-auth-card');
       const input=auth.querySelector('#ovyx-master-auth-email');
