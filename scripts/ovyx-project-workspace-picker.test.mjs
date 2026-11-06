@@ -21,6 +21,6 @@ assert.match(asset, /projectWorkspace\(project\) === selectedWorkspaceId/, 'Proj
 assert.match(asset, /__OVYXWorkspaceOpenV1/, 'Opening a saved project must restore its owning workspace selection.');
 assert.match(asset, /__OVYXWorkspaceSaveV1/, 'New projects must inherit the selected workspace.');
 assert.doesNotMatch(asset, /window\.prompt\s*\(/, 'The new project picker must not use a browser prompt.');
-assert.match(middleware, /ovyx-project-workspace-picker\.js\?v=20261106-1/, 'The project picker runtime must be injected into the production app shell.');
+assert.match(middleware, /ovyx-project-workspace-picker\.js\?v=20261106-3/, 'The project picker runtime must be injected into the production app shell.');
 
 console.log('OVYX project workspace picker contract tests passed.');
