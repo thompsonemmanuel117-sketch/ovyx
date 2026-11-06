@@ -56,7 +56,7 @@ try {
       const first = { id: 'picker-project-aurora', name: 'Aurora Commerce', description: 'Commerce project', status: 'draft', workspaceId: 'personal', updatedAt: now, pages: [{ name: 'Home' }, { name: 'Products' }] };
       const second = { id: 'picker-project-northstar', name: 'Northstar Studio', description: 'Studio website', status: 'published', workspaceId: 'ws-studio', updatedAt: now - 60000, pages: [{ name: 'Home' }] };
       const third = { id: 'picker-project-meridian', name: 'Meridian Portfolio', description: 'Portfolio website', status: 'draft', workspaceId: 'personal', updatedAt: now - 120000, pages: [{ name: 'Home' }] };
-      window.KernelState.projects = [first, second, third];
+      window.KernelState.projects = [third, second, first];
       window.KernelState.activeProject = first;
       const originalRenderProjects = window.ProjectStore.renderProjects;
       window.__workspaceRenderCalls = [];
@@ -74,6 +74,8 @@ try {
     assert.equal(await dialog.getAttribute('open') !== null, true, '[' + target.name + '] picker must use a real modal dialog.');
     assert.equal(await dialog.locator('[data-project-id]').count(), 2, '[' + target.name + '] picker must initially show every project in the personal workspace.');
     assert.equal(await dialog.locator('[data-project-id="picker-project-aurora"]').getAttribute('aria-current'), 'true');
+    assert.equal(await dialog.locator('[data-project-id]').first().getAttribute('data-project-id'), 'picker-project-aurora',
+      '[' + target.name + '] workspace projects must be ordered by most recent activity.');
     assert.match(await dialog.locator('[data-project-id="picker-project-aurora"] .ovx-picker-meta').innerText(), /DRAFT.*2 PAGES.*UPDATED/);
     assert.equal(await dialog.locator('[data-project-id="picker-project-aurora"] .ovx-picker-project-description').innerText(), 'Commerce project');
     assert.equal(await dialog.locator('.ovx-picker-search').evaluate(el => document.activeElement === el), true,
