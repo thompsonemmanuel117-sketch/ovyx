@@ -19,6 +19,8 @@ assert.match(js,/requestAnimationFrame/);
 assert.match(js,/prefers-reduced-motion:\s*reduce/);
 assert.match(js,/view\.id === 'view-webstudio'/,'Web Studio must remain excluded.');
 assert.match(js,/ovyx-webstudio-active/,'Web Studio active mode must be a no-touch boundary.');
+assert.match(js,/Only direct shell changes are relevant/,'Motion observer must avoid watching editor subtrees.');
+assert.match(js,/document\.body\.classList\.contains\('ovyx-webstudio-active'\)\) return/,'Web Studio must not queue animation frames.');
 assert.ok(middleware.includes('/assets/css/ovyx-platform-motion.css?v=20261106-1'),'Motion stylesheet must load in the shell.');
 assert.ok(middleware.includes('/assets/ovyx-platform-motion.js?v=20261106-1'),'Motion coordinator must load in the shell.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-platform-motion.test.mjs'),'Motion contract must run in npm test.');
