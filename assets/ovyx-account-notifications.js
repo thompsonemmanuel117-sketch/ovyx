@@ -257,12 +257,12 @@
   function syncAuth() {
     const user = getUser(); const root = createWidget();
     if (!user || !user.uid) {
-      activeUid = ''; currentNotifications = []; setUnreadCount(0); root.hidden = true; closePanel(root); $('#ovyx-welcome-overlay')?.remove();
+      activeUid = ''; currentNotifications = []; setUnreadCount(0); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: 0 } })); root.hidden = true; closePanel(root); $('#ovyx-welcome-overlay')?.remove();
       if (refreshTimer) { window.clearInterval(refreshTimer); refreshTimer = null; } return;
     }
     root.hidden = false; const uid = String(user.uid);
     if (uid !== activeUid) {
-      activeUid = uid; currentNotifications = []; setUnreadCount(0); closePanel(root); void refreshNotifications(true); void showWelcome(user);
+      activeUid = uid; currentNotifications = []; setUnreadCount(0); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: 0 } })); closePanel(root); void refreshNotifications(true); void showWelcome(user);
       if (refreshTimer) window.clearInterval(refreshTimer);
       refreshTimer = window.setInterval(() => { if (getUser()?.uid === uid) void refreshNotifications(false); }, 60000);
     }
