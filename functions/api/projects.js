@@ -70,7 +70,7 @@ export async function onRequest(context){
         if(requestedWorkspace!==null&&normalized.workspaceId!==workspaceFilter)throw Object.assign(new Error('Project not found in this workspace.'),{status:404,code:'PROJECT_NOT_FOUND'});
         return jsonResponse({ok:true,project:normalized,owner:{uid,email}},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
       }
-      const rows=await listFirestoreSubcollectionDocuments(context.env,'users',email,'projects',1000);
+      const rows=await listFirestoreSubcollectionDocuments(context.env,'users',email,'projects',100);
       let projects=rows.map(item=>{const p=item.data||{};return {...p,id:item.id,workspaceId:projectWorkspaceId(p)};}).filter(p=>clean(p.ownerUid)===uid&&clean(p.ownerEmail).toLowerCase()===email);
       if(workspaceFilter!==null)projects=projects.filter(project=>project.workspaceId===workspaceFilter);
       return jsonResponse({ok:true,projects,owner:{uid,email},workspaceId:workspaceFilter},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
