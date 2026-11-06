@@ -627,6 +627,7 @@
       render();
       if (!dialog.open) dialog.showModal();
       requestAnimationFrame(() => search.focus());
+      installAuthListener();
       loadWorkspaces();
     };
     dialog._ovyxRender = render;
