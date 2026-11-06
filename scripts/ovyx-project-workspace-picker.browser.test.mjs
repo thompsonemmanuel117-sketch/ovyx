@@ -84,8 +84,6 @@ try {
     await dialog.locator('#ovx-picker-workspace-select').selectOption('ws-studio');
     await dialog.locator('[data-workspace-restore]').click();
     await page.waitForFunction(() => document.querySelector('[data-workspace-restore]')?.hidden === true);
-    await dialog.locator('#ovx-picker-workspace-select').selectOption('personal');
-
     await dialog.locator('.ovx-picker-search').fill('northstar');
     assert.equal(await dialog.locator('[data-project-id]').count(), 1, '[' + target.name + '] search must filter the project list.');
     assert.equal(await dialog.locator('[data-project-id]').first().getAttribute('data-project-id'), 'picker-project-northstar');
@@ -100,6 +98,7 @@ try {
     await page.waitForFunction(() => window.KernelState?.activeProject?.id === 'picker-project-northstar');
     await page.waitForFunction(() => !document.getElementById('ovyx-project-workspace-picker')?.open);
 
+    await page.evaluate(() => window.ProjectStore.showWorkspacePicker());
     await dialog.locator('.ovx-picker-search').fill('');
     await dialog.locator('[data-workspace-new]').click();
     await dialog.locator('[data-workspace-create-form] [name="name"]').fill('Campaign workspace');
