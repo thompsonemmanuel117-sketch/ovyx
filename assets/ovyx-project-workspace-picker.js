@@ -356,7 +356,7 @@
     });
 
     dialog._ovyxOpen = source => {
-      opener = source?. instanceof HTMLElement ? source : document.activeElement;
+      opener = source && source.nodeType === 1 && typeof source.focus === 'function' ? source : document.activeElement;
       render();
       if (!dialog.open) dialog.showModal();
       requestAnimationFrame(() => search.focus());
