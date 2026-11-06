@@ -1,0 +1,100 @@
+:root {
+  --ovyx-cc-border: var(--ovyx-ds-border, rgba(255,255,255,.10));
+  --ovyx-cc-surface: var(--app-card, #0b0d10);
+  --ovyx-cc-text: var(--app-text, #f8fafc);
+  --ovyx-cc-muted: var(--app-muted, #94a3b8);
+  --ovyx-cc-gold: var(--ovyx-ds-gold, #e8b64f);
+}
+#view-home .ovyx-command-centre {
+  width: 100%; margin: 26px auto 34px; padding: 22px;
+  border: 1px solid var(--ovyx-cc-border); border-radius: 22px;
+  background: radial-gradient(circle at 100% 0, rgba(232,182,79,.075), transparent 34%), linear-gradient(145deg, rgba(255,255,255,.025), rgba(255,255,255,.008));
+  color: var(--ovyx-cc-text); box-sizing: border-box;
+}
+.ovyx-command-centre * { box-sizing: border-box; }
+.ovyx-cc-header,.ovyx-cc-panel-head,.ovyx-cc-quick,.ovyx-cc-metric-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.ovyx-cc-header { margin-bottom: 17px; }
+.ovyx-cc-eyebrow { color:var(--ovyx-cc-gold); font:800 8px/1.2 'JetBrains Mono',monospace; letter-spacing:.17em; }
+.ovyx-cc-heading h2 { margin:7px 0 0; color:var(--ovyx-cc-text); font:800 clamp(20px,2.7vw,27px)/1.15 Inter,system-ui,sans-serif; letter-spacing:-.04em; }
+.ovyx-cc-heading p { margin:7px 0 0; color:var(--ovyx-cc-muted); font:500 11px/1.55 Inter,system-ui,sans-serif; }
+.ovyx-cc-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.ovyx-cc-metric,.ovyx-cc-panel { min-width:0; border:1px solid var(--ovyx-cc-border); border-radius:15px; background:var(--ovyx-cc-surface); }
+.ovyx-cc-metric { padding:14px; }
+.ovyx-cc-metric-top { color:var(--ovyx-cc-muted); font:700 9px/1.35 Inter,system-ui,sans-serif; }
+.ovyx-cc-metric-top i { color:var(--ovyx-cc-gold); font-size:12px; }
+.ovyx-cc-metric-value { display:block; margin-top:13px; color:var(--ovyx-cc-text); font:800 clamp(19px,2.3vw,25px)/1 Inter,system-ui,sans-serif; letter-spacing:-.04em; overflow-wrap:anywhere; }
+.ovyx-cc-metric-detail { display:block; margin-top:7px; min-height:25px; color:var(--ovyx-cc-muted); font:500 9px/1.45 Inter,system-ui,sans-serif; overflow-wrap:anywhere; }
+.ovyx-cc-lower { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(230px,.85fr); gap:10px; margin-top:10px; }
+.ovyx-cc-panel { padding:15px; }
+.ovyx-cc-panel-head h3 { margin:0; color:var(--ovyx-cc-text); font:800 11px/1.3 Inter,system-ui,sans-serif; }
+.ovyx-cc-text-action,.ovyx-cc-open-project { border:0; padding:4px 0; background:transparent; color:var(--ovyx-cc-gold); font:700 9px/1.3 Inter,system-ui,sans-serif; cursor:pointer; }
+.ovyx-cc-activity-list { display:grid; gap:0; margin-top:8px; }
+.ovyx-cc-activity-item { display:flex; align-items:center; gap:10px; min-width:0; padding:11px 0; border-top:1px solid var(--ovyx-cc-border); }
+.ovyx-cc-activity-marker { flex:0 0 7px; width:7px; height:7px; border-radius:50%; background:var(--ovyx-cc-gold); box-shadow:0 0 12px rgba(232,182,79,.3); }
+.ovyx-cc-activity-copy { flex:1; min-width:0; }
+.ovyx-cc-activity-copy strong,.ovyx-cc-activity-copy span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ovyx-cc-activity-copy strong { color:var(--ovyx-cc-text); font:700 10px/1.4 Inter,system-ui,sans-serif; }
+.ovyx-cc-activity-copy span { margin-top:3px; color:var(--ovyx-cc-muted); font:500 8px/1.4 Inter,system-ui,sans-serif; }
+.ovyx-cc-empty { display:grid; gap:5px; padding:19px 8px; text-align:center; }
+.ovyx-cc-empty strong { color:var(--ovyx-cc-text); font:700 10px/1.4 Inter,system-ui,sans-serif; }
+.ovyx-cc-empty span { color:var(--ovyx-cc-muted); font:500 9px/1.5 Inter,system-ui,sans-serif; }
+.ovyx-cc-side { display:grid; gap:10px; align-content:start; }
+.ovyx-cc-status-dot { display:block; width:8px; height:8px; border-radius:50%; background:#eab308; box-shadow:0 0 12px rgba(234,179,8,.35); }
+.ovyx-cc-status-dot.is-healthy { background:#34d399; box-shadow:0 0 12px rgba(52,211,153,.35); }
+.ovyx-cc-status-dot.is-warning { background:#f59e0b; }
+.ovyx-cc-status-dot.is-checking { animation:ovyxCcPulse 1.4s ease-in-out infinite; }
+.ovyx-cc-status-value { display:block; margin-top:14px; color:var(--ovyx-cc-text); font:800 15px/1.25 Inter,system-ui,sans-serif; }
+.ovyx-cc-status-detail { margin:6px 0 0; color:var(--ovyx-cc-muted); font:500 9px/1.55 Inter,system-ui,sans-serif; }
+.ovyx-cc-unread { display:inline-flex; align-items:center; justify-content:center; min-width:23px; min-height:23px; padding:0 7px; border:1px solid rgba(232,182,79,.25); border-radius:999px; color:var(--ovyx-cc-gold); background:rgba(232,182,79,.07); font:800 9px/1 Inter,system-ui,sans-serif; }
+.ovyx-cc-action { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:36px; padding:9px 12px; border:1px solid var(--ovyx-cc-border); border-radius:10px; background:rgba(255,255,255,.035); color:var(--ovyx-cc-text); font:700 9px/1.2 Inter,system-ui,sans-serif; cursor:pointer; transition:transform .18s ease,border-color .18s ease,background .18s ease; }
+.ovyx-cc-action i { color:var(--ovyx-cc-gold); }
+.ovyx-cc-action:hover { transform:translateY(-1px); border-color:rgba(232,182,79,.35); background:rgba(232,182,79,.055); }
+.ovyx-cc-action:active { transform:scale(.98); }
+.ovyx-cc-action:focus-visible,.ovyx-cc-text-action:focus-visible,.ovyx-cc-open-project:focus-visible { outline:2px solid var(--ovyx-cc-gold); outline-offset:3px; }
+.ovyx-cc-action-primary { border-color:rgba(232,182,79,.38); background:rgba(232,182,79,.12); }
+.ovyx-cc-action-quiet { background:transparent; }
+.ovyx-cc-notifications .ovyx-cc-action { width:100%; margin-top:12px; }
+.ovyx-cc-footer { display:grid; gap:10px; margin-top:14px; }
+.ovyx-cc-quick { justify-content:flex-start; flex-wrap:wrap; }
+.ovyx-cc-freshness { color:var(--ovyx-cc-muted); font:500 8px/1.45 Inter,system-ui,sans-serif; }
+#view-admin-overview.ovyx-cc-admin-view { width:100%!important; max-width:none!important; padding:clamp(16px,3vw,42px)!important; }
+#view-admin-overview.ovyx-cc-admin-view > .ovyx-admin-workspace-hub,
+#view-admin-overview.ovyx-cc-admin-view > .ovyx-owner-live-panel,
+#view-admin-overview.ovyx-cc-admin-view > .adm-control-plane { width:100%; max-width:1440px; margin-left:auto; margin-right:auto; }
+#view-admin-overview .ovyx-cc-admin-metrics { display:grid!important; grid-template-columns:repeat(2,minmax(0,1fr))!important; gap:12px!important; max-width:1440px; margin:18px auto!important; }
+#view-admin-overview .ovyx-cc-admin-metrics > .v0-card { min-width:0; }
+@keyframes ovyxCcPulse { 50% { opacity:.35; transform:scale(.82); } }
+@media(max-width:760px) {
+  #view-home .ovyx-command-centre { padding:14px; margin:18px auto 24px; border-radius:17px; }
+  .ovyx-cc-header { align-items:flex-start; }
+  .ovyx-cc-header > .ovyx-cc-action { flex:0 0 auto; min-height:32px; padding:7px 9px; }
+  .ovyx-cc-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .ovyx-cc-metric { padding:11px; }
+  .ovyx-cc-lower { grid-template-columns:minmax(0,1fr); }
+  .ovyx-cc-quick { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .ovyx-cc-quick .ovyx-cc-action { width:100%; }
+}
+@media(max-width:390px) {
+  .ovyx-cc-header { display:grid; }
+  .ovyx-cc-header > .ovyx-cc-action { justify-self:start; }
+  .ovyx-cc-quick { grid-template-columns:minmax(0,1fr); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .ovyx-cc-status-dot.is-checking { animation:none; }
+  .ovyx-cc-action { transition:none; }
+  .ovyx-cc-action:hover,.ovyx-cc-action:active { transform:none; }
+}
+.ovyx-cc-notification-list { display:grid; gap:8px; margin-top:11px; }
+.ovyx-cc-notification-item { min-width:0; padding:9px 10px; border:1px solid var(--ovyx-cc-border); border-radius:9px; background:rgba(127,127,127,.045); }
+.ovyx-cc-notification-item.is-unread { border-color:rgba(232,182,79,.19); background:rgba(232,182,79,.035); }
+.ovyx-cc-notification-item strong,.ovyx-cc-notification-item span,.ovyx-cc-notification-item small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ovyx-cc-notification-item strong { color:var(--ovyx-cc-text); font:700 9px/1.4 Inter,system-ui,sans-serif; }
+.ovyx-cc-notification-item span { margin-top:3px; color:var(--ovyx-cc-muted); font:500 8px/1.4 Inter,system-ui,sans-serif; }
+.ovyx-cc-notification-item small,.ovyx-cc-notification-empty { margin-top:5px; color:var(--ovyx-cc-muted); font:700 7px/1.4 'JetBrains Mono',monospace; letter-spacing:.06em; }
+.ovyx-cc-notification-empty { padding:8px 2px; }
+
+#view-admin-overview .ovyx-cc-admin-heading { width:100%; max-width:1440px; margin:0 auto 18px!important; }
+
+@media(max-width:520px) {
+  #view-admin-overview .ovyx-cc-admin-metrics { grid-template-columns:minmax(0,1fr)!important; }
+}

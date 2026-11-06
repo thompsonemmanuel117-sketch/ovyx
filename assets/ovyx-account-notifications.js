@@ -159,6 +159,7 @@
         currentNotifications = Array.isArray(data.notifications) ? data.notifications : [];
         setUnreadCount(data.unreadCount); renderItems(currentNotifications);
         setStatus(currentNotifications.length ? (Number(data.unreadCount || 0) ? 'You have ' + data.unreadCount + ' unread update(s).' : 'No unread messages.') : 'No broadcasts yet.');
+        window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: currentNotifications.filter(item => item.unread).length } }));
       } catch (error) { setStatus(error.message || 'Notifications are temporarily unavailable.'); }
     })();
     refreshInFlight = task; try { await task; } finally { if (refreshInFlight === task) refreshInFlight = null; }
@@ -166,7 +167,7 @@
   async function openNotification(item) {
     if (!getUser()) return;
     if (item.unread) {
-      try { await api(API_NOTIFICATIONS, 'POST', { action: 'read', notificationId: String(item.id || '') }); item.unread = false; item.readAt = new Date().toISOString(); setUnreadCount(currentNotifications.filter(entry => entry.unread).length); renderItems(currentNotifications); }
+      try { await api(API_NOTIFICATIONS, 'POST', { action: 'read', notificationId: String(item.id || '') }); item.unread = false; item.readAt = new Date().toISOString(); setUnreadCount(currentNotifications.filter(entry => entry.unread).length); renderItems(currentNotifications); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: currentNotifications.filter(entry => entry.unread).length } })); }
       catch (_) { setStatus('This message could not be marked as read. The link will still open.'); }
     }
     closePanel();
@@ -256,12 +257,12 @@
   function syncAuth() {
     const user = getUser(); const root = createWidget();
     if (!user || !user.uid) {
-      activeUid = ''; currentNotifications = []; setUnreadCount(0); root.hidden = true; closePanel(root); $('#ovyx-welcome-overlay')?.remove();
+      activeUid = ''; currentNotifications = []; setUnreadCount(0); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: 0 } })); root.hidden = true; closePanel(root); $('#ovyx-welcome-overlay')?.remove();
       if (refreshTimer) { window.clearInterval(refreshTimer); refreshTimer = null; } return;
     }
     root.hidden = false; const uid = String(user.uid);
     if (uid !== activeUid) {
-      activeUid = uid; currentNotifications = []; setUnreadCount(0); closePanel(root); void refreshNotifications(true); void showWelcome(user);
+      activeUid = uid; currentNotifications = []; setUnreadCount(0); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: 0 } })); closePanel(root); void refreshNotifications(true); void showWelcome(user);
       if (refreshTimer) window.clearInterval(refreshTimer);
       refreshTimer = window.setInterval(() => { if (getUser()?.uid === uid) void refreshNotifications(false); }, 60000);
     }
@@ -285,7 +286,15 @@
     window.OVYXAccountNotifications = Object.freeze({
       refresh: () => refreshNotifications(true),
       open: () => { const root = createWidget(); root.hidden = false; const panel = $('#ovyx-notification-panel', root); panel.hidden = false; void refreshNotifications(true); void refreshPushButton(); },
-      unreadCount: () => currentNotifications.filter(item => item.unread).length
+      unreadCount: () => currentNotifications.filter(item => item.unread).length,
+      recent: () => currentNotifications.slice(0, 3).map(item => ({
+        id: String(item.id || ''),
+        title: clean(item.title || 'OVYX Update', 120),
+        body: clean(item.body || '', 180),
+        category: clean(item.category || 'product', 40),
+        createdAt: item.createdAt || null,
+        unread: item.unread === true
+      }))
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();

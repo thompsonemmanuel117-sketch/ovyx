@@ -131,3 +131,9 @@
 
 /assets/ovyx-personal-connections-catalogue.js
   Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-command-centre.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-account-notifications.js
+  Cache-Control: no-store, no-cache, must-revalidate
