@@ -58,6 +58,12 @@ try {
       const third = { id: 'picker-project-meridian', name: 'Meridian Portfolio', description: 'Portfolio website', status: 'draft', workspaceId: 'personal', updatedAt: now - 120000, pages: [{ name: 'Home' }] };
       window.KernelState.projects = [first, second, third];
       window.KernelState.activeProject = first;
+      const originalRenderProjects = window.ProjectStore.renderProjects;
+      window.__workspaceRenderCalls = [];
+      window.ProjectStore.renderProjects = function (...args) {
+        window.__workspaceRenderCalls.push(window.KernelState.projects.map(project => project.id));
+        return originalRenderProjects.apply(this, args);
+      };
       window.ProjectStore.renderHome();
       window.ProjectStore.renderProjects();
     });
@@ -75,7 +81,10 @@ try {
     await dialog.locator('#ovx-picker-workspace-select').waitFor();
     await page.waitForFunction(() => document.querySelectorAll('#ovx-picker-workspace-select option').length === 2);
     await dialog.locator('#ovx-picker-workspace-select').selectOption('ws-studio');
+    await page.waitForFunction(() => window.__workspaceRenderCalls?.some(ids => ids.length === 1 && ids[0] === 'picker-project-northstar'));
     assert.equal(await dialog.locator('[data-project-id]').count(), 1, '[' + target.name + '] switching workspaces must filter the project inventory.');
+    assert.equal(await page.evaluate(() => window.__workspaceRenderCalls.some(ids => ids.length === 1 && ids[0] === 'picker-project-northstar')), true,
+      '[' + target.name + '] the existing Projects page renderer must receive only projects from the selected workspace.');
     assert.equal(await dialog.locator('[data-project-id]').first().getAttribute('data-project-id'), 'picker-project-northstar');
     await dialog.locator('[data-workspace-rename]').click();
     await dialog.locator('[data-workspace-rename-form] [name="name"]').fill('Studio HQ');
