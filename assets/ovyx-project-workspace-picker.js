@@ -307,6 +307,7 @@
     let workspaceLoadMessage = '';
     let selectedWorkspaceId = 'personal';
     let workspaceAccountKey = '';
+    let workspaceLoadGeneration = 0;
     let authListenerInstalled = false;
 
     function authUser() {
@@ -321,7 +322,11 @@
 
     function syncWorkspaceAccount() {
       const key = workspaceStorageKey();
-      if (workspaceAccountKey && workspaceAccountKey !== key) selectedWorkspaceId = 'personal';
+      if (workspaceAccountKey && workspaceAccountKey !== key) {
+        selectedWorkspaceId = 'personal';
+        workspaces = [{ id: 'personal', name: 'Personal workspace', description: 'Your private OVYX workspace.', status: 'active', isDefault: true }];
+        workspaceApiReady = false;
+      }
       workspaceAccountKey = key;
       return key;
     }
@@ -355,22 +360,25 @@
     }
 
     async function loadWorkspaces() {
-      syncWorkspaceAccount();
+      const generation = ++workspaceLoadGeneration;
+      const requestAccountKey = syncWorkspaceAccount();
       workspaceApiReady = false;
       workspaceLoadMessage = '';
       try {
         const data = await workspaceRequest('GET');
+        if (generation !== workspaceLoadGeneration || requestAccountKey !== workspaceStorageKey()) return;
         workspaces = Array.isArray(data.workspaces) && data.workspaces.length
           ? data.workspaces
           : [{ id: 'personal', name: 'Personal workspace', status: 'active', isDefault: true }];
         workspaceApiReady = true;
         let stored = '';
-        try { stored = localStorage.getItem(syncWorkspaceAccount()) || ''; } catch (_) {}
+        try { stored = localStorage.getItem(requestAccountKey) || ''; } catch (_) {}
         const available = workspaces.find(item => String(item.id) === stored);
         selectedWorkspaceId = available ? String(available.id) : 'personal';
         if (!workspaces.some(item => item.id === selectedWorkspaceId)) selectedWorkspaceId = String(workspaces[0]?.id || 'personal');
         persistWorkspaceSelection();
       } catch (error) {
+        if (generation !== workspaceLoadGeneration || requestAccountKey !== workspaceStorageKey()) return;
         workspaces = [{ id: 'personal', name: 'Personal workspace', description: 'Your private OVYX workspace.', status: 'active', isDefault: true }];
         selectedWorkspaceId = 'personal';
         workspaceLoadMessage = error?.message || 'Workspace sync is unavailable. Showing local personal projects.';
