@@ -421,11 +421,13 @@
       dialog.querySelector('[data-workspace-restore]').disabled = !workspaceApiReady || !archived;
       dialog.querySelector('[data-workspace-new]').disabled = !workspaceApiReady;
       createButton.disabled = archived;
-      workspaceNote.textContent = workspaceLoadMessage || (activeProjectInSelectedWorkspace && !active?.isDefault
-        ? 'Open a project in another workspace before archiving this one.'
-        : workspaceApiReady
-          ? (active?.collaboration?.supported === false ? 'Owner-managed workspace · Team invitations are not enabled on this account.' : 'Your workspace projects and activity stay organised together.')
-          : 'Sign in to create and switch between additional workspaces.');
+      workspaceNote.textContent = workspaceLoadMessage || (archived
+        ? 'Archived workspace · Restore it before opening or editing its projects.'
+        : activeProjectInSelectedWorkspace && !active?.isDefault
+          ? 'Open a project in another workspace before archiving this one.'
+          : workspaceApiReady
+            ? (active?.collaboration?.supported === false ? 'Owner-managed workspace · Team invitations are not enabled on this account.' : 'Your workspace projects and activity stay organised together.')
+            : 'Sign in to create and switch between additional workspaces.');
     }
 
     function close() {
@@ -435,6 +437,7 @@
 
     function render() {
       const all = typeof STORE()?.list === 'function' ? STORE().list() : [];
+      const archivedWorkspace = currentWorkspace()?.status === 'archived';
       const inWorkspace = all.filter(project => projectWorkspace(project) === selectedWorkspaceId)
         .sort((a, b) => projectActivityTimestamp(b) - projectActivityTimestamp(a));
       const query = search.value.trim().toLocaleLowerCase();
@@ -467,6 +470,8 @@
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'ovx-picker-project';
+        button.disabled = archivedWorkspace;
+        if (archivedWorkspace) button.title = 'Restore this workspace before opening its projects.';
         button.dataset.projectId = id;
         button.setAttribute('role', 'option');
         const active = id === activeId;
