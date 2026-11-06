@@ -19,7 +19,7 @@ assert.match(css, /@media\s*\(max-width:\s*760px\)/, 'The dashboard must adapt t
 assert.match(css, /prefers-reduced-motion:\s*reduce/, 'Dashboard motion must respect reduced-motion preferences.');
 assert.match(js, /ProjectStore\?\.list\?\.\(\)/, 'Workspace metrics must come from the account project store.');
 assert.match(js, /project\.pages\.length/, 'Page counts must be derived from saved project pages.');
-assert.match(js, /Project updated/, 'Activity must be described as project updates, not fabricated events.');
+assert.match(js, /Last active/, 'Activity must be described as project activity, not fabricated edits.');
 assert.match(js, /OVYXAccountNotifications\?\.unreadCount/, 'The dashboard must reuse the existing notifications runtime.');
 assert.match(js, /OVYXAccountNotifications\?\.recent/, 'The dashboard must preview notifications from the existing inbox.');
 assert.match(notifications, /recent: \(\) => currentNotifications\.slice\(0, 3\)/, 'The notification runtime must expose only a small sanitized preview.');
