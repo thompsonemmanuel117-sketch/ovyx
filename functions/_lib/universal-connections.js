@@ -172,7 +172,7 @@ export async function encryptSecret(env, secret) {
   return 'v1.' + encodeBytes(iv) + '.' + encodeBytes(new Uint8Array(cipher));
 }
 
-async function decryptSecret(env, encrypted) {
+export async function decryptSecret(env, encrypted) {
   if (!encrypted) return '';
   if (!String(encrypted).startsWith('v1.')) {
     throw Object.assign(
