@@ -92,3 +92,5 @@
 .ovyx-cc-notification-item span { margin-top:3px; color:var(--ovyx-cc-muted); font:500 8px/1.4 Inter,system-ui,sans-serif; }
 .ovyx-cc-notification-item small,.ovyx-cc-notification-empty { margin-top:5px; color:var(--ovyx-cc-muted); font:700 7px/1.4 'JetBrains Mono',monospace; letter-spacing:.06em; }
 .ovyx-cc-notification-empty { padding:8px 2px; }
+
+#view-admin-overview .ovyx-cc-admin-heading { width:100%; max-width:1440px; margin:0 auto 18px!important; }
