@@ -22,6 +22,7 @@ At the audited commit:
 - The source tree contains **152 test/browser/e2e script files** matching the repository's test naming patterns and **19 GitHub Actions workflow files**.
 - The main `index.html` is approximately **2.12 million characters** and still owns substantial inline markup, styles and runtime code.
 - The shell contains multiple versioned router/runtime compatibility layers. The effective final router and `switchView()` bindings must be traced before any route migration; broad replacement is unsafe.
+- A source scan of all 19 route roots found no `.ovyx-ds*` adoption. Their layout wrappers still mix custom page classes, full-width roots and different `max-w-4xl`, `max-w-5xl`, `max-w-6xl` and `max-w-7xl` conventions. This is concrete evidence that the Stage 3 design foundation has not yet unified route-level page chrome and width rules.
 - The existing source inventory identifies overlapping generations of Settings renderers/handlers. Do not remove or consolidate them without tracing event ownership, persistence and browser coverage.
 
 These are source-tree counts, not counts of deployed features, verified integrations or completed journeys.
