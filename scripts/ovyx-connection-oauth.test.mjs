@@ -50,6 +50,10 @@ assert.equal(discordUrl.origin, 'https://discord.com');
 assert.equal(discordUrl.searchParams.get('code_challenge_method'), 'S256');
 assert.ok(discordUrl.searchParams.get('scope').includes('identify'));
 
+const slackUrl = new URL(buildOAuthAuthorizationUrl('slack', getOAuthClientConfig('slack', env), 'state-slack'));
+assert.equal(slackUrl.origin, 'https://slack.com');
+assert.ok(slackUrl.searchParams.get('scope').includes('chat:write'));
+
 const notionUrl = new URL(buildOAuthAuthorizationUrl('notion', getOAuthClientConfig('notion', env), 'state-3'));
 assert.equal(notionUrl.origin, 'https://api.notion.com');
 assert.equal(notionUrl.searchParams.get('owner'), 'user');
@@ -82,6 +86,16 @@ try {
   assert.equal(refreshForm.get('grant_type'), 'refresh_token');
   assert.equal(refreshForm.get('refresh_token'), 'provider-refresh-token');
   assert.equal(refreshForm.get('client_secret'), 'google-client-secret');
+  globalThis.fetch = async (url, options) => {
+    captured = { url:String(url), options };
+    return new Response(JSON.stringify({ ok:true, access_token:'slack-access-token', team:{ id:'T1', name:'Workspace' } }), { status:200, headers:{ 'Content-Type':'application/json' } });
+  };
+  const slackToken = await exchangeOAuthCode('slack', getOAuthClientConfig('slack', env), 'slack-code');
+  assert.equal(slackToken.access_token, 'slack-access-token');
+  assert.match(captured.options.headers.Authorization, /^Basic /);
+  const slackForm = new URLSearchParams(captured.options.body);
+  assert.equal(slackForm.get('client_secret'), null);
+  assert.equal(slackForm.get('grant_type'), 'authorization_code');
 } finally {
   globalThis.fetch = originalFetch;
 }
