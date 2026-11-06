@@ -2,23 +2,23 @@
 // Cloudflare build logs include Git checkout notices; commit subjects are user-authored
 // and can contain words such as "error" without indicating a failed deployment.
 const VCS_INFORMATION_PATTERNS = Object.freeze([
-  /^HEAD is now at [0-9a-f]{7,40}\\b/i,
-  /^Previous HEAD position was [0-9a-f]{7,40}\\b/i,
-  /^Switched to (?:a new )?branch\\b/i,
-  /^Already up to date\\.?$/i,
-  /^Updating [0-9a-f]{7,40}\\.\\.[0-9a-f]{7,40}\\b/i,
-  /^From https?:\\/\\//i,
+  /^HEAD is now at [0-9a-f]{7,40}\b/i,
+  /^Previous HEAD position was [0-9a-f]{7,40}\b/i,
+  /^Switched to (?:a new )?branch\b/i,
+  /^Already up to date\.?$/i,
+  /^Updating [0-9a-f]{7,40}\.\.[0-9a-f]{7,40}\b/i,
+  /^From https?:\/\//i,
 ]);
 
 const ERROR_PATTERNS = Object.freeze([
-  /\\berror\\b/i,
-  /\\bfailed\\b/i,
-  /\\bfailure\\b/i,
-  /\\bfatal\\b/i,
-  /\\bexception\\b/i,
-  /\\bunhandled\\b/i,
-  /\\bpanic\\b/i,
-  /\\bcrash\\b/i,
+  /\berror\b/i,
+  /\bfailed\b/i,
+  /\bfailure\b/i,
+  /\bfatal\b/i,
+  /\bexception\b/i,
+  /\bunhandled\b/i,
+  /\bpanic\b/i,
+  /\bcrash\b/i,
   /permission denied/i,
   /module not found/i,
   /build failed/i,
