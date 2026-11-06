@@ -646,6 +646,9 @@
     });
 
     dialog._ovyxOpen = source => {
+      // ProjectStore can finish initialising after the picker script loads.
+      // Re-run the idempotent guards immediately before exposing the picker.
+      installProjectStoreHooks(STORE());
       opener = source && source.nodeType === 1 && typeof source.focus === 'function' ? source : document.activeElement;
       search.value = '';
       createForm.hidden = true;
