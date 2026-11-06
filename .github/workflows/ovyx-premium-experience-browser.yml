@@ -1,0 +1,63 @@
+name: OVYX Premium Platform Experience Browser Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/css/ovyx-premium-experience.css'
+      - 'assets/css/ovyx-platform-design-system.css'
+      - 'package.json'
+      - 'scripts/ovyx-premium-experience.test.mjs'
+      - 'scripts/ovyx-premium-experience.browser.test.mjs'
+      - '.github/workflows/ovyx-premium-experience-browser.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'assets/css/ovyx-premium-experience.css'
+      - 'package.json'
+      - 'scripts/ovyx-premium-experience.test.mjs'
+      - 'scripts/ovyx-premium-experience.browser.test.mjs'
+      - '.github/workflows/ovyx-premium-experience-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  premium-platform-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: |
+          npm install --ignore-scripts
+          npm install --ignore-scripts --no-save playwright@^1.55.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run premium experience contract and static validation
+        run: |
+          node scripts/ovyx-premium-experience.test.mjs
+          npm run validate
+      - name: Start local Cloudflare Pages app shell
+        run: |
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8796 > /tmp/ovyx-premium-pages.log 2>&1 &
+          echo $! > /tmp/ovyx-premium-pages.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8796/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/ovyx-premium-pages.log
+          exit 1
+      - name: Verify desktop and mobile platform and sign-in presentation
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8796
+        run: node scripts/ovyx-premium-experience.browser.test.mjs
+      - name: Print local Pages logs on failure
+        if: failure()
+        run: cat /tmp/ovyx-premium-pages.log || true
