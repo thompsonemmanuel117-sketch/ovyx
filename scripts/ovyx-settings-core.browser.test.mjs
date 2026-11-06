@@ -68,6 +68,31 @@ try {
       }
       window.__settingsThemeAppliedEvents = [];
       window.__settingsAppearanceCanonicalizedEvents = [];
+      window.__ovyxThemeImportEvents = [];
+      document.addEventListener('change', event => {
+        if (event.target instanceof HTMLInputElement && event.target.type === 'file') {
+          window.__ovyxThemeImportEvents.push({
+            type: 'file-change',
+            connected: event.target.isConnected,
+            fileCount: event.target.files?.length || 0,
+            fileName: event.target.files?.[0]?.name || '',
+          });
+        }
+      }, true);
+      const NativeFileReader = window.FileReader;
+      window.FileReader = class extends NativeFileReader {
+        constructor() {
+          super();
+          this.addEventListener('load', () => window.__ovyxThemeImportEvents.push({
+            type: 'file-reader-load',
+            resultLength: String(this.result || '').length,
+          }));
+          this.addEventListener('error', () => window.__ovyxThemeImportEvents.push({
+            type: 'file-reader-error',
+            error: String(this.error?.message || 'unknown'),
+          }));
+        }
+      };
       document.addEventListener('ovyx:theme-applied', event => {
         window.__settingsThemeAppliedEvents.push(String(event.detail?.reason || ''));
       });
@@ -520,6 +545,20 @@ try {
       mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify(exported)),
     });
+    await page.waitForTimeout(150);
+    const importDiagnostics = await page.evaluate(() => ({
+      events: window.__ovyxThemeImportEvents || [],
+      active: String(window.OVYXThemeLab?.state?.active || ''),
+      customThemeIds: Object.keys(window.OVYXThemeLab?.state?.customThemes || {}),
+      activeTheme: window.OVYXThemeLab?.activeTheme?.() || null,
+      status: document.getElementById('settings-save-status')?.textContent || '',
+      fileInputs: [...document.querySelectorAll('input[type="file"]')].map(input => ({
+        connected: input.isConnected,
+        label: input.getAttribute('aria-label') || '',
+        fileCount: input.files?.length || 0,
+      })),
+    }));
+    console.log('[OVYX Theme Lab import diagnostics]', target.name, JSON.stringify(importDiagnostics));
     await page.waitForFunction(({ expectedName, previousId }) => {
       const lab = window.OVYXThemeLab;
       const active = String(lab?.state?.active || '');
