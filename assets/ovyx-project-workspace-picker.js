@@ -390,15 +390,20 @@
       workspaceSelect.disabled = workspaces.length < 2 && !workspaceApiReady;
       const active = currentWorkspace();
       const archived = active?.status === 'archived';
+      const activeProject = state().activeProject;
+      const activeProjectWorkspace = activeProject ? projectWorkspace(activeProject) : '';
+      const activeProjectInSelectedWorkspace = Boolean(activeProjectWorkspace && activeProjectWorkspace === selectedWorkspaceId);
       dialog.querySelector('[data-workspace-rename]').disabled = !workspaceApiReady || !active;
-      dialog.querySelector('[data-workspace-archive]').disabled = !workspaceApiReady || !active || active.isDefault || archived;
+      dialog.querySelector('[data-workspace-archive]').disabled = !workspaceApiReady || !active || active.isDefault || archived || activeProjectInSelectedWorkspace;
       dialog.querySelector('[data-workspace-restore]').hidden = !archived;
       dialog.querySelector('[data-workspace-restore]').disabled = !workspaceApiReady || !archived;
       dialog.querySelector('[data-workspace-new]').disabled = !workspaceApiReady;
       createButton.disabled = archived;
-      workspaceNote.textContent = workspaceLoadMessage || (workspaceApiReady
-        ? (active?.collaboration?.supported === false ? 'Owner-managed workspace · Team invitations are not enabled on this account.' : 'Your workspace projects and activity stay organised together.')
-        : 'Sign in to create and switch between additional workspaces.');
+      workspaceNote.textContent = workspaceLoadMessage || (activeProjectInSelectedWorkspace && !active?.isDefault
+        ? 'Open a project in another workspace before archiving this one.'
+        : workspaceApiReady
+          ? (active?.collaboration?.supported === false ? 'Owner-managed workspace · Team invitations are not enabled on this account.' : 'Your workspace projects and activity stay organised together.')
+          : 'Sign in to create and switch between additional workspaces.');
     }
 
     function close() {
