@@ -84,3 +84,23 @@ The selector is intentionally titled “Switch project” inside the dialog. The
 ## 6. Acceptance boundary
 
 This first slice is not the whole Stage 6. Stage 6 remains open until project management, account isolation, synchronization reliability, workspace identity, desktop/mobile behavior and regression suites have been verified together. A successful PR merge alone does not complete the stage.
+
+
+## 7. Workspace-management implementation candidate
+
+The Stage 6 branch now adds a separate owner-managed workspace entity without replacing the existing project store.
+
+- `functions/api/workspaces.js` provisions the deterministic personal workspace and supports authenticated list, create, rename/update, archive and restore operations.
+- Workspace documents live at `users/{firebaseUid}/workspaces/{workspaceId}`; reads and writes require both the authenticated UID and normalized email to match the stored owner.
+- The existing `functions/api/projects.js` contract now associates projects with a workspace. Legacy projects without an association are treated as personal, avoiding a bulk migration or destructive rewrite.
+- Workspace-scoped project inventory and project-detail reads remain owner-verified. Archived workspace projects remain readable, but new writes to archived workspaces are rejected.
+- The existing project picker now includes workspace selection, workspace creation/rename/archive/restore, project filtering/search and project status/page-count/description/last-updated metadata. Existing ProjectStore create/open/save methods remain the execution path.
+- The active workspace preference is scoped to the signed-in Firebase UID. Opening a project restores its workspace; newly saved projects inherit the selected workspace.
+
+### Collaboration boundary
+
+The current repository still has no verified workspace membership/invitation/team-role model. This implementation does not claim team collaboration is available and does not add fake member controls. Only the authenticated owner can manage the new workspaces.
+
+### Remaining verification before Stage 6 completion
+
+The implementation candidate is not complete until the desktop/mobile browser workflow, workspace API integration tests, full repository regression suite, account-switching and project-sync behaviour all pass. The merged commit must also be deployed and its runtime health checked before Stage 6 is declared complete.
