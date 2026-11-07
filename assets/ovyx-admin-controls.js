@@ -890,6 +890,99 @@
     runTelemetryProbe();
   }
 
+  let auditLogsPageToken = null;
+  let auditLogsNextPageToken = null;
+
+  function clearAuditLogs() {
+    auditLogsPageToken = null;
+    auditLogsNextPageToken = null;
+    $('ovyx-owner-audit-logs-list')?.replaceChildren();
+    const next = $('ovyx-owner-audit-logs-next');
+    if (next) { next.hidden = true; next.disabled = true; }
+    statusText($('ovyx-owner-audit-logs-status'), 'Audit records are hidden until administrator access is verified.');
+  }
+
+  function appendAuditLogRow(container, log) {
+    const row = document.createElement('article');
+    row.style.cssText = 'display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.07);min-width:0';
+    const main = document.createElement('div');
+    main.style.cssText = 'min-width:0';
+    const heading = document.createElement('div');
+    heading.style.cssText = 'font-size:11px;font-weight:800;color:#f4f4f5;overflow-wrap:anywhere';
+    heading.textContent = String(log.action || 'UNKNOWN') + ' · ' + String(log.resource || 'SYSTEM');
+    const actor = document.createElement('div');
+    actor.style.cssText = 'margin-top:5px;font-size:10px;color:#a1a1aa;overflow-wrap:anywhere';
+    actor.textContent = 'By ' + String(log.user || 'N/A') + (log.requestId ? ' · Request ' + String(log.requestId) : '');
+    const metadata = document.createElement('div');
+    metadata.style.cssText = 'margin-top:4px;font-size:9px;color:#858b95;overflow-wrap:anywhere';
+    metadata.textContent = [log.timestamp, log.ipAddress ? 'IP ' + log.ipAddress : '', log.result].filter(Boolean).join(' · ');
+    main.append(heading, actor, metadata);
+    const result = document.createElement('span');
+    result.style.cssText = 'align-self:start;font:800 8px/1.2 ui-monospace,monospace;color:#cbd5e1;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:5px 7px;max-width:100px;overflow-wrap:anywhere;text-align:center';
+    result.textContent = String(log.result || 'RECORDED');
+    row.append(main, result);
+    container.appendChild(row);
+  }
+
+  async function loadAuditLogs(pageToken) {
+    const list = $('ovyx-owner-audit-logs-list');
+    const status = $('ovyx-owner-audit-logs-status');
+    const next = $('ovyx-owner-audit-logs-next');
+    const refresh = $('ovyx-owner-audit-logs-refresh');
+    if (!list || !owner()) return;
+    if (refresh) refresh.disabled = true;
+    if (next) next.disabled = true;
+    statusText(status, 'Loading protected audit records…');
+    list.replaceChildren();
+    try {
+      const query = new URLSearchParams({ pageSize: '50' });
+      if (pageToken) query.set('pageToken', pageToken);
+      const response = await api('/api/admin/logs?' + query.toString());
+      if (!owner()) { clearAuditLogs(); return; }
+      const logs = Array.isArray(response.data.logs) ? response.data.logs : [];
+      auditLogsPageToken = pageToken || null;
+      auditLogsNextPageToken = response.data.nextPageToken || null;
+      if (!logs.length) {
+        const empty = document.createElement('p');
+        empty.className = 'ovyx-owner-live-status';
+        empty.textContent = 'No audit records are available on this page.';
+        list.appendChild(empty);
+      } else {
+        logs.forEach(log => appendAuditLogRow(list, log));
+      }
+      if (next) next.hidden = !auditLogsNextPageToken;
+      statusText(status, 'Loaded ' + logs.length + ' audit record(s). Access is restricted to the configured administrator.', 'ok');
+    } catch (error) {
+      const message = document.createElement('p');
+      message.className = 'ovyx-owner-live-status';
+      message.textContent = 'Audit records could not be loaded. ' + String(error?.message || 'Please try again.');
+      list.appendChild(message);
+      statusText(status, 'Audit-log request failed.', 'error');
+      if (next) next.hidden = true;
+    } finally {
+      if (refresh) refresh.disabled = false;
+      if (next) next.disabled = false;
+    }
+  }
+
+  function mountAuditLogs() {
+    const view = $('view-admin-telemetry');
+    if (!view || !owner()) return;
+    const host = panel(view, 'ovyx-owner-audit-logs', 'Administrative audit trail',
+      'Review recorded administrative activity. Records are loaded from Firestore through a server-authenticated, owner-only endpoint.',
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-audit-logs-refresh">Refresh records</button><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-audit-logs-next" hidden>Next page</button></div><div id="ovyx-owner-audit-logs-status" class="ovyx-owner-live-status">Ready to load audit records.</div><div id="ovyx-owner-audit-logs-list" aria-live="polite" style="margin-top:10px"></div>');
+    if (host.dataset.bound === '1') return;
+    host.dataset.bound = '1';
+    $('ovyx-owner-audit-logs-refresh')?.addEventListener('click', () => {
+      auditLogsPageToken = null;
+      void loadAuditLogs(null);
+    });
+    $('ovyx-owner-audit-logs-next')?.addEventListener('click', () => {
+      if (auditLogsNextPageToken) void loadAuditLogs(auditLogsNextPageToken);
+    });
+    void loadAuditLogs(null);
+  }
+
   function bindGlobalBroadcast() {
     const button = $('v34-broadcast-publish');
     if (!button || button.dataset.serverOwnerBound === '1') return;
@@ -1372,6 +1465,7 @@
     if (view === 'admin-identity') mountIdentityEditor();
     if (view === 'admin-backend') mountBackendChecks();
     if (view === 'admin-telemetry') mountTelemetry();
+    if (view === 'admin-telemetry') mountAuditLogs();
     bindGlobalBroadcast();
     bindTemplatePublisher();
     if (view === 'admin-pricing') { mountProductionControlPanel(); patchProductionSwitch(); }
@@ -1396,6 +1490,8 @@
         setTimeout(onView, 50);
         return;
       }
+      // Clear sensitive audit rows immediately when the verified owner session ends.
+      if (!owner()) clearAuditLogs();
       // Do not let a stale owner-preview toggle remain active after sign-out or account switch.
       if (!owner() && window.AdminConfigurator) {
         window.AdminConfigurator.adminOverride = false;

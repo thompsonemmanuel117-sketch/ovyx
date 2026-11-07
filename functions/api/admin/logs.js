@@ -1,79 +1,116 @@
-import { jsonResponse, errorResponse } from '../_lib/http.js';
+import {
+  jsonResponse,
+  errorResponse,
+  getRequestId,
+  getBearerToken,
+  enforceSameOrigin
+} from '../../_lib/http.js';
+import { verifyFirebaseIdToken, normalizeEmail } from '../../_lib/auth.js';
+import { listFirestoreDocuments } from '../../_lib/firebase-admin.js';
+import { ROOT_EMAIL } from '../../_lib/brain/registry.js';
+
+const PAGE_SIZE = 50;
+const MAX_PAGE_TOKEN_LENGTH = 4000;
+
+function cleanText(value, maxLength = 500) {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').slice(0, maxLength);
+}
+
+function formatAuditLog(document) {
+  const item = document && typeof document === 'object' ? document : {};
+  return {
+    id: cleanText(item.id, 160),
+    user: cleanText(item.user || item.email || item.actorEmail || 'N/A', 200),
+    action: cleanText(item.action || item.adminAction || 'UNKNOWN', 160),
+    resource: cleanText(item.resource || item.target || 'SYSTEM', 200),
+    timestamp: cleanText(item.timestamp || item.createdAt || item.adminActionAt || '', 100),
+    requestId: cleanText(item.requestId || '', 160),
+    ipAddress: cleanText(item.ipAddress || '', 100),
+    result: cleanText(item.result || item.status || 'RECORDED', 80)
+  };
+}
 
 export async function onRequestGet(context) {
-  const { request, env } = context;
+  const request = context.request;
+  const env = context.env || {};
+  const requestId = getRequestId(request);
+
+  if (!enforceSameOrigin(request)) {
+    return errorResponse(
+      'Cross-origin administrative log requests are not permitted.',
+      403,
+      'ORIGIN_REJECTED',
+      { requestId }
+    );
+  }
+
+  if (!getBearerToken(request)) {
+    return errorResponse(
+      'Authentication is required to view administrative logs.',
+      401,
+      'AUTH_REQUIRED',
+      { requestId }
+    );
+  }
+
+  const auth = await verifyFirebaseIdToken(request, env);
+  if (!auth.ok) return auth.response;
+
+  // The configured administrator email is the access identity. No
+  // first-registration/bootstrap privilege is created by this endpoint.
+  if (normalizeEmail(auth.user.email) !== ROOT_EMAIL) {
+    return errorResponse(
+      'Only the configured OVYX administrator can view administrative logs.',
+      403,
+      'ADMIN_REQUIRED',
+      { requestId }
+    );
+  }
+
   const url = new URL(request.url);
-  
-  // Set up un-cacheable secure network headers
-  const secureHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Content-Type": "application/json",
-    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-    "X-Content-Type-Options": "nosniff"
-  };
+  const rawPageToken = String(url.searchParams.get('pageToken') || '').trim();
+  if (rawPageToken.length > MAX_PAGE_TOKEN_LENGTH) {
+    return errorResponse(
+      'The audit-log page token is invalid.',
+      400,
+      'INVALID_PAGE_TOKEN',
+      { requestId }
+    );
+  }
 
   try {
-    // 1. Extract Bearer token from headers
-    const authHeader = request.headers.get("Authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Missing identity clearance credentials" }), {
-        status: 401, headers: secureHeaders
-      });
-    }
-    const idToken = authHeader.split("Bearer ")[1];
+    const result = await listFirestoreDocuments(
+      env,
+      'audit_logs',
+      PAGE_SIZE,
+      rawPageToken || null
+    );
+    const logs = (Array.isArray(result.documents) ? result.documents : [])
+      .map(formatAuditLog);
 
-    // 2. Query Firebase Auth to confirm user identity server-side
-    const verifyUrl = `https://googleapis.com{env.FIREBASE_WEB_API_KEY}`;
-    const firebaseResponse = await fetch(verifyUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken: idToken })
+    return jsonResponse({
+      ok: true,
+      logs,
+      pageSize: PAGE_SIZE,
+      nextPageToken: result.nextPageToken || null,
+      authority: 'SERVER'
+    }, 200, {
+      'X-OVYX-Request-ID': requestId,
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer'
     });
-
-    const userData = await firebaseResponse.json();
-    if (!firebaseResponse.ok || !userData.users || userData.users.length === 0) {
-      return new Response(JSON.stringify({ error: "Invalid administrative credentials session" }), {
-        status: 403, headers: secureHeaders
-      });
-    }
-
-    // 3. HARD IDENTITY CHECK: Enforce that only your master owner account passes
-    const verifiedEmail = userData.users[0].email;
-    if (verifiedEmail !== "ovyxsupportteam@gmail.com") {
-      return new Response(JSON.stringify({ error: "Access Denied: Account lacks ROOT_SUPERUSER privileges" }), {
-        status: 403, headers: secureHeaders
-      });
-    }
-
-    // 4. Server-Side Firestore Logs Query fetch execution
-    const projectId = JSON.parse(env.FIREBASE_SERVICE_ACCOUNT_JSON).project_id;
-    const firestoreUrl = `https://googleapis.com{projectId}/databases/(default)/documents/audit_logs?pageSize=50`;
-    
-    const dbResponse = await fetch(firestoreUrl);
-    const dbData = await dbResponse.json();
-
-    // Map out and clean the logs format array cleanly for the client grid terminal view
-    const formattedLogs = (dbData.documents || []).map(doc => {
-      const fields = doc.fields || {};
-      return {
-        user: fields.user?.stringValue || 'N/A',
-        action: fields.action?.stringValue || 'UNKNOWN',
-        resource: fields.resource?.stringValue || 'SYSTEM',
-        timestamp: fields.timestamp?.stringValue || '',
-        requestId: fields.requestId?.stringValue || '',
-        ipAddress: fields.ipAddress?.stringValue || '',
-        result: fields.result?.stringValue || 'SUCCESS'
-      };
-    });
-
-    return new Response(JSON.stringify({ logs: formattedLogs }), {
-      status: 200, headers: secureHeaders
-    });
-
   } catch (error) {
-    return new Response(JSON.stringify({ error: "Failed to pull administrative log stream context", details: error.message }), {
-      status: 500, headers: secureHeaders
-    });
+    console.error(
+      '[OVYX ADMIN AUDIT LOGS ' + requestId + ']',
+      String(error?.code || error?.status || 'AUDIT_LOG_READ_FAILED').slice(0, 100)
+    );
+    return errorResponse(
+      'Administrative logs are temporarily unavailable.',
+      503,
+      'AUDIT_LOGS_UNAVAILABLE',
+      { requestId }
+    );
   }
-         }
-                                       
+}

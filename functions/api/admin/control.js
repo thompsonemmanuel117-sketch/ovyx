@@ -2,6 +2,7 @@ import { authenticateRequest } from '../../_lib/firebase.js';
 import { getFirestoreData, setFirestoreDocument } from '../../_lib/firebase-admin.js';
 import { ROOT_EMAIL } from '../../_lib/brain/registry.js';
 import { readJson, jsonResponse, requestId, enforceSameOrigin } from '../_lib/http.js';
+import { recordAdminAuditEvent } from '../../_lib/admin-audit.js';
 
 const clean = (v, n = 400) => String(v ?? '').trim().slice(0, n);
 
@@ -103,6 +104,7 @@ export async function onRequestPost(context) {
         updatedBy
       }, { merge: true });
 
+      await recordAdminAuditEvent(context.env, { actor: user, action: 'platform.settings.updated', resource: 'system/config', requestId: id });
       return jsonResponse({
         ok: true,
         config: { ...current, pricing, gating, environment: clean(payload.environment || current.environment || 'sandbox', 40), updatedAt, updatedBy },
@@ -117,6 +119,7 @@ export async function onRequestPost(context) {
         updatedAt: new Date().toISOString(),
         updatedBy: clean(user.sub || user.email, 200)
       }, { merge: true });
+      await recordAdminAuditEvent(context.env, { actor: user, action: enabled ? 'platform.admin_override.enabled' : 'platform.admin_override.disabled', resource: 'system/config', requestId: id });
       return jsonResponse({ ok: true, config: { ...current, masterAdminOverride: enabled } }, 200, { 'X-OVYX-Request-ID': id });
     }
 
@@ -132,6 +135,7 @@ export async function onRequestPost(context) {
         updatedAt,
         updatedBy
       }, { merge: true });
+      await recordAdminAuditEvent(context.env, { actor: user, action: live ? 'platform.production.enabled' : 'platform.production.paused', resource: 'system/config', requestId: id });
       return jsonResponse({
         ok: true,
         config: { ...current, liveDeploy: live, productionLive: live, environment, updatedAt, updatedBy },

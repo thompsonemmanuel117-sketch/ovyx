@@ -76,6 +76,7 @@ export async function onRequestPost(context) {
       await setFirestoreDocumentAtPath(context.env, ['ovyx_templates', templateId], {
         published: false, updatedAt: now, updatedBy: { uid, email }
       }, { merge: true });
+      await recordAdminAuditEvent(context.env, { actor: auth.user, action: 'template.unpublished', resource: 'ovyx_templates/' + templateId, requestId: id });
       return jsonResponse({ ok: true, action, id: templateId, published: false, updatedAt: now, scope: 'global' }, 200, {
         'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0'
       });
@@ -106,6 +107,7 @@ export async function onRequestPost(context) {
       createdBy: previous?.createdBy || { uid, email }, updatedBy: { uid, email }
     };
     await setFirestoreDocumentAtPath(context.env, ['ovyx_templates', templateId], record, { merge: true });
+    await recordAdminAuditEvent(context.env, { actor: auth.user, action: previous ? 'template.updated' : 'template.published', resource: 'ovyx_templates/' + templateId, requestId: id });
     return jsonResponse({ ok: true, action, template: record, updatedAt: now, scope: 'global', authority: 'SERVER' }, 201, {
       'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0'
     });
