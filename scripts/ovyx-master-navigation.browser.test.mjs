@@ -109,6 +109,12 @@ try {
   await mobile.waitForFunction(() => window.KernelState?.activeView === 'settings' && window.OVYXSettings?.current === 'connections');
   await mobile.waitForFunction(() => document.getElementById('mobile-current-view')?.textContent === 'Personal Connections');
   await mobile.waitForFunction(() => document.getElementById('mobile-drawer')?.getAttribute('aria-hidden') === 'true');
+  await mobile.locator('#ovyx-v34-menu-source').click();
+  await mobile.waitForFunction(() => document.getElementById('mobile-drawer')?.getAttribute('aria-hidden') === 'false');
+  await mobile.locator('#mobile-drawer [data-mobile-nav="sites-publishing"]').click();
+  await mobile.waitForFunction(() => window.KernelState?.activeView === 'webstudio' && document.getElementById('ovyx-website-management') && !document.getElementById('ovyx-website-management').hidden);
+  await mobile.waitForFunction(() => document.getElementById('mobile-current-view')?.textContent === 'Sites & Publishing');
+  await mobile.evaluate(() => window.OVYXWebsiteManagement?.close?.());
   assert.deepEqual(mobileErrors, [], 'Mobile navigation must not create browser errors: ' + mobileErrors.join('; '));
   await mobile.close();
   console.log('OVYX master navigation browser tests passed on desktop and mobile.');
