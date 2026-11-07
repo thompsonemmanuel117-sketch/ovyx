@@ -58,7 +58,7 @@ assert.ok(client.includes("['display', 'visibility', 'opacity', 'pointer-events'
 assert.ok(client.includes('function syncDashboardBottomNavigation(forceHidden)'), 'Manage Website must reassert dock suppression when dashboard controllers update it.');
 assert.ok(client.includes('attributeFilter: [\'class\', \'style\', \'hidden\', \'aria-hidden\']'), 'Manage Website must watch dashboard dock state mutations.');
 assert.ok(client.includes('window.visualViewport.addEventListener'), 'Manage Website must track mobile visual viewport changes.');
-assert.match(client, /ovym-dashboard-bottom-nav-hidden/, 'The dashboard bottom navigation must be fully hidden while Manage Website is open.');
+assert.match(client, /ovym-dashboard-bottom-nav-suppressed/, 'The dashboard bottom navigation must be fully hidden while Manage Website is open.');
 assert.ok(client.includes('setDashboardBottomNavHidden(true)'), 'Opening Manage Website must hide the dashboard bottom navigation.');
 assert.ok(client.includes('setDashboardBottomNavHidden(false)'), 'Closing Manage Website must restore the dashboard bottom navigation.');
 assert.match(client, /function openWorkspace\(\)/, 'The sidebar entry must open the Manage Website hub rather than the source editor.');
