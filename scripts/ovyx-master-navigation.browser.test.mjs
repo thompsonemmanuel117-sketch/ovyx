@@ -14,6 +14,8 @@ try {
   await installOwnerBrowserApiFixtures(desktop, { initialUser: { uid: 'ovyx-master-nav-desktop', email: 'master-nav-desktop@example.test', displayName: 'Navigation Test', token: 'ovyx-master-nav-desktop-token' } });
   await desktop.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await desktop.waitForFunction(() => window.OVYXMasterNavigation?.version === 1 && window.KernelState?.activeView === 'home' && getComputedStyle(document.getElementById('app-sidebar')).visibility !== 'hidden', null, { timeout: 45000 });
+  await desktop.evaluate(() => window.OVYXDesktopShell.setCollapsed(false, false));
+  await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'open');
   await desktop.waitForFunction(() => document.querySelectorAll('#app-sidebar .ovyx-master-nav-group').length === 6);
   const desktopGroups = await desktop.locator('#app-sidebar .ovyx-master-nav-group > .ovyx-nav-label').allTextContents();
   assert.deepEqual(desktopGroups, ['Workspace', 'Build', 'Connect', 'Operate', 'Account', 'Administration']);
