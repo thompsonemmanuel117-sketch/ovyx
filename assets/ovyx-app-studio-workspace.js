@@ -69,24 +69,20 @@
     expand.type = 'button'; expand.dataset.ovyxAsWorkspaceAction = 'expand';
     const collapse = element('button', 'ovyx-as-workspace-action', 'Collapse details');
     collapse.type = 'button'; collapse.dataset.ovyxAsWorkspaceAction = 'collapse';
-    const switchWorkspace = element('button', 'ovyx-as-workspace-action', 'Switch workspace');
-    switchWorkspace.type = 'button'; switchWorkspace.dataset.ovyxAsWorkspaceAction = 'workspace';
     const openProjects = element('button', 'ovyx-as-workspace-action', 'Open Projects');
     openProjects.type = 'button'; openProjects.dataset.ovyxAsWorkspaceAction = 'projects';
-    const openAssistant = element('button', 'ovyx-as-workspace-action', 'Open Assistant');
-    openAssistant.type = 'button'; openAssistant.dataset.ovyxAsWorkspaceAction = 'assistant';
     const copySummary = element('button', 'ovyx-as-workspace-action', 'Copy project summary');
     copySummary.type = 'button'; copySummary.dataset.ovyxAsWorkspaceAction = 'copy';
-    actions.append(switchWorkspace, openProjects, openAssistant, expand, collapse, copySummary);
+    actions.append(openProjects, expand, collapse, copySummary);
     const status = element('p', 'ovyx-as-workspace-status', 'Workspace ready. Choose a section or a project action.');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
     status.dataset.ovyxAsWorkspaceStatus = '';
     overview.append(nav, actions, status);
     dock.append(heading, overview);
-    const hero = document.getElementById('ovyx-app-studio-experience');
-    if (hero && hero.parentNode === root) hero.insertAdjacentElement('afterend', dock);
-    else root.insertBefore(dock, root.firstChild);
+    // Keep the existing App Workspace as the first App Studio element.
+    // This is a presentation-only move; all underlying sections and state remain untouched.
+    root.insertBefore(dock, root.firstChild);
     dock.addEventListener('click', handleClick);
     refresh(root);
   }
@@ -155,14 +151,6 @@
     } else if (action.dataset.ovyxAsWorkspaceAction === 'collapse') {
       details.forEach(item => { item.open = false; });
       announce(dock, 'Collapsed ' + details.length + ' detail panels. Your project data was not changed.', 'success');
-    } else if (action.dataset.ovyxAsWorkspaceAction === 'workspace') {
-      const picker = window.OVYXWorkspacePicker;
-      if (picker && typeof picker.open === 'function') {
-        const opened = picker.open();
-        announce(dock, opened === false ? 'Workspace picker could not be opened.' : 'Workspace and project picker opened.', opened === false ? 'warning' : 'success');
-      } else {
-        announce(dock, 'Workspace switching is unavailable until the project workspace service is ready.', 'warning');
-      }
     } else if (action.dataset.ovyxAsWorkspaceAction === 'projects') {
       if (typeof window.switchView === 'function') {
         window.switchView('projects');
@@ -172,13 +160,6 @@
         announce(dock, 'Opened Projects.', 'success');
       } else {
         announce(dock, 'Projects navigation is unavailable in this session.', 'warning');
-      }
-    } else if (action.dataset.ovyxAsWorkspaceAction === 'assistant') {
-      if (window.WorkspaceBrainBot && typeof window.WorkspaceBrainBot.open === 'function') {
-        window.WorkspaceBrainBot.open();
-        announce(dock, 'Assistant workspace opened.', 'success');
-      } else {
-        announce(dock, 'Assistant workspace is not ready yet.', 'warning');
       }
     } else if (action.dataset.ovyxAsWorkspaceAction === 'copy') {
       copySummary(dock);
