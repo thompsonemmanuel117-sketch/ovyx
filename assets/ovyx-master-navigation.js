@@ -211,6 +211,7 @@
     var manage = $('[data-mobile-nav="workspace"]', nav);
     var templates = $('[data-mobile-nav="templates"]', nav);
     var projects = $('[data-mobile-nav="projects"]', nav);
+    var mobileOwnerSection = document.getElementById('ovyx-admin-workspace-entry-mobile');
 
     if (!home || !web || !app || !manage || !templates) return;
 
@@ -233,18 +234,30 @@
     account.items.appendChild(mobileItem('Settings', 'Profile and preferences', 'fa-solid fa-gear', 'settings', function () { openRoute('settings'); }));
     account.items.appendChild(mobileItem('Help & Support', 'Guides and support', 'fa-regular fa-circle-question', 'faq', function () { openRoute('faq'); }));
 
-    var mobileAdmin = mobileItem('Admin Center', 'Owner-only platform controls', 'fa-solid fa-gauge-high', 'admin-overview', openAdmin, true);
-    administration.items.appendChild(mobileAdmin);
     nav.replaceChildren(workspace.section, build.section, connect.section, operate.section, account.section, administration.section);
     nav.dataset.ovyxMasterNav = '1';
     nav.classList.add('ovyx-master-mobile-navigation-ready');
 
     function syncAdminVisibility() {
       var authorized = !!(window.OVYXAdminWorkspace && typeof window.OVYXAdminWorkspace.isAuthorized === 'function' && window.OVYXAdminWorkspace.isAuthorized());
-      mobileAdmin.hidden = !authorized;
-      administration.section.hidden = !authorized;
+      var foundSection = document.getElementById('ovyx-admin-workspace-entry-mobile');
+      if (foundSection) mobileOwnerSection = foundSection;
+      else if (mobileOwnerSection && !document.documentElement.contains(mobileOwnerSection)) mobileOwnerSection = null;
+      var ownerButton = mobileOwnerSection && mobileOwnerSection.querySelector('#ovyx-admin-workspace-entry-mobile-button');
+      if (mobileOwnerSection && ownerButton) {
+        var label = mobileOwnerSection.querySelector('.ovyx-admin-workspace-mobile-label');
+        if (label) label.hidden = true;
+        ownerButton.setAttribute('data-mobile-nav', 'admin-overview');
+        ownerButton.classList.add('ovyx-master-nav-added');
+        if (mobileOwnerSection.parentNode !== administration.items) administration.items.appendChild(mobileOwnerSection);
+      }
+      administration.section.hidden = !authorized || !ownerButton;
     }
     syncAdminVisibility();
+    if (!nav.dataset.ovyxAdminEntryObserver) {
+      nav.dataset.ovyxAdminEntryObserver = '1';
+      new MutationObserver(syncAdminVisibility).observe(nav, { childList: true, subtree: true });
+    }
     window.addEventListener('ovyx-owner-state', syncAdminVisibility);
     window.addEventListener('firebase-auth-state-ready', syncAdminVisibility);
     window.addEventListener('ovyx:view-changed', syncAdminVisibility);
