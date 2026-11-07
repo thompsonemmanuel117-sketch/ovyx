@@ -14,7 +14,7 @@ try {
   await installOwnerBrowserApiFixtures(desktop, { initialUser: { uid: 'ovyx-master-nav-desktop', email: 'master-nav-desktop@example.test', displayName: 'Navigation Test', token: 'ovyx-master-nav-desktop-token' } });
   await desktop.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await desktop.waitForFunction(() => window.OVYXMasterNavigation?.version === 1 && window.KernelState?.activeView === 'home' && getComputedStyle(document.getElementById('app-sidebar')).visibility !== 'hidden', null, { timeout: 45000 });
-  await desktop.waitForFunction(() => String(document.getElementById('ovyx-v34-menu-source')?.onclick || '').includes('toggleOrOpen'));
+  await desktop.waitForFunction(() => document.documentElement.dataset.ovyxMasterMenuCaptureBound === '1');
   await desktop.evaluate(() => window.OVYXDesktopShell.setCollapsed(false, false));
   await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'open');
   await desktop.waitForFunction(() => document.querySelectorAll('#app-sidebar .ovyx-master-nav-group').length === 6);
@@ -43,31 +43,15 @@ try {
     handler: String(node.onclick || ''),
     shellMethod: typeof window.OVYXDesktopShell?.toggleOrOpen,
     state: document.documentElement.dataset.ovyxSidebar,
-    stored: localStorage.getItem('ovyx.sidebar.collapsed.v1')
-  }));
-  console.log('Master navigation menu binding:', JSON.stringify({
-    ...menuBinding,
-    innerWidth: await desktop.evaluate(() => window.innerWidth),
-    desktopMedia: await desktop.evaluate(() => window.matchMedia('(min-width:768px)').matches),
-    toggleMethod: await desktop.evaluate(() => String(window.OVYXDesktopShell.toggleOrOpen))
-  }));
-  assert.ok(menuBinding.handler.includes('toggleOrOpen'), 'The menu click must delegate to the canonical shell controller.');
-  await desktop.evaluate(() => {
-    window.__ovyxMasterMenuClicks = 0;
-    document.addEventListener('click', event => {
-      if (event.target?.closest?.('#ovyx-v34-menu-source')) window.__ovyxMasterMenuClicks += 1;
-    }, true);
-  });
-  await desktop.locator('#ovyx-v34-menu-source').click();
-  await desktop.waitForTimeout(120);
-  const afterMenuClick = await desktop.evaluate(() => ({
-    state: document.documentElement.dataset.ovyxSidebar,
     stored: localStorage.getItem('ovyx.sidebar.collapsed.v1'),
-    clicks: window.__ovyxMasterMenuClicks,
-    expanded: document.getElementById('ovyx-v34-menu-source')?.getAttribute('aria-expanded')
+    captureBound: document.documentElement.dataset.ovyxMasterMenuCaptureBound
   }));
-  console.log('Master navigation menu after click:', JSON.stringify(afterMenuClick));
-  assert.equal(afterMenuClick.state, 'open', 'The top-bar menu must open the collapsed desktop sidebar using the canonical saved state.');
+  console.log('Master navigation menu binding:', JSON.stringify(menuBinding));
+  assert.equal(menuBinding.handler, '', 'The legacy target-level menu handler must be replaced to avoid conflicting collapse states.');
+  assert.equal(menuBinding.shellMethod, 'function', 'The canonical desktop shell controller must remain available.');
+  assert.equal(menuBinding.captureBound, '1', 'The menu must be handled before legacy parent click interception.');
+  await desktop.locator('#ovyx-v34-menu-source').click();
+  await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'open');
   await desktop.locator('#ovyx-desktop-sidebar-close').click();
   await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'collapsed');
   await desktop.locator('#ovyx-v34-menu-source').click();
@@ -97,7 +81,7 @@ try {
   await installOwnerBrowserApiFixtures(mobile, { initialUser: { uid: 'ovyx-master-nav-mobile', email: 'master-nav-mobile@example.test', displayName: 'Navigation Test', token: 'ovyx-master-nav-mobile-token' } });
   await mobile.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await mobile.waitForFunction(() => window.OVYXMasterNavigation?.version === 1 && window.KernelState?.activeView === 'home', null, { timeout: 45000 });
-  await mobile.waitForFunction(() => String(document.getElementById('ovyx-v34-menu-source')?.onclick || '').includes('toggleOrOpen'));
+  await mobile.waitForFunction(() => document.documentElement.dataset.ovyxMasterMenuCaptureBound === '1');
   await mobile.locator('#ovyx-v34-menu-source').click();
   const drawer = mobile.locator('#mobile-drawer');
   await drawer.waitFor({ state: 'visible' });
