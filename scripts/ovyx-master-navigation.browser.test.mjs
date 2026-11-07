@@ -20,6 +20,11 @@ try {
   assert.equal(await desktop.locator('#app-sidebar [data-nav="admin-overview"]').isVisible(), false,
     'The existing owner-only Admin Center control must remain hidden for an ordinary signed-out visitor.');
 
+  await desktop.locator('#ovyx-v34-menu-source').click();
+  await desktop.waitForFunction(() => document.documentElement.classList.contains('v34-sidebar-collapsed'));
+  await desktop.locator('#ovyx-v34-menu-source').click();
+  await desktop.waitForFunction(() => !document.documentElement.classList.contains('v34-sidebar-collapsed'));
+
   await desktop.locator('#app-sidebar [data-nav="projects"]').click();
   await desktop.waitForFunction(() => window.KernelState?.activeView === 'projects');
   await desktop.waitForFunction(() => document.getElementById('ovyx-master-breadcrumb-current')?.textContent === 'Projects');
@@ -46,6 +51,7 @@ try {
   await mobile.locator('#ovyx-v34-menu-source').click();
   const drawer = mobile.locator('#mobile-drawer');
   await drawer.waitFor({ state: 'visible' });
+  await mobile.waitForFunction(() => document.getElementById('mobile-drawer')?.getAttribute('aria-hidden') === 'false' && document.body.classList.contains('ovyx-drawer-open'));
   await mobile.waitForFunction(() => document.querySelectorAll('#mobile-drawer .ovyx-master-nav-group').length === 6);
   const mobileGroups = await mobile.locator('#mobile-drawer .ovyx-master-nav-group > .ovyx-nav-label').allTextContents();
   assert.deepEqual(mobileGroups, ['Workspace', 'Build', 'Connect', 'Operate', 'Account', 'Administration']);
