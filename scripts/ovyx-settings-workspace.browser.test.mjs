@@ -243,7 +243,25 @@ try {
     assert.equal(await editor.locator('#set-inspector').getAttribute('aria-checked'), 'false',
       '[' + target.name + '] inspector toggle should apply the hidden state.');
     await editor.locator('#set-inspector').click({ force: true });
-    await page.waitForFunction(() => document.querySelector('#ws-select-inspector')?.style.display !== 'none');
+    try {
+      await page.waitForFunction(() => document.querySelector('#ws-select-inspector')?.style.display !== 'none');
+    } catch (error) {
+      const inspectorState = await page.evaluate(() => {
+        const control = document.getElementById('set-inspector');
+        const inspector = document.querySelector('#ws-select-inspector');
+        let saved = {};
+        try { saved = JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}'); } catch (_) {}
+        return {
+          ariaChecked: control?.getAttribute('aria-checked') ?? null,
+          savedInspector: saved.inspector ?? null,
+          inlineDisplay: inspector?.style.display ?? 'missing',
+          computedDisplay: inspector ? getComputedStyle(inspector).display : 'missing',
+          activeView: window.KernelState?.activeView ?? null,
+        };
+      });
+      throw new Error('[' + target.name + '] inspector did not become visible after re-enabling; state='
+        + JSON.stringify(inspectorState) + '; original=' + String(error?.message || error));
+    }
 
     await editor.locator('#set-live-preview').click({ force: true });
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').livePreview === false);
