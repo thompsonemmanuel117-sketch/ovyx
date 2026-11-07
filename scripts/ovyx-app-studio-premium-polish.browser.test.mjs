@@ -56,11 +56,19 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
 const base = 'http://127.0.0.1:' + server.address().port;
 const browser = await chromium.launch({ headless: true });
 try {
-  const desktop = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
+  const desktop = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   const errors = [];
   desktop.on('pageerror', error => errors.push(error.message));
   await desktop.goto(base, { waitUntil: 'load' });
   await desktop.locator('#ovyx-as-title').waitFor();
+  const wideLayout = await desktop.evaluate(() => {
+    const root = document.getElementById('view-appstudio');
+    const hero = document.getElementById('ovyx-app-studio-experience');
+    const canvas = document.getElementById('app-studio-clean-canvas');
+    return { viewport: document.documentElement.clientWidth, root: root.getBoundingClientRect().width, hero: hero.getBoundingClientRect().width, canvas: canvas.getBoundingClientRect().width };
+  });
+  assert.ok(wideLayout.root > 1300 && wideLayout.hero > 1200 && wideLayout.canvas > 1200,
+    'Desktop App Studio sections must use the full available screen width rather than the former 1120px cap: ' + JSON.stringify(wideLayout));
 
   assert.equal(await desktop.locator('#view-appstudio > #ovyx-app-studio-experience').count(), 1, 'The new guided workspace header must be mounted once at the top.');
   assert.match(await desktop.locator('#ovyx-as-title').innerText(), /From website to working app/);
