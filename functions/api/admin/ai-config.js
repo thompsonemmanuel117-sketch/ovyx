@@ -1,6 +1,7 @@
 import { verifyFirebaseIdToken, normalizeEmail } from '../_lib/auth.js';
 import { getFirestoreData, setFirestoreDocument } from '../../_lib/firebase-admin.js';
 import { errorResponse, jsonResponse, readJson, requestId, enforceSameOrigin } from '../_lib/http.js';
+import { recordAdminAuditEvent } from '../../_lib/admin-audit.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const ALLOWED_PROVIDERS = Object.freeze(['cloudflare-workers-ai']);
@@ -46,6 +47,7 @@ export async function onRequestPost(context) {
     await setFirestoreDocument(context.env, 'system', 'config', {
       aiConfig: config, aiConfigUpdatedAt: updatedAt, aiConfigUpdatedBy: updatedBy, updatedAt, updatedBy
     }, { merge: true });
+    await recordAdminAuditEvent(context.env, { actor: auth.user, action: 'ai.routing.updated', resource: 'system/config/aiConfig', requestId: id });
     return jsonResponse({ ok: true, config, updatedAt, scope: 'global', authority: 'SERVER' }, 200, {
       'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0'
     });
