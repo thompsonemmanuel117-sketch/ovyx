@@ -237,6 +237,7 @@
     nav.replaceChildren(workspace.section, build.section, connect.section, operate.section, account.section, administration.section);
     nav.dataset.ovyxMasterNav = '1';
     nav.classList.add('ovyx-master-mobile-navigation-ready');
+    if (mobileOwnerSection) administration.items.appendChild(mobileOwnerSection);
 
     function syncAdminVisibility() {
       var authorized = !!(window.OVYXAdminWorkspace && typeof window.OVYXAdminWorkspace.isAuthorized === 'function' && window.OVYXAdminWorkspace.isAuthorized());
