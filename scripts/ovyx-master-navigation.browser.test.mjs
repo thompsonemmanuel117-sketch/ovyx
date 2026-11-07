@@ -72,6 +72,10 @@ try {
   await desktop.locator('#app-sidebar [data-nav="sites-publishing"]').click();
   await desktop.waitForFunction(() => window.KernelState?.activeView === 'webstudio' && document.getElementById('ovyx-website-management') && !document.getElementById('ovyx-website-management').hidden);
   await desktop.waitForFunction(() => document.getElementById('ovyx-master-breadcrumb-group')?.textContent === 'Operate' && document.getElementById('ovyx-master-breadcrumb-current')?.textContent === 'Sites & Publishing');
+  await desktop.waitForFunction(() => document.querySelector('#app-sidebar [data-nav="sites-publishing"]')?.getAttribute('aria-current') === 'page');
+  assert.equal(await desktop.locator('#app-sidebar [data-nav="workspace"]').getAttribute('aria-current'), null,
+    'Opening Sites & Publishing must not leave the generic Workspace item selected.');
+
   await desktop.evaluate(() => window.OVYXWebsiteManagement?.close?.());
   await desktop.waitForFunction(() => document.getElementById('ovyx-website-management')?.hidden === true);
   await desktop.waitForFunction(() => document.getElementById('ovyx-master-breadcrumb-current')?.textContent === 'Web Studio');
@@ -114,6 +118,8 @@ try {
   await mobile.locator('#mobile-drawer [data-mobile-nav="sites-publishing"]').click();
   await mobile.waitForFunction(() => window.KernelState?.activeView === 'webstudio' && document.getElementById('ovyx-website-management') && !document.getElementById('ovyx-website-management').hidden);
   await mobile.waitForFunction(() => document.getElementById('mobile-current-view')?.textContent === 'Sites & Publishing');
+  await mobile.waitForFunction(() => document.querySelector('#mobile-drawer [data-mobile-nav="sites-publishing"]')?.getAttribute('aria-current') === 'page');
+
   await mobile.evaluate(() => window.OVYXWebsiteManagement?.close?.());
   assert.deepEqual(mobileErrors, [], 'Mobile navigation must not create browser errors: ' + mobileErrors.join('; '));
   await mobile.close();
