@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const runtime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-workspace.js', import.meta.url)), 'utf8');
-const html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head><body>\n<section id=\"view-appstudio\" style=\"width:100%;max-width:1100px;margin:auto;display:flex;flex-direction:column;gap:16px\">\n  <section id=\"ovyx-app-studio-experience\"><h1>From website to working app.</h1></section>\n  <section id=\"ovyx-app-studio-url-analyzer-panel\"><h2>Analyze</h2><details id=\"scan-details\"><summary>Scan details</summary><p>Inspection</p></details></section>\n  <section id=\"ovyx-app-studio-link-builder\"><h2>Build</h2><details id=\"source-details\"><summary>Source files</summary><p>index.html</p></details></section>\n  <section id=\"ovyx-app-studio-project-brain\"><h2>Verify</h2><details id=\"brain-details\"><summary>Findings</summary><p>Checks</p></details></section>\n  <section id=\"ovyx-app-studio-release\"><h2>Release</h2><details id=\"release-details\"><summary>Release history</summary><p>None</p></details></section>\n</section>\n<script>window.__OVYX_APP_STUDIO_GENERATED_PROJECT__=null;window.__OVYX_PROJECT_BRAIN_REPORT__=null;window.__OVYX_URL_ANALYZER_LAST_REPORT__=null;</script>\n<script src=\"/assets/ovyx-app-studio-workspace.js\"></script>\n</body></html>";
+const html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head><body>\n<section id=\"view-appstudio\" style=\"width:100%;max-width:1100px;margin:auto;display:flex;flex-direction:column;gap:16px\">\n  <section id=\"ovyx-app-studio-experience\"><h1>From website to working app.</h1></section>\n  <section id=\"ovyx-app-studio-url-analyzer-panel\"><h2>Analyze</h2><details id=\"scan-details\"><summary>Scan details</summary><p>Inspection</p></details></section>\n  <section id=\"ovyx-app-studio-link-builder\"><h2>Build</h2><details id=\"source-details\"><summary>Source files</summary><p>index.html</p></details></section>\n  <section id=\"ovyx-app-studio-project-brain\"><h2>Verify</h2><details id=\"brain-details\"><summary>Findings</summary><p>Checks</p></details></section>\n  <section id=\"ovyx-app-studio-release\"><h2>Release</h2><details id=\"release-details\"><summary>Release history</summary><p>None</p></details></section>\n</section>\n<script>window.__OVYX_APP_STUDIO_GENERATED_PROJECT__=null;window.__OVYX_PROJECT_BRAIN_REPORT__=null;window.__OVYX_URL_ANALYZER_LAST_REPORT__=null;window.__route='';window.__pickerOpens=0;window.__assistantOpens=0;window.switchView=view=>{window.__route=view;};window.OVYXWorkspacePicker={open:()=>{window.__pickerOpens++;return true;}};window.WorkspaceBrainBot={open:()=>{window.__assistantOpens++;}};</script>\n<script src=\"/assets/ovyx-app-studio-workspace.js\"></script>\n</body></html>";
 function send(res,status,body,type='application/json; charset=utf-8'){res.writeHead(status,{'content-type':type,'cache-control':'no-store'});res.end(type.includes('json')?JSON.stringify(body):String(body));}
 const server=createServer((req,res)=>{
  if(req.url==='/')return send(res,200,html,'text/html; charset=utf-8');
@@ -26,6 +26,12 @@ try{
  await desktop.locator('[data-ovyx-as-workspace-target="ovyx-app-studio-project-brain"]').click();
  assert.match(await desktop.locator('[data-ovyx-as-workspace-status]').innerText(),/Opened Verify/);
  assert.equal(await desktop.locator('#ovyx-app-studio-project-brain').evaluate(el=>document.activeElement===el),true);
+ await desktop.locator('[data-ovyx-as-workspace-action="workspace"]').click();
+ assert.equal(await desktop.evaluate(()=>window.__pickerOpens),1);
+ await desktop.locator('[data-ovyx-as-workspace-action="projects"]').click();
+ assert.equal(await desktop.evaluate(()=>window.__route),'projects');
+ await desktop.locator('[data-ovyx-as-workspace-action="assistant"]').click();
+ assert.equal(await desktop.evaluate(()=>window.__assistantOpens),1);
  await desktop.locator('[data-ovyx-as-workspace-action="expand"]').click();
  assert.equal(await desktop.locator('#view-appstudio details[open]').count(),4);
  await desktop.locator('[data-ovyx-as-workspace-action="collapse"]').click();
