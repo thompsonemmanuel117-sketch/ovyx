@@ -85,20 +85,52 @@
     return next;
   }
 
+  function applyEffectiveTheme(theme) {
+    const safe = contrastSafeTheme(theme || {});
+    const root = document.documentElement;
+    const variables = {
+      '--bg': safe.backgroundColor, '--app-bg': safe.backgroundColor,
+      '--sidebar': safe.sidebarColor, '--card': safe.cardColor,
+      '--border': safe.borderColor, '--text': safe.textColor,
+      '--muted': safe.mutedColor, '--accent': safe.accentColor,
+      '--app-border': safe.borderColor, '--app-text': safe.textColor,
+      '--app-muted': safe.mutedColor, '--app-accent': safe.accentColor,
+      '--black-canvas': safe.backgroundColor, '--graphite': safe.cardColor,
+      '--titanium': safe.borderColor, '--soft-white': safe.textColor,
+      '--steel': safe.mutedColor, '--ovyx-canvas': safe.backgroundColor,
+      '--ovyx-graphite': safe.cardColor, '--ovyx-titanium': safe.borderColor,
+      '--ovyx-white': safe.textColor, '--ovyx-steel': safe.mutedColor,
+      '--ovyx-gold': safe.accentColor, '--ov-bg': safe.backgroundColor,
+      '--ov-panel': safe.cardColor, '--ov-elev': safe.cardColor,
+      '--ov-text': safe.textColor, '--ov-secondary': safe.mutedColor,
+      '--ov-muted': safe.mutedColor, '--ov-border': safe.borderColor,
+      '--ov-accent': safe.accentColor
+    };
+    Object.keys(variables).forEach(key => root.style.setProperty(key, variables[key]));
+    root.style.backgroundColor = safe.backgroundColor;
+    [document.body, document.getElementById('app-container'), document.getElementById('app-root'),
+      document.getElementById('main-content'), document.getElementById('view-router-viewport')]
+      .filter(Boolean).forEach(element => {
+        element.style.setProperty('background-color', safe.backgroundColor, 'important');
+        element.style.setProperty('color', safe.textColor, 'important');
+      });
+    [document.getElementById('app-sidebar'), document.getElementById('mobile-drawer')]
+      .filter(Boolean).forEach(element => element.style.setProperty('background-color', safe.sidebarColor, 'important'));
+    return safe;
+  }
+
   function installThemeBridge() {
     const context = window.ThemeContext;
     const lab = window.OVYXThemeLab;
     if (!context || !lab || typeof context.get !== 'function' || typeof context.preview !== 'function') return false;
     if (context.__ovyxContrastBridgeV1) return true;
 
-    const originalPreview = context.preview.bind(context);
-    const originalSet = typeof context.set === 'function' ? context.set.bind(context) : originalPreview;
-    context.preview = function (patch) {
-      return originalPreview(contrastSafeTheme(Object.assign({}, context.get(), patch || {})));
-    };
-    context.set = function (patch) {
-      return originalSet(contrastSafeTheme(Object.assign({}, context.get(), patch || {})));
-    };
+    // Keep canonical saved/exported colors untouched. Only the effective CSS
+    // surface is adjusted after ThemeContext applies the user's original values.
+    document.addEventListener('ovyx:theme-applied', function (event) {
+      applyEffectiveTheme(event.detail?.effective || context.get());
+    });
+    applyEffectiveTheme(context.get());
     context.__ovyxContrastBridgeV1 = true;
 
     const originalApply = typeof lab.apply === 'function' ? lab.apply.bind(lab) : null;
@@ -106,7 +138,7 @@
       const theme = typeof lab.activeTheme === 'function' ? lab.activeTheme() : null;
       if (!theme) return originalApply ? originalApply() : false;
       const current = context.get();
-      const mapped = contrastSafeTheme(Object.assign({}, current, {
+      const mapped = Object.assign({}, current, {
         backgroundColor: hex(theme.bg, current.backgroundColor || '#050607'),
         sidebarColor: hex(theme.bg, current.sidebarColor || '#050607'),
         cardColor: hex(theme.panel, current.cardColor || '#0B0D10'),
@@ -115,7 +147,7 @@
         accentColor: hex(theme.accent, current.accentColor || '#E8B64F'),
         borderColor: hex(theme.border, current.borderColor || '#1B222A'),
         mode: luminance(hex(theme.bg, '#050607')) > 0.45 ? 'light' : 'dark'
-      }));
+      });
       context.preview(mapped);
       try { lab.renderState?.(); } catch (_) {}
       return true;
