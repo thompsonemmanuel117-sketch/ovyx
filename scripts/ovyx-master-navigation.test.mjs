@@ -22,6 +22,7 @@ assert.match(runtime, /OVYXWebsiteManagement[\s\S]*openWorkspace/, 'Sites & Publ
 assert.match(runtime, /OVYXAdminWorkspace[\s\S]*isAuthorized/, 'Mobile administration must remain hidden without verified owner authorization.');
 assert.ok(runtime.includes('ovyx-admin-workspace-entry-desktop') && runtime.includes('ovyx-admin-workspace-entry-mobile-button'), 'Navigation must move the existing server-created owner entries, not invent replacement admin controls.');
 assert.ok(!runtime.includes("mobileItem('Admin Center'"), 'Navigation must not create a duplicate client-side Admin Center entry.');
+assert.ok(!runtime.includes('desktop-owner-command'), 'Navigation must not depend on the retired desktop owner-entry selector.');
 assert.match(runtime, /header-ai-project-bot/, 'Assistant navigation must reuse the existing assistant control.');
 assert.match(runtime, /ovyx:view-changed/, 'Breadcrumb and active navigation must follow the existing route event.');
 assert.match(runtime, /mobile-current-view/, 'Mobile drawer context must stay synchronized with the active route.');
@@ -34,7 +35,7 @@ assert.match(runtime, /mobile-drawer/);
 assert.ok(!/window\.Router\s*=(?!=)|Router\.go\s*=(?!=)|window\.switchView\s*=(?!=)/.test(runtime), 'The navigation layer must not replace the existing router.');
 assert.ok(!/view-webstudio[^\n]*classList|#view-webstudio/.test(runtime + css), 'The shell navigation must not modify or style Web Studio internals.');
 assert.ok(css.includes('--ovyx-ds-'), 'The master navigation should consume the shared design-system tokens.');
-assert.ok(middleware.includes('/assets/ovyx-master-navigation.js?v=20261107-4'), 'The navigation runtime must be injected into HTML responses.');
+assert.ok(middleware.includes('/assets/ovyx-master-navigation.js?v=20261107-5'), 'The navigation runtime must be injected into HTML responses.');
 assert.ok(middleware.includes('/assets/css/ovyx-master-navigation.css?v=20261107-2'), 'The navigation styles must be injected into HTML responses.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-master-navigation.test.mjs'), 'The navigation contract must run in npm test.');
 
