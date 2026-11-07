@@ -80,7 +80,7 @@
       var rect = candidate.getBoundingClientRect ? candidate.getBoundingClientRect() : null;
       if (!rect || rect.height < 36 || rect.height > 180 || rect.width < Math.min(260, window.innerWidth * 0.55)) return;
       if (rect.bottom < window.innerHeight - 8 || rect.top > window.innerHeight - 1) return;
-      var text = String(candidate.innerText || candidate.textContent || '').toLowerCase().replace(/\\s+/g, ' ');
+      var text = String(candidate.innerText || candidate.textContent || '').toLowerCase().replace(/\s+/g, ' ');
       if (!labels.every(function (label) { return new RegExp('(^|\\\\s)' + label + '($|\\\\s)').test(text); })) return;
       var node = candidate, depth = 0, fixed = null;
       while (node && node !== document.body && depth < 10) {
