@@ -6,6 +6,7 @@ const middleware = fs.readFileSync(new URL('../functions/_middleware.js', import
 const browser = fs.readFileSync(new URL('./ovyx-app-studio-premium-polish.browser.test.mjs', import.meta.url), 'utf8');
 const packageJson = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const workflow = fs.readFileSync(new URL('../.github/workflows/ovyx-assistant-workspace-browser.yml', import.meta.url), 'utf8');
+const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 assert.ok(runtime.includes('function contrastSafeTheme(theme)'), 'Theme colors must pass through one contrast guard.');
 assert.ok(runtime.includes('minimumContrast(originalText, surfaces) < 4.5'), 'Primary text must meet WCAG AA contrast against canvas and cards.');
@@ -21,6 +22,7 @@ assert.ok(runtime.includes('#ovyx-v52-bottom-bar{position:fixed!important;left:0
 assert.ok(runtime.includes('background:linear-gradient(180deg,color-mix(in srgb,var(--card'), 'The dock must keep its own theme-aware surface rather than inherit the flat page canvas.');
 assert.ok(middleware.includes('/assets/ovyx-app-shell-polish.js?v=20261107-7'), 'The production Pages shell must load the new polish runtime.');
 assert.ok(browser.includes('Theme text must remain readable') && browser.includes('bottom navigation must attach to the dashboard screen edges'), 'Desktop/mobile browser coverage must exercise the reported appearance and navigation problems.');
+assert.ok(html.includes('<button type="button" class="ovyx-settings-btn primary" id="notify-save">') && html.includes('<button type="button" class="ovyx-settings-btn" id="notify-reset">'), 'Settings notification actions must not accidentally submit or navigate away from the workspace.');
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-app-shell-polish.test.mjs'), 'The source contract must run in npm test.');
 assert.ok(workflow.includes("'assets/ovyx-app-shell-polish.js'"), 'The browser workflow must run when the shell polish runtime changes.');
 
