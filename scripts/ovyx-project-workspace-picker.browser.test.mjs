@@ -75,7 +75,18 @@ try {
       window.ProjectStore.renderProjects();
     });
 
-    await page.evaluate(() => window.ProjectStore.showWorkspacePicker());
+    // Open through a trusted browser click. Mobile browsers may suppress
+    // programmatic focus/keyboard activation when a modal is opened from
+    // page.evaluate(), which does not model the real Projects-page button.
+    await page.evaluate(() => {
+      const trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.id = 'ovyx-workspace-picker-test-trigger';
+      trigger.textContent = 'Open workspace picker';
+      trigger.addEventListener('click', () => window.ProjectStore.showWorkspacePicker());
+      document.body.appendChild(trigger);
+    });
+    await page.locator('#ovyx-workspace-picker-test-trigger').click();
     const dialog = page.locator('#ovyx-project-workspace-picker');
     await dialog.waitFor({ state: 'visible' });
     assert.equal(await dialog.getAttribute('open') !== null, true, '[' + target.name + '] picker must use a real modal dialog.');
