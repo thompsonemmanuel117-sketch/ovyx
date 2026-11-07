@@ -30,7 +30,9 @@ try {
   const desktopRepair = desktop.locator('#app-sidebar [data-nav="kernel-bot"]');
   assert.ok((await desktopRepair.textContent()).includes('Workspace Repair'), 'Workspace Repair must appear in the Operate group.');
   assert.equal(await desktop.locator('#app-sidebar [data-nav="admin-overview"]').isVisible(), false,
-    'The existing owner-only Admin Center control must remain hidden for an ordinary signed-out visitor.');
+    'The existing owner-only Admin Center control must remain hidden for an ordinary signed-in account.');
+  assert.equal(await desktop.locator('#app-sidebar .ovyx-master-nav-group').last().isVisible(), false,
+    'The entire Administration group must remain hidden without verified owner authorization.');
 
   await desktop.locator('#ovyx-v34-menu-source').click();
   await desktop.waitForFunction(() => document.documentElement.classList.contains('v34-sidebar-collapsed'));
@@ -71,6 +73,8 @@ try {
   assert.equal(await mobile.locator('#mobile-drawer [data-mobile-nav="connections"]').isVisible(), true);
   assert.equal(await mobile.locator('#mobile-drawer [data-mobile-nav="admin-overview"]').isVisible(), false,
     'Mobile Admin Center must remain hidden unless server-verified owner access is available.');
+  assert.equal(await mobile.locator('#mobile-drawer .ovyx-master-nav-group').last().isVisible(), false,
+    'The mobile Administration group must remain hidden without verified owner authorization.');
   await mobile.locator('#mobile-drawer [data-mobile-nav="connections"]').click();
   await mobile.waitForFunction(() => window.KernelState?.activeView === 'settings' && window.OVYXSettings?.current === 'connections');
   await mobile.waitForFunction(() => document.getElementById('mobile-current-view')?.textContent === 'Personal Connections');
