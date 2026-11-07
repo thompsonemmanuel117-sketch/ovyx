@@ -45,7 +45,7 @@ export async function onRequest(context) {
         element.append('<link rel="stylesheet" href="/assets/css/ovyx-platform-design-system.css?v=20261106-1">', { html: true });
         element.append('<link rel="stylesheet" href="/assets/css/ovyx-platform-motion.css?v=20261106-1">', { html: true });
         element.append('<link rel="stylesheet" href="/assets/css/ovyx-command-centre.css?v=20261106-1">', { html: true });
-        element.append('<link rel="stylesheet" href="/assets/css/ovyx-master-navigation.css?v=20261107-1">', { html: true });
+        element.append('<link rel="stylesheet" href="/assets/css/ovyx-master-navigation.css?v=20261107-2">', { html: true });
         element.append('<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#111827"><link rel="apple-touch-icon" href="/assets/ovyx-brand-mark.png">', { html: true });
       },
     })
