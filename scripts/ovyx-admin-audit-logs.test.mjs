@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { generateKeyPairSync, webcrypto } from 'node:crypto';
 import { onRequestGet } from '../functions/api/admin/logs.js';
+import { recordAdminAuditEvent } from '../functions/_lib/admin-audit.js';
 
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
@@ -55,6 +56,11 @@ try {
     }
     if (target === 'https://oauth2.googleapis.com/token') {
       return response({ access_token: 'test-google-access-token', expires_in: 3600 });
+    }
+    if (target.includes('firestore.googleapis.com/v1/projects/ovyx-audit-test/databases/(default)/documents/audit_logs') && options.method === 'PATCH') {
+      globalThis.__auditWrittenDocument = JSON.parse(options.body || '{}');
+      assert.equal(options.headers.Authorization, 'Bearer test-google-access-token');
+      return response({ name: target });
     }
     if (target.includes('firestore.googleapis.com/v1/projects/ovyx-audit-test/databases/(default)/documents/audit_logs')) {
       firestoreUrl = target;
@@ -128,11 +134,35 @@ try {
   assert.equal(invalidCursor.status, 400, 'Oversized pagination cursors must be rejected.');
   assert.equal(fetchCalls.length, 5, 'Invalid cursors must be rejected before any Firestore read.');
 
+  const auditRecorded = await recordAdminAuditEvent(env, {
+    actor: { uid: 'audit-test-user', email: 'ovyxsupportteam@gmail.com' },
+    action: 'plans.features.updated',
+    resource: 'system/config',
+    requestId: 'req-audit-1'
+  });
+  assert.equal(auditRecorded, true, 'Successful administrative changes must be recordable in the audit collection.');
+  assert.equal(globalThis.__auditWrittenDocument.fields.action.stringValue, 'plans.features.updated');
+  assert.equal(globalThis.__auditWrittenDocument.fields.user.stringValue, 'ovyxsupportteam@gmail.com');
+  assert.equal(globalThis.__auditWrittenDocument.fields.requestId.stringValue, 'req-audit-1');
+
   const ui = fs.readFileSync(new URL('../assets/ovyx-admin-controls.js', import.meta.url), 'utf8');
   assert.ok(ui.includes("function mountAuditLogs()"), 'The Admin monitoring workspace must expose the audit trail.');
   assert.ok(ui.includes("api('/api/admin/logs?' + query.toString())"), 'The audit UI must use the protected server endpoint.');
   assert.ok(ui.includes("if (view === 'admin-telemetry') mountAuditLogs();"), 'The audit trail must mount inside the existing Admin monitoring area.');
   assert.ok(ui.includes('textContent = String(log.action'), 'Audit data must be rendered as text, not injected as HTML.');
+
+  for (const path of [
+    '../functions/api/admin/users.js',
+    '../functions/api/admin/plans/update.js',
+    '../functions/api/admin/control.js',
+    '../functions/api/admin/ai-config.js',
+    '../functions/api/admin/identity.js',
+    '../functions/api/admin/broadcasts.js',
+    '../functions/api/admin/templates.js'
+  ]) {
+    const source = fs.readFileSync(new URL(path, import.meta.url), 'utf8');
+    assert.ok(source.includes('recordAdminAuditEvent'), path + ' must record successful admin mutations.');
+  }
 
   const endpoint = fs.readFileSync(new URL('../functions/api/admin/logs.js', import.meta.url), 'utf8');
   assert.ok(endpoint.includes("normalizeEmail(auth.user.email) !== ROOT_EMAIL"), 'Audit access must use the configured administrator email.');
@@ -144,4 +174,5 @@ try {
 } finally {
   globalThis.fetch = originalFetch;
   delete globalThis.__auditTestEmail;
+  delete globalThis.__auditWrittenDocument;
 }
