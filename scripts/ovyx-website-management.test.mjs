@@ -53,7 +53,9 @@ assert.match(assetsApi, /method === 'DELETE'/, 'The existing owner-scoped asset 
 assert.match(assetsApi, /ASSET_ACCESS_DENIED/, 'Asset deletion must retain server-side ownership checks.');
 
 assert.ok(client.includes('function setDashboardBottomNavHidden(hidden)'), 'Manage Website must explicitly control visibility of the mobile dashboard navigation.');
-assert.match(client, /data-mobile-nav/, 'The standalone workspace must identify the dashboard mobile navigation.');
+assert.ok(client.includes('function findDashboardBottomNav()'), 'Manage Website must locate the real dashboard bottom navigation from its visible controls, not require a custom data attribute.');
+assert.match(client, /\['home', 'build', 'new', 'code', 'more'\]/, 'Bottom navigation detection must match all five dashboard controls.');
+assert.ok(client.includes('watchDashboardBottomNav()'), 'The dashboard bottom navigation must remain hidden if the app re-renders while Manage Website is open.');
 assert.match(client, /ovym-dashboard-bottom-nav-hidden/, 'The dashboard bottom navigation must be fully hidden while Manage Website is open.');
 assert.ok(client.includes('setDashboardBottomNavHidden(true)'), 'Opening Manage Website must hide the dashboard bottom navigation.');
 assert.ok(client.includes('setDashboardBottomNavHidden(false)'), 'Closing Manage Website must restore the dashboard bottom navigation.');
