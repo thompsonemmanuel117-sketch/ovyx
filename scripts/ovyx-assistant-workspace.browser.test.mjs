@@ -564,8 +564,18 @@ try {
       await page.waitForFunction(() => {
         const dock = document.getElementById('ovyx-v52-bottom-bar');
         const assistant = document.getElementById('kernel-brain-bot-panel');
-        return dock && assistant && getComputedStyle(assistant).display === 'none' &&
-          getComputedStyle(dock).display === 'grid';
+        const viewport = document.getElementById('view-router-viewport');
+        if (!dock || !assistant || !viewport || getComputedStyle(assistant).display !== 'none') return false;
+        const route = String(window.KernelState?.activeView || '').replace(/^view-/, '').toLowerCase();
+        const visibleSections = Array.from(viewport.children).filter(section =>
+          section.tagName === 'SECTION' && /^view-[a-z0-9-]+$/i.test(section.id || '') &&
+          !section.hidden && getComputedStyle(section).display !== 'none' &&
+          getComputedStyle(section).visibility !== 'hidden' && section.getClientRects().length > 0
+        );
+        const isDashboard = route === 'home' && visibleSections.length === 1 &&
+          visibleSections[0].id === 'view-home';
+        window.OVYXDashboardNavigationAuthority?.sync();
+        return getComputedStyle(dock).display === (isDashboard ? 'grid' : 'none');
       }, null, { timeout: 8000 });
     }
 
