@@ -374,10 +374,6 @@
   else boot();
   window.addEventListener('ovyx:view-changed', function (event) { window.requestAnimationFrame(function () { syncRoute(event); }); });
   window.addEventListener('ovyx-settings-rendered', function () { window.requestAnimationFrame(syncRoute); });
-  window.addEventListener('ovyx-owner-state', function () {
-    var button = document.querySelector('#app-sidebar #desktop-owner-command');
-    if (button && button.style.display !== 'none') button.hidden = false;
-  });
   window.addEventListener('pageshow', boot);
   window.OVYXMasterNavigation = Object.freeze({ version: 1, refresh: boot, sync: syncRoute });
 })();
