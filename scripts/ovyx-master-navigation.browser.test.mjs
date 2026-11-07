@@ -34,10 +34,13 @@ try {
   assert.equal(await desktop.locator('#app-sidebar .ovyx-master-nav-group').last().isVisible(), false,
     'The entire Administration group must remain hidden without verified owner authorization.');
 
+  await desktop.evaluate(() => window.OVYXDesktopShell.setCollapsed(true, true));
   await desktop.locator('#ovyx-v34-menu-source').click();
-  await desktop.waitForFunction(() => document.documentElement.classList.contains('v34-sidebar-collapsed'));
+  await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'open');
+  await desktop.locator('#ovyx-desktop-sidebar-close').click();
+  await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'collapsed');
   await desktop.locator('#ovyx-v34-menu-source').click();
-  await desktop.waitForFunction(() => !document.documentElement.classList.contains('v34-sidebar-collapsed'));
+  await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'open');
 
   await desktop.locator('#app-sidebar [data-nav="projects"]').click();
   await desktop.waitForFunction(() => window.KernelState?.activeView === 'projects');
