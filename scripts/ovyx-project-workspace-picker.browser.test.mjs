@@ -83,6 +83,7 @@ try {
       trigger.type = 'button';
       trigger.id = 'ovyx-workspace-picker-test-trigger';
       trigger.textContent = 'Open workspace picker';
+      trigger.style.cssText = 'position:fixed;top:8px;left:8px;z-index:2147483647;';
       trigger.addEventListener('click', () => window.ProjectStore.showWorkspacePicker());
       document.body.appendChild(trigger);
     });
