@@ -245,14 +245,19 @@
     window.addEventListener('ovyx:view-changed', syncAdminVisibility);
   }
 
-  function installShellToggle() {
-    var shell = window.OVYXDesktopShell;
+  function installShellToggle(attempt) {
     var menu = document.getElementById('ovyx-v34-menu-source');
-    if (!shell || typeof shell.toggleOrOpen !== 'function' || !menu) return;
+    var shell = window.OVYXDesktopShell;
+    if (!menu) return;
+    if (!shell || typeof shell.toggleOrOpen !== 'function') {
+      if ((attempt || 0) < 30) window.setTimeout(function () { installShellToggle((attempt || 0) + 1); }, 40);
+      return;
+    }
     menu.removeAttribute('onclick');
     menu.onclick = function (event) {
       event.preventDefault();
-      shell.toggleOrOpen();
+      var controller = window.OVYXDesktopShell;
+      if (controller && typeof controller.toggleOrOpen === 'function') controller.toggleOrOpen();
       if (window.innerWidth < 768) menu.setAttribute('aria-expanded', 'true');
       else menu.setAttribute('aria-expanded', String(document.documentElement.dataset.ovyxSidebar !== 'collapsed'));
     };
