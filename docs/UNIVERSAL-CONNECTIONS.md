@@ -16,6 +16,23 @@ Personal Connections support for approved non-AI HTTP, webhook, database and too
 
 The read-only Test action is available for supported non-AI service connections. Saved AI-protocol records are deliberately excluded from health checks so the application cannot accidentally contact an external model endpoint.
 
+## OAuth service connections
+
+The Personal Connections centre supports account-bound OAuth authorization-code connections for Notion, Slack, Discord, Google Drive, Google Sheets and Google Calendar. OAuth uses a one-time 256-bit state stored server-side, a ten-minute expiry, and PKCE (S256) for Google and Discord. The callback consumes state before exchanging the code, verifies the provider account identity, encrypts access and refresh tokens with the existing \`OVYX_CONNECTION_ENCRYPTION_KEY\`, and stores the resulting connection in the same account-owned \`universal_connections\` collection. Provider tokens and client secrets never enter browser storage or project source.
+
+The OAuth callback is \`https://your-ovyx-domain/api/settings/connection-oauth/callback\`. Configure that exact HTTPS URL as \`OVYX_CONNECTION_OAUTH_REDIRECT_URI\` in Cloudflare Pages. Configure these Cloudflare secrets for each provider you intend to enable:
+
+- \`OVYX_CONNECTION_OAUTH_NOTION_CLIENT_ID\` and \`OVYX_CONNECTION_OAUTH_NOTION_CLIENT_SECRET\`
+- \`OVYX_CONNECTION_OAUTH_SLACK_CLIENT_ID\` and \`OVYX_CONNECTION_OAUTH_SLACK_CLIENT_SECRET\`
+- \`OVYX_CONNECTION_OAUTH_DISCORD_CLIENT_ID\` and \`OVYX_CONNECTION_OAUTH_DISCORD_CLIENT_SECRET\`
+- \`OVYX_CONNECTION_OAUTH_GOOGLE_CLIENT_ID\` and \`OVYX_CONNECTION_OAUTH_GOOGLE_CLIENT_SECRET\`
+
+Google Drive, Sheets and Calendar share one Google OAuth application. Only the service-specific scopes listed in the server registry are requested. OAuth readiness is reported per service; an unconfigured provider remains disabled in the catalogue and cannot start consent. Existing GitHub account OAuth remains separate and is not misrepresented as a project-scoped GitHub adapter.
+
+Notion, Google, Discord and Slack token refresh is handled server-side when a refresh token is issued; refresh is attempted on expiry and on provider 401 responses. If a provider does not issue a refresh token, an expired credential requires reconnecting. Notion requests use the current Notion-Version header. OAuth connection testing calls the configured provider health endpoint. Removing an OAuth connection deletes OVYX's encrypted tokens and all project access; provider-side consent must also be revoked from the provider's connected-app settings because OVYX does not claim remote token revocation for every provider. Revoking project access remains separate from disconnecting the account-level provider credential.
+
+OAuth-enabled services currently use the generic HTTPS project adapter with a provider-issued credential. This does not claim native Notion, Slack, Discord or Google workflow coverage. Native adapters, webhook subscriptions and provider-specific event handling remain separately labelled unavailable until their implementations and end-to-end tests exist. A service is not considered natively integrated merely because OAuth consent succeeded.
+
 ## Project connection permissions
 
 A user can grant an active non-AI connection to one of their own saved projects through `POST /api/settings/connection-grants`, list grants through `GET /api/settings/connection-grants?projectId=...`, and revoke access with the same POST endpoint using `action: "revoke"`. Each grant is project-specific and can allow only `read`, `write`, `delete`, and/or `execute` actions. The server verifies project ownership, connection ownership, active state, and the grant on every invocation.

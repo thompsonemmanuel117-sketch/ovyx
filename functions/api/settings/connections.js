@@ -92,7 +92,7 @@ async function loadContext(env, uid, email) {
   };
 }
 
-async function changeActiveCount(
+export async function changeActiveCount(
   env,
   uid,
   email,
@@ -393,6 +393,27 @@ async function onRequest(context) {
     const id = connectionId(body?.id);
     const currentDoc = await getFirestoreDocumentAtPath(context.env, [...base, id]);
     const currentRecord = currentDoc ? await getFirestoreDataAtPath(context.env, [...base, id]) : null;
+    if (currentRecord?.oauthProvider) {
+      const stateOnly = Object.keys(body || {}).every(key => ['id','active'].includes(key));
+      if (!stateOnly || typeof body.active !== 'boolean') {
+        return errorResponse(409, 'OAUTH_CONNECTION_MANAGED', 'OAuth-managed credentials cannot be edited as API keys. Reconnect the provider to replace its authorization.');
+      }
+      const requestedActive = body.active;
+      const currentActive = currentRecord.active === true;
+      if (requestedActive === currentActive) return jsonResponse({ ok:true, id, active:currentActive });
+      const delta = requestedActive ? 1 : -1;
+      const reservation = await changeActiveCount(context.env, auth.uid, auth.email, delta, state.limit);
+      if (!reservation.ok) return errorResponse(409, 'CONNECTION_LIMIT_REACHED', 'Your active Personal Connections limit has been reached.');
+      try {
+        await setFirestoreDocumentAtPath(context.env, [...base, id], { active:requestedActive, updatedAt:new Date().toISOString() }, { merge:true, expectedUpdateTime:currentDoc?.updateTime || null });
+      } catch (error) {
+        if (reservation.changed) {
+          try { await changeActiveCount(context.env, auth.uid, auth.email, -delta, state.limit); } catch (_) {}
+        }
+        throw error;
+      }
+      return jsonResponse({ ok:true, id, active:requestedActive, activeCount:reservation.count });
+    }
     const record = await buildConnectionRecord(
       context.env,
       body,

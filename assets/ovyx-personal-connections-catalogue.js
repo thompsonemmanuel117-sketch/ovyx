@@ -21,9 +21,9 @@
     { id:'twilio', name:'Twilio', category:'Messaging', logo:'twilio', type:'http', auth:'basic', method:'Account SID + token · Basic', oauth:'Not available in this centre', adapter:'Not ready', detail:'No native project SMS/voice adapter is registered yet.' },
     { id:'whatsapp', name:'WhatsApp Cloud API', category:'Messaging', logo:'whatsapp', type:'http', auth:'bearer', method:'Access token · Bearer', oauth:'Not available in this centre', adapter:'Not ready', detail:'No native project messaging adapter is registered yet.' },
 
-    { id:'slack', name:'Slack', category:'Work & CRM', logo:'slack', type:'http', auth:'bearer', method:'Bot token · Bearer', oauth:'OAuth connector not available here', adapter:'Not ready', detail:'A Slack-specific scopes, refresh and event adapter is not registered.' },
-    { id:'discord', name:'Discord', category:'Work & CRM', logo:'discord', type:'http', auth:'bearer', method:'Bot token · Bearer', oauth:'OAuth connector not available here', adapter:'Not ready', detail:'A Discord-specific bot and event adapter is not registered.' },
-    { id:'notion', name:'Notion', category:'Work & CRM', logo:'notion', type:'http', auth:'bearer', method:'Integration token · Bearer', oauth:'OAuth connector not available here', adapter:'Not ready', detail:'A Notion-specific workspace and block adapter is not registered.' },
+    { id:'slack', name:'Slack', category:'Work & CRM', logo:'slack', type:'http', auth:'bearer', method:'OAuth 2.0 authorization code', oauth:'OAuth supported · server setup required', oauthService:'slack', adapter:'Generic HTTPS adapter ready', detail:'OAuth credentials are encrypted and refresh is supported when token rotation is enabled. Provider-specific Slack workflows are not advertised.' },
+    { id:'discord', name:'Discord', category:'Work & CRM', logo:'discord', type:'http', auth:'bearer', method:'OAuth 2.0 authorization code + PKCE', oauth:'OAuth supported · server setup required', oauthService:'discord', adapter:'Generic HTTPS adapter ready', detail:'Account consent, identity verification and token refresh are supported. Discord-specific bot workflows are not advertised.' },
+    { id:'notion', name:'Notion', category:'Work & CRM', logo:'notion', type:'http', auth:'bearer', method:'OAuth 2.0 authorization code', oauth:'OAuth supported · server setup required', oauthService:'notion', adapter:'Generic HTTPS adapter ready', detail:'Workspace consent and identity verification are supported. Notion-Version 2026-03-11 is supplied on requests; provider-specific workflows are not advertised.' },
     { id:'airtable', name:'Airtable', category:'Work & CRM', logo:'airtable', type:'http', auth:'bearer', method:'Personal access token · Bearer', oauth:'OAuth connector not available here', adapter:'Not ready', detail:'Airtable-specific base and record adapter is not registered.' },
     { id:'hubspot', name:'HubSpot', category:'Work & CRM', logo:'hubspot', type:'http', auth:'bearer', method:'Private app token · Bearer', oauth:'OAuth connector not available here', adapter:'Not ready', detail:'A HubSpot-specific CRM adapter and scope mapping are not registered.' },
     { id:'salesforce', name:'Salesforce', category:'Work & CRM', logo:'salesforce', type:'http', enabled:false, method:'OAuth 2.0 required', oauth:'Required · not available here', adapter:'Not ready', detail:'Do not paste a temporary token; OAuth lifecycle and Salesforce adapter are not implemented here.' },
@@ -33,9 +33,9 @@
 
     { id:'supabase', name:'Supabase', category:'Data & storage', logo:'supabase', type:'http', auth:'api-key', method:'Project API key · API key', oauth:'Not available in this centre', adapter:'Not ready', detail:'No Supabase-specific database/auth adapter is registered for project actions.' },
     { id:'cloudflare', name:'Cloudflare', category:'Data & storage', logo:'cloudflare', type:'http', auth:'bearer', method:'API token · Bearer', oauth:'Not available in this centre', adapter:'Not ready', detail:'Existing OVYX Cloudflare environment bindings are not the same as a user project adapter.' },
-    { id:'googledrive', name:'Google Drive', category:'Data & storage', logo:'googledrive', type:'http', enabled:false, method:'OAuth 2.0 required', oauth:'Required · not available here', adapter:'Not ready', detail:'User file access requires OAuth consent and refresh-token handling.' },
-    { id:'googlesheets', name:'Google Sheets', category:'Data & storage', logo:'googlesheets', type:'http', enabled:false, method:'OAuth 2.0 required', oauth:'Required · not available here', adapter:'Not ready', detail:'Private spreadsheet access requires OAuth consent and a Sheets adapter.' },
-    { id:'googlecalendar', name:'Google Calendar', category:'Data & storage', logo:'googlecalendar', type:'http', enabled:false, method:'OAuth 2.0 required', oauth:'Required · not available here', adapter:'Not ready', detail:'Calendar access requires OAuth consent, refresh and event-sync handling.' },
+    { id:'googledrive', name:'Google Drive', category:'Data & storage', logo:'googledrive', type:'http', auth:'bearer', method:'OAuth 2.0 authorization code + PKCE', oauth:'OAuth supported · server setup required', oauthService:'googledrive', adapter:'Generic HTTPS adapter ready', detail:'Least-privilege drive.file scope, account verification and token refresh are supported through the generic HTTPS adapter.' },
+    { id:'googlesheets', name:'Google Sheets', category:'Data & storage', logo:'googlesheets', type:'http', auth:'bearer', method:'OAuth 2.0 authorization code + PKCE', oauth:'OAuth supported · server setup required', oauthService:'googlesheets', adapter:'Generic HTTPS adapter ready', detail:'Spreadsheet scope, account verification and token refresh are supported through the generic HTTPS adapter.' },
+    { id:'googlecalendar', name:'Google Calendar', category:'Data & storage', logo:'googlecalendar', type:'http', auth:'bearer', method:'OAuth 2.0 authorization code + PKCE', oauth:'OAuth supported · server setup required', oauthService:'googlecalendar', adapter:'Generic HTTPS adapter ready', detail:'Calendar events scope, account verification and token refresh are supported through the generic HTTPS adapter.' },
 
     { id:'github', name:'GitHub', category:'Developer tools', logo:'github', type:'http', auth:'bearer', method:'Personal access token · Bearer', oauth:'Separate GitHub account flow exists', adapter:'Not ready', detail:'The separate GitHub account OAuth flow is not a project connection adapter.' },
     { id:'figma', name:'Figma', category:'Developer tools', logo:'figma', type:'http', auth:'bearer', method:'Personal access token · Bearer', oauth:'OAuth connector not available here', adapter:'Not ready', detail:'A Figma-specific file, comments and webhook adapter is not registered.' },
@@ -48,6 +48,7 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[char]));
   let category = 'All services';
   let query = '';
+  let oauthReadiness = {};
 
   function styles() {
     if ($('#pc-catalogue-styles')) return;
@@ -67,11 +68,15 @@
   function card(service) {
     const ready = service.adapter === 'Generic HTTPS adapter ready';
     const limited = service.adapter === 'AI Brain only' || service.adapter === 'Platform payments only';
-    const canConnect = service.enabled !== false;
-    const buttonLabel = service.type === 'ai' ? 'Open AI setup' : canConnect ? 'Connect' : 'Not available yet';
+    const oauthConfigured = !service.oauthService || oauthReadiness[service.oauthService]?.configured === true;
+    const oauthLabel = service.oauthService ? (oauthConfigured ? 'Server keys present' : 'Setup required') : service.oauth;
+    const refreshState = service.oauthService ? oauthReadiness[service.oauthService] : null;
+    const refreshLabel = service.oauthService ? (refreshState ? (refreshState.refreshSupported ? 'Refresh: supported' : 'Refresh: reconnect required') : 'Refresh: checking') : '';
+    const canConnect = service.enabled !== false && oauthConfigured;
+    const buttonLabel = service.type === 'ai' ? 'Open AI setup' : service.oauthService ? (oauthConfigured ? 'Connect with OAuth' : 'OAuth setup required') : canConnect ? 'Connect' : 'Not available yet';
     return '<article class="pc-cat-card" data-pc-cat-card data-pc-cat-name="' + esc((service.name + ' ' + service.category + ' ' + service.method).toLowerCase()) + '">' +
       '<div class="pc-cat-card-top">' + logo(service) + '<div style="min-width:0"><div class="pc-cat-name">' + esc(service.name) + '</div><div class="pc-cat-kind">' + esc(service.category) + '</div></div></div>' +
-      '<div class="pc-cat-tags"><span class="pc-cat-tag">' + esc(service.method) + '</span><span class="pc-cat-tag ' + (service.oauth.toLowerCase().includes('not available') || service.oauth.toLowerCase().includes('not yet') ? 'limited' : '') + '">OAuth: ' + esc(service.oauth) + '</span><span class="pc-cat-tag ' + (ready ? 'ready' : limited ? 'limited' : '') + '">Project adapter: ' + esc(service.adapter) + '</span></div>' +
+      '<div class="pc-cat-tags"><span class="pc-cat-tag">' + esc(service.method) + '</span><span class="pc-cat-tag ' + (service.oauth.toLowerCase().includes('not available') || service.oauth.toLowerCase().includes('not yet') ? 'limited' : '') + '">OAuth: ' + esc(oauthLabel) + '</span>' + (service.oauthService ? '<span class="pc-cat-tag">' + esc(refreshLabel) + '</span>' : '') + '<span class="pc-cat-tag ' + (ready ? 'ready' : limited ? 'limited' : '') + '">Project adapter: ' + esc(service.adapter) + '</span></div>' +
       '<div class="pc-cat-detail">' + esc(service.detail) + '</div>' +
       '<div class="pc-cat-action"><button class="pc-cat-connect" type="button" data-pc-cat-connect="' + esc(service.id) + '"' + (canConnect ? '' : ' disabled') + '>' + esc(buttonLabel) + '</button></div></article>';
   }
@@ -98,7 +103,7 @@
     section.innerHTML = '<div class="pc-cat-head"><div><div class="pc-cat-title">Service catalogue</div><div class="pc-cat-subtitle">Browse recognizable services, see the connection method OVYX can accept today, and check OAuth and project-adapter readiness before connecting.</div></div><span class="pc-cat-summary">1 generic project adapter · 0 native provider adapters</span></div>' +
       '<div class="pc-cat-tools"><div class="pc-cat-filters">' + CATEGORIES.map(item => '<button type="button" class="pc-cat-filter" data-pc-cat-filter="' + esc(item) + '" aria-pressed="' + String(item === category) + '">' + esc(item) + '</button>').join('') + '</div><input class="pc-cat-search" type="search" data-pc-cat-search placeholder="Find a service…" aria-label="Search service catalogue"></div>' +
       '<div class="pc-cat-grid" data-pc-cat-grid></div>' +
-      '<div class="pc-cat-footnote"><b>What “ready” means:</b> the generic HTTPS adapter can call an owner-supplied endpoint after a project is explicitly granted permission. It does not provide provider-specific workflows. AI keys are for the personal Brain fallback only. OVYX platform payment routes and the separate GitHub account OAuth flow are not counted as generated-project adapters. OAuth-only services stay unavailable here until their full consent, callback, token-refresh and revocation flow is implemented.</div>';
+      '<div class="pc-cat-footnote"><b>What “ready” means:</b> the generic HTTPS adapter can call an owner-supplied endpoint after a project is explicitly granted permission. It does not provide provider-specific workflows. AI keys are for the personal Brain fallback only. OVYX platform payment routes and the separate GitHub account OAuth flow are not counted as generated-project adapters. OAuth-enabled services use a real consent and callback flow when the server app credentials are configured. They still use the generic HTTPS adapter; native provider workflows are shown only after separately verified adapters are implemented.</div>';
     panel.insertBefore(section, $('.pc-stats', panel));
     section.querySelectorAll('[data-pc-cat-filter]').forEach(button => button.addEventListener('click', () => { category = button.dataset.pcCatFilter; render(panel); }));
     $('[data-pc-cat-search]', section).addEventListener('input', event => { query = event.target.value.toLowerCase().trim(); render(panel); const input = $('[data-pc-cat-search]', section); input.focus(); input.setSelectionRange(query.length, query.length); });
@@ -108,6 +113,10 @@
   function connect(id, panel) {
     const service = SERVICES.find(item => item.id === id);
     if (!service || service.enabled === false) return;
+    if (service.oauthService) {
+      window.dispatchEvent(new CustomEvent('ovyx:connection-oauth-start', { detail:{ service:service.oauthService } }));
+      return;
+    }
     if (service.type === 'ai') {
       const button = $('[data-ovyx-personal-ai-manager]', panel);
       if (!button) return;
@@ -151,6 +160,8 @@
     if (!root || !$('.pc-hero', root) || $('.pc-catalogue', root)) return;
     styles();
     catalogue(root);
+    if (window.__OVYX_CONNECTION_OAUTH_READINESS__) { oauthReadiness = window.__OVYX_CONNECTION_OAUTH_READINESS__; render(root); }
+    window.addEventListener('ovyx:connection-oauth-readiness', event => { oauthReadiness = event.detail || {}; render(root); });
   }
 
   function boot() {
