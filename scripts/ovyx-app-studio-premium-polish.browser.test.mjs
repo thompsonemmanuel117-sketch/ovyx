@@ -47,7 +47,7 @@ window.__OVYX_PROJECT_BRAIN_REPORT__=null;
 window.ThemeContext={
   theme:{mode:'dark',backgroundColor:'#050607',sidebarColor:'#050607',cardColor:'#0B0D10',borderColor:'#1B222A',textColor:'#F8FAFC',mutedColor:'#94A3B8',accentColor:'#E8B64F'},
   get(){return {...this.theme}},
-  preview(patch){this.theme={...this.theme,...patch};return this.theme},
+  preview(patch){this.theme={...this.theme,...patch};document.dispatchEvent(new CustomEvent('ovyx:theme-applied',{detail:{effective:{...this.theme},reason:'preview'}}));return this.theme},
   set(patch){return this.preview(patch)},
   isDirty(){return true}
 };
@@ -95,6 +95,15 @@ try {
   const desktopPolish = await desktop.evaluate(() => {
     window.OVYXThemeLab.set('custom_test');
     const theme = window.ThemeContext.get();
+    const root = getComputedStyle(document.documentElement);
+    const effective = {
+      backgroundColor: root.getPropertyValue('--bg').trim(),
+      cardColor: root.getPropertyValue('--card').trim(),
+      textColor: root.getPropertyValue('--text').trim(),
+      mutedColor: root.getPropertyValue('--muted').trim(),
+      accentColor: root.getPropertyValue('--accent').trim(),
+      borderColor: root.getPropertyValue('--border').trim()
+    };
     const luminance = color => {
       const rgb = color.slice(1).match(/.{2}/g).map(value => parseInt(value, 16) / 255)
         .map(value => value <= .04045 ? value / 12.92 : Math.pow((value + .055) / 1.055, 2.4));
@@ -105,11 +114,11 @@ try {
       return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);
     };
     return {
-      theme,
-      textContrast: Math.min(ratio(theme.textColor,theme.backgroundColor),ratio(theme.textColor,theme.cardColor)),
-      mutedContrast: Math.min(ratio(theme.mutedColor,theme.backgroundColor),ratio(theme.mutedColor,theme.cardColor)),
-      accentContrast: Math.min(ratio(theme.accentColor,theme.backgroundColor),ratio(theme.accentColor,theme.cardColor)),
-      borderContrast: ratio(theme.borderColor,theme.cardColor),
+      theme, effective,
+      textContrast: Math.min(ratio(effective.textColor,effective.backgroundColor),ratio(effective.textColor,effective.cardColor)),
+      mutedContrast: Math.min(ratio(effective.mutedColor,effective.backgroundColor),ratio(effective.mutedColor,effective.cardColor)),
+      accentContrast: Math.min(ratio(effective.accentColor,effective.backgroundColor),ratio(effective.accentColor,effective.cardColor)),
+      borderContrast: ratio(effective.borderColor,effective.cardColor),
       bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom
     };
   });
@@ -117,6 +126,8 @@ try {
   assert.ok(desktopPolish.mutedContrast >= 4.5, 'Muted theme text must retain readable contrast: ' + JSON.stringify(desktopPolish));
   assert.ok(desktopPolish.accentContrast >= 3, 'Theme accents must remain distinguishable: ' + JSON.stringify(desktopPolish));
   assert.ok(desktopPolish.borderContrast >= 1.5, 'Theme borders must remain visible against cards: ' + JSON.stringify(desktopPolish));
+  assert.equal(desktopPolish.theme.textColor, '#111111', 'Contrast protection must not overwrite the user-selected color stored for export.');
+  assert.equal(desktopPolish.theme.accentColor, '#010101', 'Contrast protection must not rewrite the original Theme Lab accent in saved/exported theme data.');
   assert.equal(desktopPolish.bottomPadding, '22px', 'App Studio should not reserve the old excessive 72px bottom gap.');
 
   assert.equal(await desktop.locator('#view-appstudio > #ovyx-app-studio-experience').count(), 1, 'The new guided workspace header must be mounted once at the top.');
