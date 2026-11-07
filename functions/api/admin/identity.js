@@ -1,6 +1,7 @@
 import { verifyFirebaseIdToken, normalizeEmail } from '../_lib/auth.js';
 import { getFirestoreData, setFirestoreDocument } from '../../_lib/firebase-admin.js';
 import { errorResponse, jsonResponse, readJson, requestId, enforceSameOrigin } from '../_lib/http.js';
+import { recordAdminAuditEvent } from '../../_lib/admin-audit.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const DEFAULT_IDENTITY = Object.freeze({ assistantName: 'OVYX AI', persona: '', markColor: '#E8B64F' });
@@ -53,6 +54,7 @@ export async function onRequestPost(context) {
       updatedAt,
       updatedBy
     }, { merge: true });
+    await recordAdminAuditEvent(context.env, { actor: auth.user, action: 'ai.identity.updated', resource: 'system/config/aiIdentity', requestId: id });
     return jsonResponse({ ok: true, identity, updatedAt, authority: 'SERVER', scope: 'global' }, 200, {
       'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0'
     });
