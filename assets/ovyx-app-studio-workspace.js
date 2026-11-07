@@ -102,6 +102,8 @@
     section.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
     section.setAttribute('tabindex', '-1');
     try { section.focus({ preventScroll: true }); } catch (_) { section.focus(); }
+    const buttons = Array.from(dock.querySelectorAll('[data-ovyx-as-workspace-target]'));
+    buttons.forEach(item => item.removeAttribute('aria-current'));
     const button = $(dock, '[data-ovyx-as-workspace-target="' + id + '"]');
     if (button) button.setAttribute('aria-current', 'location');
     announce(dock, 'Opened ' + (SECTIONS.find(item => item.id === id)?.label || 'workspace') + '.', 'success');
