@@ -103,7 +103,7 @@
     section.setAttribute('tabindex', '-1');
     try { section.focus({ preventScroll: true }); } catch (_) { section.focus(); }
     const button = $(dock, '[data-ovyx-as-workspace-target="' + id + '"]');
-    if (button) button.focus({ preventScroll: true });
+    if (button) button.setAttribute('aria-current', 'location');
     announce(dock, 'Opened ' + (SECTIONS.find(item => item.id === id)?.label || 'workspace') + '.', 'success');
     refresh(root);
   }
@@ -164,17 +164,21 @@
       summary.dataset.ovyxAsProjectState = '';
       overview.insertBefore(summary, overview.firstChild);
     }
-    summary.replaceChildren();
     const states = [
       ['Project', snapshot.generated ? snapshot.name : 'Not generated'],
       ['Quality', snapshot.quality],
       ['Cloud save', snapshot.saved ? 'Saved' : 'Device / preview only'],
       ['Release', snapshot.release]
     ];
-    for (const pair of states) {
-      const item = element('div', 'ovyx-as-project-state__item');
+    const signature = JSON.stringify(states);
+    if (summary.dataset.snapshot !== signature) {
+      summary.dataset.snapshot = signature;
+      summary.replaceChildren();
+      for (const pair of states) {
+        const item = element('div', 'ovyx-as-project-state__item');
       item.append(element('span', '', pair[0]), element('strong', '', pair[1]));
-      summary.appendChild(item);
+        summary.appendChild(item);
+      }
     }
     const buttons = Array.from(dock.querySelectorAll('[data-ovyx-as-workspace-target]'));
     for (const button of buttons) {
