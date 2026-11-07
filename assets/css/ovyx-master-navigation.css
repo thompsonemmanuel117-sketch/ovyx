@@ -60,6 +60,7 @@
 #app-sidebar .ovyx-master-nav-added .ovyx-nav-icon{
   color:var(--ovyx-ds-gold,#e8b64f);
 }
+#app-sidebar .ovyx-master-nav-group[hidden],
 #app-sidebar .ovyx-master-nav-group [hidden],
 #mobile-drawer .ovyx-master-nav-group[hidden],
 #mobile-drawer .ovyx-master-nav-group [hidden]{
