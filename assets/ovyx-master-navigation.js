@@ -267,10 +267,10 @@
     if (menu && menu.dataset.ovyxMasterMenuBound !== '1') {
       menu.dataset.ovyxMasterMenuBound = '1';
       menu.removeAttribute('onclick');
-      menu.addEventListener('click', function (event) {
+      menu.onclick = function (event) {
         event.preventDefault();
         shell.toggleOrOpen();
-      });
+      };
     }
   }
 
