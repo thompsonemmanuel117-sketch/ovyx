@@ -558,8 +558,8 @@ try {
     assert.deepEqual(errors, [], `[${target.name}] assistant runtime errors: ${errors.join('; ')}`);
 
     if (target.name === 'mobile') {
-      // Closing the assistant must restore the Home dock after its temporary
-      // inline styles have been released.
+      // Close the native assistant first; its full-screen mobile panel owns
+      // pointer input until hidden and the Home dock has been restored.
       await page.evaluate(() => window.WorkspaceBrainBot.close());
       await page.waitForFunction(() => {
         const dock = document.getElementById('ovyx-v52-bottom-bar');
@@ -567,9 +567,90 @@ try {
         return dock && assistant && getComputedStyle(assistant).display === 'none' &&
           getComputedStyle(dock).display === 'grid';
       }, null, { timeout: 8000 });
+
+      // Remove only the floating shells introduced by the assistant test so the
+      // real OVYX navigation receives genuine pointer input.
+      await page.evaluate(() => {
+        ['test-floating-shell', 'test-typing-dock-shell', 'test-keyboard-floating-shell'].forEach(id => {
+          document.getElementById(id)?.remove();
+        });
+        document.getElementById('test-opaque-dock-styles')?.remove();
+      });
+
+      // Reproduce the legacy router mismatch: Home can retain aria-hidden=false
+      // after its .hidden class has changed. The actual visible route and
+      // KernelState must win; stale accessibility metadata must not reveal Home.
+      await page.evaluate(() => {
+        const home = document.getElementById('view-home');
+        const projects = document.getElementById('view-projects');
+        if (!home || !projects) throw new Error('The Home and Projects routes are required for the dock regression.');
+        home.classList.add('hidden');
+        home.setAttribute('aria-hidden', 'false');
+        projects.classList.remove('hidden');
+        projects.setAttribute('aria-hidden', 'false');
+        window.KernelState.activeView = 'projects';
+        window.OVYXMobileDockAuthority?.sync?.();
+      });
+      await page.waitForFunction(() => {
+        const home = document.getElementById('view-home');
+        const projects = document.getElementById('view-projects');
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        return home?.classList.contains('hidden') && !projects?.classList.contains('hidden') &&
+          window.KernelState?.activeView === 'projects' && dock &&
+          getComputedStyle(dock).display === 'none';
+      }, null, { timeout: 8000 });
+
+      // Restore the real dashboard through the app router, then exercise the
+      // visible Build control (which calls the V52 mount function directly).
+      await page.evaluate(() => window.Router?.go?.('home'));
+      await page.waitForFunction(() => {
+        const home = document.getElementById('view-home');
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        return window.KernelState?.activeView === 'home' && home && !home.classList.contains('hidden') &&
+          dock && getComputedStyle(dock).display === 'grid';
+      }, null, { timeout: 8000 });
+      await page.locator('#ovyx-v52-bottom-bar [data-v52-bottom="webstudio"]').click();
+      await page.waitForFunction(() => {
+        const studio = document.getElementById('view-webstudio');
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        return window.KernelState?.activeView === 'webstudio' && studio &&
+          !studio.classList.contains('hidden') && dock && getComputedStyle(dock).display === 'none';
+      }, null, { timeout: 12000 });
+
+      // Return Home, open More, and use the Home item inside the drawer. Both
+      // controls must remain clickable and the dock must restore only on Home.
+      await page.evaluate(() => window.Router?.go?.('home'));
+      await page.waitForFunction(() => {
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        return window.KernelState?.activeView === 'home' && dock && getComputedStyle(dock).display === 'grid';
+      }, null, { timeout: 8000 });
+      await page.locator('#ovyx-v52-bottom-bar [data-v52-bottom="more"]').click();
+      await page.waitForFunction(() => {
+        const drawer = document.getElementById('mobile-drawer');
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        return drawer?.getAttribute('aria-hidden') === 'false' && dock &&
+          getComputedStyle(dock).display === 'none';
+      }, null, { timeout: 8000 });
+      await page.locator('#mobile-drawer [data-mobile-nav="home"]').click();
+      await page.waitForFunction(() => {
+        const drawer = document.getElementById('mobile-drawer');
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        return window.KernelState?.activeView === 'home' &&
+          drawer?.getAttribute('aria-hidden') === 'true' && dock &&
+          getComputedStyle(dock).display === 'grid';
+      }, null, { timeout: 10000 });
+
+      // The Code shortcut must still route into the code-capable Web Studio
+      // surface instead of leaving the dashboard dock active over it.
+      await page.locator('#ovyx-v52-bottom-bar [data-v52-bottom="workspace"]').click();
+      await page.waitForFunction(() => {
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        return ['webstudio', 'workspace'].includes(window.KernelState?.activeView) &&
+          dock && getComputedStyle(dock).display === 'none';
+      }, null, { timeout: 12000 });
     }
 
-    console.log(`PASS ${target.name}: real dock isolation, menu actions, read-only tool loop, local-context fallback, explicit approval and verified source update.`);
+    console.log(`PASS ${target.name}: real dock isolation, stale-route recovery, Build/Code/More clicks, menu actions, read-only tool loop, local-context fallback, explicit approval and verified source update.`);
     await page.evaluate(() => {
       document.getElementById('test-typing-dock-shell')?.remove();
       document.getElementById('test-upload-dock-shell')?.remove();
