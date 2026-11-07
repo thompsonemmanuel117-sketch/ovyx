@@ -1,0 +1,64 @@
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+
+const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
+if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local OVYX Pages app.');
+
+const browser = await chromium.launch({ headless: true });
+try {
+  const desktop = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+  desktop.setDefaultTimeout(15000);
+  const errors = [];
+  desktop.on('pageerror', error => errors.push(String(error?.stack || error?.message || error)));
+  await desktop.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await desktop.waitForFunction(() => window.OVYXMasterNavigation?.version === 1, null, { timeout: 45000 });
+  await desktop.waitForFunction(() => document.querySelectorAll('#app-sidebar .ovyx-master-nav-group').length === 6);
+  const desktopGroups = await desktop.locator('#app-sidebar .ovyx-master-nav-group > .ovyx-nav-label').allTextContents();
+  assert.deepEqual(desktopGroups, ['Workspace', 'Build', 'Connect', 'Operate', 'Account', 'Administration']);
+  assert.equal(await desktop.locator('#app-sidebar [data-nav="connections"]').innerText().then(t => t.includes('Personal Connections')), true);
+  assert.equal(await desktop.locator('#app-sidebar [data-nav="kernel-bot"]').innerText().then(t => t.includes('Workspace Repair')), true);
+  assert.equal(await desktop.locator('#app-sidebar [data-nav="admin-overview"]').isVisible(), false,
+    'The existing owner-only Admin Center control must remain hidden for an ordinary signed-out visitor.');
+
+  await desktop.locator('#app-sidebar [data-nav="projects"]').click();
+  await desktop.waitForFunction(() => window.KernelState?.activeView === 'projects');
+  await desktop.waitForFunction(() => document.getElementById('ovyx-master-breadcrumb-current')?.textContent === 'Projects');
+
+  await desktop.locator('#app-sidebar [data-nav="connections"]').click();
+  await desktop.waitForFunction(() => window.KernelState?.activeView === 'settings' && window.OVYXSettings?.current === 'connections');
+  await desktop.waitForFunction(() => document.querySelector('#view-settings [data-settings-panel="connections"]')?.classList.contains('active'));
+  await desktop.waitForFunction(() => document.getElementById('ovyx-master-breadcrumb-current')?.textContent === 'Personal Connections');
+
+  await desktop.locator('#app-sidebar [data-nav="kernel-bot"]').click();
+  await desktop.waitForFunction(() => window.KernelState?.activeView === 'kernel-bot');
+  await desktop.waitForFunction(() => document.getElementById('ovyx-master-breadcrumb-current')?.textContent === 'Workspace Repair');
+  assert.equal(await desktop.locator('#view-webstudio').evaluate(node => node.classList.contains('ovyx-ds')), false,
+    'The shell navigation must not opt Web Studio into platform-wide design-system changes.');
+  assert.deepEqual(errors, [], 'Desktop navigation must not create browser errors: ' + errors.join('; '));
+  await desktop.close();
+
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  mobile.setDefaultTimeout(15000);
+  const mobileErrors = [];
+  mobile.on('pageerror', error => mobileErrors.push(String(error?.stack || error?.message || error)));
+  await mobile.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await mobile.waitForFunction(() => window.OVYXMasterNavigation?.version === 1, null, { timeout: 45000 });
+  await mobile.locator('#ovyx-v34-menu-source').click();
+  const drawer = mobile.locator('#mobile-drawer');
+  await drawer.waitFor({ state: 'visible' });
+  await mobile.waitForFunction(() => document.querySelectorAll('#mobile-drawer .ovyx-master-nav-group').length === 6);
+  const mobileGroups = await mobile.locator('#mobile-drawer .ovyx-master-nav-group > .ovyx-nav-label').allTextContents();
+  assert.deepEqual(mobileGroups, ['Workspace', 'Build', 'Connect', 'Operate', 'Account', 'Administration']);
+  assert.equal(await mobile.locator('#mobile-drawer [data-mobile-nav="connections"]').isVisible(), true);
+  assert.equal(await mobile.locator('#mobile-drawer [data-mobile-nav="admin-overview"]').isVisible(), false,
+    'Mobile Admin Center must remain hidden unless server-verified owner access is available.');
+  await mobile.locator('#mobile-drawer [data-mobile-nav="connections"]').click();
+  await mobile.waitForFunction(() => window.KernelState?.activeView === 'settings' && window.OVYXSettings?.current === 'connections');
+  await mobile.waitForFunction(() => document.getElementById('mobile-current-view')?.textContent === 'Personal Connections');
+  await mobile.waitForFunction(() => document.getElementById('mobile-drawer')?.getAttribute('aria-hidden') === 'true');
+  assert.deepEqual(mobileErrors, [], 'Mobile navigation must not create browser errors: ' + mobileErrors.join('; '));
+  await mobile.close();
+  console.log('OVYX master navigation browser tests passed on desktop and mobile.');
+} finally {
+  await browser.close();
+}
