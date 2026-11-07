@@ -216,7 +216,7 @@
     var account = group('Account', true);
     var administration = group('Administration', true);
 
-    [home, newProject, projects, templates, continueProject, recentProjects].forEach(function (node) {
+    [home, newProject, projects, templates, mobileItem('Inbox', 'Notifications and workspace activity', 'fa-regular fa-bell', 'inbox', function () { openRoute('inbox'); }), continueProject, recentProjects].forEach(function (node) {
       if (node) workspace.items.appendChild(node);
     });
     [web, app, mobileItem('AI Assistant', 'Open your OVYX assistant', 'fa-solid fa-wand-magic-sparkles', 'assistant', openAssistant)]
@@ -224,7 +224,6 @@
     connect.items.appendChild(mobileItem('Personal Connections', 'Apps, APIs and account connections', 'fa-solid fa-plug', 'connections', function () { openSettingsSection('connections'); }));
     [manage, mobileItem('Workspace Repair', 'Inspect and repair supported issues', 'fa-solid fa-screwdriver-wrench', 'kernel-bot', function () { openRoute('kernel-bot'); })]
       .forEach(function (node) { if (node) operate.items.appendChild(node); });
-    account.items.appendChild(mobileItem('Inbox', 'Account and workspace notifications', 'fa-regular fa-bell', 'inbox', function () { openRoute('inbox'); }));
     account.items.appendChild(mobileItem('Plans & Billing', 'Plans and usage options', 'fa-regular fa-credit-card', 'pricing', function () { openRoute('pricing'); }));
     account.items.appendChild(mobileItem('Settings', 'Profile and preferences', 'fa-solid fa-gear', 'settings', function () { openRoute('settings'); }));
     account.items.appendChild(mobileItem('Help & Support', 'Guides and support', 'fa-regular fa-circle-question', 'faq', function () { openRoute('faq'); }));
