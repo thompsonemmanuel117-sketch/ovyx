@@ -737,7 +737,7 @@ export async function testUserConnection(env, user, id) {
           }
           return parsed.toString();
         })();
-    const healthOptions = { method:'GET', headers, redirect:'manual', signal:controller.signal };
+    const healthOptions = { method: 'GET', headers, redirect: 'manual', signal: controller.signal };
     let response = await fetch(healthUrl, healthOptions);
     if (response.status === 401 && record.oauthProvider && record.encryptedRefreshToken) {
       const refreshedToken = await refreshConnectionAccessToken(env, record);
