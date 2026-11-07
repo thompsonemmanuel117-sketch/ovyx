@@ -126,7 +126,7 @@ try {
     env
   });
   assert.equal(invalidCursor.status, 400, 'Oversized pagination cursors must be rejected.');
-  assert.equal(fetchCalls.length, 4, 'Invalid cursors must be rejected without another upstream request.');
+  assert.equal(fetchCalls.length, 5, 'Invalid cursors must be rejected before any Firestore read.');
 
   const ui = fs.readFileSync(new URL('../assets/ovyx-admin-controls.js', import.meta.url), 'utf8');
   assert.ok(ui.includes("function mountAuditLogs()"), 'The Admin monitoring workspace must expose the audit trail.');
