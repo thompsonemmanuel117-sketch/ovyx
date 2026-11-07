@@ -181,6 +181,15 @@
     if (usage) bottom.appendChild(usage);
     nav.dataset.ovyxMasterNav = '1';
     sidebar.classList.add('ovyx-master-navigation-ready');
+
+    function syncDesktopAdminVisibility() {
+      var authorized = !!(window.OVYXAdminWorkspace && typeof window.OVYXAdminWorkspace.isAuthorized === 'function' && window.OVYXAdminWorkspace.isAuthorized());
+      administration.section.hidden = !authorized;
+    }
+    syncDesktopAdminVisibility();
+    window.addEventListener('ovyx-owner-state', syncDesktopAdminVisibility);
+    window.addEventListener('firebase-auth-state-ready', syncDesktopAdminVisibility);
+    window.addEventListener('ovyx:view-changed', syncDesktopAdminVisibility);
   }
 
   function installMobileNavigation() {
