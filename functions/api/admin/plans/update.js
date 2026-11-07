@@ -2,6 +2,7 @@ import { authenticateRequest } from '../../../_lib/firebase.js';
 import { getFirestoreData, setFirestoreDocument } from '../../../_lib/firebase-admin.js';
 import { ROOT_EMAIL } from '../../../_lib/brain/registry.js';
 import { readJson, jsonResponse, requestId } from '../../_lib/http.js';
+import { recordAdminAuditEvent } from '../../../_lib/admin-audit.js';
 
 const ALLOWED_TIERS = new Set(['free', 'pro', 'max']);
 const ALLOWED_FEATURES = new Set(['webStudio','advancedWebStudio','appStudio','gameStudio','aiGeneration','github','cloudflareDeploy','teamWorkspace','templates']);
@@ -89,6 +90,7 @@ export async function onRequest(context){
     await setFirestoreDocument(context.env,'plans','pro',{tier:'pro',pricing:pro,tokenQuota:tokenQuotas.pro,dailyPromptQuota:dailyPromptQuotas.pro,features:planFeatures.pro,updatedAt:next.updatedAt,updatedBy:next.updatedBy},{merge:true});
     await setFirestoreDocument(context.env,'plans','max',{tier:'max',pricing:max,tokenQuota:tokenQuotas.max,dailyPromptQuota:dailyPromptQuotas.max,features:planFeatures.max,updatedAt:next.updatedAt,updatedBy:next.updatedBy},{merge:true});
     await setFirestoreDocument(context.env,'system','config',{pricing:next.pricing,tokenQuotas:next.tokenQuotas,dailyPromptQuotas:next.dailyPromptQuotas,planFeatures:next.planFeatures,planFeaturesManaged:true,accessRules:next.accessRules,gating:next.gating,updatedAt:next.updatedAt,quotaConfigUpdatedAt:next.quotaConfigUpdatedAt,updatedBy:next.updatedBy},{merge:true});
+    await recordAdminAuditEvent(context.env, { actor: user, action: 'plans.features.updated', resource: 'system/config', requestId: id });
     return jsonResponse({ok:true,config:{pricing:next.pricing,tokenQuotas:next.tokenQuotas,dailyPromptQuotas:next.dailyPromptQuotas,planFeatures:next.planFeatures,planFeaturesManaged:true,accessRules:next.accessRules,gating:next.gating},authority:'SERVER_ADMIN'},200,{'X-OVYX-Request-ID':id});
   }catch(error){
     return jsonResponse({ok:false,error:error?.message||'Plan configuration could not be saved.',code:error?.code||'PLAN_UPDATE_FAILED',requestId:id},error?.status||500,{'X-OVYX-Request-ID':id});
