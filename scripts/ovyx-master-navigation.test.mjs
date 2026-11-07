@@ -25,7 +25,7 @@ assert.match(runtime, /toggleOrOpen: function/, 'The existing top-bar menu butto
 assert.match(runtime, /v34-sidebar-collapsed/, 'Desktop sidebar collapse must reuse the existing shell state and CSS contract.');
 assert.match(runtime, /ovyx-primary-nav/);
 assert.match(runtime, /mobile-drawer/);
-assert.ok(!/window\.Router\s*=|Router\.go\s*=|window\.switchView\s*=/.test(runtime), 'The navigation layer must not replace the existing router.');
+assert.ok(!/window\.Router\s*=(?!=)|Router\.go\s*=(?!=)|window\.switchView\s*=(?!=)/.test(runtime), 'The navigation layer must not replace the existing router.');
 assert.ok(!/view-webstudio[^\n]*classList|#view-webstudio/.test(runtime + css), 'The shell navigation must not modify or style Web Studio internals.');
 assert.ok(css.includes('--ovyx-ds-'), 'The master navigation should consume the shared design-system tokens.');
 assert.ok(middleware.includes('/assets/ovyx-master-navigation.js?v=20261107-1'), 'The navigation runtime must be injected into HTML responses.');
