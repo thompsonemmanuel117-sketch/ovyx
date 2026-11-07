@@ -117,6 +117,7 @@
         mode: luminance(hex(theme.bg, '#050607')) > 0.45 ? 'light' : 'dark'
       }));
       context.preview(mapped);
+      try { lab.renderState?.(); } catch (_) {}
       return true;
     };
 
