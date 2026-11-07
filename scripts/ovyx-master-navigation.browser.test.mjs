@@ -69,6 +69,12 @@ try {
   await desktop.locator('#app-sidebar [data-nav="kernel-bot"]').click();
   await desktop.waitForFunction(() => window.KernelState?.activeView === 'kernel-bot');
   await desktop.waitForFunction(() => document.getElementById('ovyx-master-breadcrumb-current')?.textContent === 'Workspace Repair');
+  await desktop.locator('#app-sidebar [data-nav="sites-publishing"]').click();
+  await desktop.waitForFunction(() => window.KernelState?.activeView === 'webstudio' && document.getElementById('ovyx-website-management') && !document.getElementById('ovyx-website-management').hidden);
+  await desktop.waitForFunction(() => document.getElementById('ovyx-master-breadcrumb-group')?.textContent === 'Operate' && document.getElementById('ovyx-master-breadcrumb-current')?.textContent === 'Sites & Publishing');
+  await desktop.evaluate(() => window.OVYXWebsiteManagement?.close?.());
+  await desktop.waitForFunction(() => document.getElementById('ovyx-website-management')?.hidden === true);
+  await desktop.waitForFunction(() => document.getElementById('ovyx-master-breadcrumb-current')?.textContent === 'Web Studio');
   assert.equal(await desktop.locator('#view-webstudio').evaluate(node => node.classList.contains('ovyx-ds')), false,
     'The shell navigation must not opt Web Studio into platform-wide design-system changes.');
   assert.deepEqual(errors, [], 'Desktop navigation must not create browser errors: ' + errors.join('; '));
@@ -92,6 +98,8 @@ try {
   assert.equal(await mobile.locator('#mobile-drawer .ovyx-master-nav-group').first().locator('[data-mobile-nav="inbox"]').count(), 1,
     'Inbox must remain in the Workspace group on mobile, matching desktop navigation.');
 
+  assert.equal(await mobile.locator('#mobile-drawer [data-mobile-nav="sites-publishing"]').isVisible(), true,
+    'Sites & Publishing must be available in the mobile Operate group.');
   assert.equal(await mobile.locator('#mobile-drawer [data-mobile-nav="connections"]').isVisible(), true);
   assert.equal(await mobile.locator('#mobile-drawer [data-mobile-nav="admin-overview"]').isVisible(), false,
     'Mobile Admin Center must remain hidden unless server-verified owner access is available.');
