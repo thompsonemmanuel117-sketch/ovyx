@@ -246,31 +246,22 @@
   }
 
   function installShellToggle() {
-    var shell = Object.assign({}, window.OVYXDesktopShell || {});
-    shell.toggleOrOpen = function () {
-      if (window.innerWidth < 768) {
-        if (window.MobileDrawer && typeof window.MobileDrawer.open === 'function') window.MobileDrawer.open();
-        return;
-      }
-      document.documentElement.classList.toggle('v34-sidebar-collapsed');
-      var collapsed = document.documentElement.classList.contains('v34-sidebar-collapsed');
-      var trigger = document.getElementById('ovyx-v34-menu-source');
-      if (trigger) trigger.setAttribute('aria-expanded', String(!collapsed));
-    };
-    shell.collapse = function () {
-      document.documentElement.classList.add('v34-sidebar-collapsed');
-      var trigger = document.getElementById('ovyx-v34-menu-source');
-      if (trigger) trigger.setAttribute('aria-expanded', 'false');
-    };
-    window.OVYXDesktopShell = shell;
+    var shell = window.OVYXDesktopShell;
     var menu = document.getElementById('ovyx-v34-menu-source');
-    if (menu && menu.dataset.ovyxMasterMenuBound !== '1') {
-      menu.dataset.ovyxMasterMenuBound = '1';
-      menu.removeAttribute('onclick');
-      menu.onclick = function (event) {
-        event.preventDefault();
-        shell.toggleOrOpen();
-      };
+    if (!shell || typeof shell.toggleOrOpen !== 'function' || !menu) return;
+    menu.removeAttribute('onclick');
+    menu.onclick = function (event) {
+      event.preventDefault();
+      shell.toggleOrOpen();
+      if (window.innerWidth < 768) menu.setAttribute('aria-expanded', 'true');
+      else menu.setAttribute('aria-expanded', String(document.documentElement.dataset.ovyxSidebar !== 'collapsed'));
+    };
+    var drawer = document.getElementById('mobile-drawer');
+    if (drawer && drawer.dataset.ovyxMenuStateBound !== '1') {
+      drawer.dataset.ovyxMenuStateBound = '1';
+      new MutationObserver(function () {
+        if (window.innerWidth < 768) menu.setAttribute('aria-expanded', String(drawer.getAttribute('aria-hidden') !== 'true'));
+      }).observe(drawer, { attributes: true, attributeFilter: ['aria-hidden'] });
     }
   }
 
