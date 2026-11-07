@@ -237,6 +237,28 @@
     window.addEventListener('ovyx:view-changed', syncAdminVisibility);
   }
 
+  function installShellToggle() {
+    if (!window.OVYXDesktopShell) {
+      window.OVYXDesktopShell = Object.freeze({
+        toggleOrOpen: function () {
+          if (window.innerWidth < 768) {
+            if (window.MobileDrawer && typeof window.MobileDrawer.open === 'function') window.MobileDrawer.open();
+            return;
+          }
+          document.documentElement.classList.toggle('v34-sidebar-collapsed');
+          var collapsed = document.documentElement.classList.contains('v34-sidebar-collapsed');
+          var trigger = document.getElementById('ovyx-v34-menu-source');
+          if (trigger) trigger.setAttribute('aria-expanded', String(!collapsed));
+        },
+        collapse: function () {
+          document.documentElement.classList.add('v34-sidebar-collapsed');
+          var trigger = document.getElementById('ovyx-v34-menu-source');
+          if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+  }
+
   function installBreadcrumb() {
     var header = document.getElementById('ovyx-topbar');
     if (!header || $('#ovyx-master-breadcrumb', header)) return;
@@ -289,6 +311,7 @@
   function boot() {
     installDesktopNavigation();
     installMobileNavigation();
+    installShellToggle();
     installBreadcrumb();
     syncRoute();
   }
