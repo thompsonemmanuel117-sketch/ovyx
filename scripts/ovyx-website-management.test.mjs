@@ -53,6 +53,12 @@ assert.match(assetsApi, /method === 'DELETE'/, 'The existing owner-scoped asset 
 assert.match(assetsApi, /ASSET_ACCESS_DENIED/, 'Asset deletion must retain server-side ownership checks.');
 
 assert.match(client, /function openWorkspace\(\)/, 'The sidebar entry must open the Manage Website hub rather than the source editor.');
+assert.match(client, /width:100vw;height:100dvh/, 'Manage Website must occupy the full viewport as its own workspace, not a narrow slide-out panel.');
+assert.match(client, /function openWorkspace\(\)[\s\S]*?open\(\);[\s\S]*?return true;/, 'Opening Manage Website must not navigate through Web Studio first.');
+assert.doesNotMatch(client, /function openWorkspace\(\)[\s\S]*?Router\.go\('webstudio'\)/, 'Manage Website navigation must not force Web Studio open.');
+assert.match(client, /ovym-auth-state/, 'Unauthenticated users must see a deliberate sign-in state in the page body.');
+assert.match(client, /footer\.hidden = true/, 'Authentication errors must not be duplicated in the bottom status bar.');
+assert.match(client, /flex-wrap:wrap/, 'Management tabs must wrap on narrow mobile screens instead of overflowing horizontally.');
 assert.match(client, /node\.classList\.toggle\('active', selected\)/, 'The management hub must keep sidebar selection in sync.');
 assert.match(client, /function close\(\)[\s\S]*activeView\(\)/, 'Closing management must restore the active route selection.');
 assert.doesNotMatch(client, /open\(\); render\('content'\)/, 'Project switching must not trigger duplicate content renders.');
