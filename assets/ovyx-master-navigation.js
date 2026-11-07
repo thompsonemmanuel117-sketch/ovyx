@@ -255,6 +255,15 @@
       if (trigger) trigger.setAttribute('aria-expanded', 'false');
     };
     window.OVYXDesktopShell = shell;
+    var menu = document.getElementById('ovyx-v34-menu-source');
+    if (menu && menu.dataset.ovyxMasterMenuBound !== '1') {
+      menu.dataset.ovyxMasterMenuBound = '1';
+      menu.removeAttribute('onclick');
+      menu.addEventListener('click', function (event) {
+        event.preventDefault();
+        shell.toggleOrOpen();
+      });
+    }
   }
 
   function installBreadcrumb() {
