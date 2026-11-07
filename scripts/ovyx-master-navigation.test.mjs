@@ -21,8 +21,9 @@ assert.match(runtime, /OVYXAdminWorkspace[\s\S]*isAuthorized/, 'Mobile administr
 assert.match(runtime, /header-ai-project-bot/, 'Assistant navigation must reuse the existing assistant control.');
 assert.match(runtime, /ovyx:view-changed/, 'Breadcrumb and active navigation must follow the existing route event.');
 assert.match(runtime, /mobile-current-view/, 'Mobile drawer context must stay synchronized with the active route.');
-assert.ok(runtime.includes('shell.toggleOrOpen = function'), 'The existing top-bar menu button must open the mobile drawer or toggle the desktop sidebar.');
-assert.match(runtime, /v34-sidebar-collapsed/, 'Desktop sidebar collapse must reuse the existing shell state and CSS contract.');
+assert.ok(runtime.includes('var shell = window.OVYXDesktopShell;') && runtime.includes('shell.toggleOrOpen();'), 'The menu must delegate to the existing canonical desktop shell controller.');
+assert.ok(!runtime.includes('window.OVYXDesktopShell ='), 'The navigation layer must not replace the existing shell controller or its saved-state methods.');
+assert.ok(runtime.includes('document.documentElement.dataset.ovyxSidebar'), 'Menu state must use the canonical data-ovyx-sidebar contract, not a parallel collapse class.');
 assert.match(runtime, /ovyx-primary-nav/);
 assert.match(runtime, /mobile-drawer/);
 assert.ok(!/window\.Router\s*=(?!=)|Router\.go\s*=(?!=)|window\.switchView\s*=(?!=)/.test(runtime), 'The navigation layer must not replace the existing router.');
