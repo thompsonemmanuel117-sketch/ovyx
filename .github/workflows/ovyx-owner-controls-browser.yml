@@ -20,6 +20,7 @@ on:
       - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
       - 'scripts/ovyx-admin-workspace.browser.test.mjs'
       - 'scripts/ovyx-admin-workspace.test.mjs'
+      - 'scripts/ovyx-admin-audit-logs.test.mjs'
       - 'scripts/ovyx-admin-hub.test.mjs'
       - 'scripts/ovyx-published-templates.test.mjs'
       - 'index.html'
@@ -77,6 +78,7 @@ jobs:
       - name: Run owner controls and server entitlement contracts
         run: |
           node scripts/ovyx-owner-controls-live.test.mjs
+          node scripts/ovyx-admin-audit-logs.test.mjs
           node scripts/ovyx-admin-workspace.test.mjs
           node scripts/ovyx-admin-hub.test.mjs
           node scripts/ovyx-published-templates.test.mjs
