@@ -3,6 +3,7 @@ import { verifyFirebaseIdToken, normalizeEmail } from '../../_lib/auth.js';
 import { isRootUser } from '../../_lib/brain/registry.js';
 import { sendUserPushNotification } from '../_lib/admin-push.js';
 import { sendBroadcastEmails } from '../_lib/broadcast-mailer.js';
+import { recordAdminAuditEvent } from '../../_lib/admin-audit.js';
 import {
   listFirestoreDocuments,
   getFirestoreDataAtPath,
@@ -180,6 +181,7 @@ export async function onRequestPost(context) {
         updatedAt: now,
         unpublishedBy: { uid: String(auth.user?.uid || ''), email: normalizeEmail(auth.user?.email) }
       }, { merge: true });
+      await recordAdminAuditEvent(context.env, { actor: auth.user, action: 'broadcast.unpublished', resource: COLLECTION + '/' + announcementId, requestId: id });
       return jsonResponse({ ok: true, action, id: announcementId, published: false, updatedAt: now, scope: 'global' }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
     }
     if (action !== 'publish') return errorResponse(400, 'BROADCAST_ACTION_NOT_ALLOWED', 'Supported actions: publish and unpublish.');
@@ -262,6 +264,7 @@ export async function onRequestPost(context) {
       }));
     }
     const [pushDelivery, emailDelivery] = await Promise.all(deliveryJobs);
+    await recordAdminAuditEvent(context.env, { actor: auth.user, action: 'broadcast.published', resource: COLLECTION + '/' + announcementId, requestId: id });
 
     return jsonResponse(
       {
