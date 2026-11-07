@@ -222,7 +222,7 @@ try {
   assert.notEqual(mobileShell.backgroundImage, 'none', 'The dock must retain its own themed surface instead of being flattened into the page canvas.');
   assert.equal(mobileShell.topRadius, '18px', 'The integrated dock should keep a soft top edge.');
   assert.equal(mobileShell.height, 64, 'The integrated dock must preserve the established 64px navigation height.');
-  assert.equal(mobileShell.shellPadding, '18px', 'The dashboard must not leave the old oversized 190px blank runway.');
+  assert.equal(mobileShell.shellPadding, '108px', 'The dashboard must keep a modest scroll clearance so its final card can clear the fixed dock without restoring the old oversized 190px runway.');
   assert.match(mobileShell.viewportPadding, /76px/, 'The scroll viewport must reserve only enough room for the attached dock.');
   const animation = await mobile.locator('#ovyx-app-studio-experience').evaluate(el => getComputedStyle(el).animationDuration);
   assert.ok(['1e-05s', '0.00001s', '0.01ms'].includes(animation) || parseFloat(animation) <= 0.00001,
