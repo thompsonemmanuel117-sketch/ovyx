@@ -218,7 +218,12 @@
             var firebase = window.firebase;
             var storage = firebase && typeof firebase.storage === 'function' ? firebase.storage() : null;
             if (!storage || typeof storage.ref !== 'function') throw new Error('Secure project storage is unavailable. The image was not deleted.');
-            await storage.ref(String(asset.storagePath)).delete();
+            try {
+              await storage.ref(String(asset.storagePath)).delete();
+            } catch (storageError) {
+              // A previous attempt may have removed the object before its metadata request failed.
+              if (String(storageError && storageError.code || '') !== 'storage/object-not-found') throw storageError;
+            }
             await request('/api/assets?projectId=' + encodeURIComponent(p.id), {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
