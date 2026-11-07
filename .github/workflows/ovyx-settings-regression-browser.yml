@@ -7,26 +7,35 @@ on:
     paths:
       - 'index.html'
       - 'assets/ovyx-settings-reliability.js'
+      - 'assets/ovyx-settings-billing-live.js'
+      - 'assets/ovyx-account-notifications.js'
       - 'assets/ovyx-personal-connections-center.js'
       - 'assets/ovyx-webstudio-cancel-safety.js'
       - 'assets/ovyx-scoped-rollback.js'
-      - 'assets/ovyx-scoped-rollback.js'
       - '_routes.json'
+      - '_headers'
       - 'functions/_middleware.js'
+      - 'functions/api/settings/**'
+      - 'functions/api/payments/**'
+      - 'functions/api/tokens/**'
+      - 'functions/api/account/delete.js'
+      - 'functions/api/api/auth/revoke-sessions.js'
       - 'scripts/cloudflare-application-shell.mjs'
       - 'scripts/ovyx-static-verify.mjs'
       - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
-      - '_headers'
       - 'scripts/ovyx-settings-actions.test.mjs'
+      - 'scripts/ovyx-settings.browser.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
+      - 'scripts/ovyx-settings-account.browser.test.mjs'
+      - 'scripts/ovyx-settings-security.browser.test.mjs'
+      - 'scripts/ovyx-settings-ai.browser.test.mjs'
+      - 'scripts/ovyx-settings-workspace.browser.test.mjs'
+      - 'scripts/ovyx-settings-shortcuts.browser.test.mjs'
       - 'scripts/ovyx-personal-connections.browser.test.mjs'
       - 'scripts/ovyx-cancel-safety.browser.test.mjs'
       - 'scripts/ovyx-mobile-back-navigation.browser.test.mjs'
       - 'scripts/ovyx-scoped-rollback-performance.browser.test.mjs'
       - 'scripts/ovyx-scoped-rollback-graph.browser.test.mjs'
-      - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
-      - 'scripts/cloudflare-application-shell.mjs'
-      - 'scripts/ovyx-static-verify.mjs'
       - '.github/workflows/ovyx-settings-regression-browser.yml'
   pull_request:
     branches:
@@ -34,26 +43,35 @@ on:
     paths:
       - 'index.html'
       - 'assets/ovyx-settings-reliability.js'
+      - 'assets/ovyx-settings-billing-live.js'
+      - 'assets/ovyx-account-notifications.js'
       - 'assets/ovyx-personal-connections-center.js'
       - 'assets/ovyx-webstudio-cancel-safety.js'
       - 'assets/ovyx-scoped-rollback.js'
-      - 'assets/ovyx-scoped-rollback.js'
       - '_routes.json'
+      - '_headers'
       - 'functions/_middleware.js'
+      - 'functions/api/settings/**'
+      - 'functions/api/payments/**'
+      - 'functions/api/tokens/**'
+      - 'functions/api/account/delete.js'
+      - 'functions/api/api/auth/revoke-sessions.js'
       - 'scripts/cloudflare-application-shell.mjs'
       - 'scripts/ovyx-static-verify.mjs'
       - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
-      - '_headers'
       - 'scripts/ovyx-settings-actions.test.mjs'
+      - 'scripts/ovyx-settings.browser.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
+      - 'scripts/ovyx-settings-account.browser.test.mjs'
+      - 'scripts/ovyx-settings-security.browser.test.mjs'
+      - 'scripts/ovyx-settings-ai.browser.test.mjs'
+      - 'scripts/ovyx-settings-workspace.browser.test.mjs'
+      - 'scripts/ovyx-settings-shortcuts.browser.test.mjs'
       - 'scripts/ovyx-personal-connections.browser.test.mjs'
       - 'scripts/ovyx-cancel-safety.browser.test.mjs'
       - 'scripts/ovyx-mobile-back-navigation.browser.test.mjs'
       - 'scripts/ovyx-scoped-rollback-performance.browser.test.mjs'
       - 'scripts/ovyx-scoped-rollback-graph.browser.test.mjs'
-      - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
-      - 'scripts/cloudflare-application-shell.mjs'
-      - 'scripts/ovyx-static-verify.mjs'
       - '.github/workflows/ovyx-settings-regression-browser.yml'
   workflow_dispatch:
 
@@ -63,7 +81,7 @@ permissions:
 jobs:
   settings-regression-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -94,22 +112,28 @@ jobs:
           cat /tmp/ovyx-settings-pages.log
           exit 1
 
-      - name: Verify static Profile, Appearance and scoped-cancel contracts
+      - name: Verify Settings contracts and server-backed billing boundaries
         run: |
           npm run validate
           node scripts/ovyx-settings-actions.test.mjs
           node scripts/ovyx-cloudflare-diagnostics.test.mjs
 
-      - name: Test Profile, Appearance, app-wide rollback and mobile Back in Chromium
+      - name: Test every Settings category and its existing actions in desktop and mobile Chromium
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8791
         run: |
+          node scripts/ovyx-settings.browser.test.mjs
+          node scripts/ovyx-settings-core.browser.test.mjs
+          node scripts/ovyx-settings-account.browser.test.mjs
+          node scripts/ovyx-settings-security.browser.test.mjs
+          node scripts/ovyx-settings-ai.browser.test.mjs
+          node scripts/ovyx-settings-workspace.browser.test.mjs
+          node scripts/ovyx-settings-shortcuts.browser.test.mjs
+          node scripts/ovyx-personal-connections.browser.test.mjs
           node scripts/ovyx-cancel-safety.browser.test.mjs
           node scripts/ovyx-scoped-rollback-performance.browser.test.mjs
           node scripts/ovyx-scoped-rollback-graph.browser.test.mjs
           node scripts/ovyx-mobile-back-navigation.browser.test.mjs
-          node scripts/ovyx-settings-core.browser.test.mjs
-          node scripts/ovyx-personal-connections.browser.test.mjs
 
       - name: Print local Pages logs on failure
         if: failure()
