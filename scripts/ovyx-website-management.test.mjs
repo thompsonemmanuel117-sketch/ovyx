@@ -53,10 +53,12 @@ assert.match(assetsApi, /method === 'DELETE'/, 'The existing owner-scoped asset 
 assert.match(assetsApi, /ASSET_ACCESS_DENIED/, 'Asset deletion must retain server-side ownership checks.');
 
 assert.ok(client.includes('function setDashboardBottomNavHidden(hidden)'), 'Manage Website must explicitly control visibility of the mobile dashboard navigation.');
-assert.ok(client.includes('function findDashboardBottomNav()'), 'Manage Website must locate the real dashboard bottom navigation from its visible controls, not require a custom data attribute.');
-assert.match(client, /\['home', 'build', 'new', 'code', 'more'\]/, 'Bottom navigation detection must match all five dashboard controls.');
-assert.ok(client.includes('watchDashboardBottomNav()'), 'The dashboard bottom navigation must remain hidden if the app re-renders while Manage Website is open.');
-assert.match(client, /ovym-dashboard-bottom-nav-hidden/, 'The dashboard bottom navigation must be fully hidden while Manage Website is open.');
+assert.ok(client.includes('function isManageDashboardDock(node)'), 'Manage Website must detect the real dock by computed positioning and viewport geometry, matching the proven Assistant shield.');
+assert.ok(client.includes("['display', 'visibility', 'opacity', 'pointer-events', 'transform']"), 'Manage Website must suppress dock visibility and interaction, not rely on a class alone.');
+assert.ok(client.includes('function syncDashboardBottomNavigation(forceHidden)'), 'Manage Website must reassert dock suppression when dashboard controllers update it.');
+assert.ok(client.includes('attributeFilter: [\'class\', \'style\', \'hidden\', \'aria-hidden\']'), 'Manage Website must watch dashboard dock state mutations.');
+assert.ok(client.includes('window.visualViewport.addEventListener'), 'Manage Website must track mobile visual viewport changes.');
+assert.match(client, /ovym-dashboard-bottom-nav-suppressed/, 'The dashboard bottom navigation must be fully hidden while Manage Website is open.');
 assert.ok(client.includes('setDashboardBottomNavHidden(true)'), 'Opening Manage Website must hide the dashboard bottom navigation.');
 assert.ok(client.includes('setDashboardBottomNavHidden(false)'), 'Closing Manage Website must restore the dashboard bottom navigation.');
 assert.match(client, /function openWorkspace\(\)/, 'The sidebar entry must open the Manage Website hub rather than the source editor.');

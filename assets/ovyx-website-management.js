@@ -71,44 +71,120 @@
     busy = !!value;
     if (panel) panel.querySelectorAll('button,input,textarea').forEach(function (node) { node.disabled = busy; });
   }
-  function findDashboardBottomNav() {
-    var labels = ['home', 'build', 'new', 'code', 'more'];
-    var nodes = document.querySelectorAll('body *');
-    var best = null;
-    nodes.forEach(function (candidate) {
-      if (!candidate || candidate.id === ROOT || (candidate.closest && candidate.closest('#' + ROOT))) return;
-      var rect = candidate.getBoundingClientRect ? candidate.getBoundingClientRect() : null;
-      if (!rect || rect.height < 36 || rect.height > 180 || rect.width < Math.min(260, window.innerWidth * 0.55)) return;
-      if (rect.bottom < window.innerHeight - 8 || rect.top > window.innerHeight - 1) return;
-      var text = String(candidate.innerText || candidate.textContent || '').toLowerCase().replace(/\s+/g, ' ');
-      if (!labels.every(function (label) { return new RegExp('(^|\\\\s)' + label + '($|\\\\s)').test(text); })) return;
-      var node = candidate, depth = 0, fixed = null;
-      while (node && node !== document.body && depth < 10) {
-        var computed = window.getComputedStyle ? window.getComputedStyle(node) : null;
-        if (computed && computed.position === 'fixed') { var fixedRect = node.getBoundingClientRect(); if (fixedRect.height <= 180 && fixedRect.width >= Math.min(260, window.innerWidth * 0.55)) fixed = node; break; }
-        node = node.parentElement; depth += 1;
-      }
-      var target = fixed || candidate;
-      if (!best || target.getBoundingClientRect().height < best.getBoundingClientRect().height) best = target;
+  var MANAGE_DOCK_CLASS = 'ovym-dashboard-bottom-nav-suppressed';
+  var manageDockStyles = new WeakMap();
+  var MANAGE_DOCK_PROPERTIES = ['display', 'visibility', 'opacity', 'pointer-events', 'transform'];
+  function isManageDashboardDock(node) {
+    if (!(node instanceof HTMLElement) || node === panel ||
+        (panel && (panel.contains(node) || node.contains(panel))) ||
+        (node.closest && node.closest('#' + ROOT))) return false;
+    var styles = window.getComputedStyle(node);
+    var anchored = styles.position === 'fixed' || styles.position === 'sticky';
+    var identity = String(node.id || '') + ' ' + (typeof node.className === 'string' ? node.className : '');
+    var navigationLike = node.matches('nav,[role="navigation"]') ||
+      /(?:bottom|navigation|navbar|nav[-_ ]?bar|toolbar|dock)/i.test(identity);
+    if (!anchored && !navigationLike) return false;
+    var rect = node.getBoundingClientRect();
+    var vv = window.visualViewport;
+    var bottoms = [window.innerHeight || 0, document.documentElement.clientHeight || 0,
+      vv && vv.height || 0, vv ? (vv.offsetTop || 0) + (vv.height || 0) : 0]
+      .filter(function (value, index, values) { return value > 0 && values.indexOf(value) === index; });
+    var touchesBottom = bottoms.some(function (bottom) {
+      return rect.bottom >= bottom - 48 && rect.top >= bottom - 440 && rect.top <= bottom + 48;
     });
-    return best;
+    return rect.height >= 18 && rect.height <= 420 && rect.width > 0 && touchesBottom;
   }
-  function setDashboardBottomNavHidden(hidden) {
-    var hiddenClass = 'ovym-dashboard-bottom-nav-hidden';
-    if (hidden) {
-      var target = findDashboardBottomNav();
-      if (target && !target.classList.contains(hiddenClass)) target.classList.add(hiddenClass);
-    } else {
-      document.querySelectorAll('.' + hiddenClass).forEach(function (node) { node.classList.remove(hiddenClass); });
+  function managePanelVisible() {
+    if (!panel || panel.hidden || panel.getAttribute('aria-hidden') === 'true') return false;
+    var styles = window.getComputedStyle(panel);
+    return styles.display !== 'none' && styles.visibility !== 'hidden' && panel.getClientRects().length > 0;
+  }
+  function readManageStyle(style, property) {
+    return { value: style.getPropertyValue(property), priority: style.getPropertyPriority(property) };
+  }
+  function writeManageStyle(style, property, value) {
+    if (style.getPropertyValue(property) !== value || style.getPropertyPriority(property) !== 'important') {
+      style.setProperty(property, value, 'important');
     }
   }
-  function watchDashboardBottomNav() {
-    if (window.__OVYX_MANAGE_WEBSITE_NAV_OBSERVER__) return;
-    if (!window.MutationObserver || !document.body) return;
-    window.__OVYX_MANAGE_WEBSITE_NAV_OBSERVER__ = new MutationObserver(function () {
-      if (panel && !panel.hidden) setDashboardBottomNavHidden(true);
+  function syncDashboardBottomNavigation(forceHidden) {
+    var shouldHide = forceHidden === true || managePanelVisible();
+    document.body.classList.toggle('ovym-manage-website-focus-mode', shouldHide);
+    document.body.querySelectorAll('*').forEach(function (node) {
+      if (!(node instanceof HTMLElement)) return;
+      var alreadySuppressed = node.classList.contains(MANAGE_DOCK_CLASS);
+      var suppress = shouldHide && (alreadySuppressed || isManageDashboardDock(node));
+      if (suppress) {
+        if (!manageDockStyles.has(node)) {
+          var initial = {};
+          MANAGE_DOCK_PROPERTIES.forEach(function (property) { initial[property] = readManageStyle(node.style, property); });
+          manageDockStyles.set(node, initial);
+        }
+        var saved = manageDockStyles.get(node);
+        MANAGE_DOCK_PROPERTIES.forEach(function (property) {
+          var current = readManageStyle(node.style, property);
+          var hiddenValue = property === 'display' ? 'none' : property === 'visibility' ? 'hidden' :
+            property === 'opacity' ? '0' : property === 'pointer-events' ? 'none' : 'translateY(150%)';
+          if (current.value !== hiddenValue || current.priority !== 'important') {
+            saved[property] = current;
+          }
+        });
+        node.classList.add(MANAGE_DOCK_CLASS);
+        writeManageStyle(node.style, 'display', 'none');
+        writeManageStyle(node.style, 'visibility', 'hidden');
+        writeManageStyle(node.style, 'opacity', '0');
+        writeManageStyle(node.style, 'pointer-events', 'none');
+        writeManageStyle(node.style, 'transform', 'translateY(150%)');
+      } else if (alreadySuppressed) {
+        node.classList.remove(MANAGE_DOCK_CLASS);
+        var previous = manageDockStyles.get(node);
+        if (previous) {
+          MANAGE_DOCK_PROPERTIES.forEach(function (property) {
+            var value = previous[property];
+            if (value && value.value) node.style.setProperty(property, value.value, value.priority || '');
+            else node.style.removeProperty(property);
+          });
+          manageDockStyles.delete(node);
+        }
+      }
     });
-    window.__OVYX_MANAGE_WEBSITE_NAV_OBSERVER__.observe(document.body, { childList: true, subtree: true });
+  }
+  function setDashboardBottomNavHidden(hidden) {
+    syncDashboardBottomNavigation(hidden === true);
+  }
+  function watchDashboardBottomNav() {
+    if (window.__OVYX_MANAGE_WEBSITE_DOCK_OBSERVER__ || !window.MutationObserver || !document.body) return;
+    var pending = false;
+    function refresh() {
+      if (pending) return;
+      pending = true;
+      var run = function () { pending = false; syncDashboardBottomNavigation(); };
+      if (window.requestAnimationFrame) window.requestAnimationFrame(run);
+      else Promise.resolve().then(run);
+    }
+    window.__OVYX_MANAGE_WEBSITE_DOCK_OBSERVER__ = new MutationObserver(function (records) {
+      var changed = records.some(function (record) {
+        var target = record.target;
+        if (!(target instanceof HTMLElement)) return false;
+        var root = target.closest('#' + ROOT);
+        if (root && root !== target) return false;
+        if (record.type === 'childList') return true;
+        if (target.classList.contains(MANAGE_DOCK_CLASS) && record.attributeName !== 'style') return false;
+        return true;
+      });
+      if (changed) refresh();
+    });
+    var options = { childList: true, subtree: true, attributes: true,
+      attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] };
+    window.__OVYX_MANAGE_WEBSITE_DOCK_OBSERVER__.observe(document.body, options);
+    if (document.documentElement) window.__OVYX_MANAGE_WEBSITE_DOCK_OBSERVER__.observe(document.documentElement, {
+      attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden']
+    });
+    window.addEventListener('resize', refresh, { passive: true });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', refresh, { passive: true });
+      window.visualViewport.addEventListener('scroll', refresh, { passive: true });
+    }
   }
   function open() {
     if (!panel) build();
