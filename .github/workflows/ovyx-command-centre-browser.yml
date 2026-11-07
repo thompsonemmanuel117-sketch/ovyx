@@ -1,4 +1,4 @@
-name: OVYX Command Centre Browser Tests
+name: OVYX Dashboard De-duplication Browser Tests
 
 on:
   push:
@@ -35,7 +35,7 @@ permissions:
   contents: read
 
 jobs:
-  # Keep the Home dashboard, account notification bridge and owner overview under one desktop/mobile regression gate.
+  # Verify the duplicate Home dashboard section stays removed while the owner overview remains protected.
   command-centre-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -52,7 +52,7 @@ jobs:
           npm install --ignore-scripts --no-save playwright@^1.55.0
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Run Command Centre contract and static validation
+      - name: Run dashboard de-duplication contract and static validation
         run: |
           node scripts/ovyx-command-centre.test.mjs
           npm run validate
@@ -66,7 +66,7 @@ jobs:
           done
           cat /tmp/ovyx-command-centre-pages.log
           exit 1
-      - name: Test desktop and mobile Command Centre in Chromium
+      - name: Test desktop and mobile Home dashboard de-duplication in Chromium
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8795
         run: node scripts/ovyx-command-centre.browser.test.mjs
