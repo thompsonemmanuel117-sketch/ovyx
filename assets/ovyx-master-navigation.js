@@ -311,8 +311,10 @@
 
     $$('#app-sidebar nav button[data-nav]').forEach(function (button) {
       var key = button.getAttribute('data-nav');
-      var isConnections = route === 'settings' && settings && settings.current === 'connections';
-      var active = (key === route && !(key === 'settings' && isConnections)) || (key === 'connections' && isConnections);
+      var isConnections = connectionsActive;
+      var isSites = sitesActive;
+      var active = (key === route && !(key === 'settings' && isConnections) && !(key === 'webstudio' && isSites)) ||
+        (key === 'connections' && isConnections) || (key === 'sites-publishing' && isSites);
       button.classList.toggle('text-white', active);
       button.classList.toggle('bg-white/[0.08]', active);
       button.classList.toggle('active', active);
@@ -321,8 +323,10 @@
     });
     $$('#mobile-drawer nav button[data-mobile-nav]').forEach(function (button) {
       var key = button.getAttribute('data-mobile-nav');
-      var isConnections = route === 'settings' && settings && settings.current === 'connections';
-      var active = (key === route && !(key === 'settings' && isConnections)) || (key === 'connections' && isConnections);
+      var isConnections = connectionsActive;
+      var isSites = sitesActive;
+      var active = (key === route && !(key === 'settings' && isConnections) && !(key === 'webstudio' && isSites)) ||
+        (key === 'connections' && isConnections) || (key === 'sites-publishing' && isSites);
       button.classList.toggle('active', active);
       if (active) button.setAttribute('aria-current', 'page');
       else button.removeAttribute('aria-current');
