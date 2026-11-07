@@ -24,6 +24,9 @@ on:
       - 'scripts/ovyx-url-analyzer.browser.test.mjs'
       - 'assets/ovyx-app-studio-link-builder.js'
       - 'assets/ovyx-app-studio-premium-polish.js'
+      - 'assets/ovyx-app-studio-workspace.js'
+      - 'scripts/ovyx-app-studio-workspace.test.mjs'
+      - 'scripts/ovyx-app-studio-workspace.browser.test.mjs'
       - 'scripts/ovyx-app-studio-premium-polish.test.mjs'
       - 'assets/ovyx-app-studio-project-brain.js'
       - 'scripts/ovyx-app-studio-project-brain.test.mjs'
@@ -39,6 +42,9 @@ on:
       - 'scripts/ovyx-url-analyzer.browser.test.mjs'
       - 'assets/ovyx-app-studio-link-builder.js'
       - 'assets/ovyx-app-studio-premium-polish.js'
+      - 'assets/ovyx-app-studio-workspace.js'
+      - 'scripts/ovyx-app-studio-workspace.test.mjs'
+      - 'scripts/ovyx-app-studio-workspace.browser.test.mjs'
       - 'scripts/ovyx-app-studio-premium-polish.test.mjs'
       - 'assets/ovyx-app-studio-project-brain.js'
       - 'scripts/ovyx-app-studio-project-brain.test.mjs'
@@ -214,6 +220,11 @@ jobs:
 
       - name: Exercise generated app functionality and live preview in desktop and mobile Chromium
         run: node scripts/ovyx-app-studio-link-builder.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Exercise Stage 8 App Studio workspace controls in desktop and mobile Chromium
+        run: node scripts/ovyx-app-studio-workspace.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
