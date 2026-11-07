@@ -5,17 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const runtime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-workspace.js', import.meta.url)), 'utf8');
-const html = String.raw\`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
-<section id="view-appstudio" style="width:100%;max-width:1100px;margin:auto;display:flex;flex-direction:column;gap:16px">
-  <section id="ovyx-app-studio-experience"><h1>From website to working app.</h1></section>
-  <section id="ovyx-app-studio-url-analyzer-panel"><h2>Analyze</h2><details id="scan-details"><summary>Scan details</summary><p>Inspection</p></details></section>
-  <section id="ovyx-app-studio-link-builder"><h2>Build</h2><details id="source-details"><summary>Source files</summary><p>index.html</p></details></section>
-  <section id="ovyx-app-studio-project-brain"><h2>Verify</h2><details id="brain-details"><summary>Findings</summary><p>Checks</p></details></section>
-  <section id="ovyx-app-studio-release"><h2>Release</h2><details id="release-details"><summary>Release history</summary><p>None</p></details></section>
-</section>
-<script>window.__OVYX_APP_STUDIO_GENERATED_PROJECT__=null;window.__OVYX_PROJECT_BRAIN_REPORT__=null;window.__OVYX_URL_ANALYZER_LAST_REPORT__=null;</script>
-<script src="/assets/ovyx-app-studio-workspace.js"></script>
-</body></html>\`;
+const html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head><body>\n<section id=\"view-appstudio\" style=\"width:100%;max-width:1100px;margin:auto;display:flex;flex-direction:column;gap:16px\">\n  <section id=\"ovyx-app-studio-experience\"><h1>From website to working app.</h1></section>\n  <section id=\"ovyx-app-studio-url-analyzer-panel\"><h2>Analyze</h2><details id=\"scan-details\"><summary>Scan details</summary><p>Inspection</p></details></section>\n  <section id=\"ovyx-app-studio-link-builder\"><h2>Build</h2><details id=\"source-details\"><summary>Source files</summary><p>index.html</p></details></section>\n  <section id=\"ovyx-app-studio-project-brain\"><h2>Verify</h2><details id=\"brain-details\"><summary>Findings</summary><p>Checks</p></details></section>\n  <section id=\"ovyx-app-studio-release\"><h2>Release</h2><details id=\"release-details\"><summary>Release history</summary><p>None</p></details></section>\n</section>\n<script>window.__OVYX_APP_STUDIO_GENERATED_PROJECT__=null;window.__OVYX_PROJECT_BRAIN_REPORT__=null;window.__OVYX_URL_ANALYZER_LAST_REPORT__=null;</script>\n<script src=\"/assets/ovyx-app-studio-workspace.js\"></script>\n</body></html>";
 function send(res,status,body,type='application/json; charset=utf-8'){res.writeHead(status,{'content-type':type,'cache-control':'no-store'});res.end(type.includes('json')?JSON.stringify(body):String(body));}
 const server=createServer((req,res)=>{
  if(req.url==='/')return send(res,200,html,'text/html; charset=utf-8');
