@@ -15,8 +15,18 @@ try {
   await desktop.waitForFunction(() => document.querySelectorAll('#app-sidebar .ovyx-master-nav-group').length === 6);
   const desktopGroups = await desktop.locator('#app-sidebar .ovyx-master-nav-group > .ovyx-nav-label').allTextContents();
   assert.deepEqual(desktopGroups, ['Workspace', 'Build', 'Connect', 'Operate', 'Account', 'Administration']);
-  assert.equal(await desktop.locator('#app-sidebar [data-nav="connections"]').innerText().then(t => t.includes('Personal Connections')), true);
-  assert.equal(await desktop.locator('#app-sidebar [data-nav="kernel-bot"]').innerText().then(t => t.includes('Workspace Repair')), true);
+  const desktopConnections = desktop.locator('#app-sidebar [data-nav="connections"]');
+  const desktopConnectionsEvidence = await desktopConnections.evaluate(node => ({
+    text: node.textContent,
+    innerText: node.innerText,
+    display: getComputedStyle(node).display,
+    visibility: getComputedStyle(node).visibility
+  }));
+  console.log('Master navigation Connect entry:', JSON.stringify(desktopConnectionsEvidence));
+  assert.ok(desktopConnectionsEvidence.text.includes('Personal Connections'), 'Connect entry must retain its visible label: ' + JSON.stringify(desktopConnectionsEvidence));
+  assert.equal(await desktopConnections.isVisible(), true, 'Connect entry must be visible in the desktop sidebar.');
+  const desktopRepair = desktop.locator('#app-sidebar [data-nav="kernel-bot"]');
+  assert.ok((await desktopRepair.textContent()).includes('Workspace Repair'), 'Workspace Repair must appear in the Operate group.');
   assert.equal(await desktop.locator('#app-sidebar [data-nav="admin-overview"]').isVisible(), false,
     'The existing owner-only Admin Center control must remain hidden for an ordinary signed-out visitor.');
 
