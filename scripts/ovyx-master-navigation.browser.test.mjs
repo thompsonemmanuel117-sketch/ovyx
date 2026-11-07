@@ -37,6 +37,15 @@ try {
     'The entire Administration group must remain hidden without verified owner authorization.');
 
   await desktop.evaluate(() => window.OVYXDesktopShell.setCollapsed(true, true));
+  await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'collapsed' && localStorage.getItem('ovyx.sidebar.collapsed.v1') === '1');
+  const menuBinding = await desktop.locator('#ovyx-v34-menu-source').evaluate(node => ({
+    handler: String(node.onclick || ''),
+    shellMethod: typeof window.OVYXDesktopShell?.toggleOrOpen,
+    state: document.documentElement.dataset.ovyxSidebar,
+    stored: localStorage.getItem('ovyx.sidebar.collapsed.v1')
+  }));
+  console.log('Master navigation menu binding:', JSON.stringify(menuBinding));
+  assert.ok(menuBinding.handler.includes('toggleOrOpen'), 'The menu click must delegate to the canonical shell controller.');
   await desktop.locator('#ovyx-v34-menu-source').click();
   await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'open');
   await desktop.locator('#ovyx-desktop-sidebar-close').click();
