@@ -30,11 +30,12 @@ assert.ok(runtime.includes('handlePaletteDisclosure'), 'Using detected source co
 assert.ok(runtime.includes('prefers-reduced-motion:reduce'), 'Animations must respect reduced-motion preferences.');
 assert.ok(runtime.includes('ovyx-app-studio-project-brain') && runtime.includes('ovyx-app-studio-release'), 'The guided path must target the actual verifier and release controls.');
 assert.ok(runtime.includes('!project') && runtime.includes('!verified'), 'The progress rail must reflect generated and verified state rather than decorative status.');
-assert.ok(runtime.includes('width:calc(100% - clamp(40px, calc(5.6vw + 16px), 88px))'), 'App Studio children must fit the inner available width when a vertical scrollbar consumes layout space.');
+assert.ok(runtime.includes('max-width:none!important;width:100%!important') && runtime.includes('max-width:none!important;padding:clamp(15px,2vw,24px)!important'), 'App Studio sections and the existing conversion shell must use the full available width without a narrow max-width cap.');
+assert.ok(runtime.includes('font-size:clamp(12px,.9vw,14px)!important;line-height:1.55!important') && runtime.includes('font-size:clamp(13px,1vw,15px)!important;line-height:1.65!important'), 'Workspace labels and explanatory text must remain comfortably readable.');
 assert.ok(!runtime.includes('window.OVYXAIService') && !runtime.includes('fetch('), 'The polish layer must not duplicate the generation/API logic.');
 assert.ok(functionalRuntime.includes('data-lb-mobile-build') && functionalRuntime.includes('data-lb-export-zip') && functionalRuntime.includes('data-lb-publish'), 'The existing supported release actions must remain in the main release workspace.');
 assert.ok(conversionRuntime.includes('ovyx-appstudio-phrase4-runtime'), 'The existing Web Studio-to-mobile conversion runtime must remain in the app.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-premium-polish.js?v=20261018-3'), 'The real Pages shell must load the polish runtime after the App Studio feature runtimes.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-premium-polish.js?v=20261107-1'), 'The real Pages shell must load the polish runtime after the App Studio feature runtimes.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-premium-polish.js') && headers.includes('Cache-Control: no-store'), 'The premium UI asset must not be held behind stale browser caching.');
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-app-studio-premium-polish.test.mjs'), 'The design-system source test must run under npm test.');
 assert.ok(workflow.includes('scripts/ovyx-app-studio-premium-polish.browser.test.mjs'), 'The responsive progressive-disclosure browser test must run in CI.');
