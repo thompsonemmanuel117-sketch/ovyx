@@ -71,30 +71,50 @@
     busy = !!value;
     if (panel) panel.querySelectorAll('button,input,textarea').forEach(function (node) { node.disabled = busy; });
   }
+  function findDashboardBottomNav() {
+    var labels = ['home', 'build', 'new', 'code', 'more'];
+    var nodes = document.querySelectorAll('body *');
+    var best = null;
+    nodes.forEach(function (candidate) {
+      if (!candidate || candidate.id === ROOT || (candidate.closest && candidate.closest('#' + ROOT))) return;
+      var rect = candidate.getBoundingClientRect ? candidate.getBoundingClientRect() : null;
+      if (!rect || rect.height < 36 || rect.height > 180 || rect.width < Math.min(260, window.innerWidth * 0.55)) return;
+      if (rect.bottom < window.innerHeight - 8 || rect.top > window.innerHeight - 1) return;
+      var text = String(candidate.innerText || candidate.textContent || '').toLowerCase().replace(/\s+/g, ' ');
+      if (!labels.every(function (label) { return new RegExp('(^|\\\\s)' + label + '($|\\\\s)').test(text); })) return;
+      var node = candidate, depth = 0, fixed = null;
+      while (node && node !== document.body && depth < 10) {
+        var computed = window.getComputedStyle ? window.getComputedStyle(node) : null;
+        if (computed && computed.position === 'fixed') { var fixedRect = node.getBoundingClientRect(); if (fixedRect.height <= 180 && fixedRect.width >= Math.min(260, window.innerWidth * 0.55)) fixed = node; break; }
+        node = node.parentElement; depth += 1;
+      }
+      var target = fixed || candidate;
+      if (!best || target.getBoundingClientRect().height < best.getBoundingClientRect().height) best = target;
+    });
+    return best;
+  }
   function setDashboardBottomNavHidden(hidden) {
     var hiddenClass = 'ovym-dashboard-bottom-nav-hidden';
     if (hidden) {
-      document.querySelectorAll('[data-mobile-nav]').forEach(function (item) {
-        var node = item, fixedBottom = null, depth = 0;
-        while (node && node !== document.body && depth < 10) {
-          var computed = window.getComputedStyle ? window.getComputedStyle(node) : null;
-          if (computed && computed.position === 'fixed') {
-            var bottom = parseFloat(computed.bottom);
-            if (Number.isFinite(bottom) && bottom <= 140) { fixedBottom = node; break; }
-          }
-          node = node.parentElement; depth += 1;
-        }
-        var target = fixedBottom || (item.closest && item.closest('nav')) || item.parentElement;
-        if (target && target !== document.body) target.classList.add(hiddenClass);
-      });
+      var target = findDashboardBottomNav();
+      if (target && !target.classList.contains(hiddenClass)) target.classList.add(hiddenClass);
     } else {
       document.querySelectorAll('.' + hiddenClass).forEach(function (node) { node.classList.remove(hiddenClass); });
     }
+  }
+  function watchDashboardBottomNav() {
+    if (window.__OVYX_MANAGE_WEBSITE_NAV_OBSERVER__) return;
+    if (!window.MutationObserver || !document.body) return;
+    window.__OVYX_MANAGE_WEBSITE_NAV_OBSERVER__ = new MutationObserver(function () {
+      if (panel && !panel.hidden) setDashboardBottomNavHidden(true);
+    });
+    window.__OVYX_MANAGE_WEBSITE_NAV_OBSERVER__.observe(document.body, { childList: true, subtree: true });
   }
   function open() {
     if (!panel) build();
     panel.hidden = false;
     setDashboardBottomNavHidden(true);
+    watchDashboardBottomNav();
     try {
       document.querySelectorAll('[data-nav],[data-mobile-nav]').forEach(function (node) {
         var selected = node.getAttribute('data-nav') === 'workspace' || node.getAttribute('data-mobile-nav') === 'workspace';
