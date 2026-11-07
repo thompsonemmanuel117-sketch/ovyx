@@ -23,7 +23,7 @@ assert.match(runtime, /ovyx:view-changed/, 'Breadcrumb and active navigation mus
 assert.match(runtime, /mobile-current-view/, 'Mobile drawer context must stay synchronized with the active route.');
 assert.ok(runtime.includes('controller.toggleOrOpen();') && runtime.includes("root.dataset.ovyxMasterMenuCaptureBound = '1'") && runtime.includes("document.addEventListener('click'"), 'The menu must delegate through a capture handler to the existing canonical desktop shell controller.');
 assert.ok(!runtime.includes('window.OVYXDesktopShell ='), 'The navigation layer must not replace the existing shell controller or its saved-state methods.');
-assert.ok(runtime.includes('document.documentElement.dataset.ovyxSidebar'), 'Menu state must use the canonical data-ovyx-sidebar contract, not a parallel collapse class.');
+assert.ok(runtime.includes('root.dataset.ovyxSidebar'), 'Menu state must use the canonical data-ovyx-sidebar contract, not a parallel collapse class.');
 assert.match(runtime, /ovyx-primary-nav/);
 assert.match(runtime, /mobile-drawer/);
 assert.ok(!/window\.Router\s*=(?!=)|Router\.go\s*=(?!=)|window\.switchView\s*=(?!=)/.test(runtime), 'The navigation layer must not replace the existing router.');
