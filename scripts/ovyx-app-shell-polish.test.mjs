@@ -11,7 +11,7 @@ assert.ok(runtime.includes('function contrastSafeTheme(theme)'), 'Theme colors m
 assert.ok(runtime.includes('minimumContrast(originalText, surfaces) < 4.5'), 'Primary text must meet WCAG AA contrast against canvas and cards.');
 assert.ok(runtime.includes('minimumContrast(originalMuted, surfaces) < 4.5'), 'Muted text must remain readable rather than disappear into panels.');
 assert.ok(runtime.includes('minimumContrast(originalAccent, surfaces) < 3'), 'Accent colors must remain distinguishable from the surrounding surfaces.');
-assert.ok(runtime.includes('context.preview = function (patch)') && runtime.includes('context.set = function (patch)'), 'All canonical appearance previews and updates must use the contrast guard.');
+assert.ok(runtime.includes("document.addEventListener('ovyx:theme-applied'") && runtime.includes('applyEffectiveTheme(event.detail?.effective || context.get())'), 'The effective rendered palette must be contrast-safe without rewriting canonical saved theme values.');
 assert.ok(runtime.includes('lab.apply = function ()') && runtime.includes('context.preview(mapped)'), 'Theme Lab presets must update the canonical ThemeContext rather than only legacy --ov-* variables.');
 assert.ok(runtime.includes('Theme preview applied. Save Appearance to keep it.'), 'Theme Lab feedback must not claim an unsaved preview was permanently saved.');
 assert.ok(runtime.includes('#view-appstudio{padding-bottom:22px!important}'), 'App Studio must remove the old oversized bottom gap.');
