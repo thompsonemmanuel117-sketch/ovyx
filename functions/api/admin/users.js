@@ -17,6 +17,7 @@ import {
   revokeFirebaseRefreshTokens
 } from '../../_lib/firebase-admin.js';
 import { QUOTA_PLANS } from '../../_lib/token-quota.js';
+import { recordAdminAuditEvent } from '../../_lib/admin-audit.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const VALID_TIERS = new Set(['free', 'pro', 'max']);
@@ -225,6 +226,7 @@ export async function onRequestPost(context) {
       } catch (error) {
         console.warn('[OVYX ADMIN USERS ' + id + '] plan audit record unavailable');
       }
+      await recordAdminAuditEvent(context.env, { actor: auth.user, action: 'user.plan.updated', resource: 'users/' + uid, requestId: id });
       return jsonResponse({
         ok: true, action, uid, plan: tier, planState: tier === 'free' ? 'expired' : 'active',
         expiresAt, quota: plans[tier], updatedAt: now.toISOString(), authority: 'SERVER'
@@ -260,6 +262,7 @@ export async function onRequestPost(context) {
           console.warn('[OVYX ADMIN USERS ' + id + '] account disabled; token revocation unavailable');
         }
       }
+      await recordAdminAuditEvent(context.env, { actor: auth.user, action: disabled ? 'user.account.disabled' : 'user.account.enabled', resource: 'users/' + uid, requestId: id });
       return jsonResponse({
         ok: true, action, uid, disabled, accountStatus: disabled ? 'disabled' : 'active',
         refreshTokensRevoked, updatedAt: now.toISOString(), authority: 'FIREBASE_AUTH_AND_SERVER'
@@ -275,6 +278,7 @@ export async function onRequestPost(context) {
         ? currentTier : 'free';
       const fields = quotaResetFields(activeTier, plans, now);
       await setFirestoreDocument(context.env, 'users', uid, { ...fields, ...audit }, { merge: true });
+      await recordAdminAuditEvent(context.env, { actor: auth.user, action: 'user.quota.reset', resource: 'users/' + uid, requestId: id });
       return jsonResponse({
         ok: true, action, uid, plan: activeTier, quota: plans[activeTier],
         updatedAt: now.toISOString(), authority: 'SERVER'
