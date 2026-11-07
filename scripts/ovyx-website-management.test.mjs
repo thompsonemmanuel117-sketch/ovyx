@@ -52,6 +52,11 @@ assert.match(client, /api\/assets\?projectId=/, 'Image deletion must remove the 
 assert.match(assetsApi, /method === 'DELETE'/, 'The existing owner-scoped asset API must remain the metadata deletion authority.');
 assert.match(assetsApi, /ASSET_ACCESS_DENIED/, 'Asset deletion must retain server-side ownership checks.');
 
+assert.ok(client.includes('function setDashboardBottomNavHidden(hidden)'), 'Manage Website must explicitly control visibility of the mobile dashboard navigation.');
+assert.match(client, /data-mobile-nav/, 'The standalone workspace must identify the dashboard mobile navigation.');
+assert.match(client, /ovym-dashboard-bottom-nav-hidden/, 'The dashboard bottom navigation must be fully hidden while Manage Website is open.');
+assert.ok(client.includes('setDashboardBottomNavHidden(true)'), 'Opening Manage Website must hide the dashboard bottom navigation.');
+assert.ok(client.includes('setDashboardBottomNavHidden(false)'), 'Closing Manage Website must restore the dashboard bottom navigation.');
 assert.match(client, /function openWorkspace\(\)/, 'The sidebar entry must open the Manage Website hub rather than the source editor.');
 assert.match(client, /width:100vw;height:100dvh/, 'Manage Website must occupy the full viewport as its own workspace, not a narrow slide-out panel.');
 assert.match(client, /function openWorkspace\(\)[\s\S]*?open\(\);[\s\S]*?return true;/, 'Opening Manage Website must not navigate through Web Studio first.');

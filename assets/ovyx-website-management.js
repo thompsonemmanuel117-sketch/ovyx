@@ -23,6 +23,7 @@
     var css = document.createElement('style');
     css.id = ROOT + '-style';
     css.textContent = '#' + ROOT + '-launcher{position:fixed;z-index:99980;right:18px;top:50%;bottom:auto;transform:translateY(-50%);border:1px solid rgba(232,182,79,.55);border-radius:999px;background:#090909;color:#f4f4f4;padding:11px 15px;font:700 12px Inter,system-ui,sans-serif;box-shadow:0 8px 32px #0008;cursor:pointer}#' + ROOT + '{position:fixed;z-index:99990;inset:0 0 0 auto;width:100vw;height:100dvh;background:#080808;color:#f5f5f5;border:0;box-shadow:none;font:500 13px/1.55 Inter,system-ui,sans-serif;display:flex;flex-direction:column}#' + ROOT + '[hidden]{display:none}#' + ROOT + ' *{box-sizing:border-box}#' + ROOT + ' .ovym-head{padding:17px 18px;border-bottom:1px solid #ffffff18;display:flex;align-items:center;justify-content:space-between;gap:12px}#' + ROOT + ' .ovym-head strong{font-size:14px}#' + ROOT + ' .ovym-muted{color:#999}#' + ROOT + ' button,#' + ROOT + ' input{font:inherit}#' + ROOT + ' button{border:1px solid #ffffff24;background:#151515;color:#eee;border-radius:8px;padding:8px 10px;cursor:pointer}#' + ROOT + ' button:disabled{opacity:.45;cursor:wait}#' + ROOT + ' .ovym-primary{background:#e8b64f;color:#17120a;border-color:#e8b64f;font-weight:800}#' + ROOT + ' .ovym-tabs{display:flex;flex-wrap:wrap;gap:7px;overflow:visible;padding:12px 16px;border-bottom:1px solid #ffffff18}#' + ROOT + ' .ovym-tabs button{white-space:normal;flex:1 1 125px;min-height:40px;font-size:12px}#' + ROOT + ' .ovym-tabs button[aria-selected=true]{border-color:#e8b64f;color:#f4d28c}#' + ROOT + ' .ovym-body{padding:clamp(16px,3vw,32px);overflow:auto;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}#' + ROOT + ' .ovym-auth-state{margin:auto;width:min(560px,100%);padding:clamp(22px,4vw,36px);text-align:center;border:1px solid #ffffff1c;border-radius:14px;background:linear-gradient(145deg,#ffffff08,#ffffff02)}#' + ROOT + ' .ovym-auth-state strong{display:block;font-size:16px;margin-bottom:8px}#' + ROOT + ' .ovym-auth-state p{margin:0;color:#aaa}#' + ROOT + ' .ovym-card{border:1px solid #ffffff18;border-radius:10px;padding:12px;margin:0 0 10px;background:#ffffff04}#' + ROOT + ' .ovym-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}#' + ROOT + ' .ovym-field{display:grid;gap:5px;margin:12px 0}#' + ROOT + ' input,#' + ROOT + ' textarea{width:100%;border:1px solid #ffffff24;background:#111;color:#fff;border-radius:8px;padding:9px}#' + ROOT + ' textarea{min-height:85px;resize:vertical}#' + ROOT + ' .ovym-status{padding:10px 12px;color:#aaa;border-top:1px solid #ffffff18;min-height:40px}#' + ROOT + ' .ovym-image{max-width:100%;max-height:110px;object-fit:contain;display:block;margin:8px 0;border-radius:6px}#' + ROOT + ' .ovym-danger{color:#ffb1a8}#' + ROOT + ' .ovym-download-grid{display:grid;grid-template-columns:1fr;gap:10px}#' + ROOT + ' .ovym-download-card{border:1px solid #ffffff1c;border-radius:12px;padding:14px;background:linear-gradient(145deg,#ffffff08,#ffffff02)}#' + ROOT + ' .ovym-download-top{display:flex;align-items:center;gap:10px}#' + ROOT + ' .ovym-download-icon{width:36px;height:36px;display:grid;place-items:center;border-radius:9px;background:#e8b64f18;color:#f0c66f;font-size:15px}#' + ROOT + ' .ovym-download-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}#' + ROOT + ' .ovym-download-tag{font-size:9px;letter-spacing:.08em;color:#d9b96d;border:1px solid #d9b96d55;border-radius:20px;padding:2px 6px}#' + ROOT + ' .ovym-download-info{font-size:10px;color:#b8b8b8;padding:8px 0;min-height:30px}#' + ROOT + ' .ovym-download-action{width:100%;margin-top:4px}#' + ROOT + ' .ovym-download-note{border:1px solid #d9b96d35;border-radius:10px;padding:12px;margin-top:4px;background:#e8b64f08}#' + ROOT + ' .ovym-download-note p{margin:6px 0 0}';
+    css.textContent += '.ovym-dashboard-bottom-nav-hidden{display:none!important}';
     document.head.appendChild(css);
   }
   async function token() {
@@ -70,9 +71,30 @@
     busy = !!value;
     if (panel) panel.querySelectorAll('button,input,textarea').forEach(function (node) { node.disabled = busy; });
   }
+  function setDashboardBottomNavHidden(hidden) {
+    var hiddenClass = 'ovym-dashboard-bottom-nav-hidden';
+    if (hidden) {
+      document.querySelectorAll('[data-mobile-nav]').forEach(function (item) {
+        var node = item, fixedBottom = null, depth = 0;
+        while (node && node !== document.body && depth < 10) {
+          var computed = window.getComputedStyle ? window.getComputedStyle(node) : null;
+          if (computed && computed.position === 'fixed') {
+            var bottom = parseFloat(computed.bottom);
+            if (Number.isFinite(bottom) && bottom <= 140) { fixedBottom = node; break; }
+          }
+          node = node.parentElement; depth += 1;
+        }
+        var target = fixedBottom || (item.closest && item.closest('nav')) || item.parentElement;
+        if (target && target !== document.body) target.classList.add(hiddenClass);
+      });
+    } else {
+      document.querySelectorAll('.' + hiddenClass).forEach(function (node) { node.classList.remove(hiddenClass); });
+    }
+  }
   function open() {
     if (!panel) build();
     panel.hidden = false;
+    setDashboardBottomNavHidden(true);
     try {
       document.querySelectorAll('[data-nav],[data-mobile-nav]').forEach(function (node) {
         var selected = node.getAttribute('data-nav') === 'workspace' || node.getAttribute('data-mobile-nav') === 'workspace';
@@ -90,6 +112,7 @@
   }
   function close() {
     if (panel) panel.hidden = true;
+    setDashboardBottomNavHidden(false);
     try {
       var route = activeView();
       document.querySelectorAll('[data-nav],[data-mobile-nav]').forEach(function (node) {
