@@ -45,10 +45,29 @@ try {
     state: document.documentElement.dataset.ovyxSidebar,
     stored: localStorage.getItem('ovyx.sidebar.collapsed.v1')
   }));
-  console.log('Master navigation menu binding:', JSON.stringify(menuBinding));
+  console.log('Master navigation menu binding:', JSON.stringify({
+    ...menuBinding,
+    innerWidth: await desktop.evaluate(() => window.innerWidth),
+    desktopMedia: await desktop.evaluate(() => window.matchMedia('(min-width:768px)').matches),
+    toggleMethod: await desktop.evaluate(() => String(window.OVYXDesktopShell.toggleOrOpen))
+  }));
   assert.ok(menuBinding.handler.includes('toggleOrOpen'), 'The menu click must delegate to the canonical shell controller.');
+  await desktop.evaluate(() => {
+    window.__ovyxMasterMenuClicks = 0;
+    document.addEventListener('click', event => {
+      if (event.target?.closest?.('#ovyx-v34-menu-source')) window.__ovyxMasterMenuClicks += 1;
+    }, true);
+  });
   await desktop.locator('#ovyx-v34-menu-source').click();
-  await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'open');
+  await desktop.waitForTimeout(120);
+  const afterMenuClick = await desktop.evaluate(() => ({
+    state: document.documentElement.dataset.ovyxSidebar,
+    stored: localStorage.getItem('ovyx.sidebar.collapsed.v1'),
+    clicks: window.__ovyxMasterMenuClicks,
+    expanded: document.getElementById('ovyx-v34-menu-source')?.getAttribute('aria-expanded')
+  }));
+  console.log('Master navigation menu after click:', JSON.stringify(afterMenuClick));
+  assert.equal(afterMenuClick.state, 'open', 'The top-bar menu must open the collapsed desktop sidebar using the canonical saved state.');
   await desktop.locator('#ovyx-desktop-sidebar-close').click();
   await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'collapsed');
   await desktop.locator('#ovyx-v34-menu-source').click();
