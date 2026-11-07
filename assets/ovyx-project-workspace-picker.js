@@ -720,6 +720,11 @@
       pendingSearchFocus = true;
       focusSearch();
       requestAnimationFrame(focusSearch);
+      // Keep the search handoff reliable across browsers that defer dialog focus
+      // until after the modal top-layer transition has completed.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (pendingSearchFocus && dialog.open) focusSearch();
+      }));
       setTimeout(focusSearch, 0);
       installAuthListener();
       loadWorkspaces();
