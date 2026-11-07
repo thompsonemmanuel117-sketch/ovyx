@@ -171,7 +171,7 @@
     });
     [web, app, assistant].forEach(function (node) { if (node) build.items.appendChild(node); });
     connect.items.appendChild(desktopItem('Personal Connections', 'Apps, APIs and account connections', 'fa-solid fa-plug', 'connections', function () { openSettingsSection('connections'); }));
-    [manage, desktopItem('Workspace Repair', 'Inspect and repair supported issues', 'fa-solid fa-screwdriver-wrench', 'kernel-bot', function () { openRoute('kernel-bot'); })]
+    [manage, desktopItem('Sites & Publishing', 'Manage websites, domains and releases', 'fa-solid fa-globe', 'sites-publishing', openSites), desktopItem('Workspace Repair', 'Inspect and repair supported issues', 'fa-solid fa-screwdriver-wrench', 'kernel-bot', function () { openRoute('kernel-bot'); })]
       .forEach(function (node) { if (node) operate.items.appendChild(node); });
     [plans, settings, help].forEach(function (node) { if (node) account.items.appendChild(node); });
     if (admin) administration.items.appendChild(admin);
@@ -222,7 +222,7 @@
     [web, app, mobileItem('AI Assistant', 'Open your OVYX assistant', 'fa-solid fa-wand-magic-sparkles', 'assistant', openAssistant)]
       .forEach(function (node) { if (node) build.items.appendChild(node); });
     connect.items.appendChild(mobileItem('Personal Connections', 'Apps, APIs and account connections', 'fa-solid fa-plug', 'connections', function () { openSettingsSection('connections'); }));
-    [manage, mobileItem('Workspace Repair', 'Inspect and repair supported issues', 'fa-solid fa-screwdriver-wrench', 'kernel-bot', function () { openRoute('kernel-bot'); })]
+    [manage, mobileItem('Sites & Publishing', 'Manage websites, domains and releases', 'fa-solid fa-globe', 'sites-publishing', openSites), mobileItem('Workspace Repair', 'Inspect and repair supported issues', 'fa-solid fa-screwdriver-wrench', 'kernel-bot', function () { openRoute('kernel-bot'); })]
       .forEach(function (node) { if (node) operate.items.appendChild(node); });
     account.items.appendChild(mobileItem('Plans & Billing', 'Plans and usage options', 'fa-regular fa-credit-card', 'pricing', function () { openRoute('pricing'); }));
     account.items.appendChild(mobileItem('Settings', 'Profile and preferences', 'fa-solid fa-gear', 'settings', function () { openRoute('settings'); }));
@@ -292,9 +292,14 @@
     var route = String(event && event.detail && event.detail.view || window.KernelState && window.KernelState.activeView || 'home')
       .replace(/^view-/, '').toLowerCase();
     var settings = window.OVYXSettings;
-    var detail = route === 'settings' && settings && settings.current === 'connections'
+    var connectionsActive = route === 'settings' && settings && settings.current === 'connections';
+    var sitesPanel = document.getElementById('ovyx-website-management');
+    var sitesActive = route === 'webstudio' && !!sitesPanel && !sitesPanel.hidden;
+    var detail = connectionsActive
       ? { group: 'Connect', title: 'Personal Connections' }
-      : ROUTES[route] || { group: 'Workspace', title: 'Overview' };
+      : sitesActive
+        ? { group: 'Operate', title: 'Sites & Publishing' }
+        : ROUTES[route] || { group: 'Workspace', title: 'Overview' };
 
     var groupNode = document.getElementById('ovyx-master-breadcrumb-group');
     var currentNode = document.getElementById('ovyx-master-breadcrumb-current');
@@ -329,6 +334,17 @@
     installMobileNavigation();
     installShellToggle();
     installBreadcrumb();
+    if (!window.__OVYX_MASTER_SITES_OBSERVER__ && document.body) {
+      window.__OVYX_MASTER_SITES_OBSERVER__ = new MutationObserver(function (records) {
+        if (records.some(function (record) {
+          return record.target && record.target.id === 'ovyx-website-management' ||
+            Array.from(record.addedNodes || []).some(function (node) {
+              return node.nodeType === 1 && (node.id === 'ovyx-website-management' || node.querySelector && node.querySelector('#ovyx-website-management'));
+            });
+        })) syncRoute();
+      });
+      window.__OVYX_MASTER_SITES_OBSERVER__.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden'] });
+    }
     syncRoute();
   }
 
