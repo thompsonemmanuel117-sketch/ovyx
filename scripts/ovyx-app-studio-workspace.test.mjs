@@ -17,7 +17,7 @@ for (const id of ['ovyx-app-studio-url-analyzer-panel','ovyx-app-studio-link-bui
 }
 assert.ok(runtime.includes('data-ovyx-as-workspace-target') && runtime.includes('scrollToSection'), 'Section navigation must scroll to and focus the real target.');
 assert.ok(runtime.includes('aria-controls') && runtime.includes('aria-live'), 'Workspace controls must expose accessible relationships and action feedback.');
-assert.ok(runtime.includes('data-ovyx-as-workspace-action="expand"') && runtime.includes('data-ovyx-as-workspace-action="collapse"'), 'Detail disclosure controls must be real actions.');
+assert.ok(runtime.includes("dataset.ovyxAsWorkspaceAction = 'expand'") && runtime.includes("dataset.ovyxAsWorkspaceAction = 'collapse'"), 'Detail disclosure controls must be real actions.');
 assert.ok(runtime.includes('details.forEach(item => { item.open = true; })') && runtime.includes('details.forEach(item => { item.open = false; })'), 'Expand and collapse must update actual disclosures.');
 assert.ok(runtime.includes('navigator.clipboard.writeText') && runtime.includes('Clipboard access is unavailable'), 'Copy summary must report real clipboard success or failure.');
 assert.ok(runtime.includes('savedToProjects === true') && runtime.includes('runtimeChecked === true'), 'The workspace must distinguish cloud-saved and runtime-verified projects.');
