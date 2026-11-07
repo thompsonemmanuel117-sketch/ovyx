@@ -893,6 +893,15 @@
   let auditLogsPageToken = null;
   let auditLogsNextPageToken = null;
 
+  function clearAuditLogs() {
+    auditLogsPageToken = null;
+    auditLogsNextPageToken = null;
+    $('ovyx-owner-audit-logs-list')?.replaceChildren();
+    const next = $('ovyx-owner-audit-logs-next');
+    if (next) { next.hidden = true; next.disabled = true; }
+    statusText($('ovyx-owner-audit-logs-status'), 'Audit records are hidden until administrator access is verified.');
+  }
+
   function appendAuditLogRow(container, log) {
     const row = document.createElement('article');
     row.style.cssText = 'display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.07);min-width:0';
@@ -929,6 +938,7 @@
       const query = new URLSearchParams({ pageSize: '50' });
       if (pageToken) query.set('pageToken', pageToken);
       const response = await api('/api/admin/logs?' + query.toString());
+      if (!owner()) { clearAuditLogs(); return; }
       const logs = Array.isArray(response.data.logs) ? response.data.logs : [];
       auditLogsPageToken = pageToken || null;
       auditLogsNextPageToken = response.data.nextPageToken || null;
@@ -1480,6 +1490,8 @@
         setTimeout(onView, 50);
         return;
       }
+      // Clear sensitive audit rows immediately when the verified owner session ends.
+      if (!owner()) clearAuditLogs();
       // Do not let a stale owner-preview toggle remain active after sign-out or account switch.
       if (!owner() && window.AdminConfigurator) {
         window.AdminConfigurator.adminOverride = false;
