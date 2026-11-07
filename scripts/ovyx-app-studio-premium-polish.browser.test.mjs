@@ -209,7 +209,7 @@ try {
     const rect = dock.getBoundingClientRect();
     const style = getComputedStyle(dock);
     return {
-      left: rect.left, right: rect.right, bottom: rect.bottom,
+      left: rect.left, right: rect.right, bottom: rect.bottom, height: rect.height,
       position: style.position, backgroundImage: style.backgroundImage,
       topRadius: style.borderTopLeftRadius,
       shellPadding: getComputedStyle(shell).paddingBottom,
@@ -221,8 +221,9 @@ try {
     'The bottom navigation must attach to the dashboard screen edges rather than float as a detached pill: ' + JSON.stringify(mobileShell));
   assert.notEqual(mobileShell.backgroundImage, 'none', 'The dock must retain its own themed surface instead of being flattened into the page canvas.');
   assert.equal(mobileShell.topRadius, '18px', 'The integrated dock should keep a soft top edge.');
+  assert.equal(mobileShell.height, 64, 'The integrated dock must preserve the established 64px navigation height.');
   assert.equal(mobileShell.shellPadding, '18px', 'The dashboard must not leave the old oversized 190px blank runway.');
-  assert.match(mobileShell.viewportPadding, /84px/, 'The scroll viewport must reserve only enough room for the attached dock.');
+  assert.match(mobileShell.viewportPadding, /76px/, 'The scroll viewport must reserve only enough room for the attached dock.');
   const animation = await mobile.locator('#ovyx-app-studio-experience').evaluate(el => getComputedStyle(el).animationDuration);
   assert.ok(['1e-05s', '0.00001s', '0.01ms'].includes(animation) || parseFloat(animation) <= 0.00001,
     'Reduced-motion users must not receive decorative entrance animation; got ' + animation);
