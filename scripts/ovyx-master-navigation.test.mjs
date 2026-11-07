@@ -16,6 +16,8 @@ for (const route of ['home', 'projects', 'templates', 'inbox', 'webstudio', 'app
   assert.ok(runtime.includes(route), 'Missing existing route mapping: ' + route);
 }
 assert.match(runtime, /openSettingsSection\('connections'\)/, 'Personal Connections must open the existing Settings-owned connection centre.');
+assert.match(runtime, /desktopItem\('Sites & Publishing'[\s\S]*openSites/, 'Desktop Sites & Publishing must use the existing website-management workspace.');
+assert.match(runtime, /mobileItem\('Sites & Publishing'[\s\S]*openSites/, 'Mobile Sites & Publishing must use the existing website-management workspace.');
 assert.match(runtime, /OVYXWebsiteManagement[\s\S]*openWorkspace/, 'Sites & Publishing must reuse the existing website-management entry point.');
 assert.match(runtime, /OVYXAdminWorkspace[\s\S]*isAuthorized/, 'Mobile administration must remain hidden without verified owner authorization.');
 assert.match(runtime, /header-ai-project-bot/, 'Assistant navigation must reuse the existing assistant control.');
