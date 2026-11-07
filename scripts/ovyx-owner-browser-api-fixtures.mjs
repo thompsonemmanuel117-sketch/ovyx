@@ -126,6 +126,7 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
     teamworkspace: 'max', templates: 'free'
   };
   const aiConfig = { providerOrder: ['cloudflare-workers-ai'] };
+  const entitlementFixture = options && options.entitlements && typeof options.entitlements === 'object' ? options.entitlements : null;
   let fixtureUsers = [{ uid: 'fixture-user-123', email: 'builder@example.test', displayName: 'Fixture Builder', role: 'FREE_USER', plan: 'free', disabled: false, quota: { plan: 'free', monthlyLimit: 50000, monthlyRemaining: 50000, dailyPromptLimit: 4, dailyPromptsRemaining: 4, boosterTokens: 0 } }];
   let fixtureBroadcasts = [];
   let fixtureTemplates = [];
@@ -133,7 +134,7 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
   let integrationLive = true;
 
   const responseFor = (path, method, request) => {
-    if (path === '/api/entitlements') return null; // explicit identity fixture is registered after this catch-all
+    if (path === '/api/entitlements') return entitlementFixture; // Optional explicit server-entitlement fixture for owner-only browser coverage.
     if (path === '/api/health') return {
       ok: true, status: 'READY', healthy: true, groups: {}, summary: { ok: true }, routes: [],
       missingRequiredEnvironment: [], invalidRequiredEnvironment: [], checkedAt: new Date().toISOString()

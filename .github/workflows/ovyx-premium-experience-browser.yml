@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
     paths:
+      - 'assets/ovyx-master-navigation.js'
+      - 'assets/css/ovyx-master-navigation.css'
+      - 'functions/_middleware.js'
+      - 'scripts/ovyx-master-navigation.test.mjs'
+      - 'scripts/ovyx-master-navigation.browser.test.mjs'
       - 'assets/css/ovyx-premium-experience.css'
       - 'assets/css/ovyx-platform-design-system.css'
       - 'package.json'
@@ -13,6 +18,11 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'assets/ovyx-master-navigation.js'
+      - 'assets/css/ovyx-master-navigation.css'
+      - 'functions/_middleware.js'
+      - 'scripts/ovyx-master-navigation.test.mjs'
+      - 'scripts/ovyx-master-navigation.browser.test.mjs'
       - 'assets/css/ovyx-premium-experience.css'
       - 'package.json'
       - 'scripts/ovyx-premium-experience.test.mjs'
@@ -43,6 +53,7 @@ jobs:
       - name: Run premium experience contract and static validation
         run: |
           node scripts/ovyx-premium-experience.test.mjs
+          node scripts/ovyx-master-navigation.test.mjs
           npm run validate
       - name: Start local Cloudflare Pages app shell
         run: |
@@ -57,7 +68,9 @@ jobs:
       - name: Verify desktop and mobile platform and sign-in presentation
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8796
-        run: node scripts/ovyx-premium-experience.browser.test.mjs
+        run: |
+          node scripts/ovyx-premium-experience.browser.test.mjs
+          node scripts/ovyx-master-navigation.browser.test.mjs
       - name: Print local Pages logs on failure
         if: failure()
         run: cat /tmp/ovyx-premium-pages.log || true

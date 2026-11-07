@@ -1,0 +1,141 @@
+/* OVYX master navigation — an additive presentation layer over existing route actions. */
+#app-sidebar .ovyx-master-nav-group,
+#mobile-drawer .ovyx-master-nav-group{
+  min-width:0;
+}
+#app-sidebar .ovyx-master-nav-group + .ovyx-master-nav-group{
+  margin-top:var(--ovyx-ds-space-2,8px);
+  padding-top:var(--ovyx-ds-space-2,8px);
+  border-top:1px solid var(--ovyx-ds-border,rgba(255,255,255,.08));
+}
+#app-sidebar .ovyx-master-nav-group > .ovyx-nav-label{
+  padding:0 10px;
+  margin:0 0 7px;
+  color:var(--ovyx-ds-muted,#788391);
+  font:750 9px/1.3 var(--ovyx-ds-font-mono,ui-monospace,monospace);
+  letter-spacing:.14em;
+}
+#app-sidebar .ovyx-master-nav-group .ovyx-account-link{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  width:100%;
+  min-height:38px;
+  padding:8px 10px;
+  border:1px solid transparent;
+  border-radius:10px;
+  background:transparent;
+  color:var(--ovyx-ds-silver,#a1aab5);
+  text-align:left;
+  font:650 11px/1.3 var(--ovyx-ds-font-ui,Inter,system-ui,sans-serif);
+  cursor:pointer;
+  transition:background-color 140ms ease,border-color 140ms ease,color 140ms ease;
+}
+#app-sidebar .ovyx-master-nav-group .ovyx-account-link:hover,
+#app-sidebar .ovyx-master-nav-group .ovyx-account-link.active,
+#app-sidebar .ovyx-master-nav-group .ovyx-account-link[aria-current="page"]{
+  border-color:var(--ovyx-ds-border,rgba(255,255,255,.1));
+  background:rgba(255,255,255,.055);
+  color:var(--ovyx-ds-white,#f8fafc);
+}
+#app-sidebar .ovyx-master-nav-group .ovyx-account-link > span:first-child{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-width:0;
+}
+#app-sidebar .ovyx-master-nav-group .ovyx-account-link > span:first-child > i{
+  width:16px;
+  color:var(--ovyx-ds-gold,#e8b64f);
+  text-align:center;
+}
+#app-sidebar .ovyx-master-nav-group .ovyx-account-link .v34-unread-badge{
+  margin-left:4px;
+}
+#app-sidebar .ovyx-master-nav-group .ovyx-nav-item[aria-current="page"],
+#app-sidebar .ovyx-master-nav-group .ovyx-nav-item.active{
+  border-color:var(--ovyx-ds-border,rgba(255,255,255,.1));
+}
+#app-sidebar .ovyx-master-nav-added .ovyx-nav-icon{
+  color:var(--ovyx-ds-gold,#e8b64f);
+}
+#app-sidebar .ovyx-master-nav-group[hidden],
+#app-sidebar .ovyx-master-nav-group [hidden],
+#mobile-drawer .ovyx-master-nav-group[hidden],
+#mobile-drawer .ovyx-master-nav-group [hidden]{
+  display:none!important;
+}
+#app-sidebar .ovyx-sidebar-bottom{
+  padding-top:10px;
+  padding-bottom:10px;
+}
+#app-sidebar .ovyx-usage-mini{
+  margin:0 2px;
+}
+#mobile-drawer .ovyx-master-nav-group + .ovyx-master-nav-group{
+  margin-top:13px;
+  padding-top:12px;
+  border-top:1px solid var(--ovyx-ds-border,rgba(255,255,255,.08));
+}
+#mobile-drawer .ovyx-master-nav-group .ovyx-admin-workspace-mobile-group{
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+}
+#mobile-drawer .ovyx-master-nav-group > .ovyx-nav-label{
+  margin:0 0 7px;
+  color:var(--ovyx-ds-muted,#788391);
+  font:750 9px/1.3 var(--ovyx-ds-font-mono,ui-monospace,monospace);
+  letter-spacing:.14em;
+}
+#mobile-drawer .ovyx-mobile-nav-item[aria-current="page"],
+#mobile-drawer .ovyx-mobile-nav-item.active{
+  border-color:rgba(232,182,79,.2);
+  background:rgba(232,182,79,.055);
+  color:var(--ovyx-ds-white,#f8fafc);
+}
+#mobile-drawer .ovyx-mobile-nav-item b{
+  display:block;
+  color:inherit;
+  font:700 11px/1.35 var(--ovyx-ds-font-ui,Inter,system-ui,sans-serif);
+}
+#mobile-drawer .ovyx-mobile-nav-item small{
+  display:block;
+  margin-top:2px;
+  color:var(--ovyx-ds-muted,#788391);
+  font:500 9px/1.35 var(--ovyx-ds-font-ui,Inter,system-ui,sans-serif);
+}
+.ovyx-master-breadcrumb{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:9px;
+  flex:1 1 auto;
+  min-width:0;
+  padding:0 12px;
+  color:var(--ovyx-ds-muted,#788391);
+  font:650 10px/1.2 var(--ovyx-ds-font-mono,ui-monospace,monospace);
+  letter-spacing:.045em;
+  white-space:nowrap;
+}
+.ovyx-master-breadcrumb-root{
+  color:var(--ovyx-ds-gold,#e8b64f);
+  font-weight:850;
+  letter-spacing:.12em;
+}
+#ovyx-master-breadcrumb-current{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:var(--ovyx-ds-white,#f8fafc);
+  font-family:var(--ovyx-ds-font-ui,Inter,system-ui,sans-serif);
+  font-size:11px;
+  letter-spacing:0;
+}
+@media(max-width:767px){
+  .ovyx-master-breadcrumb{display:none}
+  #app-sidebar .ovyx-master-nav-group{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  #app-sidebar .ovyx-master-nav-group .ovyx-account-link{transition:none}
+}
