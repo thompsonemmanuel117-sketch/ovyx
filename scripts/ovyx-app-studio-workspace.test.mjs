@@ -28,7 +28,7 @@ assert.ok(!runtime.includes('Switch workspace') && !runtime.includes('Open Assis
 assert.ok(!runtime.includes("dataset.ovyxAsWorkspaceAction = 'workspace'") && !runtime.includes("dataset.ovyxAsWorkspaceAction = 'assistant'"), 'Removed shortcuts must not leave dead action handlers.');
 assert.ok(runtime.includes("dataset.ovyxAsWorkspaceAction = 'projects'") && runtime.includes("window.switchView('projects')"), 'The existing Open Projects action must remain available.');
 assert.ok(runtime.includes('root.insertBefore(dock, root.firstChild)'), 'The App Workspace must be mounted before all other App Studio content.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-workspace.js?v=20261107-1'), 'The Pages shell must load the Stage 8 workspace runtime.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-workspace.js?v=20261107-2'), 'The Pages shell must load the updated Stage 8 workspace runtime.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-workspace.js') && headers.includes('Cache-Control: no-store'), 'The runtime must avoid stale caching.');
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-app-studio-workspace.test.mjs'), 'The regression test must be part of npm test.');
 assert.ok(workflow.includes('scripts/ovyx-app-studio-workspace.browser.test.mjs'), 'CI must run the desktop/mobile workspace browser test.');
