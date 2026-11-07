@@ -180,6 +180,19 @@
         summary.appendChild(item);
       }
     }
+    const nav = $(dock, '[aria-label="App workspace sections"]');
+    if (nav) {
+      for (const sectionInfo of SECTIONS) {
+        const section = document.getElementById(sectionInfo.id);
+        if (!section || !root.contains(section) || $(nav, '[data-ovyx-as-workspace-target="' + sectionInfo.id + '"]')) continue;
+        const button = element('button', 'ovyx-as-workspace-nav__item');
+        button.type = 'button';
+        button.dataset.ovyxAsWorkspaceTarget = sectionInfo.id;
+        button.setAttribute('aria-controls', sectionInfo.id);
+        button.append(element('span', 'ovyx-as-workspace-nav__label', sectionInfo.label), element('small', '', sectionInfo.hint));
+        nav.appendChild(button);
+      }
+    }
     const buttons = Array.from(dock.querySelectorAll('[data-ovyx-as-workspace-target]'));
     for (const button of buttons) {
       const section = document.getElementById(button.dataset.ovyxAsWorkspaceTarget);
