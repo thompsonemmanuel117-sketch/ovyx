@@ -123,7 +123,50 @@ try {
   await mobile.evaluate(() => window.OVYXWebsiteManagement?.close?.());
   assert.deepEqual(mobileErrors, [], 'Mobile navigation must not create browser errors: ' + mobileErrors.join('; '));
   await mobile.close();
-  console.log('OVYX master navigation browser tests passed on desktop and mobile.');
+
+  const ownerUid = 'ovyx-master-nav-owner';
+  const ownerEmail = 'ovyxsupportteam@gmail.com';
+  const ownerEntitlements = {
+    ok: true, uid: ownerUid, email: ownerEmail, role: 'ROOT_SUPERUSER',
+    owner: true, admin: true, bypass: true, isRoot: true,
+    planTier: 'root', planTierState: 'active',
+    entitlements: { role: 'ROOT_SUPERUSER', owner: true, admin: true, bypass: true }
+  };
+
+  const ownerDesktop = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+  await installOwnerBrowserApiFixtures(ownerDesktop, {
+    initialUser: { uid: ownerUid, email: ownerEmail, displayName: 'OVYX Owner', token: 'ovyx-master-nav-owner-token' },
+    entitlements: ownerEntitlements
+  });
+  await ownerDesktop.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await ownerDesktop.waitForFunction(() => window.OVYXAdminWorkspace?.isAuthorized?.() === true, null, { timeout: 45000 });
+  await ownerDesktop.waitForFunction(() => document.querySelector('#app-sidebar .ovyx-master-nav-group:last-child [data-nav="admin-overview"]'), null, { timeout: 15000 });
+  assert.equal(await ownerDesktop.locator('#app-sidebar .ovyx-master-nav-group:last-child').isVisible(), true,
+    'The Administration group must appear after server-verified owner authorization.');
+  assert.equal(await ownerDesktop.locator('#app-sidebar [data-nav="admin-overview"]').count(), 1,
+    'Desktop navigation must reuse exactly one server-created Admin Workspace entry.');
+  assert.equal(await ownerDesktop.locator('#app-sidebar #ovyx-admin-workspace-entry-desktop').count(), 1,
+    'The canonical owner entry must retain its original identity and action.');
+  await ownerDesktop.close();
+
+  const ownerMobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  await installOwnerBrowserApiFixtures(ownerMobile, {
+    initialUser: { uid: ownerUid, email: ownerEmail, displayName: 'OVYX Owner', token: 'ovyx-master-nav-owner-token' },
+    entitlements: ownerEntitlements
+  });
+  await ownerMobile.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await ownerMobile.waitForFunction(() => window.OVYXAdminWorkspace?.isAuthorized?.() === true, null, { timeout: 45000 });
+  await ownerMobile.locator('#ovyx-v34-menu-source').click();
+  await ownerMobile.waitForFunction(() => document.getElementById('mobile-drawer')?.getAttribute('aria-hidden') === 'false');
+  await ownerMobile.waitForFunction(() => document.querySelector('#mobile-drawer .ovyx-master-nav-group:last-child [data-mobile-nav="admin-overview"]'), null, { timeout: 15000 });
+  assert.equal(await ownerMobile.locator('#mobile-drawer .ovyx-master-nav-group:last-child').isVisible(), true,
+    'The mobile Administration group must appear after server-verified owner authorization.');
+  assert.equal(await ownerMobile.locator('#mobile-drawer [data-mobile-nav="admin-overview"]').count(), 1,
+    'Mobile navigation must reuse exactly one server-created Admin Workspace entry.');
+  assert.equal(await ownerMobile.locator('#mobile-drawer #ovyx-admin-workspace-entry-mobile-button').count(), 1,
+    'The canonical mobile owner entry must retain its original identity and action.');
+  await ownerMobile.close();
+  console.log('OVYX master navigation browser tests passed on desktop/mobile for ordinary and server-verified owner accounts.');
 } finally {
   await browser.close();
 }
