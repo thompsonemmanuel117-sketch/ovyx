@@ -150,6 +150,9 @@ try {
   assert.ok(ui.includes("api('/api/admin/logs?' + query.toString())"), 'The audit UI must use the protected server endpoint.');
   assert.ok(ui.includes("if (view === 'admin-telemetry') mountAuditLogs();"), 'The audit trail must mount inside the existing Admin monitoring area.');
   assert.ok(ui.includes('textContent = String(log.action'), 'Audit data must be rendered as text, not injected as HTML.');
+  assert.ok(ui.includes('function clearAuditLogs()'), 'Audit data must be cleared when the administrator session ends.');
+  assert.ok(ui.includes('if (!owner()) clearAuditLogs();'), 'Owner session loss must immediately clear the audit panel.');
+  assert.ok(ui.includes('if (!owner()) { clearAuditLogs(); return; }'), 'A late audit response must not repopulate the panel after owner sign-out.');
 
   for (const path of [
     '../functions/api/admin/users.js',
