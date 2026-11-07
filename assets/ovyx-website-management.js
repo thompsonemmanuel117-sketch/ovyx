@@ -164,7 +164,7 @@
     var p = project(), store = window.OVYXAssetStore;
     if (!p || !p.id || !store || typeof store.list !== 'function') throw new Error('Project media storage is not available in this session.');
     var upload = element('input'); upload.type = 'file'; upload.accept = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml'; upload.multiple = true; upload.setAttribute('aria-label', 'Upload images'); root.appendChild(upload);
-    var add = button(root, 'Upload selected images', async function () {
+    button(root, 'Upload selected images', async function () {
       if (!upload.files || !upload.files.length) { status('Choose one or more images first.', true); return; }
       try {
         setBusy(true);
@@ -173,6 +173,7 @@
           var file = upload.files[i];
           if (!/^image\/(?:png|jpeg|webp|gif|svg\+xml)$/i.test(file.type || '') || file.size > 15 * 1024 * 1024) throw new Error(file.name + ' is not a supported image under 15 MB.');
           if (typeof store.upload !== 'function') throw new Error('Image upload is not available in this session.');
+          status('Uploading image ' + (i + 1) + ' of ' + upload.files.length + '…');
           await store.upload(file, p.id, {});
         }
         status('Images uploaded to this website.'); await render('media');
@@ -181,21 +182,63 @@
     }, true);
     var assets = await store.list(p.id);
     var images = (Array.isArray(assets) ? assets : []).filter(function (asset) { return /^image\//i.test(String(asset.contentType || asset.type || '')); });
-    root.appendChild(element('p', 'ovym-muted', images.length + ' stored image(s). Uploads use the existing project media storage.'));
-    images.forEach(function (asset) {
-      var box = card(root, clean(asset.name || 'Image', 120), clean(asset.contentType || asset.type || 'Image', 80));
-      if (typeof store.url === 'function') {
-        var img = element('img', 'ovym-image'); img.alt = clean(asset.name || 'Project image', 120);
-        Promise.resolve(store.url(asset)).then(function (url) { if (url) img.src = url; }).catch(function () {});
-        box.appendChild(img);
-        button(box, 'Copy image link', async function () {
-          var url = await store.url(asset);
-          if (!url) throw new Error('No image link is available.');
-          await navigator.clipboard.writeText(url); status('Image link copied.');
+    var search = element('input'); search.type = 'search'; search.placeholder = 'Search images by filename or type…'; search.setAttribute('aria-label', 'Search website images'); root.appendChild(search);
+    var summary = element('p', 'ovym-muted', ''); root.appendChild(summary);
+    var list = element('div'); root.appendChild(list);
+    function drawImages() {
+      list.replaceChildren();
+      var query = search.value.trim().toLowerCase();
+      var filtered = images.filter(function (asset) {
+        return (clean(asset.name || 'Image', 180) + ' ' + clean(asset.contentType || asset.type || 'Image', 100)).toLowerCase().includes(query);
+      });
+      var totalBytes = images.reduce(function (sum, asset) { return sum + Math.max(0, Number(asset.size) || 0); }, 0);
+      summary.textContent = images.length + ' stored image(s) · ' + (totalBytes < 1024 * 1024 ? Math.round(totalBytes / 1024) + ' KB' : (totalBytes / (1024 * 1024)).toFixed(1) + ' MB') + (filtered.length !== images.length ? ' · ' + filtered.length + ' matching' : '');
+      filtered.forEach(function (asset) {
+        var box = card(list, clean(asset.name || 'Image', 120), clean(asset.contentType || asset.type || 'Image', 80) + (Number(asset.size) > 0 ? ' · ' + (Number(asset.size) / 1024).toFixed(1) + ' KB' : ''));
+        if (typeof store.url === 'function') {
+          var img = element('img', 'ovym-image'); img.alt = clean(asset.name || 'Project image', 120);
+          Promise.resolve(store.url(asset)).then(function (url) { if (url && img.isConnected) img.src = url; }).catch(function () {});
+          box.appendChild(img);
+          button(box, 'Copy image link', async function () {
+            var url = await store.url(asset);
+            if (!url) throw new Error('No image link is available.');
+            if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') await navigator.clipboard.writeText(url);
+            else throw new Error('Clipboard access is unavailable. Open the image and copy its address instead.');
+            status('Image link copied.');
+          });
+        }
+        button(box, 'Delete image', async function () {
+          if (!asset || !/^asset_[A-Za-z0-9_-]{8,120}$/.test(String(asset.id || '')) || !asset.storagePath) {
+            status('This image is missing its verified storage reference and cannot be safely deleted.', true);
+            return;
+          }
+          if (!window.confirm('Permanently delete "' + clean(asset.name || 'this image', 120) + '" from this website? This cannot be undone.')) return;
+          try {
+            setBusy(true);
+            var firebase = window.firebase;
+            var storage = firebase && typeof firebase.storage === 'function' ? firebase.storage() : null;
+            if (!storage || typeof storage.ref !== 'function') throw new Error('Secure project storage is unavailable. The image was not deleted.');
+            try {
+              await storage.ref(String(asset.storagePath)).delete();
+            } catch (storageError) {
+              // A previous attempt may have removed the object before its metadata request failed.
+              if (String(storageError && storageError.code || '') !== 'storage/object-not-found') throw storageError;
+            }
+            await request('/api/assets?projectId=' + encodeURIComponent(p.id), {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ projectId: p.id, assetId: asset.id })
+            });
+            status('Image deleted from website storage.');
+            await render('media');
+          } catch (error) { status(clean(error && error.message || 'Image deletion failed.', 300), true); }
+          finally { setBusy(false); }
         });
-      }
-    });
-    if (!images.length) root.appendChild(element('div', 'ovym-muted', 'No images uploaded yet.'));
+      });
+      if (!filtered.length) list.appendChild(element('div', 'ovym-muted', images.length ? 'No images match this search.' : 'No images uploaded yet.'));
+    }
+    search.addEventListener('input', drawImages);
+    drawImages();
   }
   async function renderDownloads(root) {
     var current = project();

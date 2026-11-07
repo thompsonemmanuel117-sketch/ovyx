@@ -44,6 +44,14 @@ assert.match(client, /The active website changed/, 'An export must not silently 
 assert.match(client, /never puts private API keys, Firebase credentials or Cloudflare secrets/);
 assert.match(client, /ovym-download-grid/);
 assert.match(client, /OVYXAssetStore/);
+const assetsApi = await read('functions/api/assets.js');
+assert.match(client, /Search images by filename or type/, 'The Media Library must provide working asset search.');
+assert.match(client, /Delete image/, 'The Media Library must expose explicit image deletion.');
+assert.match(client, /storage\.ref\(String\(asset\.storagePath\)\)\.delete\(\)/, 'Image deletion must remove the authenticated Firebase Storage object before its metadata.');
+assert.match(client, /api\/assets\?projectId=/, 'Image deletion must remove the matching owner-scoped asset metadata.');
+assert.match(assetsApi, /method === 'DELETE'/, 'The existing owner-scoped asset API must remain the metadata deletion authority.');
+assert.match(assetsApi, /ASSET_ACCESS_DENIED/, 'Asset deletion must retain server-side ownership checks.');
+
 assert.match(client, /function openWorkspace\(\)/, 'The sidebar entry must open the Manage Website hub rather than the source editor.');
 assert.match(client, /node\.classList\.toggle\('active', selected\)/, 'The management hub must keep sidebar selection in sync.');
 assert.match(client, /function close\(\)[\s\S]*activeView\(\)/, 'Closing management must restore the active route selection.');
