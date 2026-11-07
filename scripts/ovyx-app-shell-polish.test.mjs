@@ -19,7 +19,7 @@ assert.ok(runtime.includes('#view-home .v59-dashboard-shell{padding-bottom:18px!
 assert.ok(runtime.includes('#ovyx-launch-toasts .ovyx-launch-toast{pointer-events:none!important}'), 'Informational toast surfaces must not block taps on nearby workspace controls.');
 assert.ok(runtime.includes('#ovyx-v52-bottom-bar{position:fixed!important;left:0!important;right:0!important;bottom:0!important'), 'The mobile dock must be anchored to the dashboard screen edge.');
 assert.ok(runtime.includes('background:linear-gradient(180deg,color-mix(in srgb,var(--card'), 'The dock must keep its own theme-aware surface rather than inherit the flat page canvas.');
-assert.ok(middleware.includes('/assets/ovyx-app-shell-polish.js?v=20261107-5'), 'The production Pages shell must load the new polish runtime.');
+assert.ok(middleware.includes('/assets/ovyx-app-shell-polish.js?v=20261107-6'), 'The production Pages shell must load the new polish runtime.');
 assert.ok(browser.includes('Theme text must remain readable') && browser.includes('bottom navigation must attach to the dashboard screen edges'), 'Desktop/mobile browser coverage must exercise the reported appearance and navigation problems.');
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-app-shell-polish.test.mjs'), 'The source contract must run in npm test.');
 assert.ok(workflow.includes("'assets/ovyx-app-shell-polish.js'"), 'The browser workflow must run when the shell polish runtime changes.');
