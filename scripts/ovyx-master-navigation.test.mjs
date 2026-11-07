@@ -31,7 +31,7 @@ assert.match(runtime, /mobile-drawer/);
 assert.ok(!/window\.Router\s*=(?!=)|Router\.go\s*=(?!=)|window\.switchView\s*=(?!=)/.test(runtime), 'The navigation layer must not replace the existing router.');
 assert.ok(!/view-webstudio[^\n]*classList|#view-webstudio/.test(runtime + css), 'The shell navigation must not modify or style Web Studio internals.');
 assert.ok(css.includes('--ovyx-ds-'), 'The master navigation should consume the shared design-system tokens.');
-assert.ok(middleware.includes('/assets/ovyx-master-navigation.js?v=20261107-1'), 'The navigation runtime must be injected into HTML responses.');
+assert.ok(middleware.includes('/assets/ovyx-master-navigation.js?v=20261107-2'), 'The navigation runtime must be injected into HTML responses.');
 assert.ok(middleware.includes('/assets/css/ovyx-master-navigation.css?v=20261107-1'), 'The navigation styles must be injected into HTML responses.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-master-navigation.test.mjs'), 'The navigation contract must run in npm test.');
 
