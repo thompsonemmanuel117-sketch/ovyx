@@ -70,6 +70,9 @@ try {
   await mobile.waitForFunction(() => document.querySelectorAll('#mobile-drawer .ovyx-master-nav-group').length === 6);
   const mobileGroups = await mobile.locator('#mobile-drawer .ovyx-master-nav-group > .ovyx-nav-label').allTextContents();
   assert.deepEqual(mobileGroups, ['Workspace', 'Build', 'Connect', 'Operate', 'Account', 'Administration']);
+  assert.equal(await mobile.locator('#mobile-drawer .ovyx-master-nav-group').first().locator('[data-mobile-nav="inbox"]').count(), 1,
+    'Inbox must remain in the Workspace group on mobile, matching desktop navigation.');
+
   assert.equal(await mobile.locator('#mobile-drawer [data-mobile-nav="connections"]').isVisible(), true);
   assert.equal(await mobile.locator('#mobile-drawer [data-mobile-nav="admin-overview"]').isVisible(), false,
     'Mobile Admin Center must remain hidden unless server-verified owner access is available.');
