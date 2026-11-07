@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixtures.mjs';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local OVYX Pages app.');
@@ -10,8 +11,9 @@ try {
   desktop.setDefaultTimeout(15000);
   const errors = [];
   desktop.on('pageerror', error => errors.push(String(error?.stack || error?.message || error)));
+  await installOwnerBrowserApiFixtures(desktop, { initialUser: { uid: 'ovyx-master-nav-desktop', email: 'master-nav-desktop@example.test', displayName: 'Navigation Test', token: 'ovyx-master-nav-desktop-token' } });
   await desktop.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await desktop.waitForFunction(() => window.OVYXMasterNavigation?.version === 1, null, { timeout: 45000 });
+  await desktop.waitForFunction(() => window.OVYXMasterNavigation?.version === 1 && window.KernelState?.activeView === 'home' && getComputedStyle(document.getElementById('app-sidebar')).visibility !== 'hidden', null, { timeout: 45000 });
   await desktop.waitForFunction(() => document.querySelectorAll('#app-sidebar .ovyx-master-nav-group').length === 6);
   const desktopGroups = await desktop.locator('#app-sidebar .ovyx-master-nav-group > .ovyx-nav-label').allTextContents();
   assert.deepEqual(desktopGroups, ['Workspace', 'Build', 'Connect', 'Operate', 'Account', 'Administration']);
@@ -56,8 +58,9 @@ try {
   mobile.setDefaultTimeout(15000);
   const mobileErrors = [];
   mobile.on('pageerror', error => mobileErrors.push(String(error?.stack || error?.message || error)));
+  await installOwnerBrowserApiFixtures(mobile, { initialUser: { uid: 'ovyx-master-nav-mobile', email: 'master-nav-mobile@example.test', displayName: 'Navigation Test', token: 'ovyx-master-nav-mobile-token' } });
   await mobile.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await mobile.waitForFunction(() => window.OVYXMasterNavigation?.version === 1, null, { timeout: 45000 });
+  await mobile.waitForFunction(() => window.OVYXMasterNavigation?.version === 1 && window.KernelState?.activeView === 'home', null, { timeout: 45000 });
   await mobile.locator('#ovyx-v34-menu-source').click();
   const drawer = mobile.locator('#mobile-drawer');
   await drawer.waitFor({ state: 'visible' });
