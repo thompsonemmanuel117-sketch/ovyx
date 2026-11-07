@@ -21,7 +21,7 @@ assert.match(runtime, /OVYXAdminWorkspace[\s\S]*isAuthorized/, 'Mobile administr
 assert.match(runtime, /header-ai-project-bot/, 'Assistant navigation must reuse the existing assistant control.');
 assert.match(runtime, /ovyx:view-changed/, 'Breadcrumb and active navigation must follow the existing route event.');
 assert.match(runtime, /mobile-current-view/, 'Mobile drawer context must stay synchronized with the active route.');
-assert.match(runtime, /shell\\.toggleOrOpen\\s*=\\s*function/, 'The existing top-bar menu button must open the mobile drawer or toggle the desktop sidebar.');
+assert.match(runtime, /shell\.toggleOrOpen\s*=\s*function/, 'The existing top-bar menu button must open the mobile drawer or toggle the desktop sidebar.');
 assert.match(runtime, /v34-sidebar-collapsed/, 'Desktop sidebar collapse must reuse the existing shell state and CSS contract.');
 assert.match(runtime, /ovyx-primary-nav/);
 assert.match(runtime, /mobile-drawer/);
