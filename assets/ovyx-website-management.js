@@ -85,7 +85,7 @@
       var node = candidate, depth = 0, fixed = null;
       while (node && node !== document.body && depth < 10) {
         var computed = window.getComputedStyle ? window.getComputedStyle(node) : null;
-        if (computed && computed.position === 'fixed') { fixed = node; break; }
+        if (computed && computed.position === 'fixed') { var fixedRect = node.getBoundingClientRect(); if (fixedRect.height <= 180 && fixedRect.width >= Math.min(260, window.innerWidth * 0.55)) fixed = node; break; }
         node = node.parentElement; depth += 1;
       }
       var target = fixed || candidate;
