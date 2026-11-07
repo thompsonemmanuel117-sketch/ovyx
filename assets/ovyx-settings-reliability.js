@@ -561,8 +561,12 @@
     }, true);
   }
   function installWorkspaceToggleActions() {
+    // Bind by the stable control IDs, not a presentation class. The Settings
+    // renderer can change a switch's visual class without disconnecting its
+    // persisted action; this also handles clicks on the nested switch thumb.
+    const toggleSelector = Object.keys(TOGGLE_MAP).map(id => '#' + id).join(', ');
     document.addEventListener('click', function (event) {
-      const button = event.target && event.target.closest && event.target.closest('.ovyx-toggle');
+      const button = event.target && event.target.closest && event.target.closest(toggleSelector);
       if (!button || !(button.id in TOGGLE_MAP)) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       const key = TOGGLE_MAP[button.id];
