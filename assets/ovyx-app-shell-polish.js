@@ -1,3 +1,4 @@
+// OVYX App Shell polish runtime v1.0.1 — contrast-safe appearance, compact App Studio spacing, integrated Home dock.
 (function () {
   'use strict';
   if (window.__OVYX_APP_SHELL_POLISH_V1__) return;
