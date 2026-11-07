@@ -28,6 +28,7 @@ const base='http://127.0.0.1:'+server.address().port;
 const browser=await chromium.launch({headless:true});
 try{
  const desktop=await browser.newPage({viewport:{width:1280,height:900}});
+ await desktop.context().grantPermissions(['clipboard-read','clipboard-write'],{origin:base});
  const errors=[];desktop.on('pageerror',e=>errors.push(e.message));
  await desktop.goto(base,{waitUntil:'load'});
  await desktop.locator('#ovyx-app-studio-workspace-dock').waitFor();
@@ -40,6 +41,9 @@ try{
  await desktop.locator('[data-ovyx-as-workspace-action="collapse"]').click();
  assert.equal(await desktop.locator('#view-appstudio details[open]').count(),0);
  assert.match(await desktop.locator('[data-ovyx-as-workspace-status]').innerText(),/project data was not changed/);
+ await desktop.locator('[data-ovyx-as-workspace-action="copy"]').click();
+ await desktop.waitForFunction(()=>/Project summary copied/.test(document.querySelector('[data-ovyx-as-workspace-status]')?.textContent||''));
+ assert.match(await desktop.evaluate(()=>navigator.clipboard.readText()),/OVYX App Studio project summary/);
  await desktop.evaluate(()=>{
   window.__OVYX_APP_STUDIO_GENERATED_PROJECT__={id:'app-123',name:'Coastal App',files:{'index.html':'<html/>','app.js':'void 0'},savedToProjects:true,releaseState:{web:{production:{status:'active'}}}};
   window.__OVYX_PROJECT_BRAIN_REPORT__={status:'passed',summary:{runtimeChecked:true}};
@@ -48,6 +52,10 @@ try{
  await desktop.waitForFunction(()=>document.querySelector('[data-ovyx-as-project-state]')?.innerText.includes('Coastal App'));
  const state=await desktop.locator('[data-ovyx-as-project-state]').innerText();
  assert.match(state,/Saved/);assert.match(state,/passed/);assert.match(state,/active/);
+ await desktop.evaluate(()=>{const release=document.getElementById('ovyx-app-studio-release');release.remove();window.__lateRelease=release;});
+ await desktop.waitForFunction(()=>document.querySelector('[data-ovyx-as-workspace-target="ovyx-app-studio-release"]')?.disabled===true);
+ await desktop.evaluate(()=>document.getElementById('view-appstudio').appendChild(window.__lateRelease));
+ await desktop.waitForFunction(()=>document.querySelector('[data-ovyx-as-workspace-target="ovyx-app-studio-release"]')?.disabled===false);
  const mobile=await browser.newPage({viewport:{width:390,height:844}});
  await mobile.emulateMedia({reducedMotion:'reduce'});
  await mobile.goto(base,{waitUntil:'load'});
