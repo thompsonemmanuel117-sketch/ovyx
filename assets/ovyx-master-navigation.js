@@ -147,7 +147,6 @@
     var settings = byClick(bottom, "Router.go('settings')");
     var help = byClick(bottom, "Router.go('faq')");
     var assistant = document.getElementById('desktop-ai-assistant');
-    var admin = document.getElementById('desktop-owner-command');
     var usage = $('.ovyx-usage-mini', bottom);
 
     if (!home || !web || !app || !manage || !templates) return;
@@ -157,8 +156,6 @@
     if (settings) settings.setAttribute('data-nav', 'settings');
     if (help) help.setAttribute('data-nav', 'faq');
     if (assistant) assistant.setAttribute('data-nav', 'assistant');
-    if (admin) admin.setAttribute('data-nav', 'admin-overview');
-
     var workspace = group('Workspace', false);
     var build = group('Build', false);
     var connect = group('Connect', false);
@@ -174,8 +171,6 @@
     [manage, desktopItem('Sites & Publishing', 'Manage websites, domains and releases', 'fa-solid fa-globe', 'sites-publishing', openSites), desktopItem('Workspace Repair', 'Inspect and repair supported issues', 'fa-solid fa-screwdriver-wrench', 'kernel-bot', function () { openRoute('kernel-bot'); })]
       .forEach(function (node) { if (node) operate.items.appendChild(node); });
     [plans, settings, help].forEach(function (node) { if (node) account.items.appendChild(node); });
-    if (admin) administration.items.appendChild(admin);
-
     nav.replaceChildren(workspace.section, build.section, connect.section, operate.section, account.section, administration.section);
     bottom.replaceChildren();
     if (usage) bottom.appendChild(usage);
@@ -184,9 +179,19 @@
 
     function syncDesktopAdminVisibility() {
       var authorized = !!(window.OVYXAdminWorkspace && typeof window.OVYXAdminWorkspace.isAuthorized === 'function' && window.OVYXAdminWorkspace.isAuthorized());
-      administration.section.hidden = !authorized;
+      var ownerEntry = document.getElementById('ovyx-admin-workspace-entry-desktop');
+      if (ownerEntry) {
+        ownerEntry.setAttribute('data-nav', 'admin-overview');
+        ownerEntry.classList.add('ovyx-master-nav-added');
+        if (ownerEntry.parentNode !== administration.items) administration.items.appendChild(ownerEntry);
+      }
+      administration.section.hidden = !authorized || !ownerEntry;
     }
     syncDesktopAdminVisibility();
+    if (!sidebar.dataset.ovyxAdminEntryObserver) {
+      sidebar.dataset.ovyxAdminEntryObserver = '1';
+      new MutationObserver(syncDesktopAdminVisibility).observe(sidebar, { childList: true, subtree: true });
+    }
     window.addEventListener('ovyx-owner-state', syncDesktopAdminVisibility);
     window.addEventListener('firebase-auth-state-ready', syncDesktopAdminVisibility);
     window.addEventListener('ovyx:view-changed', syncDesktopAdminVisibility);
