@@ -1,0 +1,202 @@
+/* OVYX mobile dock + accessible light appearance layer.
+   Presentation-only: the existing dock, route authority and theme controls remain owners. */
+:root {
+  --ovyx-light-canvas: #f5f7fa;
+  --ovyx-light-surface: #ffffff;
+  --ovyx-light-surface-raised: #eef1f5;
+  --ovyx-light-text: #18212f;
+  --ovyx-light-secondary: #465366;
+  --ovyx-light-muted: #5d6878;
+  --ovyx-light-border: #cbd3df;
+  --ovyx-light-accent: #875500;
+  --ovyx-light-accent-strong: #704600;
+  --ovyx-light-accent-soft: rgba(135,85,0,.10);
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) {
+  color-scheme: light;
+  --app-bg: var(--ovyx-light-canvas) !important;
+  --sidebar: #edf0f4 !important;
+  --app-card: var(--ovyx-light-surface) !important;
+  --card: var(--ovyx-light-surface) !important;
+  --app-border: var(--ovyx-light-border) !important;
+  --app-text: var(--ovyx-light-text) !important;
+  --app-muted: var(--ovyx-light-secondary) !important;
+  --app-accent: var(--ovyx-light-accent) !important;
+  --bg: var(--ovyx-light-canvas) !important;
+  --border: var(--ovyx-light-border) !important;
+  --text: var(--ovyx-light-text) !important;
+  --muted: var(--ovyx-light-secondary) !important;
+  --accent: var(--ovyx-light-accent) !important;
+  --ov-bg: var(--ovyx-light-canvas) !important;
+  --ov-panel: var(--ovyx-light-surface) !important;
+  --ov-elev: var(--ovyx-light-surface-raised) !important;
+  --ov-text: var(--ovyx-light-text) !important;
+  --ov-secondary: var(--ovyx-light-secondary) !important;
+  --ov-muted: var(--ovyx-light-muted) !important;
+  --ov-line: rgba(24,33,47,.15) !important;
+  --ov-accent: var(--ovyx-light-accent) !important;
+  --ov-accent-soft: var(--ovyx-light-accent-soft) !important;
+  --ovyx-ds-canvas: var(--ovyx-light-canvas);
+  --ovyx-ds-surface: var(--ovyx-light-surface);
+  --ovyx-ds-surface-raised: var(--ovyx-light-surface-raised);
+  --ovyx-ds-surface-hover: #e7ebf1;
+  --ovyx-ds-white: var(--ovyx-light-text);
+  --ovyx-ds-silver: var(--ovyx-light-secondary);
+  --ovyx-ds-muted: var(--ovyx-light-muted);
+  --ovyx-ds-faint: #687487;
+  --ovyx-ds-gold: var(--ovyx-light-accent);
+  --ovyx-ds-gold-strong: var(--ovyx-light-accent-strong);
+  --ovyx-ds-gold-soft: var(--ovyx-light-accent-soft);
+  --ovyx-ds-border: rgba(24,33,47,.14);
+  --ovyx-ds-border-strong: rgba(24,33,47,.23);
+  --ovyx-premium-canvas: var(--ovyx-light-canvas);
+  --ovyx-premium-surface: #fff;
+  --ovyx-premium-surface-raised: #eef1f5;
+  --ovyx-premium-border: rgba(24,33,47,.14);
+  --ovyx-premium-border-hover: rgba(135,85,0,.42);
+  --ovyx-premium-gold: var(--ovyx-light-accent);
+  --ovyx-premium-silver: var(--ovyx-light-secondary);
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]),
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body {
+  background: var(--ovyx-light-canvas) !important;
+  color: var(--ovyx-light-text) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-router-viewport,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-projects,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-settings {
+  background-color: var(--ovyx-light-canvas) !important;
+  color: var(--ovyx-light-text);
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-title,.ovyx-ds-card__value,.ovyx-ds-label,.ovyx-ds-description,.ovyx-ds-muted,.ovyx-ds-subtle) {
+  color: var(--ovyx-light-text);
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-eyebrow,.ovyx-ds-icon,.ovyx-ds-badge--gold,.ovyx-settings-shell .ovyx-panel-kicker) {
+  color: var(--ovyx-light-accent) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-panel,.ovyx-ds-card,.v0-card,.v0-panel,.ovyx-settings-sidebar,.ovyx-settings-main) {
+  color: var(--ovyx-light-text);
+  border-color: var(--ovyx-light-border);
+  background-color: var(--ovyx-light-surface);
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-input,.ovyx-ds-select,.ovyx-ds-textarea,.ovyx-pref-input,.ovyx-setting-select) {
+  color: var(--ovyx-light-text) !important;
+  background: #fff !important;
+  border-color: #aeb9c8 !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-input,.ovyx-ds-select,.ovyx-ds-textarea,.ovyx-pref-input,.ovyx-setting-select)::placeholder {
+  color: #657184 !important;
+  opacity: 1;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-button--primary,.ovyx-settings-btn.primary,.ovyx-auth-primary) {
+  color: #fff !important;
+  background: var(--ovyx-light-accent-strong) !important;
+  border-color: var(--ovyx-light-accent-strong) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.text-amber-300,.text-amber-400,.text-yellow-300,.text-yellow-400,.text-orange-300,.text-orange-400) {
+  color: var(--ovyx-light-accent-strong) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.border-amber-300,.border-amber-400,.border-yellow-300,.border-yellow-400) {
+  border-color: rgba(135,85,0,.45) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #app-sidebar,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #mobile-drawer {
+  color: var(--ovyx-light-text);
+  background: #edf0f4 !important;
+  border-color: var(--ovyx-light-border) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-topbar,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) header {
+  color: var(--ovyx-light-text);
+  background: rgba(255,255,255,.96) !important;
+  border-color: var(--ovyx-light-border) !important;
+}
+/* Keep the existing five actions; correct only the dock's mobile geometry. */
+@media (max-width: 767px) {
+  #ovyx-v52-bottom-bar {
+    box-sizing: border-box !important;
+    left: 10px !important;
+    right: 10px !important;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    height: 64px !important;
+    min-height: 64px !important;
+    max-height: 64px !important;
+    padding: 5px !important;
+    gap: 3px !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    align-items: center !important;
+    border-radius: 19px !important;
+    overflow: visible !important;
+  }
+  #ovyx-v52-bottom-bar button {
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 4px 1px !important;
+    gap: 5px !important;
+    border-radius: 13px !important;
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+  }
+  #ovyx-v52-bottom-bar button i {
+    font-size: 16px !important;
+    line-height: 1 !important;
+  }
+  #ovyx-v52-bottom-bar .v52-bottom-create {
+    align-self: center !important;
+    justify-self: center !important;
+    height: 54px !important;
+    max-height: 54px !important;
+    margin: 0 !important;
+    padding: 3px !important;
+    border-radius: 15px !important;
+    transform: none !important;
+  }
+  #ovyx-v52-bottom-bar .v52-bottom-create b {
+    width: 27px !important;
+    height: 27px !important;
+    border-radius: 9px !important;
+    font-size: 19px !important;
+  }
+  #view-home .v59-dashboard-shell {
+    padding-bottom: calc(94px + env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-bottom: calc(94px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  #ovyx-v52-bottom-bar button { transition: none !important; }
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar {
+  color-scheme: light;
+  background: rgba(255,255,255,.97) !important;
+  border-color: rgba(24,33,47,.14) !important;
+  box-shadow: 0 12px 36px rgba(24,33,47,.18), inset 0 1px 0 rgba(255,255,255,.9) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button {
+  color: #536174 !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button.is-active {
+  color: var(--ovyx-light-accent-strong) !important;
+  background: rgba(135,85,0,.09) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button.is-active:before {
+  background: var(--ovyx-light-accent) !important;
+  box-shadow: 0 0 10px rgba(135,85,0,.22) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar .v52-bottom-create {
+  color: #fff !important;
+  background: var(--ovyx-light-accent-strong) !important;
+  border-color: var(--ovyx-light-accent-strong) !important;
+  box-shadow: 0 7px 18px rgba(112,70,0,.24) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar .v52-bottom-create b {
+  color: #704600 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
