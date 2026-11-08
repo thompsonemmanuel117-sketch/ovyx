@@ -79,6 +79,17 @@ await assert.rejects(
   }),
   { code: 'BACKEND_DATABASE_CAPABILITY_MISMATCH' },
 );
+for (const capability of ['payments', 'commerce', 'email', 'newsletter', 'subscriptions', 'notifications', 'integrations', 'automation', 'fileStorage', 'backgroundWork']) {
+  await assert.rejects(
+    createBackendProvisioningPlan({
+      ownerUid: 'owner', projectId: 'project',
+      architecture: { ...architecture, capabilities: { ...architecture.capabilities, [capability]: true } },
+      files,
+    }),
+    { code: 'BACKEND_CAPABILITY_UNSUPPORTED' },
+    'Unsupported provider capability must fail closed: ' + capability,
+  );
+}
 await assert.rejects(
   createBackendProvisioningPlan({
     ownerUid: 'owner', projectId: 'project',
