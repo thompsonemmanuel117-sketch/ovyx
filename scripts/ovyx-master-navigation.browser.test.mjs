@@ -15,7 +15,7 @@ try {
   await desktop.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await desktop.waitForFunction(() => window.OVYXMasterNavigation?.version === 1 && window.KernelState?.activeView === 'home' && getComputedStyle(document.getElementById('app-sidebar')).visibility !== 'hidden', null, { timeout: 45000 });
   await desktop.waitForFunction(() => document.documentElement.dataset.ovyxMasterMenuCaptureBound === '1');
-  await desktop.evaluate(() => window.OVYXDesktopShell.setCollapsed(false, false));
+  await desktop.evaluate(() => window.OVYXDesktopShell.open());
   await desktop.waitForFunction(() => document.documentElement.dataset.ovyxSidebar === 'open');
   await desktop.waitForFunction(() => document.querySelectorAll('#app-sidebar .ovyx-master-nav-group').length === 6);
   const desktopGroups = await desktop.locator('#app-sidebar .ovyx-master-nav-group > .ovyx-nav-label').allTextContents();
