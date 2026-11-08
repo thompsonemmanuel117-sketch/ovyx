@@ -1,4 +1,6 @@
 import { resolveEntitlements } from './entitlements.js';
+import { getFirestoreDataAtPath } from './_lib/firebase-admin.js';
+import { assertOwnedSavedProject } from '../_lib/backend-project-ownership.js';
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
   'Cache-Control': 'no-store',
@@ -220,7 +222,9 @@ export async function onRequestPost(context) {
     }
     let body; try{body=await request.json();}catch{return json({success:false,authoritative:true,error:'The publishing request could not be processed. Please try again.',requestId},400);}
     const action=body?.action==='publish'?'publish':'deploy',projectId=String(body?.projectId||'').trim();
-    if(!projectId||projectId.length>160)return json({success:false,authoritative:true,error:'Choose a saved app before publishing.',requestId},400);
+    if(!/^[A-Za-z0-9_-]{1,120}$/.test(projectId))return json({success:false,authoritative:true,error:'Choose a valid saved app before publishing.',requestId},400);
+    const savedProject = await getFirestoreDataAtPath(env, ['users', user.email, 'projects', projectId]);
+    assertOwnedSavedProject(savedProject, { uid: user.uid, email: user.email, projectId });
     const expectedPagesPrefix=await ovyxPagesPrefix(user,projectId,env.CLOUDFLARE_PAGES_PROJECT_PREFIX);
     const requestedPagesProjectName=String(body?.pagesProjectName||'').trim().toLowerCase();
     if(requestedPagesProjectName&&!isOwnedOvyxPagesProjectName(requestedPagesProjectName,expectedPagesPrefix))return json({success:false,authoritative:true,error:'The requested hosting project does not belong to this saved website.',requestId},403);
