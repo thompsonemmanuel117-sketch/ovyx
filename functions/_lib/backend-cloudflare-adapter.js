@@ -79,7 +79,10 @@ export function splitSafeAdditiveMigration(source) {
     const index = normalized.match(/^CREATE (?:UNIQUE )?INDEX(?: IF NOT EXISTS)?\s+([A-Za-z_][A-Za-z0-9_]*)\s+ON\s+([A-Za-z_][A-Za-z0-9_]*)\s*\([\s\S]+\)(?:\s+WHERE\s+[\s\S]+)?$/i);
     const alter = normalized.match(/^ALTER TABLE\s+([A-Za-z_][A-Za-z0-9_]*)\s+ADD COLUMN\s+([A-Za-z_][A-Za-z0-9_]*)\s+[A-Z][A-Z0-9_]*(?:\s+[\s\S]+)?$/i);
     if (!table && !index && !alter) fail('BACKEND_MIGRATION_UNSUPPORTED', 'Only additive CREATE TABLE, CREATE INDEX and ALTER TABLE ADD COLUMN statements can run automatically.');
-    if (table && safeSqlIdentifier(table[1]) === '_ovyx_migrations') fail('BACKEND_MIGRATION_RESERVED_TABLE', 'The migration ledger table name is reserved by OVYX.');
+    if ((table && /^_ovyx_/i.test(table[1])) || (index && /^_ovyx_/i.test(index[1])) ||
+        (index && /^_ovyx_/i.test(index[2])) || (alter && /^_ovyx_/i.test(alter[1]))) {
+      fail('BACKEND_MIGRATION_RESERVED_TABLE', 'The _ovyx_ database namespace is reserved for OVYX internal tables.');
+    }
   }
   return statements;
 }
@@ -172,6 +175,23 @@ export function createCloudflareD1Adapter({ accountId, apiToken, fetchImpl = fet
     return result;
   }
 
+  async function createPagesBindingProbe(databaseId) {
+    if (!/^[a-f0-9-]{20,64}$/i.test(String(databaseId || ''))) fail('BACKEND_DATABASE_ID_INVALID', 'The database identity is invalid.');
+    const probeId = crypto.randomUUID();
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join('');
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+    const nonceHash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    await query(databaseId, { sql: 'CREATE TABLE IF NOT EXISTS _ovyx_health_probes (probe_id TEXT PRIMARY KEY, nonce_hash TEXT NOT NULL, created_at INTEGER NOT NULL)' });
+    await query(databaseId, { sql: 'DELETE FROM _ovyx_health_probes WHERE created_at < ?', params: [Date.now() - 600_000] });
+    await query(databaseId, { sql: 'INSERT INTO _ovyx_health_probes (probe_id, nonce_hash, created_at) VALUES (?, ?, ?)', params: [probeId, nonceHash, Date.now()] });
+    return Object.freeze({ probeId, token });
+  }
+
+  async function deletePagesBindingProbe(databaseId, probeId) {
+    if (!/^[a-f0-9-]{20,64}$/i.test(String(databaseId || '')) || !/^[a-f0-9-]{36}$/i.test(String(probeId || ''))) return;
+    await query(databaseId, { sql: 'DELETE FROM _ovyx_health_probes WHERE probe_id = ?', params: [probeId] });
+  }
+
   async function applyMigrations(databaseId, migrations) {
     if (!Array.isArray(migrations) || migrations.length > 140) fail('BACKEND_MIGRATION_MANIFEST_INVALID', 'The migration manifest is invalid.');
     if (!migrations.length) return { applied: [] };
@@ -221,5 +241,5 @@ export function createCloudflareD1Adapter({ accountId, apiToken, fetchImpl = fet
     return { applied };
   }
 
-  return Object.freeze({ ensureDatabase, applyMigrations });
+  return Object.freeze({ ensureDatabase, applyMigrations, createPagesBindingProbe, deletePagesBindingProbe });
 }
