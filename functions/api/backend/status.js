@@ -76,6 +76,7 @@ export async function onRequestGet(context) {
     const project = await getFirestoreDataAtPath(context.env, ['users', email, 'projects', projectId]);
     assertOwnedSavedProject(project, { uid: user.uid, email, projectId });
     const files = graphFiles(project);
+    const sourceHash = await hash(JSON.stringify(Object.keys(files).sort().map(path => [path, files[path]])));
     const architecture = parseFile(files, 'ovyx-backend-architecture.json', 'BACKEND_ARCHITECTURE_MISSING');
     const sources = backendFiles(files);
     const plan = await createBackendProvisioningPlan({ ownerUid: user.uid, projectId, environment: targetEnvironment, architecture, files: sources });
@@ -86,6 +87,9 @@ export async function onRequestGet(context) {
     const [ownerHash, projectHash] = await Promise.all([hash(user.uid), hash(projectId)]);
     if (current.data.ownerHash !== ownerHash || current.data.projectHash !== projectHash) {
       fail('BACKEND_PROVISIONING_OWNERSHIP_CONFLICT', 'The backend provisioning record does not belong to this saved website.', 404);
+    }
+    if (current.data.resourceIds?.sourceHash !== sourceHash) {
+      fail('BACKEND_PROJECT_CHANGED_SINCE_PREVIEW', 'The saved website changed after this deployment. Create a fresh Preview before marking this version ready or promoting it.', 409);
     }
     if (current.data.state === 'failed' || current.data.state === 'recovery_required' || current.data.state === 'rolled_back') {
       return jsonResponse({ success: false, status: current.data.state, errorCode: current.data.lastErrorCode || null }, 409);
