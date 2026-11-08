@@ -48,7 +48,12 @@ try {
       rootClass: document.documentElement.className,
       rootMode: document.documentElement.dataset.ovyxMode || '',
       bodyClass: document.body.className,
-      qualityStylesheet: Array.from(document.styleSheets).map(sheet => sheet.href || 'inline').filter(href => href.includes('ovyx-mobile-shell-quality.css'))
+      qualityStylesheet: Array.from(document.styleSheets).map(sheet => sheet.href || 'inline').filter(href => href.includes('ovyx-mobile-shell-quality.css')),
+      lightSelectorMatches: document.documentElement.matches('html:is(.ovyx-light,[data-ovyx-mode="light"])'),
+      activeSelectorMatches: home.matches('#ovyx-v52-bottom-bar [data-v52-bottom="home"].is-active'),
+      accentVariable: getComputedStyle(home).getPropertyValue('--accent').trim(),
+      lightAccentVariable: getComputedStyle(home).getPropertyValue('--ovyx-light-accent-strong').trim(),
+      matchingRules: Array.from(document.styleSheets).flatMap(sheet => { try { return Array.from(sheet.cssRules || []).filter(rule => /ovyx-v52-bottom-bar.*(?:active|is-active)|ovyx-v52-bottom-bar/.test(rule.cssText)).map(rule => rule.cssText); } catch (_) { return []; } }).slice(-20)
     };
   });
 
