@@ -23,7 +23,7 @@ const ROOT_BACKEND_FILES = new Set(['package.json', 'package-lock.json', 'npm-sh
 const encoder = new TextEncoder();
 const SECRET_CONTENT_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
-  /\\b(?:sk_(?:live|test|proj)_|whsec_|AIza[0-9A-Za-z_-]{30,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/i,
+  /\b(?:sk_(?:live|test|proj)_|whsec_|AIza[0-9A-Za-z_-]{30,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/i,
   /(?:["'](?:password|secret|token|api[_-]?key|authorization)["']\s*:\s*["'][^"']{16,}["'])/i,
 ];
 
@@ -307,7 +307,7 @@ export async function onRequestPost(context) {
     const selectedDatabaseProvider = clean(databaseIntegration?.provider, 120).toLowerCase();
     if (architecture.capabilities.database === true &&
         selectedDatabaseProvider && selectedDatabaseProvider !== 'not-selected-by-architecture-planner' &&
-        !/\\bd1\\b/.test(selectedDatabaseProvider)) {
+        !/\bd1\b/.test(selectedDatabaseProvider)) {
       fail('BACKEND_DATABASE_PROVIDER_UNSUPPORTED', 'Automatic full-stack provisioning currently supports Cloudflare D1. The selected database provider must be connected through its own adapter before deployment.', 422);
     }
     if (qaPlan.version !== 1 || qaPlan.backendRequired !== true || !Array.isArray(qaPlan.backendChecks) ||
