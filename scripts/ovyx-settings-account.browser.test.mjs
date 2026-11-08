@@ -241,8 +241,15 @@ try {
     const savePreferences = notificationsPanel.locator('#notify-save');
     await savePreferences.click();
     await page.waitForFunction(
-      () => document.getElementById('ovyx-notification-server-status')?.textContent
-        ?.includes('Your notification preferences could not be saved. Please try again.'),
+      () => {
+        const panels = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]'));
+        const panel = panels.find(node => node.getClientRects().length > 0
+          && getComputedStyle(node).visibility !== 'hidden' && getComputedStyle(node).display !== 'none');
+        const visiblePanel = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).find(node => node.getClientRects().length > 0
+          && getComputedStyle(node).visibility !== 'hidden' && getComputedStyle(node).display !== 'none');
+        return visiblePanel?.querySelector('#ovyx-notification-server-status')?.textContent
+          ?.includes('Your notification preferences could not be saved. Please try again.');
+      },
       null,
       { timeout: 12000 },
     );
@@ -256,8 +263,13 @@ try {
 
     await savePreferences.click();
     await page.waitForFunction(
-      () => document.getElementById('ovyx-notification-server-status')?.textContent
-        ?.includes('Your notification preferences have been saved. Email notifications will be available when delivery is enabled.'),
+      () => {
+        const panels = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]'));
+        const panel = panels.find(node => node.getClientRects().length > 0
+          && getComputedStyle(node).visibility !== 'hidden' && getComputedStyle(node).display !== 'none');
+        return panel?.querySelector('#ovyx-notification-server-status')?.textContent
+          ?.includes('Your notification preferences have been saved. Email notifications will be available when delivery is enabled.');
+      },
       null,
       { timeout: 12000 },
     );
@@ -279,7 +291,7 @@ try {
     // wait for the actual authenticated PUT and its confirmed UI result.
     await resetPreferences.click({ noWaitAfter: true });
     await resetResponse;
-    await notificationsPanel.locator('#ovyx-notification-server-status').waitFor({ state: 'visible', timeout: 12000 });
+    await page.locator('[data-settings-panel="notifications"]:visible #ovyx-notification-server-status').waitFor({ state: 'visible', timeout: 12000 });
     await page.waitForFunction(
       () => {
         const panel = document.querySelector('[data-settings-panel="notifications"]');
@@ -296,7 +308,7 @@ try {
     assert.deepEqual(notificationPuts[2].body.notifications, notificationDefaults);
     const savedAfterReset = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), preferencesKey);
     assert.deepEqual(savedAfterReset, notificationDefaults);
-    assert.match(await notificationsPanel.locator('#ovyx-notification-server-status').innerText(),
+    assert.match(await page.locator('[data-settings-panel="notifications"]:visible #ovyx-notification-server-status').innerText(),
       /Email notifications will be available when delivery is enabled/i);
 
     assert.deepEqual(pageErrors, [], '[' + target.name + '] Profile and Notifications must not throw Settings errors.');
