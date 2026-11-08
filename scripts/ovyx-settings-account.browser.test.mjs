@@ -287,6 +287,30 @@ try {
     // wait for the actual authenticated PUT and its confirmed UI result.
     await resetPreferences.click({ noWaitAfter: true });
     await resetResponse;
+    const resetDiagnostic = await page.evaluate(() => ({
+      url: location.href,
+      readyState: document.readyState,
+      panels: Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).map(panel => {
+        const status = panel.querySelector('#ovyx-notification-server-status');
+        const reset = panel.querySelector('#notify-reset');
+        const style = getComputedStyle(panel);
+        return {
+          display: style.display,
+          visibility: style.visibility,
+          rects: panel.getClientRects().length,
+          statusExists: !!status,
+          statusText: status?.textContent || '',
+          statusDisplay: status ? getComputedStyle(status).display : '',
+          statusVisibility: status ? getComputedStyle(status).visibility : '',
+          resetExists: !!reset,
+          resetType: reset?.type || '',
+          resetDisabled: !!reset?.disabled,
+          actionHandled: reset?.dataset.ovyxNotificationActionHandled || '',
+          lastResult: panel.dataset.ovyxNotificationLastResult || ''
+        };
+      })
+    }));
+    console.log('[settings-account] notification reset diagnostic ' + JSON.stringify(resetDiagnostic));
     await page.locator('[data-settings-panel="notifications"]:visible #ovyx-notification-server-status').waitFor({ state: 'visible', timeout: 12000 });
     await page.waitForFunction(
       () => {
