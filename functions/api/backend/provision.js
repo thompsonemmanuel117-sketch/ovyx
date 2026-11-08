@@ -344,7 +344,7 @@ export async function onRequestPost(context) {
     if (!backendFiles.some(item => item.path.startsWith('functions/'))) {
       fail('BACKEND_FRAMEWORK_UNSUPPORTED', 'Automatic full-stack provisioning currently supports Cloudflare Pages Functions projects. Other server frameworks must remain on the manual deployment path.', 422);
     }
-    if (backendFiles.length > 137) fail('BACKEND_SOURCE_FILE_COUNT_INVALID', 'The backend source contains too many files for the isolated build.', 422);
+    if (backendFiles.length > 136) fail('BACKEND_SOURCE_FILE_COUNT_INVALID', 'The backend source contains too many files for the isolated build.', 422);
     const projectName = slug(savedProject.name || savedProject.title || 'site');
     const pagesIdentity = await pagesIdentityFor(user, projectId, projectName, context.env);
     const plan = await createBackendProvisioningPlan({
