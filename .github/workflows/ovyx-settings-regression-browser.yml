@@ -122,18 +122,52 @@ jobs:
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8791
         run: |
-          node scripts/ovyx-settings.browser.test.mjs
-          node scripts/ovyx-settings-core.browser.test.mjs
-          node scripts/ovyx-settings-account.browser.test.mjs
-          node scripts/ovyx-settings-security.browser.test.mjs
-          node scripts/ovyx-settings-ai.browser.test.mjs
-          node scripts/ovyx-settings-workspace.browser.test.mjs
-          node scripts/ovyx-settings-shortcuts.browser.test.mjs
-          node scripts/ovyx-personal-connections.browser.test.mjs
-          node scripts/ovyx-cancel-safety.browser.test.mjs
-          node scripts/ovyx-scoped-rollback-performance.browser.test.mjs
-          node scripts/ovyx-scoped-rollback-graph.browser.test.mjs
-          node scripts/ovyx-mobile-back-navigation.browser.test.mjs
+          set +e
+          run_shard() {
+            label="$1"
+            shift
+            for script in "$@"; do
+              echo "[$label] Running $script"
+              node "scripts/$script" || return $?
+            done
+          }
+
+          run_shard "settings-core" \
+            ovyx-settings.browser.test.mjs \
+            ovyx-settings-core.browser.test.mjs \
+            ovyx-settings-account.browser.test.mjs \
+            ovyx-settings-security.browser.test.mjs \
+            > /tmp/ovyx-settings-core.log 2>&1 &
+          core_pid=$!
+
+          run_shard "settings-workspace" \
+            ovyx-settings-ai.browser.test.mjs \
+            ovyx-settings-workspace.browser.test.mjs \
+            ovyx-settings-shortcuts.browser.test.mjs \
+            ovyx-personal-connections.browser.test.mjs \
+            > /tmp/ovyx-settings-workspace.log 2>&1 &
+          workspace_pid=$!
+
+          run_shard "settings-safety" \
+            ovyx-cancel-safety.browser.test.mjs \
+            ovyx-scoped-rollback-performance.browser.test.mjs \
+            ovyx-scoped-rollback-graph.browser.test.mjs \
+            ovyx-mobile-back-navigation.browser.test.mjs \
+            > /tmp/ovyx-settings-safety.log 2>&1 &
+          safety_pid=$!
+
+          wait "$core_pid"; core_status=$?
+          wait "$workspace_pid"; workspace_status=$?
+          wait "$safety_pid"; safety_status=$?
+
+          cat /tmp/ovyx-settings-core.log
+          cat /tmp/ovyx-settings-workspace.log
+          cat /tmp/ovyx-settings-safety.log
+
+          if [ "$core_status" -ne 0 ] || [ "$workspace_status" -ne 0 ] || [ "$safety_status" -ne 0 ]; then
+            echo "One or more Settings browser-test shards failed."
+            exit 1
+          fi
 
       - name: Print local Pages logs on failure
         if: failure()
