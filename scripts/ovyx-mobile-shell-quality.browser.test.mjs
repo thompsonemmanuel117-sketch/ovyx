@@ -53,8 +53,8 @@ try {
     'New action must not use the legacy negative lift.');
   assert.equal(result.activeColor, 'rgb(112, 70, 0)',
     'Light-mode active navigation text must use the contrast-safe accent.');
-  assert.match(result.homeBottomPadding, /\d+px/,
-    'Dashboard content must reserve clearance for the fixed dock.');
+  assert.ok(Number.parseFloat(result.homeBottomPadding) >= 100,
+    'Dashboard content must reserve at least 100px of scroll clearance for the fixed dock.');
   assert.deepEqual(errors, [], 'Mobile shell must not emit browser errors.');
   console.log('OVYX mobile dock geometry and light-theme browser checks passed.');
   await page.close();
