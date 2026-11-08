@@ -226,3 +226,7 @@ Cloudflare API references:
 - D1 query and migration/batch behavior: https://developers.cloudflare.com/d1/worker-api/d1-database/
 - Worker secret bindings: https://developers.cloudflare.com/workers/configuration/secrets/
 - Worker module upload and D1 binding metadata: https://developers.cloudflare.com/api/resources/workers/subresources/scripts/methods/update/
+
+## Deployment ownership boundary — preview foundation
+
+The existing Pages publishing endpoint now loads the saved project from its canonical Firestore path, `users/{authenticated-email}/projects/{projectId}`, using the server-side Firebase Admin REST layer. Before it creates or uploads a Pages deployment, it requires the stored `ownerUid` and normalized `ownerEmail` to match the verified Firebase identity. The request's project ID is validated against the existing project-store format; client-supplied owner fields are not accepted as evidence. Missing records and cross-account attempts fail closed before any Cloudflare deployment request. This closes the authorization gap between the existing project-management API and the publishing endpoint; it does not yet provision a backend or change the static publishing format.
