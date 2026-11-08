@@ -421,17 +421,18 @@ export async function onRequestPost(context) {
     });
     if (!build.bundleBase64 || !build.routes) fail('BACKEND_BUILD_OUTPUT_INVALID', 'The isolated Pages build did not return a valid Worker bundle.', 502);
 
+    const deploymentBranch = targetEnvironment === 'preview' ? 'ovyx-preview-' + operationId.slice(0, 12) : 'main';
     current = await transitionBackendProvisioningOperation({
       store, key: registryKey, current, operationId, nextState: 'deploying',
-      patch: { resourceIds: { ...(current.data.resourceIds || {}), pagesProject: pagesProjectName, sourceHash, ...(database ? { database: database.id } : {}) } },
+      patch: { resourceIds: { ...(current.data.resourceIds || {}), pagesProject: pagesProjectName, sourceHash, deploymentBranch, ...(database ? { database: database.id } : {}) } },
       leaseMs: 600_000,
     });
     const assets = staticFiles(files);
     const prepared = await uploadAssets(context.env, pagesProjectName, assets);
     const form = new FormData();
     form.append('manifest', JSON.stringify(prepared.manifest));
-    if (targetEnvironment === 'preview') form.append('branch', 'ovyx-preview-' + id.slice(0, 12));
-    form.append('commit_message', 'OVYX full-stack ' + targetEnvironment + ': ' + projectName);
+    if (targetEnvironment === 'preview') form.append('branch', deploymentBranch);
+    form.append('commit_message', 'OVYX full-stack ' + targetEnvironment + ': ' + projectName + ' [OVYX-OP:' + operationId + ']');
     const bundle = Uint8Array.from(atob(build.bundleBase64), char => char.charCodeAt(0));
     if (!bundle.byteLength || bundle.byteLength > 25 * 1024 * 1024) fail('BACKEND_BUILD_BUNDLE_SIZE_INVALID', 'The generated Worker bundle exceeds the Pages upload limit.', 413);
     form.append('_worker.bundle', new Blob([bundle], { type: 'application/javascript' }), '_worker.bundle');
