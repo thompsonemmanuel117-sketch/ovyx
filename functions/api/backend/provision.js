@@ -86,7 +86,8 @@ function staticFiles(files) {
   for (const [path, item] of Object.entries(files)) {
     if (INTERNAL_FILES.has(path) || ROOT_BACKEND_FILES.has(path) || BACKEND_PATH.test(path) ||
         /^(?:tests?|__tests__|test-results|coverage|\.wrangler|node_modules)\//i.test(path) ||
-        /(?:^|\/)\.env(?:\..*)?$/i.test(path) || /(?:^|\/)\.dev\.vars(?:\..*)?$/i.test(path)) continue;
+        /(?:^|\/)\.env(?:\..*)?$/i.test(path) || /(?:^|\/)\.dev\.vars(?:\..*)?$/i.test(path) ||
+        path.split('/').some(part => ['.npmrc', '.yarnrc', '.pnp.cjs'].includes(part.toLowerCase()))) continue;
     const content = fileText(files, path);
     if (!content) continue;
     if (SECRET_CONTENT_PATTERNS.some(pattern => pattern.test(content))) fail('BACKEND_SECRET_IN_STATIC_SOURCE', 'Secret-like content must be moved to a server-side secret binding before publishing.', 422);
