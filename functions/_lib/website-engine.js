@@ -1265,14 +1265,25 @@ export async function runWebsiteGeneration(options = {}) {
       error.quotaOutputText = quotaOutputText;
       throw error;
     }
+    const backendArchitectureFile = JSON.stringify({
+      schemaVersion: 1,
+      engine: 'ovyx-fullstack-architecture',
+      architectureStatus: 'planned-not-provisioned',
+      ...fullStackArchitecture,
+    });
     result = {
       ...result,
-      files: { ...(result.files || {}), ...generatedFiles },
+      files: {
+        ...(result.files || {}),
+        ...generatedFiles,
+        'ovyx-backend-architecture.json': backendArchitectureFile,
+      },
       rawUsage: mergeGenerationUsage(result.rawUsage, backendUsage) || result.rawUsage || null,
       fullStackSourceEvidence,
       fullStackGeneration: {
         status: 'source-generated-runtime-unverified',
         filesGenerated: Object.keys(generatedFiles).length,
+        architectureManifest: 'ovyx-backend-architecture.json',
       },
     };
 
