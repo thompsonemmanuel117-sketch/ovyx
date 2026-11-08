@@ -373,7 +373,11 @@
     }
   }
   async function saveNotifications(button, reset) {
-    const panel = notificationPanel();
+    // The clicked control is authoritative: responsive Settings can contain
+    // multiple mounted copies, so never redirect a Save/Reset status update
+    // to a different panel selected by a later global visibility scan.
+    const clickedPanel = button && button.closest('[data-settings-panel="notifications"]');
+    const panel = clickedPanel && isActuallyVisible(clickedPanel) ? clickedPanel : notificationPanel();
     const status = addStatus(panel, 'ovyx-notification-server-status', 'Saving notification preferences…');
     const next = reset ? Object.assign({}, NOTIFICATION_DEFAULTS) : Object.assign({}, notificationDraft || NOTIFICATION_DEFAULTS);
     if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Saving…'; }
