@@ -238,3 +238,20 @@ The next increment adds a server-side Firestore registry for provisioning operat
 The Firestore adapter uses an `exists=false` precondition for first reservation and an `updateTime` precondition for compare-and-set updates. This prevents two concurrent requests from both claiming the same operation and prevents stale workers from overwriting newer state. The lifecycle has explicit states from `reserved` through `verifying` to `ready`, plus `failed` and `recovery_required`. An expired in-flight lease is deliberately marked for recovery rather than blindly rerunning resource creation or deployment, because an external side effect may have succeeded before the worker crashed. Failed or rolled-back operations can be retried with a new operation ID after reconciliation.
 
 The registry module is a foundation and is not yet exposed as a customer-facing route. No Cloudflare resource creation or production promotion is triggered by this registry. Its state-machine, ownership-hash, lease, retry, recovery and patch allow-list contracts are covered by the isolated backend-runtime workflow.
+
+
+## Customer backend provisioning — Phase 3 Preview binding foundation
+
+The next increment adds `functions/_lib/backend-pages-preview-binding.js`. It reads the customer's existing Cloudflare Pages project configuration, adds the OVYX D1 binding to the **Preview environment only**, preserves existing Preview settings and other D1 bindings, and then performs a fresh GET to verify the binding ID Cloudflare saved.
+
+Safety boundaries:
+
+- The project name must match the expected owner/project namespace prefix.
+- The D1 database ID must have the expected Cloudflare identifier shape.
+- A pre-existing `OVYX_DB` binding that points to a different database is a hard conflict. OVYX does not silently replace it.
+- The PATCH contains only `deployment_configs.preview`; it never sends a Production configuration update.
+- Existing Preview compatibility settings, environment variables and unrelated D1 bindings are preserved in the submitted configuration.
+- Cloudflare errors are converted to sanitized error codes; the API token is never placed in a URL or returned to the caller.
+- The adapter is covered by mocked GET/PATCH/GET tests, including conflict refusal, Production immutability and independent read-after-write verification.
+
+This is still a **configuration adapter**, not a customer-facing provisioning route. No customer database is created, no generated code is deployed, and no production binding or deployment is changed by this phase. The next increment must connect the verified project owner, durable operation registry, D1 create/migration adapter, isolated Pages Functions build, Preview binding and direct-upload deployment into one recoverable Preview-only operation. Live Preview API and database persistence must then be tested before Production promotion is even considered.
