@@ -34,7 +34,7 @@ assert.ok(provision.includes("form.append('_worker.bundle'"), 'The direct Pages 
 assert.ok(provision.includes("form.append('_routes.json'"), 'The direct Pages deployment must include the generated Functions routes.');
 assert.ok(provision.includes("nextState: 'verifying'"), 'A deployment must remain unready until independent status verification.');
 assert.ok(provision.includes('recovery_required'), 'Ambiguous deployment failures must require recovery rather than blind retries.');
-assert.ok(!provision.includes("environment: 'production'"), 'The automatic provisioning path must not target Production.');
+assert.ok(provision.includes("if (targetEnvironment === 'production')"), 'Production must require a separate explicit owner action and Preview-readiness gate.');
 
 assert.ok(status.includes('assertOwnedSavedProject'), 'Status polling must re-check saved-project ownership.');
 assert.ok(status.includes('current.data.ownerHash') && status.includes('current.data.projectHash'), 'Status polling must verify both owner and project hashes.');
@@ -43,6 +43,7 @@ assert.ok(status.includes('fetch(url'), 'The final Preview URL must pass an inde
 assert.ok(status.includes('applyMigrations'), 'The D1 migration ledger must be re-verified before readiness.');
 assert.ok(status.includes("urlParams.get('environment')"), 'Status polling must be environment-specific.');
 assert.ok(status.includes("current.data.environment || ''"), 'Status polling must match the durable operation environment.');
+assert.ok(status.includes('current.data.resourceIds?.sourceHash !== sourceHash'), 'Status verification must match the deployed saved-project snapshot.');
 
 assert.ok(middleware.includes("'/api/backend/provision'"), 'The provisioning route must be registered with shared API middleware.');
 assert.ok(middleware.includes("'/api/backend/status'"), 'The status route must be registered with shared API middleware.');
