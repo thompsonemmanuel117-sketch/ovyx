@@ -16,6 +16,8 @@ const [provision, status, middleware, engine, deploy, worker, plan, binding] = a
 assert.ok(provision.includes('assertAuthenticated(context.data?.user)'), 'Provisioning must require the verified Firebase identity.');
 assert.ok(provision.includes("['users', email, 'projects', projectId]"), 'Provisioning must load the canonical saved project.');
 assert.ok(provision.includes('assertOwnedSavedProject'), 'Provisioning must enforce server-side project ownership.');
+assert.ok(provision.includes('sourceHash'), 'Provisioning must fingerprint the exact saved project source snapshot.');
+assert.ok(provision.includes('previewRecord.data.resourceIds?.sourceHash !== sourceHash'), 'Production must only promote the exact source snapshot verified in Preview.');
 assert.ok(provision.includes('ovyx-backend-architecture.json'), 'Provisioning must load the saved architecture manifest.');
 assert.ok(provision.includes('ovyx-qa-plan.json'), 'Provisioning must load the saved executable backend QA plan.');
 assert.ok(provision.includes("callRuntime(context.env, '/evaluate'"), 'Backend acceptance must run before Cloudflare resources are created.');
