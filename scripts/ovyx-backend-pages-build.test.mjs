@@ -24,12 +24,18 @@ function run(command, args, options = {}) {
     const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], ...options });
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
-    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
-    child.once('error', reject);
-    child.once('close', code => code === 0
-      ? resolve({ stdout, stderr })
-      : reject(new Error('Pages Functions build failed (' + code + '): ' + (stderr || stdout).slice(-5000))));
+    const timeout = setTimeout(() => {
+      child.kill('SIGTERM');
+      reject(new Error('Isolated Wrangler Pages Functions build exceeded 180 seconds. Review the streamed Wrangler output above.'));
+    }, 180_000);
+    child.stdout.on('data', chunk => { const value = chunk.toString(); stdout += value; process.stdout.write(value); });
+    child.stderr.on('data', chunk => { const value = chunk.toString(); stderr += value; process.stderr.write(value); });
+    child.once('error', error => { clearTimeout(timeout); reject(error); });
+    child.once('close', code => {
+      clearTimeout(timeout);
+      if (code === 0) resolve({ stdout, stderr });
+      else reject(new Error('Pages Functions build failed (' + code + '): ' + (stderr || stdout).slice(-5000)));
+    });
   });
 }
 
@@ -41,6 +47,9 @@ try {
     '--workdir', '/workspace/project',
     '--env', 'HOME=/tmp/home',
     '--env', 'XDG_CONFIG_HOME=/tmp/config',
+    '--env', 'CI=true',
+    '--env', 'WRANGLER_SEND_METRICS=false',
+    '--env', 'NO_UPDATE_NOTIFIER=1',
     'ovyx-backend-runtime-worker',
     '/opt/ovyx-runtime/node_modules/.bin/wrangler',
     'pages', 'functions', 'build', './functions',
