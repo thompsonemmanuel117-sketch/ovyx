@@ -318,6 +318,8 @@ export async function onRequestPost(context) {
     });
     const runtimeFiles = backendFiles.concat([{ path: 'wrangler.jsonc', content: wranglerConfig }]);
     if (packageManifest) runtimeFiles.push({ path: 'package.json', content: packageManifest });
+    const packageLock = fileText(files, 'package-lock.json');
+    if (packageManifest && packageLock) runtimeFiles.push({ path: 'package-lock.json', content: packageLock });
 
     const evaluation = await callRuntime(context.env, '/evaluate', {
       version: 1, projectId,
