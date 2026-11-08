@@ -17,6 +17,8 @@ const MAX_FILES = 20_000;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const INTERNAL_FILES = new Set(['ovyx-backend-architecture.json', 'ovyx-qa-plan.json', 'wrangler.jsonc']);
 const BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server|src\/routes\/api|src\/app\/api|app\/api|pages\/api)\//i;
+const PROVISIONABLE_BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server|src\/routes\/api|src\/app\/api)\//i;
+const UNSUPPORTED_BACKEND_PATH = /^(?:app\/api|pages\/api|src\/pages\/api|prisma|drizzle|db|database|app\/routes|src\/routes\/(?!api\/))\//i;
 const ROOT_BACKEND_FILES = new Set(['package.json', 'wrangler.jsonc', 'wrangler.json']);
 const encoder = new TextEncoder();
 const SECRET_CONTENT_PATTERNS = [
@@ -75,7 +77,7 @@ function parseJsonFile(files, path, code) {
 }
 function backendSourceFiles(files) {
   return Object.entries(files)
-    .filter(([path]) => BACKEND_PATH.test(path) && !/^tests?\/|^__tests__\//i.test(path))
+    .filter(([path]) => PROVISIONABLE_BACKEND_PATH.test(path) && !/^tests?\/|^__tests__\//i.test(path))
     .map(([path, item]) => ({ path, content: fileText(files, path) }))
     .filter(item => item.content);
 }
@@ -288,6 +290,8 @@ export async function onRequestPost(context) {
       fail('BACKEND_QA_PLAN_INVALID', 'The saved website does not contain an executable backend acceptance plan.', 422);
     }
     const backendFiles = backendSourceFiles(files);
+    const unsupportedBackendFiles = Object.keys(files).filter(path => UNSUPPORTED_BACKEND_PATH.test(path));
+    if (unsupportedBackendFiles.length) fail('BACKEND_FRAMEWORK_UNSUPPORTED', 'The saved website contains server files for a framework that is not supported by the Pages Functions provisioning adapter.', 422);
     if (!backendFiles.some(item => item.path.startsWith('functions/'))) {
       fail('BACKEND_FRAMEWORK_UNSUPPORTED', 'Automatic full-stack provisioning currently supports Cloudflare Pages Functions projects. Other server frameworks must remain on the manual deployment path.', 422);
     }
