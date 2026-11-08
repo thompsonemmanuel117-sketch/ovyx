@@ -184,7 +184,7 @@
               border: source.border || source.borderColor
             };
             const validColor = value => typeof value === 'string' && value.length <= 48
-              && !/[;{}]/.test(value) && !/(?:url|var)\\s*\\(/i.test(value)
+              && !/[;{}]/.test(value) && !/(?:url|var)\s*\(/i.test(value)
               && window.CSS?.supports?.('color', value) === true;
             if (!['bg', 'panel', 'elev', 'text', 'secondary', 'muted', 'accent'].every(key => validColor(imported[key]))) {
               throw new Error('Invalid OVYX theme schema.');
