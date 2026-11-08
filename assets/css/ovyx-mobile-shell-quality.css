@@ -200,3 +200,34 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar .v52-bottom-c
   background: #fff !important;
   box-shadow: none !important;
 }
+
+/* Last-in-document authority: earlier inline legacy dock rules must not widen or lift the dock. */
+@media (max-width: 767px) {
+  html body.ovyx-v88-dock-home:not(.ovyx-webstudio-active) #ovyx-v52-bottom-bar {
+    left: 10px !important; right: 10px !important; bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important; height: 64px !important; min-height: 64px !important; max-height: 64px !important;
+    border: 1px solid rgba(24,33,47,.14) !important; border-radius: 19px !important;
+    box-sizing: border-box !important;
+  }
+  html body.ovyx-v88-dock-home:not(.ovyx-webstudio-active) #ovyx-v52-bottom-bar button {
+    height: 100% !important; min-height: 0 !important; margin: 0 !important;
+  }
+  html body.ovyx-v88-dock-home:not(.ovyx-webstudio-active) #ovyx-v52-bottom-bar .v52-bottom-create {
+    height: 54px !important; max-height: 54px !important; margin: 0 !important; align-self: center !important;
+  }
+  html body.ovyx-v88-dock-home:not(.ovyx-webstudio-active) #view-home .v59-dashboard-shell {
+    padding-bottom: calc(94px + env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-bottom: calc(94px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body.ovyx-v88-dock-home #ovyx-v52-bottom-bar {
+  background: rgba(255,255,255,.97) !important;
+  background-color: #fff !important;
+  border-color: rgba(24,33,47,.14) !important;
+  box-shadow: 0 12px 36px rgba(24,33,47,.18), inset 0 1px 0 #fff !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body.ovyx-v88-dock-home #ovyx-v52-bottom-bar button { color: #536174 !important; }
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body.ovyx-v88-dock-home #ovyx-v52-bottom-bar button.is-active { color: #704600 !important; }
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body.ovyx-v88-dock-home #ovyx-v52-bottom-bar .v52-bottom-create {
+  color: #fff !important; background: #704600 !important; border-color: #704600 !important;
+}
