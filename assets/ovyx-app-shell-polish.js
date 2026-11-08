@@ -154,6 +154,63 @@
       return true;
     };
 
+    // Theme Lab exports the canonical ThemeContext field names, while
+    // older custom-theme records use bg/panel/text/accent. Accept both formats
+    // so an exported theme can always be imported back as a new Custom entry.
+    const originalImport = typeof lab.import === 'function' ? lab.import.bind(lab) : null;
+    lab.import = function () {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json,.json';
+      input.onchange = function () {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function () {
+          try {
+            const source = JSON.parse(reader.result);
+            if (!source || typeof source !== 'object' || Array.isArray(source)) {
+              throw new Error('Invalid OVYX theme schema.');
+            }
+            const imported = {
+              name: String(source.name || 'Imported Theme').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').trim().slice(0, 48) || 'Imported Theme',
+              bg: source.bg || source.backgroundColor,
+              panel: source.panel || source.cardColor,
+              elev: source.elev || source.elevationColor || source.cardColor || source.panel,
+              text: source.text || source.textColor,
+              secondary: source.secondary || source.mutedColor || source.textColor,
+              muted: source.muted || source.mutedColor || source.secondary,
+              accent: source.accent || source.accentColor,
+              border: source.border || source.borderColor
+            };
+            const validColor = value => typeof value === 'string' && value.length <= 48
+              && !/[;{}]/.test(value) && !/(?:url|var)\\s*\\(/i.test(value)
+              && window.CSS?.supports?.('color', value) === true;
+            if (!['bg', 'panel', 'elev', 'text', 'secondary', 'muted', 'accent'].every(key => validColor(imported[key]))) {
+              throw new Error('Invalid OVYX theme schema.');
+            }
+            const stem = 'custom_' + imported.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 28) + '_' + Date.now().toString(36);
+            let id = stem;
+            let suffix = 2;
+            while (lab.state.customThemes && lab.state.customThemes[id]) id = stem + '_' + suffix++;
+            lab.state.custom = Object.assign({}, lab.state.custom || {}, imported);
+            lab.state.customThemes = Object.assign({}, lab.state.customThemes || {}, { [id]: imported });
+            lab.state.active = id;
+            localStorage.setItem(THEME_LAB_KEY, JSON.stringify(lab.state));
+            lab.apply();
+            try { lab.renderState?.(); } catch (_) {}
+            try { window.OVYXSettings?.renderThemeCards?.(); } catch (_) {}
+            try { window.showToast?.('Theme imported.', 'success'); } catch (_) {}
+          } catch (error) {
+            try { window.showToast?.(error.message || 'Theme import failed.', 'error'); } catch (_) {}
+            const status = document.getElementById('settings-save-status');
+            if (status) status.textContent = 'Theme import failed: ' + (error.message || 'Invalid theme file.');
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    };
     lab.set = function (id) {
       this.state.active = String(id || 'obsidian');
       try { localStorage.setItem(THEME_LAB_KEY, JSON.stringify(this.state)); } catch (_) {}
