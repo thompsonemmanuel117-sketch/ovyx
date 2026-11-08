@@ -117,4 +117,37 @@ await assert.rejects(
   error => error.code === 'BACKEND_PAGES_BINDING_VERIFY_FAILED' && error.status === 502,
 );
 
-console.log('OVYX Pages Preview D1 binding adapter tests passed.');
+const productionOriginal = structuredClone(original);
+let productionSaved = structuredClone(productionOriginal);
+const productionCalls = [];
+const productionAdapter = createCloudflarePagesPreviewBindingAdapter({
+  accountId,
+  apiToken,
+  fetchImpl: async (url, init = {}) => {
+    productionCalls.push({ method: init.method || 'GET', body: init.body ? JSON.parse(init.body) : null });
+    if ((init.method || 'GET') === 'GET') return response(structuredClone(productionSaved));
+    if (init.method === 'PATCH') {
+      const patch = JSON.parse(init.body);
+      productionSaved = {
+        ...productionSaved,
+        deployment_configs: {
+          ...productionSaved.deployment_configs,
+          ...patch.deployment_configs,
+        },
+      };
+      return response(productionSaved);
+    }
+    return response({}, 405, false);
+  },
+});
+const productionResult = await productionAdapter.bindProductionD1({
+  projectName, expectedProjectPrefix: prefix, databaseId, bindingName: 'DB',
+});
+assert.equal(productionResult.environment, 'production');
+assert.equal(productionSaved.deployment_configs.production.d1_databases.DB.id, databaseId);
+assert.deepEqual(productionSaved.deployment_configs.preview, productionOriginal.deployment_configs.preview,
+  'Production binding must never change Preview settings');
+assert.deepEqual(Object.keys(productionCalls[1].body.deployment_configs), ['production'],
+  'Production provisioning must patch only the Production environment');
+
+console.log('OVYX Pages Preview and Production D1 binding adapter tests passed.');
