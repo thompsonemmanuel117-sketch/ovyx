@@ -59,6 +59,10 @@ function fileText(files, path) {
   const item = files[path];
   return typeof item === 'string' ? item : typeof item?.content === 'string' ? item.content : '';
 }
+async function projectSourceHash(files) {
+  const manifest = Object.keys(files).sort().map(path => [path, fileText(files, path)]);
+  return sha256(encoder.encode(JSON.stringify(manifest)));
+}
 function parseJsonFile(files, path, code) {
   const source = fileText(files, path);
   if (!source) fail(code, 'The saved website is missing its trusted full-stack build manifest.', 422);
@@ -258,6 +262,7 @@ export async function onRequestPost(context) {
     const savedProject = await getFirestoreDataAtPath(context.env, ['users', email, 'projects', projectId]);
     assertOwnedSavedProject(savedProject, { uid: user.uid, email, projectId });
     const files = normalizeGraphFiles(savedProject);
+    const sourceHash = await projectSourceHash(files);
     const architecture = parseJsonFile(files, 'ovyx-backend-architecture.json', 'BACKEND_ARCHITECTURE_MISSING');
     const qaPlan = parseJsonFile(files, 'ovyx-qa-plan.json', 'BACKEND_QA_PLAN_MISSING');
     if (architecture.engine !== 'ovyx-fullstack-architecture' || architecture.architectureStatus !== 'planned-not-provisioned' ||
@@ -317,7 +322,7 @@ export async function onRequestPost(context) {
         sha256(encoder.encode(user.uid)), sha256(encoder.encode(projectId)),
       ]);
       if (!previewRecord || previewRecord.data.ownerHash !== ownerHash || previewRecord.data.projectHash !== projectHash ||
-          previewRecord.data.state !== 'ready') {
+          previewRecord.data.state !== 'ready' || previewRecord.data.resourceIds?.sourceHash !== sourceHash) {
         fail('BACKEND_PREVIEW_NOT_READY', 'Verify the full-stack Preview successfully before publishing this website to Production.', 409);
       }
     }
@@ -381,7 +386,7 @@ export async function onRequestPost(context) {
 
     current = await transitionBackendProvisioningOperation({
       store, key: registryKey, current, operationId, nextState: 'deploying',
-      patch: { resourceIds: { ...(current.data.resourceIds || {}), pagesProject: pagesProjectName, ...(database ? { database: database.id } : {}) } },
+      patch: { resourceIds: { ...(current.data.resourceIds || {}), pagesProject: pagesProjectName, sourceHash, ...(database ? { database: database.id } : {}) } },
       leaseMs: 600_000,
     });
     const assets = staticFiles(files);
