@@ -335,8 +335,13 @@
       && isActuallyVisible(panel.querySelector('#notify-reset'))) || panels.find(isActuallyVisible) || panels[0] || null;
   }
   function updateNotificationStatus(panel, message) {
-    const visiblePanel = notificationPanel();
-    const targets = Array.from(new Set([panel, visiblePanel].filter(node => node && node.isConnected)));
+    // Settings keeps responsive desktop/mobile panel instances mounted. Update
+    // every instance so a layout switch during an in-flight save/reset cannot
+    // leave the visible panel without the server-confirmed result.
+    const targets = Array.from(new Set([
+      panel,
+      ...Array.from(document.querySelectorAll('[data-settings-panel="notifications"]'))
+    ].filter(node => node && node.isConnected)));
     targets.forEach(target => {
       const status = addStatus(target, 'ovyx-notification-server-status', message);
       if (status) status.textContent = message;
