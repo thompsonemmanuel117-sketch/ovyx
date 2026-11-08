@@ -19,7 +19,7 @@ const INTERNAL_FILES = new Set(['ovyx-backend-architecture.json', 'ovyx-qa-plan.
 const BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server|src\/routes\/api|src\/app\/api|app\/api|pages\/api)\//i;
 const PROVISIONABLE_BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server)\//i;
 const UNSUPPORTED_BACKEND_PATH = /^(?:app\/api|pages\/api|src\/pages\/api|src\/app\/api|src\/routes\/api|prisma|drizzle|db|database|app\/routes)\//i;
-const ROOT_BACKEND_FILES = new Set(['package.json', 'wrangler.jsonc', 'wrangler.json']);
+const ROOT_BACKEND_FILES = new Set(['package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'tsconfig.json', 'vite.config.js', 'vite.config.ts', 'wrangler.jsonc', 'wrangler.json']);
 const encoder = new TextEncoder();
 const SECRET_CONTENT_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
