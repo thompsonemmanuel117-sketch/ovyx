@@ -77,12 +77,16 @@ export function createCloudflarePagesPreviewBindingAdapter({
     return payload.result;
   }
 
-  async function bindPreviewD1({
+  async function bindD1({
+    environment,
     projectName,
     expectedProjectPrefix,
     databaseId,
-    bindingName = 'OVYX_DB',
+    bindingName = 'DB',
   } = {}) {
+    if (!['preview', 'production'].includes(environment)) {
+      fail('BACKEND_PAGES_ENVIRONMENT_INVALID', 'Choose Preview or Production for the database binding.', 400);
+    }
     const project = validateProjectName(projectName);
     const prefix = String(expectedProjectPrefix || '').trim().toLowerCase();
     if (!prefix || !project.startsWith(prefix)) {
@@ -97,16 +101,17 @@ export function createCloudflarePagesPreviewBindingAdapter({
     }
     const configs = before?.deployment_configs && typeof before.deployment_configs === 'object'
       ? before.deployment_configs : {};
-    const preview = configs.preview && typeof configs.preview === 'object' ? configs.preview : {};
-    const currentBindings = preview.d1_databases && typeof preview.d1_databases === 'object'
-      ? preview.d1_databases : {};
+    const existingConfig = configs[environment] && typeof configs[environment] === 'object'
+      ? configs[environment] : {};
+    const currentBindings = existingConfig.d1_databases && typeof existingConfig.d1_databases === 'object'
+      ? existingConfig.d1_databases : {};
     const current = currentBindings[binding];
     if (current?.id && String(current.id) !== id) {
-      fail('BACKEND_PAGES_BINDING_CONFLICT', 'The existing Preview database binding points to a different database. OVYX will not replace it automatically.', 409);
+      fail('BACKEND_PAGES_BINDING_CONFLICT', 'The existing ' + environment + ' database binding points to a different database. OVYX will not replace it automatically.', 409);
     }
 
-    const nextPreview = {
-      ...preview,
+    const nextConfig = {
+      ...existingConfig,
       d1_databases: {
         ...currentBindings,
         [binding]: { id },
@@ -114,22 +119,29 @@ export function createCloudflarePagesPreviewBindingAdapter({
     };
     await request(projectPath, {
       method: 'PATCH',
-      body: JSON.stringify({ deployment_configs: { preview: nextPreview } }),
+      body: JSON.stringify({ deployment_configs: { [environment]: nextConfig } }),
     });
 
     const verified = await request(projectPath, { method: 'GET' });
-    const actual = verified?.deployment_configs?.preview?.d1_databases?.[binding]?.id;
+    const actual = verified?.deployment_configs?.[environment]?.d1_databases?.[binding]?.id;
     if (String(actual || '') !== id) {
-      fail('BACKEND_PAGES_BINDING_VERIFY_FAILED', 'Cloudflare did not confirm the expected Preview database binding.', 502);
+      fail('BACKEND_PAGES_BINDING_VERIFY_FAILED', 'Cloudflare did not confirm the expected ' + environment + ' database binding.', 502);
     }
     return Object.freeze({
       projectName: project,
-      environment: 'preview',
+      environment,
       bindingName: binding,
       databaseId: id,
       verified: true,
     });
   }
 
-  return Object.freeze({ bindPreviewD1 });
+  async function bindPreviewD1(options = {}) {
+    return bindD1({ ...options, environment: 'preview' });
+  }
+  async function bindProductionD1(options = {}) {
+    return bindD1({ ...options, environment: 'production' });
+  }
+
+  return Object.freeze({ bindPreviewD1, bindProductionD1 });
 }
