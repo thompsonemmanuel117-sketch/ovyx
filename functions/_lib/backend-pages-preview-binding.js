@@ -27,7 +27,7 @@ function validateDatabaseId(value) {
 function mergeRuntimeCompatibility(config, compatibilityDate, compatibilityFlags) {
   const currentDate = String(config?.compatibility_date || '').trim();
   const requiredDate = String(compatibilityDate || '2026-11-01').trim();
-  const validDate = value => /^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z)?$/.test(value) && Number.isFinite(Date.parse(value));
+  const validDate = value => /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)?$/.test(value) && Number.isFinite(Date.parse(value));
   if (currentDate && !validDate(currentDate)) fail('BACKEND_PAGES_COMPATIBILITY_DATE_INVALID', 'The Pages project has an invalid compatibility date.');
   if (!validDate(requiredDate)) fail('BACKEND_PAGES_COMPATIBILITY_DATE_INVALID', 'The required compatibility date is invalid.');
   if (config?.always_use_latest_compatibility_date === true) fail('BACKEND_PAGES_COMPATIBILITY_CONFLICT', 'The Pages project must use a pinned compatibility date for deterministic backend builds.');
