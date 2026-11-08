@@ -124,7 +124,7 @@ export async function onRequestGet(context) {
         .map(file => ({ version: Number(file.path.match(/migrations\/(\d{4,})_/i)[1]), content: file.content, sha256: plan.migrations.find(item => item.path === file.path)?.sha256 }));
       await d1.applyMigrations(databaseId, migrations);
     }
-    const ready = await transitionBackendProvisioningOperation({
+    const ready = current.data.state === 'ready' ? current : await transitionBackendProvisioningOperation({
       store, key, current, operationId: current.data.operationId, nextState: 'ready',
       patch: { deploymentId },
     });
