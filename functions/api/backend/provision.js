@@ -247,6 +247,8 @@ export async function onRequestPost(context) {
       fail('BACKEND_PROVISIONING_NOT_ENTITLED', 'Your OVYX plan does not include full-stack website provisioning.', 403);
     }
     const body = await readJson(context.request, MAX_BODY_BYTES);
+    const targetEnvironment = body.environment == null || body.environment === 'preview' ? 'preview' : body.environment;
+    if (!['preview', 'production'].includes(targetEnvironment)) fail('BACKEND_ENVIRONMENT_INVALID', 'Choose Preview or Production for this deployment.');
     const projectId = clean(body.projectId, 120);
     if (!/^[A-Za-z0-9_-]{1,120}$/.test(projectId)) fail('BACKEND_PROJECT_ID_INVALID', 'Choose a valid saved website first.');
     const email = clean(user.email, 320).toLowerCase();
@@ -271,7 +273,7 @@ export async function onRequestPost(context) {
     const projectName = slug(savedProject.name || savedProject.title || 'site');
     const pagesIdentity = await pagesIdentityFor(user, projectId, projectName, context.env);
     const plan = await createBackendProvisioningPlan({
-      ownerUid: user.uid, projectId, environment: 'preview',
+      ownerUid: user.uid, projectId, environment: targetEnvironment,
       architecture, files: backendFiles,
     });
     const packageManifest = fileText(files, 'package.json');
@@ -298,6 +300,16 @@ export async function onRequestPost(context) {
     });
     if (evaluation.status !== 'passed') fail('BACKEND_ACCEPTANCE_NOT_PASSED', 'The generated backend did not pass its isolated database and API acceptance tests.', 422);
     store = createFirestoreProvisioningRegistry(context.env);
+    if (targetEnvironment === 'production') {
+      const previewRecord = await store.read(plan.namespace + '-preview');
+      const [ownerHash, projectHash] = await Promise.all([
+        sha256(encoder.encode(user.uid)), sha256(encoder.encode(projectId)),
+      ]);
+      if (!previewRecord || previewRecord.data.ownerHash !== ownerHash || previewRecord.data.projectHash !== projectHash ||
+          previewRecord.data.state !== 'ready') {
+        fail('BACKEND_PREVIEW_NOT_READY', 'Verify the full-stack Preview successfully before publishing this website to Production.', 409);
+      }
+    }
     operationId = crypto.randomUUID().replace(/-/g, '');
     const reservation = await reserveBackendProvisioningOperation({
       store, plan, ownerUid: user.uid, projectId, operationId, leaseMs: 600_000,
@@ -335,7 +347,8 @@ export async function onRequestPost(context) {
         accountId: context.env.CLOUDFLARE_ACCOUNT_ID,
         apiToken: context.env.CLOUDFLARE_API_TOKEN,
       });
-      await binding.bindPreviewD1({
+      const bindEnvironment = targetEnvironment === 'production' ? binding.bindProductionD1 : binding.bindPreviewD1;
+      await bindEnvironment({
         projectName: pagesProjectName,
         expectedProjectPrefix: pagesIdentity.prefix,
         databaseId: database.id,
@@ -364,8 +377,8 @@ export async function onRequestPost(context) {
     const prepared = await uploadAssets(context.env, pagesProjectName, assets);
     const form = new FormData();
     form.append('manifest', JSON.stringify(prepared.manifest));
-    form.append('branch', 'ovyx-preview-' + id.slice(0, 12));
-    form.append('commit_message', 'OVYX full-stack Preview: ' + projectName);
+    if (targetEnvironment === 'preview') form.append('branch', 'ovyx-preview-' + id.slice(0, 12));
+    form.append('commit_message', 'OVYX full-stack ' + targetEnvironment + ': ' + projectName);
     const bundle = Uint8Array.from(atob(build.bundleBase64), char => char.charCodeAt(0));
     if (!bundle.byteLength || bundle.byteLength > 25 * 1024 * 1024) fail('BACKEND_BUILD_BUNDLE_SIZE_INVALID', 'The generated Worker bundle exceeds the Pages upload limit.', 413);
     form.append('_worker.bundle', new Blob([bundle], { type: 'application/javascript' }), '_worker.bundle');
@@ -383,11 +396,11 @@ export async function onRequestPost(context) {
       leaseMs: 600_000,
     });
     return jsonResponse({
-      success: true, status: 'verifying', requestId: id,
+      success: true, status: 'verifying', requestId: id, environment: targetEnvironment,
       projectId, pagesProjectName, database: database ? { name: database.name, id: database.id } : null,
       deployment: summary,
       acceptance: { status: evaluation.status, testsRun: evaluation.testsRun },
-      next: 'Poll /api/backend/status?projectId=' + encodeURIComponent(projectId) + ' until the Preview deployment is verified.',
+      next: 'Poll /api/backend/status?projectId=' + encodeURIComponent(projectId) + '&environment=' + targetEnvironment + ' until the deployment is verified.',
     }, 202, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store' });
   } catch (error) {
     if (store && current?.data && current.updateTime && operationId && registryKey) {
