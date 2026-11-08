@@ -296,9 +296,9 @@ try {
     await resetResponse;
     console.log('[settings-account] ' + target.name + ': reset response received');
     assert.equal(
-      await resetPreferences.getAttribute('data-ovyxNotificationActionHandled'),
+      await page.locator('html').getAttribute('data-ovyxNotificationActionHandled'),
       'reset',
-      '[' + target.name + '] Reset must be handled by the account-backed Settings action, not a legacy click handler.',
+      '[' + target.name + '] Reset must be handled by the account-backed Settings action, not a legacy click handler; the responsive panel may be replaced during the request.',
     );
     // The authenticated PUT is the server-side completion signal. Verify
     // the resulting status through Playwright's locator polling instead of
