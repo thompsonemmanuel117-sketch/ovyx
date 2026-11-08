@@ -161,10 +161,15 @@ export function createCloudflareD1Adapter({ accountId, apiToken, fetchImpl = fet
 
   async function query(databaseId, body) {
     if (!/^[a-f0-9-]{20,64}$/i.test(String(databaseId || ''))) fail('BACKEND_DATABASE_ID_INVALID', 'The database identity is invalid.');
-    return request('/accounts/' + encodeURIComponent(account) + '/d1/database/' + encodeURIComponent(databaseId) + '/query', {
+    const result = await request('/accounts/' + encodeURIComponent(account) + '/d1/database/' + encodeURIComponent(databaseId) + '/query', {
       method: 'POST',
       body: JSON.stringify(body),
     });
+    const outcomes = Array.isArray(result) ? result : [result];
+    if (outcomes.some(item => item && item.success === false)) {
+      fail('BACKEND_DATABASE_QUERY_FAILED', 'A D1 statement failed; the migration was not recorded as successful.', 502);
+    }
+    return result;
   }
 
   async function applyMigrations(databaseId, migrations) {
