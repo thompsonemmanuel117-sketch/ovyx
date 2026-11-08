@@ -84,7 +84,7 @@ assert.equal(calls.filter(call => call.body?.batch).length, 1);
 await assert.rejects(() => adapter.applyMigrations(database.id, [
   { version: 1, sha256: 'b'.repeat(64), content: migrationContent },
 ]), { code: 'BACKEND_MIGRATION_HASH_MISMATCH' });
-assert.throws(() => splitSafeAdditiveMigration('CREATE TABLE "_ovyx_migrations" (version INTEGER);'), { code: 'BACKEND_MIGRATION_RESERVED_TABLE' });
+assert.throws(() => splitSafeAdditiveMigration('CREATE TABLE _ovyx_migrations (version INTEGER);'), { code: 'BACKEND_MIGRATION_RESERVED_TABLE' });
 assert.ok(!JSON.stringify(calls).includes('x'.repeat(32)));
 
 console.log('OVYX Cloudflare D1 adapter safety tests passed.');
