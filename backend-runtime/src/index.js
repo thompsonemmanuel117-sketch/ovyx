@@ -2,7 +2,7 @@ import { Sandbox, getSandbox, ContainerProxy } from '@cloudflare/sandbox';
 
 export { ContainerProxy };
 
-const MAX_BODY_BYTES = 3_000_000;
+const MAX_BODY_BYTES = 4_500_000;
 const MAX_FILES = 140;
 const MAX_FILE_BYTES = 280_000;
 const MAX_LOCKFILE_BYTES = 1_600_000;
