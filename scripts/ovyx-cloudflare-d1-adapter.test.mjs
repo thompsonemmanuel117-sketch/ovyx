@@ -21,6 +21,7 @@ assert.throws(() => createCloudflareD1Adapter({ accountId: 'bad', apiToken: 'sho
 
 const calls = [];
 const databases = new Map();
+const migrationLedger = new Map();
 const fetchImpl = async (url, init = {}) => {
   const path = new URL(url).pathname;
   calls.push({ path, method: init.method || 'GET', body: init.body ? JSON.parse(init.body) : null });
@@ -40,7 +41,16 @@ const fetchImpl = async (url, init = {}) => {
   }
   if (path.endsWith('/query')) {
     const body = JSON.parse(init.body);
-    if (body.sql?.startsWith('SELECT version')) return Response.json({ success: true, result: [{ success: true, results: [] }] });
+    if (body.sql?.startsWith('SELECT version')) {
+      const version = Number(body.params?.[0]);
+      const item = migrationLedger.get(version);
+      return Response.json({ success: true, result: [{ success: true, results: item ? [item] : [] }] });
+    }
+    if (Array.isArray(body.batch)) {
+      const insert = body.batch.at(-1);
+      const [version, sha256] = insert.params;
+      migrationLedger.set(Number(version), { version: Number(version), sha256 });
+    }
     return Response.json({ success: true, result: [{ success: true, results: [] }] });
   }
   return Response.json({ success: false, errors: [{ code: 1 }] }, { status: 500 });
@@ -58,6 +68,15 @@ const migrations = await adapter.applyMigrations(database.id, [
 ]);
 assert.deepEqual(migrations.applied, [{ version: 1, status: 'applied' }]);
 assert.ok(calls.some(call => call.body?.batch?.length === 2));
+const repeat = await adapter.applyMigrations(database.id, [
+  { version: 1, sha256: migrationHash, content: migrationContent },
+]);
+assert.deepEqual(repeat.applied, [{ version: 1, status: 'already-applied' }]);
+assert.equal(calls.filter(call => call.body?.batch).length, 1);
+await assert.rejects(() => adapter.applyMigrations(database.id, [
+  { version: 1, sha256: 'b'.repeat(64), content: migrationContent },
+]), { code: 'BACKEND_MIGRATION_HASH_MISMATCH' });
+assert.throws(() => splitSafeAdditiveMigration('CREATE TABLE "_ovyx_migrations" (version INTEGER);'), { code: 'BACKEND_MIGRATION_RESERVED_TABLE' });
 assert.ok(!JSON.stringify(calls).includes('x'.repeat(32)));
 
 console.log('OVYX Cloudflare D1 adapter safety tests passed.');
