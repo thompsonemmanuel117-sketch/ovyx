@@ -260,3 +260,9 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button.is-act
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button.text-amber-500 {
   color: #704600 !important;
 }
+
+/* The Home dock item is not guaranteed to be a button in every shell revision. */
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar [data-v52-bottom="home"].is-active,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar .is-active {
+  color: #704600 !important;
+}
