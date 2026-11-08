@@ -55,6 +55,11 @@ async function cf(path, env) {
   }
   return payload.result;
 }
+function deploymentEnvironmentMismatch(record, expected) {
+  const name = String(record?.resourceNames?.database || '');
+  if (!name) return false;
+  return !name.endsWith('-' + expected);
+}
 async function pagesIdentity(user, projectId, projectName, env) {
   const digest = await crypto.subtle.digest('SHA-256', encoder.encode(user.uid + ':' + projectId));
   const hashValue = Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
@@ -67,7 +72,10 @@ export async function onRequestGet(context) {
   try {
     if (!enforceSameOrigin(request)) return errorResponse(403, 'CORS_DENIED', 'Cross-origin backend status requests are not allowed.');
     const user = assertAuthenticated(context.data?.user);
-    const projectId = clean(new URL(request.url).searchParams.get('projectId'), 120);
+    const urlParams = new URL(request.url).searchParams;
+    const projectId = clean(urlParams.get('projectId'), 120);
+    const targetEnvironment = urlParams.get('environment') || 'preview';
+    if (!['preview', 'production'].includes(targetEnvironment)) fail('BACKEND_ENVIRONMENT_INVALID', 'Choose Preview or Production to check its backend status.');
     if (!/^[A-Za-z0-9_-]{1,120}$/.test(projectId)) fail('BACKEND_PROJECT_ID_INVALID', 'Choose a valid saved website first.');
     const email = clean(user.email, 320).toLowerCase();
     const project = await getFirestoreDataAtPath(context.env, ['users', email, 'projects', projectId]);
@@ -75,9 +83,9 @@ export async function onRequestGet(context) {
     const files = graphFiles(project);
     const architecture = parseFile(files, 'ovyx-backend-architecture.json', 'BACKEND_ARCHITECTURE_MISSING');
     const sources = backendFiles(files);
-    const plan = await createBackendProvisioningPlan({ ownerUid: user.uid, projectId, environment: 'preview', architecture, files: sources });
+    const plan = await createBackendProvisioningPlan({ ownerUid: user.uid, projectId, environment: targetEnvironment, architecture, files: sources });
     const store = createFirestoreProvisioningRegistry(context.env);
-    const key = plan.namespace + '-preview';
+    const key = plan.namespace + '-' + targetEnvironment;
     const current = await store.read(key);
     if (!current) fail('BACKEND_PROVISIONING_NOT_FOUND', 'This website does not have a Preview backend provisioning record yet.', 404);
     const [ownerHash, projectHash] = await Promise.all([hash(user.uid), hash(projectId)]);
@@ -92,6 +100,7 @@ export async function onRequestGet(context) {
     if (!pagesProjectName || !deploymentId) fail('BACKEND_PROVISIONING_RECORD_INCOMPLETE', 'The Preview provisioning record is missing its deployment identity.', 409);
     const expected = await pagesIdentity(user, projectId, slug(project.name || project.title || 'site'), context.env);
     if (!pagesProjectName.startsWith(expected.prefix)) fail('BACKEND_PAGES_PROJECT_OWNERSHIP_INVALID', 'The Pages project does not match this saved website.', 403);
+    if (deploymentEnvironmentMismatch(current.data, targetEnvironment)) fail('BACKEND_DEPLOYMENT_ENVIRONMENT_INVALID', 'The saved deployment environment does not match this status request.', 409);
     const deployment = await cf(
       '/accounts/' + encodeURIComponent(context.env.CLOUDFLARE_ACCOUNT_ID) +
       '/pages/projects/' + encodeURIComponent(pagesProjectName) +
@@ -129,8 +138,8 @@ export async function onRequestGet(context) {
       patch: { deploymentId },
     });
     return jsonResponse({
-      success: true, status: ready.data.state, projectId, pagesProjectName,
-      deployment: { deploymentId, url, environment: 'preview', status: stageStatus },
+      success: true, status: ready.data.state, environment: targetEnvironment, projectId, pagesProjectName,
+      deployment: { deploymentId, url, environment: targetEnvironment, status: stageStatus },
       database: databaseId ? { id: databaseId, migrationsVerified: plan.migrations.length } : null,
       smokeTest: { status: smoke.status, passed: true },
     }, 200, { 'Cache-Control': 'no-store' });
