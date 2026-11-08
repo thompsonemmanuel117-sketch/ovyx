@@ -295,30 +295,11 @@ try {
     await resetPreferences.click({ noWaitAfter: true });
     await resetResponse;
     console.log('[settings-account] ' + target.name + ': reset response received');
-    const resetDiagnostic = await page.evaluate(() => ({
-      url: location.href,
-      readyState: document.readyState,
-      panels: Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).map(panel => {
-        const status = panel.querySelector('#ovyx-notification-server-status');
-        const reset = panel.querySelector('#notify-reset');
-        const style = getComputedStyle(panel);
-        return {
-          display: style.display,
-          visibility: style.visibility,
-          rects: panel.getClientRects().length,
-          statusExists: !!status,
-          statusText: status?.textContent || '',
-          statusDisplay: status ? getComputedStyle(status).display : '',
-          statusVisibility: status ? getComputedStyle(status).visibility : '',
-          resetExists: !!reset,
-          resetType: reset?.type || '',
-          resetDisabled: !!reset?.disabled,
-          actionHandled: reset?.dataset.ovyxNotificationActionHandled || '',
-          lastResult: panel.dataset.ovyxNotificationLastResult || ''
-        };
-      })
-    }));
-    console.log('[settings-account] notification reset diagnostic ' + JSON.stringify(resetDiagnostic));
+    // The authenticated PUT is the server-side completion signal. Verify
+    // the resulting status through Playwright's locator polling instead of
+    // evaluating a diagnostic snapshot during the async click handler; this
+    // keeps the browser test focused on user-visible behavior and avoids
+    // blocking the account regression shard on a nonessential page.evaluate.
     await page.locator('[data-settings-panel="notifications"]:visible #ovyx-notification-server-status').waitFor({ state: 'visible', timeout: 12000 });
     await page.waitForFunction(
       () => {
