@@ -62,6 +62,7 @@ assert.ok(engine.includes("filePath === 'ovyx-qa-plan.json'"), 'The generated ba
 assert.ok(engine.includes('Missing or invalid ovyx-qa-plan.json'), 'Missing backend acceptance checks must trigger a source-generation retry.');
 
 assert.ok(deploy.includes("['ovyx-backend-architecture.json','ovyx-qa-plan.json','wrangler.jsonc','wrangler.json'].includes(String(rp))"), 'Static publishing must not expose internal backend manifests or Wrangler configuration.');
+assert.ok(deploy.includes('server-side features that cannot be published as static assets'), 'Static-only publishing must not leak unsupported server source files.');
 assert.ok(plan.includes("databaseBinding: architecture.capabilities.database ? 'DB' : null"), 'Generated Pages Functions must use the expected D1 binding name.');
 assert.ok(binding.includes('deployment_configs: { [environment]: nextConfig }'), 'The D1 binding adapter must modify only the explicitly selected environment.');
 assert.ok(binding.includes('bindProductionD1'), 'Production D1 binding must be a separate explicit operation.');
