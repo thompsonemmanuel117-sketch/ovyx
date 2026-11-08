@@ -162,6 +162,13 @@
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'application/json,.json';
+      input.style.position = 'fixed';
+      input.style.left = '-10000px';
+      input.style.width = '1px';
+      input.style.height = '1px';
+      // Keep the chooser attached while the browser dispatches its change event.
+      document.body.appendChild(input);
+      input.addEventListener('cancel', function () { input.remove(); }, { once: true });
       input.onchange = function () {
         const file = input.files && input.files[0];
         if (!file) return;
@@ -206,6 +213,13 @@
             const status = document.getElementById('settings-save-status');
             if (status) status.textContent = 'Theme import failed: ' + (error.message || 'Invalid theme file.');
           }
+          input.remove();
+        };
+        reader.onerror = function () {
+          try { window.showToast?.('Theme import failed while reading the file.', 'error'); } catch (_) {}
+          const status = document.getElementById('settings-save-status');
+          if (status) status.textContent = 'Theme import failed while reading the file.';
+          input.remove();
         };
         reader.readAsText(file);
       };
