@@ -169,25 +169,32 @@ export function createCloudflareD1Adapter({ accountId, apiToken, fetchImpl = fet
 
   async function applyMigrations(databaseId, migrations) {
     if (!Array.isArray(migrations) || migrations.length > 140) fail('BACKEND_MIGRATION_MANIFEST_INVALID', 'The migration manifest is invalid.');
-    await query(databaseId, { sql: 'CREATE TABLE IF NOT EXISTS _ovyx_migrations (version INTEGER PRIMARY KEY, sha256 TEXT NOT NULL, applied_at TEXT NOT NULL)' });
-    const applied = [];
+    if (!migrations.length) return { applied: [] };
     const ordered = migrations.slice().sort((a, b) => Number(a.version) - Number(b.version));
     const seenVersions = new Set();
+    const validated = [];
+    // Validate the complete manifest before the first database write.
     for (const migration of ordered) {
       const version = Number(migration.version);
       const hash = String(migration.sha256 || '').toLowerCase();
-      if (!Number.isSafeInteger(version) || version < 1 || !/^[a-f0-9]{64}$/i.test(hash)) {
+      if (!Number.isSafeInteger(version) || version < 1 || !/^[a-f0-9]{64}$/.test(hash)) {
         fail('BACKEND_MIGRATION_MANIFEST_INVALID', 'A migration version or checksum is invalid.');
       }
       if (seenVersions.has(version)) fail('BACKEND_MIGRATION_DUPLICATE_VERSION', 'Migration versions must be unique.');
       seenVersions.add(version);
-      const actualHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(migration.content || '')))), byte => byte.toString(16).padStart(2, '0')).join('');
-      if (actualHash !== hash.toLowerCase()) fail('BACKEND_MIGRATION_HASH_MISMATCH', 'A migration source does not match its trusted SHA-256 manifest.');
-      const statements = splitSafeAdditiveMigration(migration.content);
+      const content = String(migration.content || '');
+      const actualHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content))), byte => byte.toString(16).padStart(2, '0')).join('');
+      if (actualHash !== hash) fail('BACKEND_MIGRATION_HASH_MISMATCH', 'A migration source does not match its trusted SHA-256 manifest.');
+      validated.push({ version, hash, statements: splitSafeAdditiveMigration(content) });
+    }
+    await query(databaseId, { sql: 'CREATE TABLE IF NOT EXISTS _ovyx_migrations (version INTEGER PRIMARY KEY, sha256 TEXT NOT NULL, applied_at TEXT NOT NULL)' });
+    const applied = [];
+    for (const migration of validated) {
+      const { version, hash, statements } = migration;
       const existingResult = await query(databaseId, { sql: 'SELECT version, sha256 FROM _ovyx_migrations WHERE version = ?', params: [version] });
       const existing = existingResult?.[0]?.results?.[0];
       if (existing) {
-        if (String(existing.sha256) !== hash) fail('BACKEND_MIGRATION_DRIFT', 'An already-applied migration has changed. Create a new migration instead of rewriting history.', 409);
+        if (String(existing.sha256).toLowerCase() !== hash) fail('BACKEND_MIGRATION_DRIFT', 'An already-applied migration has changed. Create a new migration instead of rewriting history.', 409);
         applied.push({ version, status: 'already-applied' });
         continue;
       }
@@ -198,7 +205,7 @@ export function createCloudflareD1Adapter({ accountId, apiToken, fetchImpl = fet
       } catch (error) {
         const retryCheck = await query(databaseId, { sql: 'SELECT version, sha256 FROM _ovyx_migrations WHERE version = ?', params: [version] }).catch(() => null);
         const raced = retryCheck?.[0]?.results?.[0];
-        if (raced && String(raced.sha256) === hash) {
+        if (raced && String(raced.sha256).toLowerCase() === hash) {
           applied.push({ version, status: 'already-applied' });
           continue;
         }
