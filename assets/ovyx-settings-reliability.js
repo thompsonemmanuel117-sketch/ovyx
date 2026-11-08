@@ -377,7 +377,10 @@
     // multiple mounted copies, so never redirect a Save/Reset status update
     // to a different panel selected by a later global visibility scan.
     const clickedPanel = button && button.closest('[data-settings-panel="notifications"]');
-    const panel = clickedPanel && isActuallyVisible(clickedPanel) ? clickedPanel : notificationPanel();
+    // The event came from a real control in this panel. Keep the write and
+    // its status attached here even if responsive visibility styles change
+    // during the async request; a later global scan can select no panel.
+    const panel = clickedPanel && clickedPanel.isConnected ? clickedPanel : notificationPanel();
     const status = addStatus(panel, 'ovyx-notification-server-status', 'Saving notification preferences…');
     const next = reset ? Object.assign({}, NOTIFICATION_DEFAULTS) : Object.assign({}, notificationDraft || NOTIFICATION_DEFAULTS);
     if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Saving…'; }
