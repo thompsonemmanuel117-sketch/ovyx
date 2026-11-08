@@ -115,7 +115,7 @@ export function createFirestoreProvisioningRegistry(env) {
  * reservations and lost updates.
  */
 export async function reserveBackendProvisioningOperation({
-  store, plan, ownerUid, projectId, operationId, now = new Date().toISOString(),
+  store, plan, ownerUid, projectId, operationId, sourceHash, now = new Date().toISOString(),
   leaseMs = 120_000,
 } = {}) {
   if (!store || typeof store.read !== 'function' || typeof store.create !== 'function' ||
@@ -124,6 +124,9 @@ export async function reserveBackendProvisioningOperation({
       typeof projectId !== 'string' || !SAFE_ID.test(projectId) ||
       typeof operationId !== 'string' || !SAFE_ID.test(operationId)) {
     fail('PROVISIONING_IDENTITY_INVALID', 'A verified owner, saved project and operation ID are required.');
+  }
+  if (typeof sourceHash !== 'string' || !/^[a-f0-9]{64}$/i.test(sourceHash)) {
+    fail('PROVISIONING_SOURCE_HASH_INVALID', 'A verified saved-project source fingerprint is required.');
   }
   if (!Number.isSafeInteger(leaseMs) || leaseMs < 10_000 || leaseMs > 600_000) {
     fail('PROVISIONING_LEASE_INVALID', 'The provisioning lease duration is invalid.');
@@ -138,6 +141,7 @@ export async function reserveBackendProvisioningOperation({
     environment: plan.environment,
     ownerHash,
     projectHash,
+    sourceHash: sourceHash.toLowerCase(),
     resourceNames: plan.resources,
     state: 'reserved',
     operationId,
@@ -167,7 +171,9 @@ export async function reserveBackendProvisioningOperation({
       record.namespace !== plan.namespace || record.environment !== plan.environment) {
     fail('PROVISIONING_OWNERSHIP_CONFLICT', 'The provisioning namespace does not match this saved project.', 409);
   }
-  if (record.state === 'ready') return { outcome: 'already_ready', key, data: record, record, updateTime: current.updateTime };
+  if (record.state === 'ready' && String(record.sourceHash || record.resourceIds?.sourceHash || '').toLowerCase() === sourceHash.toLowerCase()) {
+    return { outcome: 'already_ready', key, data: record, record, updateTime: current.updateTime };
+  }
   if (record.state === 'recovery_required' || record.state === 'reserved' ||
       ['provisioning', 'migrating', 'building', 'deploying', 'verifying'].includes(record.state)) {
     const leaseEnd = Date.parse(record.leaseExpiresAt || '');
@@ -176,12 +182,14 @@ export async function reserveBackendProvisioningOperation({
     }
     return { outcome: 'recovery_required', key, data: record, record, updateTime: current.updateTime };
   }
-  if (!['failed', 'rolled_back'].includes(record.state)) {
+  if (!['failed', 'rolled_back'].includes(record.state) && !(record.state === 'ready' &&
+      String(record.sourceHash || record.resourceIds?.sourceHash || '').toLowerCase() !== sourceHash.toLowerCase())) {
     fail('PROVISIONING_STATE_INVALID', 'The saved provisioning state is invalid.', 409);
   }
   const retry = {
     ...record,
     state: 'reserved',
+    sourceHash: sourceHash.toLowerCase(),
     operationId,
     attempt: Math.min(Number(record.attempt || 0) + 1, 1_000_000),
     leaseExpiresAt: expiresAt,
