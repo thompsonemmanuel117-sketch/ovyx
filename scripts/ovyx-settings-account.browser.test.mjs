@@ -295,6 +295,11 @@ try {
     await resetPreferences.click({ noWaitAfter: true });
     await resetResponse;
     console.log('[settings-account] ' + target.name + ': reset response received');
+    assert.equal(
+      await resetPreferences.getAttribute('data-ovyxNotificationActionHandled'),
+      'reset',
+      '[' + target.name + '] Reset must be handled by the account-backed Settings action, not a legacy click handler.',
+    );
     // The authenticated PUT is the server-side completion signal. Verify
     // the resulting status through Playwright's locator polling instead of
     // evaluating a diagnostic snapshot during the async click handler; this
