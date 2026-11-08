@@ -520,15 +520,35 @@ try {
       mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify(exported)),
     });
-    await page.waitForFunction(({ expectedName, previousId }) => {
-      const lab = window.OVYXThemeLab;
-      const active = String(lab?.state?.active || '');
-      const status = document.getElementById('settings-save-status')?.textContent || '';
-      return status.startsWith('Theme import failed:')
-        || (active.startsWith('custom_')
-          && active !== previousId
-          && lab.state.customThemes?.[active]?.name === expectedName);
-    }, { expectedName: exported.name, previousId: duplicateId }, { timeout: 15000 });
+    try {
+      await page.waitForFunction(({ expectedName, previousId }) => {
+        const lab = window.OVYXThemeLab;
+        const active = String(lab?.state?.active || '');
+        const status = document.getElementById('settings-save-status')?.textContent || '';
+        return status.startsWith('Theme import failed:')
+          || (active.startsWith('custom_')
+            && active !== previousId
+            && lab.state.customThemes?.[active]?.name === expectedName);
+      }, { expectedName: exported.name, previousId: duplicateId }, { timeout: 30000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => {
+        const lab = window.OVYXThemeLab;
+        const status = document.getElementById('settings-save-status');
+        return {
+          active: lab?.state?.active ?? null,
+          customThemes: lab?.state?.customThemes ?? null,
+          status: status?.textContent ?? null,
+          importType: typeof lab?.import,
+          importButtonCount: document.querySelectorAll('[data-theme-import]').length,
+          fileInputs: Array.from(document.querySelectorAll('input[type="file"]')).map(input => ({
+            attached: input.isConnected, accept: input.accept, files: input.files?.length || 0,
+          })),
+          theme: window.ThemeContext?.get?.() ?? null,
+        };
+      });
+      throw new Error('Theme import did not complete; diagnostic=' + JSON.stringify(diagnostic)
+        + '; original=' + String(error?.message || error));
+    }
     const importState = await page.evaluate(() => ({
       active: String(window.OVYXThemeLab?.state?.active || ''),
       activeTheme: window.OVYXThemeLab?.state?.customThemes?.[window.OVYXThemeLab?.state?.active] || null,

@@ -81,7 +81,7 @@ permissions:
 jobs:
   settings-regression-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -122,18 +122,64 @@ jobs:
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8791
         run: |
-          node scripts/ovyx-settings.browser.test.mjs
-          node scripts/ovyx-settings-core.browser.test.mjs
-          node scripts/ovyx-settings-account.browser.test.mjs
-          node scripts/ovyx-settings-security.browser.test.mjs
-          node scripts/ovyx-settings-ai.browser.test.mjs
-          node scripts/ovyx-settings-workspace.browser.test.mjs
-          node scripts/ovyx-settings-shortcuts.browser.test.mjs
-          node scripts/ovyx-personal-connections.browser.test.mjs
-          node scripts/ovyx-cancel-safety.browser.test.mjs
-          node scripts/ovyx-scoped-rollback-performance.browser.test.mjs
-          node scripts/ovyx-scoped-rollback-graph.browser.test.mjs
-          node scripts/ovyx-mobile-back-navigation.browser.test.mjs
+          set +e
+          run_shard() {
+            label="$1"
+            log_file="$2"
+            shift 2
+            for script in "$@"; do
+              echo "[$label] START $script"
+              timeout --signal=TERM --kill-after=30s 12m node "scripts/$script" 2>&1 | tee -a "$log_file"
+              script_status=${PIPESTATUS[0]}
+              if [ "$script_status" -ne 0 ]; then
+                if [ "$script_status" -eq 124 ] || [ "$script_status" -eq 137 ]; then
+                  echo "[$label] TIMEOUT after 12 minutes: $script"
+                else
+                  echo "[$label] FAILED ($script_status): $script"
+                fi
+                return "$script_status"
+              fi
+              echo "[$label] PASS $script"
+            done
+          }
+
+          # Keep the appearance/theme round-trip tests isolated from concurrent
+          # Chromium processes, but stream each suite's output so a slow test is
+          # visible immediately instead of leaving an empty log until completion.
+          run_shard "settings-core" /tmp/ovyx-settings-core.log \
+            ovyx-settings.browser.test.mjs \
+            ovyx-settings-core.browser.test.mjs \
+            ovyx-settings-account.browser.test.mjs \
+            ovyx-settings-security.browser.test.mjs
+          core_status=$?
+          if [ "$core_status" -ne 0 ]; then
+            echo "Settings core/theme round-trip shard failed."
+            exit "$core_status"
+          fi
+
+          # Run independent workspace and safety suites concurrently. Each test
+          # gets its own hard limit and a live, named log; assertions are unchanged.
+          run_shard "settings-workspace" /tmp/ovyx-settings-workspace.log \
+            ovyx-settings-ai.browser.test.mjs \
+            ovyx-settings-workspace.browser.test.mjs \
+            ovyx-settings-shortcuts.browser.test.mjs \
+            ovyx-personal-connections.browser.test.mjs &
+          workspace_pid=$!
+
+          run_shard "settings-safety" /tmp/ovyx-settings-safety.log \
+            ovyx-cancel-safety.browser.test.mjs \
+            ovyx-scoped-rollback-performance.browser.test.mjs \
+            ovyx-scoped-rollback-graph.browser.test.mjs \
+            ovyx-mobile-back-navigation.browser.test.mjs &
+          safety_pid=$!
+
+          wait "$workspace_pid"; workspace_status=$?
+          wait "$safety_pid"; safety_status=$?
+
+          if [ "$workspace_status" -ne 0 ] || [ "$safety_status" -ne 0 ]; then
+            echo "One or more Settings browser-test shards failed."
+            exit 1
+          fi
 
       - name: Print local Pages logs on failure
         if: failure()

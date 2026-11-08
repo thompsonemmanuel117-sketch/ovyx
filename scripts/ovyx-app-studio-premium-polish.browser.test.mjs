@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const runtime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-premium-polish.js', import.meta.url)), 'utf8');
+const appShellRuntime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-shell-polish.js', import.meta.url)), 'utf8');
 const requests = [];
 const report = {
   source: { inputUrl: 'https://coastal.example/', canonicalUrl: 'https://coastal.example/', analyzedAt: '2026-10-18T00:00:00Z' },
@@ -12,6 +13,8 @@ const report = {
   branding: { name: 'Coastal Living', confidence: 'high', colors: { primary: '#D81B60', secondary: '#302060' } }
 };
 const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+<section id="view-router-viewport"><section id="view-home"><div class="v59-dashboard-shell">Dashboard content fixture</div></section></section>
+<nav id="ovyx-v52-bottom-bar" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr))"><button>Home</button><button>Build</button><button class="v52-bottom-create"><b>+</b>New</button><button>Code</button><button>More</button></nav>
 <section id="view-appstudio" class="flex flex-col">
   <section id="ovyx-app-studio-brand-dna-panel" class="ovyx-app-brand-dna">
     <div class="ovyx-app-brand-dna__heading"><h3>Brand DNA</h3></div>
@@ -37,8 +40,26 @@ const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
   </section>
   <section id="ovyx-app-studio-release" class="ovyx-lb-release"><button data-lb-publish>Publish production</button></section>
 </section>
-<script>window.__OVYX_URL_ANALYZER_LAST_REPORT__=${JSON.stringify(report)};window.__OVYX_APP_STUDIO_GENERATED_PROJECT__=null;window.__OVYX_PROJECT_BRAIN_REPORT__=null;</script>
+<script>
+window.__OVYX_URL_ANALYZER_LAST_REPORT__=${JSON.stringify(report)};
+window.__OVYX_APP_STUDIO_GENERATED_PROJECT__=null;
+window.__OVYX_PROJECT_BRAIN_REPORT__=null;
+window.ThemeContext={
+  theme:{mode:'dark',backgroundColor:'#050607',sidebarColor:'#050607',cardColor:'#0B0D10',borderColor:'#1B222A',textColor:'#F8FAFC',mutedColor:'#94A3B8',accentColor:'#E8B64F'},
+  get(){return {...this.theme}},
+  preview(patch){this.theme={...this.theme,...patch};document.dispatchEvent(new CustomEvent('ovyx:theme-applied',{detail:{effective:{...this.theme},reason:'preview'}}));return this.theme},
+  set(patch){return this.preview(patch)},
+  isDirty(){return true}
+};
+window.OVYXThemeLab={
+  state:{active:'custom_test',customThemes:{custom_test:{name:'Low contrast test',bg:'#000000',panel:'#101010',text:'#111111',secondary:'#222222',muted:'#333333',accent:'#010101',border:'#111111'}}},
+  activeTheme(){return this.state.customThemes[this.state.active]},
+  apply(){return true},
+  set(id){this.state.active=id;return id}
+};
+</script>
 <script src="/assets/ovyx-app-studio-premium-polish.js"></script>
+<script src="/assets/ovyx-app-shell-polish.js"></script>
 </body></html>`;
 
 function send(res, status, body, type='application/json; charset=utf-8') {
@@ -48,6 +69,7 @@ function send(res, status, body, type='application/json; charset=utf-8') {
 const server = createServer((req, res) => {
   if (req.url === '/') return send(res, 200, html, 'text/html; charset=utf-8');
   if (req.url === '/assets/ovyx-app-studio-premium-polish.js') return send(res, 200, runtime, 'text/javascript; charset=utf-8');
+  if (req.url === '/assets/ovyx-app-shell-polish.js') return send(res, 200, appShellRuntime, 'text/javascript; charset=utf-8');
   if (req.url === '/favicon.ico') { res.writeHead(204); return res.end(); }
   requests.push(req.url);
   return send(res, 404, { ok: false });
@@ -69,6 +91,44 @@ try {
   });
   assert.ok(wideLayout.root > 1300 && wideLayout.hero > 1200 && wideLayout.canvas > 1200,
     'Desktop App Studio sections must use the full available screen width rather than the former 1120px cap: ' + JSON.stringify(wideLayout));
+
+  const desktopPolish = await desktop.evaluate(() => {
+    window.OVYXThemeLab.set('custom_test');
+    const theme = window.ThemeContext.get();
+    const root = getComputedStyle(document.documentElement);
+    const effective = {
+      backgroundColor: root.getPropertyValue('--bg').trim(),
+      cardColor: root.getPropertyValue('--card').trim(),
+      textColor: root.getPropertyValue('--text').trim(),
+      mutedColor: root.getPropertyValue('--muted').trim(),
+      accentColor: root.getPropertyValue('--accent').trim(),
+      borderColor: root.getPropertyValue('--border').trim()
+    };
+    const luminance = color => {
+      const rgb = color.slice(1).match(/.{2}/g).map(value => parseInt(value, 16) / 255)
+        .map(value => value <= .04045 ? value / 12.92 : Math.pow((value + .055) / 1.055, 2.4));
+      return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+    };
+    const ratio = (a,b) => {
+      const x=luminance(a), y=luminance(b);
+      return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);
+    };
+    return {
+      theme, effective,
+      textContrast: Math.min(ratio(effective.textColor,effective.backgroundColor),ratio(effective.textColor,effective.cardColor)),
+      mutedContrast: Math.min(ratio(effective.mutedColor,effective.backgroundColor),ratio(effective.mutedColor,effective.cardColor)),
+      accentContrast: Math.min(ratio(effective.accentColor,effective.backgroundColor),ratio(effective.accentColor,effective.cardColor)),
+      borderContrast: ratio(effective.borderColor,effective.cardColor),
+      bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom
+    };
+  });
+  assert.ok(desktopPolish.textContrast >= 4.5, 'Theme text must remain readable against both canvas and cards: ' + JSON.stringify(desktopPolish));
+  assert.ok(desktopPolish.mutedContrast >= 4.5, 'Muted theme text must retain readable contrast: ' + JSON.stringify(desktopPolish));
+  assert.ok(desktopPolish.accentContrast >= 3, 'Theme accents must remain distinguishable: ' + JSON.stringify(desktopPolish));
+  assert.ok(desktopPolish.borderContrast >= 1.5, 'Theme borders must remain visible against cards: ' + JSON.stringify(desktopPolish));
+  assert.equal(desktopPolish.theme.textColor, '#111111', 'Contrast protection must not overwrite the user-selected color stored for export.');
+  assert.equal(desktopPolish.theme.accentColor, '#010101', 'Contrast protection must not rewrite the original Theme Lab accent in saved/exported theme data.');
+  assert.equal(desktopPolish.bottomPadding, '22px', 'App Studio should not reserve the old excessive 72px bottom gap.');
 
   assert.equal(await desktop.locator('#view-appstudio > #ovyx-app-studio-experience').count(), 1, 'The new guided workspace header must be mounted once at the top.');
   assert.match(await desktop.locator('#ovyx-as-title').innerText(), /From website to working app/);
@@ -143,6 +203,27 @@ try {
   });
   assert.ok(metrics.appWidth > 0 && metrics.documentWidth <= metrics.viewport + 1 && metrics.appScrollWidth <= metrics.appWidth + 1,
     'The premium App Studio layout must not create mobile horizontal overflow: ' + JSON.stringify(metrics));
+  const mobileShell = await mobile.evaluate(() => {
+    const dock = document.getElementById('ovyx-v52-bottom-bar');
+    const shell = document.querySelector('#view-home .v59-dashboard-shell');
+    const rect = dock.getBoundingClientRect();
+    const style = getComputedStyle(dock);
+    return {
+      left: rect.left, right: rect.right, bottom: rect.bottom, height: rect.height,
+      position: style.position, backgroundImage: style.backgroundImage,
+      topRadius: style.borderTopLeftRadius,
+      shellPadding: getComputedStyle(shell).paddingBottom,
+      viewportPadding: getComputedStyle(document.getElementById('view-router-viewport')).paddingBottom
+    };
+  });
+  assert.equal(mobileShell.position, 'fixed', 'The Home dock must stay anchored while dashboard content scrolls.');
+  assert.ok(Math.abs(mobileShell.left) < 0.5 && Math.abs(mobileShell.right - 390) < 0.5 && Math.abs(mobileShell.bottom - 844) < 0.5,
+    'The bottom navigation must attach to the dashboard screen edges rather than float as a detached pill: ' + JSON.stringify(mobileShell));
+  assert.notEqual(mobileShell.backgroundImage, 'none', 'The dock must retain its own themed surface instead of being flattened into the page canvas.');
+  assert.equal(mobileShell.topRadius, '18px', 'The integrated dock should keep a soft top edge.');
+  assert.equal(mobileShell.height, 64, 'The integrated dock must preserve the established 64px navigation height.');
+  assert.equal(mobileShell.shellPadding, '108px', 'The dashboard must keep a modest scroll clearance so its final card can clear the fixed dock without restoring the old oversized 190px runway.');
+  assert.match(mobileShell.viewportPadding, /76px/, 'The scroll viewport must reserve only enough room for the attached dock.');
   const animation = await mobile.locator('#ovyx-app-studio-experience').evaluate(el => getComputedStyle(el).animationDuration);
   assert.ok(['1e-05s', '0.00001s', '0.01ms'].includes(animation) || parseFloat(animation) <= 0.00001,
     'Reduced-motion users must not receive decorative entrance animation; got ' + animation);
