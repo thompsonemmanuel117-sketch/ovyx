@@ -343,7 +343,11 @@ export async function onRequestPost(context) {
       });
     }
     if (current.data.state === 'provisioning' || current.data.state === 'migrating') {
-      current = await transitionBackendProvisioningOperation({ store, key: registryKey, current, operationId, nextState: 'building', leaseMs: 600_000 });
+      current = await transitionBackendProvisioningOperation({
+        store, key: registryKey, current, operationId, nextState: 'building',
+        patch: { migrationVersionsApplied: database ? plan.migrations.map(item => item.version) : [] },
+        leaseMs: 600_000,
+      });
     }
     const build = await callRuntime(context.env, '/build-pages', {
       version: 1, projectId, databaseId: database?.id || '',
