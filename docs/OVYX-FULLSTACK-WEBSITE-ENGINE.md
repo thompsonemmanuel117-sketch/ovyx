@@ -252,7 +252,7 @@ The customer workflow is connected through `/api/backend/provision` and `/api/ba
 5. OVYX reserves the owner/project/Preview operation in Firestore, reconciles or creates the deterministic D1 database, applies only validated additive versioned migrations, and records the applied versions.
 6. The Pages project is resolved from the deterministic owner/project namespace. The D1 binding is added to Preview only; existing settings and unrelated bindings are preserved, conflicting bindings are rejected, and a fresh GET verifies the result.
 7. Static website assets, `_worker.bundle` and `_routes.json` are direct-uploaded as a Pages Preview deployment. The internal architecture/QA/Wrangler manifests are excluded from public assets.
-8. The operation remains `verifying` until the status route confirms Cloudflare's deployment stage, performs an HTTP smoke test against the Preview URL and re-verifies the D1 migration ledger. Only then is it marked `ready`.
+8. The operation remains `verifying` until the status route confirms Cloudflare's deployment stage, performs an HTTP smoke test against the exact deployment URL, re-verifies the D1 migration ledger, and proves the deployed Pages Function can read and consume a one-time nonce that OVYX first wrote to the customer's D1 database. The private `_ovyx_health_probes` table is reserved for this short-lived proof; its row is deleted after the API read. Only then is the operation marked `ready`.
 
 ### Production flow
 
@@ -263,7 +263,7 @@ Production is a separate explicit owner action in the Publishing panel. It is bl
 - Static-only sites continue through the existing static publishing route.
 - Automatic backend provisioning supports Cloudflare Pages Functions + D1. It does not silently convert Next.js, SvelteKit, Remix, Firestore, Supabase or another provider to D1.
 - The source generator must persist a valid architecture manifest, a Wrangler config and a disposable backend acceptance plan. Missing manifests or failing acceptance tests block provisioning.
-- D1 migrations are additive-only and checksum-verified. Code rollback does not automatically reverse database migrations; schema rollback needs a separate owner-approved migration/restore plan.
+- D1 migrations are additive-only and checksum-verified. The `_ovyx_` table namespace is reserved for OVYX internal migration and one-time health-proof tables. Code rollback does not automatically reverse database migrations; schema rollback needs a separate owner-approved migration/restore plan.
 - Firestore registry records contain hashes and resource IDs, not raw UID/project IDs, API tokens or secret values.
 - Production promotion requires a separate explicit confirmation and a verified Preview; the Preview route itself never changes Production.
 - External payment, email, identity-provider, object-storage and other third-party secrets/adapters are not provisioned by this D1 path. Those capabilities remain pending until their own secure adapters and live verification are implemented.
