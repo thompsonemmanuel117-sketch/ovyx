@@ -25,6 +25,8 @@ on:
       - 'functions/api/_lib/firebase-admin.js'
       - 'functions/_lib/backend-provisioning-registry.js'
       - 'scripts/ovyx-backend-provisioning-registry.test.mjs'
+      - 'functions/_lib/backend-pages-preview-binding.js'
+      - 'scripts/ovyx-backend-pages-preview-binding.test.mjs'
       - 'package.json'
       - '.github/workflows/ovyx-stage5-backend-runtime.yml'
   push:
@@ -83,6 +85,8 @@ jobs:
         run: node scripts/ovyx-backend-project-ownership.test.mjs
       - name: Verify durable provisioning registry leases and recovery states
         run: node scripts/ovyx-backend-provisioning-registry.test.mjs
+      - name: Verify customer Pages Preview D1 binding isolation
+        run: node scripts/ovyx-backend-pages-preview-binding.test.mjs
       - name: Verify per-project backend runtime bridge contracts
         run: node scripts/ovyx-backend-runtime-bridge.test.mjs
       - name: Build the production Cloudflare Sandbox container image
