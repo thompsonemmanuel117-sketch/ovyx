@@ -42,8 +42,11 @@ function normalizeGraphFiles(project) {
     const record = typeof value === 'string' ? { content: value } : value;
     const text = typeof record?.content === 'string' ? record.content
       : typeof record?.text === 'string' ? record.text : '';
-    if (!path || path.startsWith('/') || path.split('/').some(part => !part || part === '.' || part === '..') ||
-        /(?:^|\/)\.env(?:\..*)?$/i.test(path) || /(?:^|\/)\.dev\.vars(?:\..*)?$/i.test(path)) {
+    const segments = path.split('/');
+    if (!path || path.startsWith('/') || segments.some(part => !part || part === '.' || part === '..' ||
+        ['.git', 'node_modules', '.wrangler', 'coverage'].includes(part.toLowerCase())) ||
+        /(?:^|\/)\.env(?:\..*)?$/i.test(path) || /(?:^|\/)\.dev\.vars(?:\..*)?$/i.test(path) ||
+        /(?:secret|credential|private-key|service-account)/i.test(path)) {
       fail('BACKEND_PROJECT_FILE_PATH_INVALID', 'The saved website contains a file path that cannot be provisioned safely.');
     }
     if (text) result[path] = { content: text, contentType: clean(record?.contentType, 120) };
