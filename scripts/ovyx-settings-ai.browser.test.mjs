@@ -348,12 +348,13 @@ try {
     assert.equal(serverPreferences.provider, 'automatic', '[' + target.name + '] Reset must update OVYX-managed routing at the server boundary.');
     assert.equal(serverPreferences.routing, 'automatic');
     assert.equal(serverPreferences.fallback, 'automatic');
-    // The UI updates selected values before the asynchronous save handler's
-    // finally block re-enables its button; wait for that boundary before the
-    // next simulated user action.
+    // Reset is complete only after the account response is confirmed and
+    // the visible Settings status reports the verified defaults. The reset
+    // action does not own a disabled-button lifecycle, so do not wait on an
+    // unrelated disabled property before continuing the browser scenario.
     await page.locator('[data-settings-panel="ai"] #set-ai-reset').waitFor({ state: 'visible' });
     await page.waitForFunction(
-      () => !document.querySelector('[data-settings-panel="ai"] #set-ai-reset')?.disabled,
+      () => document.getElementById('ovyx-ai-preference-status')?.textContent?.includes('AI preferences reset to defaults and verified by the server.'),
       null,
       { timeout: 10000 },
     );
