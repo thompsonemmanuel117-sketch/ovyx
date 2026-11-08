@@ -10,8 +10,8 @@ import {
 } from '../../_lib/backend-provisioning-registry.js';
 
 const encoder = new TextEncoder();
-const PROVISIONABLE_BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server|src\/routes\/api|src\/app\/api)\//i;
-const UNSUPPORTED_BACKEND_PATH = /^(?:app\/api|pages\/api|src\/pages\/api|prisma|drizzle|db|database|app\/routes|src\/routes\/(?!api\/))\//i;
+const PROVISIONABLE_BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server)\//i;
+const UNSUPPORTED_BACKEND_PATH = /^(?:app\/api|pages\/api|src\/pages\/api|src\/app\/api|src\/routes\/api|prisma|drizzle|db|database|app\/routes)\//i;
 const clean = (value, max = 320) => String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
 function fail(code, message, status = 400) { throw Object.assign(new Error(message), { code, status }); }
 function slug(value, fallback = 'site') {
