@@ -11,7 +11,8 @@ const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
 assert.match(middleware, /ovyx-mobile-shell-quality\.css\?v=20261108-1/, 'The shell quality layer must be delivered with the existing HTML shell.');
 assert.match(css, /#ovyx-v52-bottom-bar\s*\{[\s\S]*?height:\s*64px\s*!important/, 'The existing mobile dock must have a compact fixed height.');
 assert.match(css, /\.v52-bottom-create\s*\{[\s\S]*?height:\s*54px\s*!important/, 'The New action must align within the dock, not float above it.');
-assert.match(css, /padding-bottom:\s*calc\(94px\s*\+\s*env\(safe-area-inset-bottom/, 'Home content must clear the dock without excessive blank space.');
+assert.match(css, /padding-bottom:\s*calc\(112px\s*\+\s*env\(safe-area-inset-bottom/, 'Home content must reserve at least 100px of dock clearance including the safe area.');
+assert.doesNotMatch(css, /padding-bottom:\s*calc\(94px\s*\+\s*env\(safe-area-inset-bottom/, 'The previous 94px clearance is below the required browser-quality threshold.');
 assert.match(css, /data-ovyx-mode="light"/, 'Light appearance must work with the canonical mode attribute.');
 assert.match(css, /\.ovyx-light/, 'Light appearance must also support the legacy theme class.');
 assert.match(css, /--ovyx-light-accent:\s*#875500/, 'Light-theme accent text must use a contrast-safe darker gold.');
