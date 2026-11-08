@@ -51,8 +51,10 @@ assert.equal(database.id, '12345678-1234-1234-1234-123456789abc');
 const again = await adapter.ensureDatabase({ name: 'ovyx-0123456789abcdef-preview' });
 assert.equal(again.id, database.id);
 assert.equal(calls.filter(call => call.method === 'POST' && call.path.endsWith('/d1/database')).length, 1);
+const migrationContent = 'CREATE TABLE people (id TEXT PRIMARY KEY);';
+const migrationHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(migrationContent))), byte => byte.toString(16).padStart(2, '0')).join('');
 const migrations = await adapter.applyMigrations(database.id, [
-  { version: 1, sha256: 'a'.repeat(64), content: 'CREATE TABLE people (id TEXT PRIMARY KEY);' },
+  { version: 1, sha256: migrationHash, content: migrationContent },
 ]);
 assert.deepEqual(migrations.applied, [{ version: 1, status: 'applied' }]);
 assert.ok(calls.some(call => call.body?.batch?.length === 2));
