@@ -242,9 +242,6 @@ try {
     await savePreferences.click();
     await page.waitForFunction(
       () => {
-        const panels = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]'));
-        const panel = panels.find(node => node.getClientRects().length > 0
-          && getComputedStyle(node).visibility !== 'hidden' && getComputedStyle(node).display !== 'none');
         const visiblePanel = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).find(node => node.getClientRects().length > 0
           && getComputedStyle(node).visibility !== 'hidden' && getComputedStyle(node).display !== 'none');
         return visiblePanel?.querySelector('#ovyx-notification-server-status')?.textContent
@@ -264,10 +261,9 @@ try {
     await savePreferences.click();
     await page.waitForFunction(
       () => {
-        const panels = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]'));
-        const panel = panels.find(node => node.getClientRects().length > 0
+        const visiblePanel = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).find(node => node.getClientRects().length > 0
           && getComputedStyle(node).visibility !== 'hidden' && getComputedStyle(node).display !== 'none');
-        return panel?.querySelector('#ovyx-notification-server-status')?.textContent
+        return visiblePanel?.querySelector('#ovyx-notification-server-status')?.textContent
           ?.includes('Your notification preferences have been saved. Email notifications will be available when delivery is enabled.');
       },
       null,
@@ -294,8 +290,9 @@ try {
     await page.locator('[data-settings-panel="notifications"]:visible #ovyx-notification-server-status').waitFor({ state: 'visible', timeout: 12000 });
     await page.waitForFunction(
       () => {
-        const panel = document.querySelector('[data-settings-panel="notifications"]');
-        return panel?.querySelector('#ovyx-notification-server-status')?.textContent
+        const visiblePanel = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).find(node => node.getClientRects().length > 0
+          && getComputedStyle(node).visibility !== 'hidden' && getComputedStyle(node).display !== 'none');
+        return visiblePanel?.querySelector('#ovyx-notification-server-status')?.textContent
           ?.includes('Your notification preferences have been saved. Email notifications will be available when delivery is enabled.');
       },
       null,
