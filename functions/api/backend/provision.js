@@ -16,15 +16,15 @@ const MAX_BODY_BYTES = 32_000_000;
 const MAX_FILES = 20_000;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const INTERNAL_FILES = new Set(['ovyx-backend-architecture.json', 'ovyx-qa-plan.json', 'wrangler.jsonc']);
-const BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server|src\/routes\/api|src\/app\/api|src\/api|src\/prisma|src\/drizzle|src\/db|src\/database|app\/api|pages\/api)\//i;
+const BACKEND_PATH = /^(?:functions|migrations|server|api|lib|db|src\/server|src\/lib\/server|src\/routes\/api|src\/app\/api|src\/api|src\/prisma|src\/drizzle|src\/db|src\/database|app\/api|pages\/api)\//i;
 const PROVISIONABLE_BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server)\//i;
-const UNSUPPORTED_BACKEND_PATH = /^(?:app\/api|pages\/api|src\/pages\/api|src\/app\/api|src\/routes\/api|src\/api|src\/prisma|src\/drizzle|src\/db|src\/database|prisma|drizzle|db|database|app\/routes)\//i;
+const UNSUPPORTED_BACKEND_PATH = /^(?:app\/api|pages\/api|src\/pages\/api|src\/app\/api|src\/routes\/api|src\/api|src\/prisma|src\/drizzle|src\/db|src\/database|prisma|drizzle|app\/routes)\//i;
 const ROOT_BACKEND_FILES = new Set(['package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'tsconfig.json', 'vite.config.js', 'vite.config.ts', 'wrangler.jsonc', 'wrangler.json']);
 const encoder = new TextEncoder();
 const SECRET_CONTENT_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
   /\\b(?:sk_(?:live|test|proj)_|whsec_|AIza[0-9A-Za-z_-]{30,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/i,
-  /(?:[\"'](?:password|secret|token|api[_-]?key|authorization)[\"']\\s*:\\s*[\"'][^\"']{16,}[\"'])/i,
+  /(?:["'](?:password|secret|token|api[_-]?key|authorization)["']\s*:\s*["'][^"']{16,}["'])/i,
 ];
 
 function fail(code, message, status = 400) {
@@ -53,7 +53,7 @@ function normalizeGraphFiles(project) {
     if (!path || path.length > 500 || path.startsWith('/') || path.includes('..') || /[\\0\\r\\n]/.test(path) ||
         segments.some(part => !part || part === '.' || part === '..' ||
         ['.git', 'node_modules', '.wrangler', 'coverage', '.npmrc', '.yarnrc', '.pnp.cjs'].includes(part.toLowerCase())) ||
-        /(?:^|\/)\.env(?:\..*)?$/i.test(path) || /(?:^|\/)\.dev\.vars(?:\..*)?$/i.test(path) ||
+        segments.some(part => part === '.env' || part.startsWith('.env.') || part === '.dev.vars') ||
         /(?:secret|credential|private-key|service-account)/i.test(path) || ['.npmrc', '.yarnrc', '.pnp.cjs'].includes(path.toLowerCase())) {
       fail('BACKEND_PROJECT_FILE_PATH_INVALID', 'The saved website contains a file path that cannot be provisioned safely.');
     }
@@ -93,7 +93,7 @@ function staticFiles(files) {
   for (const [path, item] of Object.entries(files)) {
     if (INTERNAL_FILES.has(path) || ROOT_BACKEND_FILES.has(path) || BACKEND_PATH.test(path) ||
         /^(?:tests?|__tests__|test-results|coverage|\.wrangler|node_modules)\//i.test(path) ||
-        /(?:^|\/)\.env(?:\..*)?$/i.test(path) || /(?:^|\/)\.dev\.vars(?:\..*)?$/i.test(path) ||
+        path.split('/').some(part => part === '.env' || part.startsWith('.env.') || part === '.dev.vars') ||
         path.split('/').some(part => ['.npmrc', '.yarnrc', '.pnp.cjs'].includes(part.toLowerCase()))) continue;
     const content = fileText(files, path);
     if (!content) continue;
