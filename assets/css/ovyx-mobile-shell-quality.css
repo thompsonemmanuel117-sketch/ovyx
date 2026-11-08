@@ -94,7 +94,7 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-button--primary,.ovyx
   background: var(--ovyx-light-accent-strong) !important;
   border-color: var(--ovyx-light-accent-strong) !important;
 }
-html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.text-amber-300,.text-amber-400,.text-yellow-300,.text-yellow-400,.text-orange-300,.text-orange-400) {
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.text-amber-300,.text-amber-400,.text-amber-500,.text-yellow-300,.text-yellow-400,.text-orange-300,.text-orange-400) {
   color: var(--ovyx-light-accent-strong) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.border-amber-300,.border-amber-400,.border-yellow-300,.border-yellow-400) {
@@ -165,8 +165,8 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) header {
     font-size: 19px !important;
   }
   #view-home .v59-dashboard-shell {
-    padding-bottom: calc(94px + env(safe-area-inset-bottom, 0px)) !important;
-    scroll-padding-bottom: calc(94px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 @media (max-width: 767px) and (prefers-reduced-motion: reduce) {
@@ -216,8 +216,8 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar .v52-bottom-c
     height: 54px !important; max-height: 54px !important; margin: 0 !important; align-self: center !important;
   }
   html body.ovyx-v88-dock-home:not(.ovyx-webstudio-active) #view-home .v59-dashboard-shell {
-    padding-bottom: calc(94px + env(safe-area-inset-bottom, 0px)) !important;
-    scroll-padding-bottom: calc(94px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) body.ovyx-v88-dock-home #ovyx-v52-bottom-bar {
@@ -253,4 +253,10 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home [data-ovyx-ai-readiness
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .v59-tool-card b,
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .v59-section-head h2 {
   color: var(--ovyx-light-text) !important;
+}
+
+/* Tailwind's amber-500 is used by the legacy active dashboard item. */
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button.is-active,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button.text-amber-500 {
+  color: #704600 !important;
 }
