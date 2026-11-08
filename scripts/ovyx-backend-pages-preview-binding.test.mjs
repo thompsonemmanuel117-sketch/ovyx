@@ -94,6 +94,26 @@ await assert.rejects(
 );
 assert.equal(patchCount, 0, 'a conflicting binding must fail before any write');
 
+let compatibilityPatchCount = 0;
+const compatibilityConflict = createCloudflarePagesPreviewBindingAdapter({
+  accountId,
+  apiToken,
+  fetchImpl: async (_url, init = {}) => {
+    if (init.method === 'PATCH') compatibilityPatchCount += 1;
+    return response({
+      name: projectName,
+      deployment_configs: {
+        preview: { compatibility_flags: ['no_nodejs_compat'], d1_databases: {} },
+      },
+    });
+  },
+});
+await assert.rejects(
+  compatibilityConflict.bindPreviewD1({ projectName, expectedProjectPrefix: prefix, databaseId }),
+  error => error.code === 'BACKEND_PAGES_COMPATIBILITY_CONFLICT' && error.status === 409,
+);
+assert.equal(compatibilityPatchCount, 0, 'A project that disables required runtime compatibility must fail before any write.');
+
 for (const input of [
   { projectName: 'other-customer-site', expectedProjectPrefix: prefix, databaseId },
   { projectName, expectedProjectPrefix: prefix, databaseId: 'not-a-database-id' },
