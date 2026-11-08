@@ -183,6 +183,7 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button {
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button.is-active {
   color: var(--ovyx-light-accent-strong) !important;
+  transition-property: background-color, border-color, transform !important;
   background: rgba(135,85,0,.09) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button.is-active:before {
