@@ -15,6 +15,7 @@ on:
       - 'functions/_lib/backend-pages-preview-binding.js'
       - 'functions/_lib/backend-provisioning-registry.js'
       - 'scripts/ovyx-backend-preview-provisioning.test.mjs'
+      - 'scripts/ovyx-backend-pages-build.test.mjs'
       - 'assets/ovyx-webstudio-quality.js'
       - 'scripts/ovyx-backend-runtime-bridge.test.mjs'
       - 'docs/OVYX-BACKEND-RUNTIME-SETUP.md'
@@ -51,6 +52,7 @@ on:
       - 'functions/_lib/backend-provisioning.js'
       - 'functions/_lib/backend-cloudflare-adapter.js'
       - 'scripts/ovyx-backend-preview-provisioning.test.mjs'
+      - 'scripts/ovyx-backend-pages-build.test.mjs'
       - 'scripts/ovyx-backend-pages-preview-binding.test.mjs'
       - 'scripts/ovyx-backend-project-ownership.test.mjs'
       - 'scripts/ovyx-backend-provisioning-registry.test.mjs'
@@ -112,6 +114,8 @@ jobs:
         run: node scripts/ovyx-backend-runtime-bridge.test.mjs
       - name: Build the production Cloudflare Sandbox container image
         run: docker build -f backend-runtime/Dockerfile -t ovyx-backend-runtime-worker .
+      - name: Verify isolated Wrangler Pages Functions bundle build
+        run: node scripts/ovyx-backend-pages-build.test.mjs
       - name: Bundle and validate the Cloudflare Sandbox Worker
         working-directory: backend-runtime
         run: |
