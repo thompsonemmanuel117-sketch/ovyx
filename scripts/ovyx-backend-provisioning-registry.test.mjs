@@ -30,7 +30,7 @@ const plan = {
 const store = memoryStore();
 const reserved = await reserveBackendProvisioningOperation({
   store, plan, ownerUid: 'firebase-user-1', projectId: 'saved-project-1',
-  operationId: 'operation-1', now: '2026-11-08T10:00:00.000Z',
+  operationId: 'operation-1', sourceHash: 'a'.repeat(64), now: '2026-11-08T10:00:00.000Z',
 });
 assert.equal(reserved.outcome, 'reserved');
 assert.equal(reserved.record.state, 'reserved');
@@ -41,7 +41,7 @@ assert.match(reserved.record.projectHash, /^[a-f0-9]{64}$/);
 
 const busy = await reserveBackendProvisioningOperation({
   store, plan, ownerUid: 'firebase-user-1', projectId: 'saved-project-1',
-  operationId: 'operation-2', now: '2026-11-08T10:00:30.000Z',
+  operationId: 'operation-2', sourceHash: 'a'.repeat(64), now: '2026-11-08T10:00:30.000Z',
 });
 assert.equal(busy.outcome, 'busy');
 assert.equal(busy.record.operationId, 'operation-1');
@@ -49,7 +49,7 @@ assert.equal(busy.record.operationId, 'operation-1');
 await assert.rejects(
   reserveBackendProvisioningOperation({
     store, plan, ownerUid: 'firebase-user-2', projectId: 'saved-project-1',
-    operationId: 'operation-3', now: '2026-11-08T10:00:40.000Z',
+    operationId: 'operation-3', sourceHash: 'a'.repeat(64), now: '2026-11-08T10:00:40.000Z',
   }),
   error => error.code === 'PROVISIONING_OWNERSHIP_CONFLICT',
 );
@@ -87,7 +87,7 @@ const failed = await transitionBackendProvisioningOperation({
 });
 const retry = await reserveBackendProvisioningOperation({
   store, plan, ownerUid: 'firebase-user-1', projectId: 'saved-project-1',
-  operationId: 'operation-4', now: '2026-11-08T10:02:00.000Z',
+  operationId: 'operation-4', sourceHash: 'a'.repeat(64), now: '2026-11-08T10:02:00.000Z',
 });
 assert.equal(retry.outcome, 'reserved');
 assert.equal(retry.record.attempt, 2);
@@ -97,7 +97,7 @@ const expiringStore = memoryStore();
 const expiringReservation = await reserveBackendProvisioningOperation({
   store: expiringStore, plan: { ...plan, namespace: 'fedcba9876543210' },
   ownerUid: 'firebase-user-1', projectId: 'saved-project-1',
-  operationId: 'operation-expiring', now: '2026-11-08T10:00:00.000Z', leaseMs: 10_000,
+  operationId: 'operation-expiring', sourceHash: 'a'.repeat(64), now: '2026-11-08T10:00:00.000Z', leaseMs: 10_000,
 });
 await transitionBackendProvisioningOperation({
   store: expiringStore, key: expiringReservation.key, current: expiringReservation,
@@ -107,7 +107,7 @@ await transitionBackendProvisioningOperation({
 const recovery = await reserveBackendProvisioningOperation({
   store: expiringStore, plan: { ...plan, namespace: 'fedcba9876543210' },
   ownerUid: 'firebase-user-1', projectId: 'saved-project-1',
-  operationId: 'operation-recovery', now: '2026-11-08T10:01:00.000Z',
+  operationId: 'operation-recovery', sourceHash: 'a'.repeat(64), now: '2026-11-08T10:01:00.000Z',
 });
 assert.equal(recovery.outcome, 'recovery_required');
 const recoveryMarked = await transitionBackendProvisioningOperation({
@@ -124,5 +124,53 @@ const recovered = await transitionBackendProvisioningOperation({
 assert.equal(recovered.record.state, 'verifying',
   'an ambiguous operation may resume only after an external deployment has been found and identified');
 assert.equal(recovered.record.deploymentId, 'deployment-verified-after-recovery');
+
+
+const readyStore = memoryStore();
+const readyReservation = await reserveBackendProvisioningOperation({
+  store: readyStore, plan: { ...plan, namespace: 'abcdef0123456789' },
+  ownerUid: 'firebase-user-1', projectId: 'saved-project-1',
+  operationId: 'operation-ready', sourceHash: 'a'.repeat(64),
+});
+const readyProvisioning = await transitionBackendProvisioningOperation({
+  store: readyStore, key: readyReservation.key, current: readyReservation,
+  operationId: 'operation-ready', nextState: 'provisioning',
+});
+const readyMigrating = await transitionBackendProvisioningOperation({
+  store: readyStore, key: readyReservation.key, current: readyProvisioning,
+  operationId: 'operation-ready', nextState: 'migrating',
+});
+const readyBuilding = await transitionBackendProvisioningOperation({
+  store: readyStore, key: readyReservation.key, current: readyMigrating,
+  operationId: 'operation-ready', nextState: 'building',
+});
+const readyDeploying = await transitionBackendProvisioningOperation({
+  store: readyStore, key: readyReservation.key, current: readyBuilding,
+  operationId: 'operation-ready', nextState: 'deploying',
+  patch: { resourceIds: { sourceHash: 'a'.repeat(64), pagesProject: 'ovyx-test-preview' } },
+});
+const readyVerifying = await transitionBackendProvisioningOperation({
+  store: readyStore, key: readyReservation.key, current: readyDeploying,
+  operationId: 'operation-ready', nextState: 'verifying',
+  patch: { deploymentId: 'deployment-1' },
+});
+const ready = await transitionBackendProvisioningOperation({
+  store: readyStore, key: readyReservation.key, current: readyVerifying,
+  operationId: 'operation-ready', nextState: 'ready',
+});
+const sameSource = await reserveBackendProvisioningOperation({
+  store: readyStore, plan: { ...plan, namespace: 'abcdef0123456789' },
+  ownerUid: 'firebase-user-1', projectId: 'saved-project-1',
+  operationId: 'operation-same', sourceHash: 'a'.repeat(64),
+});
+assert.equal(sameSource.outcome, 'already_ready', 'An unchanged verified source must not deploy twice.');
+const changedSource = await reserveBackendProvisioningOperation({
+  store: readyStore, plan: { ...plan, namespace: 'abcdef0123456789' },
+  ownerUid: 'firebase-user-1', projectId: 'saved-project-1',
+  operationId: 'operation-updated', sourceHash: 'b'.repeat(64),
+});
+assert.equal(changedSource.outcome, 'reserved', 'A changed saved source must be allowed to create a new Preview deployment.');
+assert.equal(changedSource.record.sourceHash, 'b'.repeat(64));
+assert.equal(changedSource.record.attempt, 2);
 
 console.log('OVYX durable backend provisioning registry tests passed.');
