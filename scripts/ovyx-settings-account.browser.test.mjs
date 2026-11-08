@@ -268,7 +268,17 @@ try {
     assert.equal(savedAfterSuccess.projectActivity, false);
 
     const resetPreferences = notificationsPanel.locator('#notify-reset');
-    await resetPreferences.click();
+    const resetResponse = page.waitForResponse(response => {
+      const request = response.request();
+      if (!response.url().includes('/api/settings/preferences') || request.method() !== 'PUT') return false;
+      try { return request.postDataJSON()?.notifications?.projectActivity === true; }
+      catch (_) { return false; }
+    }, { timeout: 12000 });
+    // Reset is a server-backed button, not a navigation control. Do not make
+    // Playwright wait for an unrelated scheduled navigation after the click;
+    // wait for the actual authenticated PUT and its confirmed UI result.
+    await resetPreferences.click({ noWaitAfter: true });
+    await resetResponse;
     await page.waitForFunction(
       () => document.getElementById('ovyx-notification-server-status')?.textContent
         ?.includes('Your notification preferences have been saved. Email notifications will be available when delivery is enabled.'),
