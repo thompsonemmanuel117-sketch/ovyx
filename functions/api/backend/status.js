@@ -103,6 +103,9 @@ export async function onRequestGet(context) {
       context.env,
     );
     const stage = deployment?.latest_stage || (Array.isArray(deployment?.stages) ? deployment.stages.at(-1) : null) || {};
+    if (deployment?.environment && String(deployment.environment).toLowerCase() !== targetEnvironment) {
+      fail('BACKEND_DEPLOYMENT_ENVIRONMENT_INVALID', 'Cloudflare returned a deployment for a different environment.', 409);
+    }
     const stageStatus = String(stage.status || deployment?.status || '').toLowerCase();
     if (stageStatus === 'failure' || stageStatus === 'failed' || stageStatus === 'canceled') {
       const updated = await transitionBackendProvisioningOperation({
