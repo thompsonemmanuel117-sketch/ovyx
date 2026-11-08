@@ -155,7 +155,7 @@ export async function reserveBackendProvisioningOperation({
   if (!current) {
     try {
       const created = await store.create(key, initial);
-      return { outcome: 'reserved', key, record: created.data, updateTime: created.updateTime };
+      return { outcome: 'reserved', key, data: created.data, record: created.data, updateTime: created.updateTime };
     } catch (error) {
       if (error?.code !== 'FIRESTORE_CREATE_CONFLICT' && error?.status !== 409) throw error;
       current = await store.read(key);
@@ -167,14 +167,14 @@ export async function reserveBackendProvisioningOperation({
       record.namespace !== plan.namespace || record.environment !== plan.environment) {
     fail('PROVISIONING_OWNERSHIP_CONFLICT', 'The provisioning namespace does not match this saved project.', 409);
   }
-  if (record.state === 'ready') return { outcome: 'already_ready', key, record, updateTime: current.updateTime };
+  if (record.state === 'ready') return { outcome: 'already_ready', key, data: record, record, updateTime: current.updateTime };
   if (record.state === 'recovery_required' || record.state === 'reserved' ||
       ['provisioning', 'migrating', 'building', 'deploying', 'verifying'].includes(record.state)) {
     const leaseEnd = Date.parse(record.leaseExpiresAt || '');
     if (Number.isFinite(leaseEnd) && leaseEnd > Date.parse(timestamp)) {
-      return { outcome: 'busy', key, record, updateTime: current.updateTime };
+      return { outcome: 'busy', key, data: record, record, updateTime: current.updateTime };
     }
-    return { outcome: 'recovery_required', key, record, updateTime: current.updateTime };
+    return { outcome: 'recovery_required', key, data: record, record, updateTime: current.updateTime };
   }
   if (!['failed', 'rolled_back'].includes(record.state)) {
     fail('PROVISIONING_STATE_INVALID', 'The saved provisioning state is invalid.', 409);
@@ -190,7 +190,7 @@ export async function reserveBackendProvisioningOperation({
     lastErrorAt: null,
   };
   const saved = await store.compareAndSet(key, retry, current.updateTime);
-  return { outcome: 'reserved', key, record: saved.data, updateTime: saved.updateTime };
+  return { outcome: 'reserved', key, data: saved.data, record: saved.data, updateTime: saved.updateTime };
 }
 
 export async function transitionBackendProvisioningOperation({
@@ -220,5 +220,5 @@ export async function transitionBackendProvisioningOperation({
       : null,
   };
   const saved = await store.compareAndSet(key, next, current.updateTime);
-  return { key, record: saved.data, updateTime: saved.updateTime };
+  return { key, data: saved.data, record: saved.data, updateTime: saved.updateTime };
 }
