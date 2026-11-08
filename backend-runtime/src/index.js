@@ -218,7 +218,15 @@ function validateBuildFiles(rawFiles) {
   return files;
 }
 
-function encodeBuildBase64(bytes) {\n  let binary = '';\n  for (let index = 0; index < bytes.length; index += 0x8000) {\n    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));\n  }\n  return btoa(binary);\n}\n\nfunction shellQuoteBuild(value) {
+function encodeBuildBase64(bytes) {
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function shellQuoteBuild(value) {
   return "'" + String(value).replace(/'/g, "'\\''") + "'";
 }
 
