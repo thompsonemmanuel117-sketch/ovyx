@@ -265,6 +265,11 @@ const backendBuild = await runWebsiteGeneration({
           'migrations/0001_initial.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'server/workflows/contact-submission.js': workflowSource,
           'tests/backend-contracts.test.js': backendTestSource,
+          'ovyx-qa-plan.json': JSON.stringify({
+            version: 1,
+            backendRequired: true,
+            backendChecks: [{ id: 'contact-submission-create', sourceFile: 'functions/api/contact-submissions.js', method: 'POST', path: '/api/contact-submissions' }],
+          }),
         },
       }),
       usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
