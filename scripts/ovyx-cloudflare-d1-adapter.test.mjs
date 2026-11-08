@@ -14,6 +14,7 @@ for (const sql of [
   'PRAGMA writable_schema=ON;',
   'CREATE TRIGGER t AFTER INSERT ON x BEGIN DELETE FROM x; END;',
   'CREATE TABLE _ovyx_migrations (version INTEGER);',
+  'CREATE TABLE _ovyx_health_probes (probe_id TEXT);',
   "CREATE TABLE x (id TEXT); /* never closed",
 ]) assert.throws(() => splitSafeAdditiveMigration(sql));
 
@@ -22,6 +23,7 @@ assert.throws(() => createCloudflareD1Adapter({ accountId: 'bad', apiToken: 'sho
 const calls = [];
 const databases = new Map();
 const migrationLedger = new Map();
+const healthProbes = new Map();
 const fetchImpl = async (url, init = {}) => {
   const path = new URL(url).pathname;
   calls.push({ path, method: init.method || 'GET', body: init.body ? JSON.parse(init.body) : null });
@@ -45,6 +47,17 @@ const fetchImpl = async (url, init = {}) => {
       const version = Number(body.params?.[0]);
       const item = migrationLedger.get(version);
       return Response.json({ success: true, result: [{ success: true, results: item ? [item] : [] }] });
+    }
+    if (body.sql?.startsWith('SELECT nonce_hash')) {
+      const item = healthProbes.get(String(body.params?.[0] || ''));
+      return Response.json({ success: true, result: [{ success: true, results: item ? [item] : [] }] });
+    }
+    if (body.sql?.startsWith('INSERT INTO _ovyx_health_probes')) {
+      const [probeId, nonceHash, createdAt] = body.params;
+      healthProbes.set(String(probeId), { probe_id: String(probeId), nonce_hash: String(nonceHash), created_at: Number(createdAt) });
+    }
+    if (body.sql?.startsWith('DELETE FROM _ovyx_health_probes WHERE probe_id')) {
+      healthProbes.delete(String(body.params?.[0] || ''));
     }
     if (Array.isArray(body.batch)) {
       const insert = body.batch.at(-1);
@@ -76,6 +89,12 @@ const migrations = await adapter.applyMigrations(database.id, [
 ]);
 assert.deepEqual(migrations.applied, [{ version: 1, status: 'applied' }]);
 assert.ok(calls.some(call => call.body?.batch?.length === 2));
+const probe = await adapter.createPagesBindingProbe(database.id);
+assert.match(probe.probeId, /^[a-f0-9-]{36}$/i);
+assert.match(probe.token, /^[a-f0-9]{64}$/i);
+assert.equal(healthProbes.get(probe.probeId)?.nonce_hash.length, 64);
+await adapter.deletePagesBindingProbe(database.id, probe.probeId);
+assert.equal(healthProbes.has(probe.probeId), false, 'A completed or failed Pages binding probe must be cleaned up.');
 const repeat = await adapter.applyMigrations(database.id, [
   { version: 1, sha256: migrationHash, content: migrationContent },
 ]);
