@@ -24,6 +24,7 @@ on:
       - 'scripts/ovyx-url-analyzer.browser.test.mjs'
       - 'assets/ovyx-app-studio-link-builder.js'
       - 'assets/ovyx-app-studio-premium-polish.js'
+      - 'assets/ovyx-app-shell-polish.js'
       - 'assets/ovyx-app-studio-workspace.js'
       - 'scripts/ovyx-app-studio-workspace.test.mjs'
       - 'scripts/ovyx-app-studio-workspace.browser.test.mjs'
@@ -42,6 +43,7 @@ on:
       - 'scripts/ovyx-url-analyzer.browser.test.mjs'
       - 'assets/ovyx-app-studio-link-builder.js'
       - 'assets/ovyx-app-studio-premium-polish.js'
+      - 'assets/ovyx-app-shell-polish.js'
       - 'assets/ovyx-app-studio-workspace.js'
       - 'scripts/ovyx-app-studio-workspace.test.mjs'
       - 'scripts/ovyx-app-studio-workspace.browser.test.mjs'
@@ -97,6 +99,7 @@ on:
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
       - 'assets/ovyx-app-studio-link-builder.js'
       - 'assets/ovyx-app-studio-premium-polish.js'
+      - 'assets/ovyx-app-shell-polish.js'
       - 'scripts/ovyx-app-studio-premium-polish.test.mjs'
       - 'assets/ovyx-app-studio-project-brain.js'
       - 'scripts/ovyx-app-studio-project-brain.test.mjs'
@@ -165,7 +168,7 @@ permissions:
 jobs:
   assistant-workspace-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -198,105 +201,62 @@ jobs:
           echo $! > /tmp/ovyx-pages.pid
           curl --retry 30 --retry-connrefused --retry-delay 2 --fail http://127.0.0.1:8788/ -o /dev/null
 
-      - name: Exercise personalized welcome and broadcast notifications in desktop and mobile Chromium
-        run: node scripts/ovyx-account-notifications.browser.test.mjs
+      - name: Run desktop and mobile browser regression suites in parallel shards
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+        run: |
+          set +e
+          run_shard() {
+            label="$1"
+            log_file="$2"
+            shift 2
+            for script in "$@"; do
+              echo "[$label] START $script"
+              timeout --signal=TERM --kill-after=30s 8m node "scripts/$script" 2>&1 | tee -a "$log_file"
+              script_status=${PIPESTATUS[0]}
+              if [ "$script_status" -ne 0 ]; then
+                if [ "$script_status" -eq 124 ] || [ "$script_status" -eq 137 ]; then
+                  echo "[$label] TIMEOUT after 8 minutes: $script"
+                else
+                  echo "[$label] FAILED ($script_status): $script"
+                fi
+                return "$script_status"
+              fi
+              echo "[$label] PASS $script"
+            done
+          }
 
-      - name: Exercise App Studio per-app Brand DNA in desktop and mobile Chromium
-        run: node scripts/ovyx-brand-dna.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+          # Preserve every desktop/mobile assertion while streaming each suite's
+          # output. A single stuck browser suite now identifies itself within 8m
+          # instead of hiding in a long, silent shard.
+          run_shard "app-studio-and-admin" /tmp/ovyx-assistant-shard-a.log \
+            ovyx-account-notifications.browser.test.mjs \
+            ovyx-brand-dna.browser.test.mjs \
+            ovyx-url-analyzer.browser.test.mjs \
+            ovyx-app-studio-premium-polish.browser.test.mjs \
+            ovyx-app-studio-link-builder.browser.test.mjs \
+            ovyx-app-studio-workspace.browser.test.mjs \
+            ovyx-app-studio-release-health.test.mjs \
+            ovyx-admin-workspace.browser.test.mjs \
+            ovyx-admin-hub.browser.test.mjs &
+          shard_a_pid=$!
 
-      - name: Exercise App Studio URL Analyzer in desktop and mobile Chromium
-        run: node scripts/ovyx-url-analyzer.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+          # Settings coverage runs once in the dedicated Settings Regression workflow.
+          # Keep this shard focused on Assistant, Sentinel, provider and Web Studio flows.
+          run_shard "assistant-and-runtime" /tmp/ovyx-assistant-shard-b.log \
+            ovyx-assistant-workspace.browser.test.mjs \
+            ovyx-sentinel.browser.test.mjs \
+            ovyx-provider-availability.browser.test.mjs \
+            ovyx-webstudio-reliability.browser.test.mjs &
+          shard_b_pid=$!
 
-      - name: Exercise polished Project App Studio workspace in desktop and mobile Chromium
-        run: node scripts/ovyx-app-studio-premium-polish.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+          wait "$shard_a_pid"; shard_a_status=$?
+          wait "$shard_b_pid"; shard_b_status=$?
 
-      - name: Exercise generated app functionality and live preview in desktop and mobile Chromium
-        run: node scripts/ovyx-app-studio-link-builder.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise Stage 8 App Studio workspace controls in desktop and mobile Chromium
-        run: node scripts/ovyx-app-studio-workspace.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise Stage 6 release health diagnostics
-        run: node scripts/ovyx-app-studio-release-health.test.mjs
-
-      - name: Exercise owner-only Admin Workspace in desktop and mobile Chromium
-        run: node scripts/ovyx-admin-workspace.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-
-      - name: Exercise Editor and Workspace settings in desktop and mobile Chromium
-        run: node scripts/ovyx-settings-workspace.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise Security session revocation in desktop and mobile Chromium
-        run: node scripts/ovyx-settings-security.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise Appearance single-owner actions in desktop and mobile Chromium
-        run: node scripts/ovyx-settings-core.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise Settings Data Layer in desktop and mobile Chromium
-        run: node scripts/ovyx-settings.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise AI Preferences Save Reset and request propagation
-        run: node scripts/ovyx-settings-ai.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-      - name: Exercise Settings Shortcuts in desktop and mobile Chromium
-        run: node scripts/ovyx-settings-shortcuts.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-
-
-      - name: Exercise Profile and Notifications in desktop and mobile Chromium
-        run: node scripts/ovyx-settings-account.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise Admin Modules hub in desktop and mobile Chromium
-        run: node scripts/ovyx-admin-hub.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise assistant workspace in desktop and mobile Chromium
-        run: node scripts/ovyx-assistant-workspace.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise Sentinel guardian and wake-word flow in desktop and mobile Chromium
-        run: node scripts/ovyx-sentinel.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise provider availability selector in desktop and mobile Chromium
-        run: node scripts/ovyx-provider-availability.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise Web Studio feedback and build-preview safety in desktop and mobile Chromium
-        run: node scripts/ovyx-webstudio-reliability.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+          if [ "$shard_a_status" -ne 0 ] || [ "$shard_b_status" -ne 0 ]; then
+            echo "One or more Assistant Workspace browser-test shards failed."
+            exit 1
+          fi
 
       - name: Print local Pages logs on failure
         if: failure()

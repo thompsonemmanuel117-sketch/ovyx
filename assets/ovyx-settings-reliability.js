@@ -211,7 +211,9 @@
       el.id = id;
       el.className = 'ovyx-settings-action-status';
       el.setAttribute('role', 'status');
-      el.style.cssText = 'padding:9px 14px;color:var(--ov-muted,#858990);font:600 9px/1.5 JetBrains Mono,monospace;overflow-wrap:anywhere';
+      // Keep action feedback visible even when responsive theme rules target
+      // generic status elements or panel descendants.
+      el.style.cssText = 'display:block!important;visibility:visible!important;opacity:1!important;min-height:18px;padding:9px 14px;color:var(--ov-muted,#858990);font:600 9px/1.5 JetBrains Mono,monospace;overflow-wrap:anywhere';
       panel.appendChild(el);
     }
     if (text) el.textContent = text;
@@ -310,7 +312,28 @@
   }
   let notificationDraft = null;
   let notificationLoadRevision = 0;
-  function notificationPanel() { return document.querySelector('[data-settings-panel="notifications"]'); }
+  function isActuallyVisible(node) {
+    if (!node || !node.isConnected || node.getClientRects().length === 0) return false;
+    // Responsive Settings can keep duplicate desktop/mobile panels mounted.
+    // Checking only the panel's own computed style is insufficient: an
+    // ancestor may be hidden while the panel itself still reports "visible".
+    for (let current = node; current && current.nodeType === 1; current = current.parentElement) {
+      const style = getComputedStyle(current);
+      if (current.hidden || current.getAttribute('aria-hidden') === 'true'
+        || style.display === 'none' || style.visibility === 'hidden'
+        || style.visibility === 'collapse' || style.contentVisibility === 'hidden') return false;
+    }
+    return true;
+  }
+  function notificationPanel() {
+    const panels = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]'));
+    // Select the panel whose complete ancestor chain is visible, not merely
+    // the first duplicate with a layout box. Status, drafts and save/reset
+    // actions must all target the same responsive instance the user sees.
+    return panels.find(panel => isActuallyVisible(panel)
+      && isActuallyVisible(panel.querySelector('#notify-save'))
+      && isActuallyVisible(panel.querySelector('#notify-reset'))) || panels.find(isActuallyVisible) || panels[0] || null;
+  }
   function notificationStorageKey() {
     const user = currentUser();
     return user && user.uid ? 'ovyx.notifications.v1.user.' + String(user.uid) : 'ovyx.notifications.v1.guest';
@@ -352,7 +375,14 @@
     }
   }
   async function saveNotifications(button, reset) {
-    const panel = notificationPanel();
+    // The clicked control is authoritative: responsive Settings can contain
+    // multiple mounted copies, so never redirect a Save/Reset status update
+    // to a different panel selected by a later global visibility scan.
+    const clickedPanel = button && button.closest('[data-settings-panel="notifications"]');
+    // The event came from a real control in this panel. Keep the write and
+    // its status attached here even if responsive visibility styles change
+    // during the async request; a later global scan can select no panel.
+    const panel = clickedPanel && clickedPanel.isConnected ? clickedPanel : notificationPanel();
     const status = addStatus(panel, 'ovyx-notification-server-status', 'Saving notification preferences…');
     const next = reset ? Object.assign({}, NOTIFICATION_DEFAULTS) : Object.assign({}, notificationDraft || NOTIFICATION_DEFAULTS);
     if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Saving…'; }
@@ -561,8 +591,12 @@
     }, true);
   }
   function installWorkspaceToggleActions() {
+    // Bind by the stable control IDs, not a presentation class. The Settings
+    // renderer can change a switch's visual class without disconnecting its
+    // persisted action; this also handles clicks on the nested switch thumb.
+    const toggleSelector = Object.keys(TOGGLE_MAP).map(id => '#' + id).join(', ');
     document.addEventListener('click', function (event) {
-      const button = event.target && event.target.closest && event.target.closest('.ovyx-toggle');
+      const button = event.target && event.target.closest && event.target.closest(toggleSelector);
       if (!button || !(button.id in TOGGLE_MAP)) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       const key = TOGGLE_MAP[button.id];
