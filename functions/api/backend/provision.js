@@ -12,8 +12,8 @@ import {
   transitionBackendProvisioningOperation,
 } from '../../_lib/backend-provisioning-registry.js';
 
-const MAX_BODY_BYTES = 3_000_000;
-const MAX_FILES = 140;
+const MAX_BODY_BYTES = 32_000_000;
+const MAX_FILES = 20_000;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const INTERNAL_FILES = new Set(['ovyx-backend-architecture.json', 'ovyx-qa-plan.json', 'wrangler.jsonc']);
 const BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server|src\/routes\/api|src\/app\/api|app\/api|pages\/api)\//i;
@@ -66,14 +66,6 @@ function backendSourceFiles(files) {
     .filter(([path]) => BACKEND_PATH.test(path) && !/^tests?\/|^__tests__\//i.test(path))
     .map(([path, item]) => ({ path, content: fileText(files, path) }))
     .filter(item => item.content);
-}
-function runtimeSourceFiles(files, backendFiles) {
-  const result = backendFiles.slice();
-  for (const path of ['package.json', 'wrangler.jsonc']) {
-    const content = fileText(files, path);
-    if (content && !result.some(item => item.path === path)) result.push({ path, content });
-  }
-  return result;
 }
 function staticFiles(files) {
   const output = {};
@@ -140,14 +132,7 @@ async function cloudflareRequest(path, env, init = {}, authToken = env.CLOUDFLAR
   }
   return payload.result;
 }
-async function pagesIdentity(user, projectId, env) {
-  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(user.uid + ':' + projectId));
-  const hash = Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
-  const prefix = slug(env.CLOUDFLARE_PAGES_PROJECT_PREFIX || 'ovyx', 'ovyx') + '-' + hash.slice(0, 10) + '-';
-  const name = slug(prefix + slug(user.projectName || 'site'), 'ovyx-site');
-  if (!name.startsWith(prefix) || !/^[a-z0-9-]{1,63}$/.test(name)) fail('BACKEND_PAGES_PROJECT_NAME_INVALID', 'The customer Pages project identity is invalid.');
-  return { prefix, name };
-}
+
 async function ensurePagesProject(env, name) {
   const path = '/accounts/' + encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID) + '/pages/projects/' + encodeURIComponent(name);
   try {
@@ -282,8 +267,27 @@ export async function onRequestPost(context) {
     if (!backendFiles.some(item => item.path.startsWith('functions/'))) {
       fail('BACKEND_FRAMEWORK_UNSUPPORTED', 'Automatic full-stack provisioning currently supports Cloudflare Pages Functions projects. Other server frameworks must remain on the manual deployment path.', 422);
     }
+    if (backendFiles.length > 138) fail('BACKEND_SOURCE_FILE_COUNT_INVALID', 'The backend source contains too many files for the isolated build.', 422);
+    const projectName = slug(savedProject.name || savedProject.title || 'site');
+    const pagesIdentity = await pagesIdentityFor(user, projectId, projectName, context.env);
+    const plan = await createBackendProvisioningPlan({
+      ownerUid: user.uid, projectId, environment: 'preview',
+      architecture, files: backendFiles,
+    });
     const packageManifest = fileText(files, 'package.json');
-    const wranglerConfig = fileText(files, 'wrangler.jsonc') || JSON.stringify({ name: 'ovyx-generated-preview', compatibility_date: '2026-11-01', compatibility_flags: ['nodejs_compat'] });
+    const wranglerConfig = JSON.stringify({
+      name: 'ovyx-generated-preview',
+      compatibility_date: '2026-11-01',
+      compatibility_flags: ['nodejs_compat'],
+      ...(architecture.capabilities.database === true ? {
+        d1_databases: [{
+          binding: plan.resources.databaseBinding || 'DB',
+          database_name: plan.resources.database,
+          database_id: '00000000-0000-4000-8000-000000000000',
+          migrations_dir: 'migrations',
+        }],
+      } : {}),
+    });
     const runtimeFiles = backendFiles.concat([{ path: 'wrangler.jsonc', content: wranglerConfig }]);
     if (packageManifest) runtimeFiles.push({ path: 'package.json', content: packageManifest });
 
@@ -293,13 +297,6 @@ export async function onRequestPost(context) {
       files: runtimeFiles,
     });
     if (evaluation.status !== 'passed') fail('BACKEND_ACCEPTANCE_NOT_PASSED', 'The generated backend did not pass its isolated database and API acceptance tests.', 422);
-
-    const projectName = slug(savedProject.name || savedProject.title || 'site');
-    const pagesIdentity = await pagesIdentityFor(user, projectId, projectName, context.env);
-    const plan = await createBackendProvisioningPlan({
-      ownerUid: user.uid, projectId, environment: 'preview',
-      architecture, files: backendFiles,
-    });
     store = createFirestoreProvisioningRegistry(context.env);
     operationId = crypto.randomUUID().replace(/-/g, '');
     const reservation = await reserveBackendProvisioningOperation({
