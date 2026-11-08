@@ -250,13 +250,13 @@ The customer workflow is connected through `/api/backend/provision` and `/api/ba
 3. The backend QA plan runs in a fresh isolated Sandbox with local D1. Provisioning does not create customer resources unless this acceptance suite passes.
 4. Wrangler compiles the Pages Functions in the isolated Sandbox. The package-registry egress allowlist is removed before the build; the returned Worker bundle and routes manifest are size-bounded.
 5. OVYX reserves the owner/project/Preview operation in Firestore, reconciles or creates the deterministic D1 database, applies only validated additive versioned migrations, and records the applied versions.
-6. The Pages project is resolved from the deterministic owner/project namespace. The D1 binding is added to Preview only; existing settings and unrelated bindings are preserved, conflicting bindings are rejected, and a fresh GET verifies the result.
+6. The Pages project is resolved from the deterministic owner/project namespace. The D1 binding and pinned runtime compatibility (`2026-11-01` plus `nodejs_compat`) are added to Preview only; existing settings and unrelated bindings are preserved, conflicting bindings are rejected, and a fresh GET verifies the result.
 7. Static website assets, `_worker.bundle` and `_routes.json` are direct-uploaded as a Pages Preview deployment. The internal architecture/QA/Wrangler manifests are excluded from public assets.
 8. The operation remains `verifying` until the status route confirms Cloudflare's deployment stage, performs an HTTP smoke test against the exact deployment URL, re-verifies the D1 migration ledger, and proves the deployed Pages Function can read and consume a one-time nonce that OVYX first wrote to the customer's D1 database. The private `_ovyx_health_probes` table is reserved for this short-lived proof; its row is deleted after the API read. Only then is the operation marked `ready`.
 
 ### Production flow
 
-Production is a separate explicit owner action in the Publishing panel. It is blocked unless that project's Preview operation is already `ready`. Production receives its own deterministic D1 database and migrations, and the adapter patches only `deployment_configs.production`. The Production deployment uses the configured production branch; Preview settings and database remain unchanged. The status route independently verifies the Production deployment before it is marked ready.
+Production is a separate explicit owner action in the Publishing panel. It is blocked unless that project's Preview operation is already `ready`. Production receives its own deterministic D1 database and migrations, and the adapter patches only `deployment_configs.production`, including the same pinned runtime compatibility required by the compiled bundle. The Production deployment uses the configured production branch; Preview settings and database remain unchanged. The status route independently verifies the Production deployment before it is marked ready.
 
 ### Safety and current supported boundary
 
