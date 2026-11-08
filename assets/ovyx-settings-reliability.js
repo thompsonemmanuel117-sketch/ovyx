@@ -310,7 +310,16 @@
   }
   let notificationDraft = null;
   let notificationLoadRevision = 0;
-  function notificationPanel() { return document.querySelector('[data-settings-panel="notifications"]'); }
+  function notificationPanel() {
+    const panels = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]'));
+    // The responsive Settings shell can retain both desktop and mobile panel
+    // instances. Always write status and draft state into the panel the user
+    // can actually see; updating the first (hidden) copy leaves Reset looking
+    // as if it never completed.
+    return panels.find(panel => panel.getClientRects().length > 0
+      && getComputedStyle(panel).visibility !== 'hidden'
+      && getComputedStyle(panel).display !== 'none') || panels[0] || null;
+  }
   function notificationStorageKey() {
     const user = currentUser();
     return user && user.uid ? 'ovyx.notifications.v1.user.' + String(user.uid) : 'ovyx.notifications.v1.guest';
