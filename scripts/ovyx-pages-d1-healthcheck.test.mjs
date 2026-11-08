@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 
 const source = await readFile(new URL('../functions/api/backend/provision.js', import.meta.url), 'utf8');
-const match = source.match(/const PAGES_D1_HEALTHCHECK_SOURCE = \`([\\s\\S]*?)\`;\\nconst SECRET_CONTENT_PATTERNS/);
+const match = source.match(/const PAGES_D1_HEALTHCHECK_SOURCE = `([\s\S]*?)`;\nconst SECRET_CONTENT_PATTERNS/);
 assert.ok(match, 'The backend provisioner must contain the internal Pages D1 proof route source.');
 
 const directory = await mkdtemp(path.join(os.tmpdir(), 'ovyx-pages-d1-healthcheck-'));
