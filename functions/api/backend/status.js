@@ -27,7 +27,7 @@ function graphFiles(project) {
     const segments = path.split('/');
     const item = typeof value === 'string' ? { content: value } : value;
     const content = typeof item?.content === 'string' ? item.content : typeof item?.text === 'string' ? item.text : '';
-    if (!path || path.length > 500 || path.startsWith('/') || path.includes('..') || /[\\0\\r\\n]/.test(path) ||
+    if (!path || path.length > 500 || path.startsWith('/') || path.includes('..') || path.includes('\0') || path.includes('\r') || path.includes('\n') ||
         segments.some(part => !part || part === '.' || part === '..' ||
         ['.git', 'node_modules', '.wrangler', 'coverage', '.npmrc', '.yarnrc', '.pnp.cjs'].includes(part.toLowerCase())) ||
         segments.some(part => part === '.env' || part.startsWith('.env.') || part === '.dev.vars') ||
