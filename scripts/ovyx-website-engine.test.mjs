@@ -268,7 +268,7 @@ const backendBuild = await runWebsiteGeneration({
           'ovyx-qa-plan.json': JSON.stringify({
             version: 1,
             backendRequired: true,
-            backendChecks: [{ id: 'contact-submission-create', sourceFile: 'functions/api/contact-submissions.js', method: 'POST', path: '/api/contact-submissions' }],
+            backendChecks: [{ id: 'contact-submission-read', sourceFile: 'functions/api/contact-submissions.js', method: 'GET', route: '/api/contact-submissions', expectedStatus: 200, identity: 'anonymous' }],
           }),
         },
       }),
