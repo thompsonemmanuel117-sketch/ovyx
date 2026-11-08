@@ -17,6 +17,8 @@ assert.ok(provision.includes('assertAuthenticated(context.data?.user)'), 'Provis
 assert.ok(provision.includes("['users', email, 'projects', projectId]"), 'Provisioning must load the canonical saved project.');
 assert.ok(provision.includes('assertOwnedSavedProject'), 'Provisioning must enforce server-side project ownership.');
 assert.ok(provision.includes('sourceHash'), 'Provisioning must fingerprint the exact saved project source snapshot.');
+assert.ok(provision.includes("encoding: String(record?.encoding || '').toLowerCase() === 'base64' ? 'base64' : 'text'"), 'Provisioning must preserve binary asset encoding from the saved project.');
+assert.ok(provision.includes("item?.encoding === 'base64'"), 'Binary assets must be decoded before hashing and upload.');
 assert.ok(provision.includes('previewRecord.data.resourceIds?.sourceHash !== sourceHash'), 'Production must only promote the exact source snapshot verified in Preview.');
 assert.ok(provision.includes('ovyx-backend-architecture.json'), 'Provisioning must load the saved architecture manifest.');
 assert.ok(provision.includes('ovyx-qa-plan.json'), 'Provisioning must load the saved executable backend QA plan.');
