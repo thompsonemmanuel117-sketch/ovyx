@@ -211,7 +211,9 @@
       el.id = id;
       el.className = 'ovyx-settings-action-status';
       el.setAttribute('role', 'status');
-      el.style.cssText = 'padding:9px 14px;color:var(--ov-muted,#858990);font:600 9px/1.5 JetBrains Mono,monospace;overflow-wrap:anywhere';
+      // Keep action feedback visible even when responsive theme rules target
+      // generic status elements or panel descendants.
+      el.style.cssText = 'display:block!important;visibility:visible!important;opacity:1!important;min-height:18px;padding:9px 14px;color:var(--ov-muted,#858990);font:600 9px/1.5 JetBrains Mono,monospace;overflow-wrap:anywhere';
       panel.appendChild(el);
     }
     if (text) el.textContent = text;
