@@ -334,18 +334,37 @@
       && isActuallyVisible(panel.querySelector('#notify-save'))
       && isActuallyVisible(panel.querySelector('#notify-reset'))) || panels.find(isActuallyVisible) || panels[0] || null;
   }
-  function updateNotificationStatus(panel, message) {
-    // Settings keeps responsive desktop/mobile panel instances mounted. Update
-    // every instance so a layout switch during an in-flight save/reset cannot
-    // leave the visible panel without the server-confirmed result.
+  function updateNotificationStatus(panel, message, button) {
+    // Responsive Settings can keep multiple copies of the Notifications panel
+    // mounted. Always update the exact panel that owns the clicked control,
+    // then mirror the result to other mounted copies.
+    const clickedPanel = button && button.closest('[data-settings-panel="notifications"]');
+    const primary = clickedPanel && clickedPanel.isConnected ? clickedPanel : panel;
     const targets = Array.from(new Set([
-      panel,
+      primary,
       ...Array.from(document.querySelectorAll('[data-settings-panel="notifications"]'))
     ].filter(node => node && node.isConnected)));
+    let primaryStatus = null;
     targets.forEach(target => {
       const status = addStatus(target, 'ovyx-notification-server-status', message);
-      if (status) status.textContent = message;
+      if (status) {
+        status.textContent = message;
+        if (target === primary) primaryStatus = status;
+      }
     });
+    // Last-resort visible feedback belongs beside the actual action control.
+    // This covers responsive panel replacement between click and API response.
+    if (!primaryStatus && button && button.isConnected) {
+      const status = document.createElement('div');
+      status.id = 'ovyx-notification-server-status';
+      status.className = 'ovyx-settings-action-status';
+      status.setAttribute('role', 'status');
+      status.style.cssText = 'display:block!important;visibility:visible!important;opacity:1!important;min-height:18px;padding:9px 14px;color:var(--ov-muted,#858990);font:600 9px/1.5 JetBrains Mono,monospace;overflow-wrap:anywhere';
+      status.textContent = message;
+      button.insertAdjacentElement('afterend', status);
+      primaryStatus = status;
+    }
+    return primaryStatus;
   }
   function notificationStorageKey() {
     const user = currentUser();
@@ -406,10 +425,10 @@
       window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
       try { localStorage.setItem(notificationStorageKey(), JSON.stringify(notificationDraft)); } catch (_) {}
       if (panel) panel.dataset.ovyxNotificationLastResult = 'saved';
-      updateNotificationStatus(panel, 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.');
+      updateNotificationStatus(panel, 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.', button);
       notify(reset ? 'Notification preferences reset and saved to your account.' : 'Notification preferences saved to your account.', 'success');
     } catch (error) {
-      updateNotificationStatus(panel, 'Your notification preferences could not be saved. Please try again.');
+      updateNotificationStatus(panel, 'Your notification preferences could not be saved. Please try again.', button);
       notify(error.message || 'Notification preferences were not saved.', 'error');
     } finally {
       if (button) { button.disabled = false; button.textContent = button.dataset.originalText || (reset ? 'Reset' : 'Save Notification Preferences'); delete button.dataset.originalText; }
