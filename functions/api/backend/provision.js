@@ -50,13 +50,18 @@ function normalizeGraphFiles(project) {
     const text = typeof record?.content === 'string' ? record.content
       : typeof record?.text === 'string' ? record.text : '';
     const segments = path.split('/');
-    if (!path || path.startsWith('/') || segments.some(part => !part || part === '.' || part === '..' ||
+    if (!path || path.length > 500 || path.startsWith('/') || path.includes('..') || /[\\0\\r\\n]/.test(path) ||
+        segments.some(part => !part || part === '.' || part === '..' ||
         ['.git', 'node_modules', '.wrangler', 'coverage', '.npmrc', '.yarnrc', '.pnp.cjs'].includes(part.toLowerCase())) ||
         /(?:^|\/)\.env(?:\..*)?$/i.test(path) || /(?:^|\/)\.dev\.vars(?:\..*)?$/i.test(path) ||
         /(?:secret|credential|private-key|service-account)/i.test(path) || ['.npmrc', '.yarnrc', '.pnp.cjs'].includes(path.toLowerCase())) {
       fail('BACKEND_PROJECT_FILE_PATH_INVALID', 'The saved website contains a file path that cannot be provisioned safely.');
     }
-    if (text) result[path] = { content: text, contentType: clean(record?.contentType, 120) };
+    if (text) result[path] = {
+      content: text,
+      encoding: String(record?.encoding || '').toLowerCase() === 'base64' ? 'base64' : 'text',
+      contentType: clean(record?.contentType, 120),
+    };
     if (Object.keys(result).length > MAX_FILES) fail('BACKEND_PROJECT_FILE_COUNT_INVALID', 'The saved website contains too many files for the backend build.');
   }
   if (!Object.keys(result).length) fail('BACKEND_PROJECT_SOURCE_EMPTY', 'The saved website source files are empty.', 409);
@@ -67,7 +72,9 @@ function fileText(files, path) {
   return typeof item === 'string' ? item : typeof item?.content === 'string' ? item.content : '';
 }
 async function projectSourceHash(files) {
-  const manifest = Object.keys(files).sort().map(path => [path, fileText(files, path)]);
+  const manifest = Object.keys(files).sort().map(path => [
+    path, fileText(files, path), files[path]?.encoding || 'text', files[path]?.contentType || '',
+  ]);
   return sha256(encoder.encode(JSON.stringify(manifest)));
 }
 function parseJsonFile(files, path, code) {
@@ -90,10 +97,18 @@ function staticFiles(files) {
         path.split('/').some(part => ['.npmrc', '.yarnrc', '.pnp.cjs'].includes(part.toLowerCase()))) continue;
     const content = fileText(files, path);
     if (!content) continue;
-    if (SECRET_CONTENT_PATTERNS.some(pattern => pattern.test(content))) fail('BACKEND_SECRET_IN_STATIC_SOURCE', 'Secret-like content must be moved to a server-side secret binding before publishing.', 422);
-    const bytes = encoder.encode(content);
+    let bytes;
+    try {
+      bytes = item?.encoding === 'base64'
+        ? Uint8Array.from(atob(content), char => char.charCodeAt(0))
+        : encoder.encode(content);
+    } catch {
+      fail('BACKEND_STATIC_FILE_ENCODING_INVALID', 'A saved website asset has invalid base64 content.', 422);
+    }
+    const scanText = item?.encoding === 'base64' ? new TextDecoder().decode(bytes) : content;
+    if (SECRET_CONTENT_PATTERNS.some(pattern => pattern.test(scanText))) fail('BACKEND_SECRET_IN_STATIC_SOURCE', 'Secret-like content must be moved to a server-side secret binding before publishing.', 422);
     if (bytes.byteLength > MAX_FILE_BYTES) fail('BACKEND_STATIC_FILE_TOO_LARGE', 'A website asset exceeds the Cloudflare Pages file limit.', 413);
-    output[path] = { content, contentType: item?.contentType || '' };
+    output[path] = { content, encoding: item?.encoding || 'text', contentType: item?.contentType || '' };
   }
   if (!Object.keys(output).length) fail('BACKEND_STATIC_ASSETS_MISSING', 'The website has no static files to publish.', 422);
   return output;
@@ -167,7 +182,14 @@ async function uploadAssets(env, name, files) {
   const prepared = {};
   let total = 0;
   for (const [path, item] of entries) {
-    const bytes = encoder.encode(item.content);
+    let bytes;
+    try {
+      bytes = item.encoding === 'base64'
+        ? Uint8Array.from(atob(item.content), char => char.charCodeAt(0))
+        : encoder.encode(item.content);
+    } catch {
+      fail('BACKEND_STATIC_FILE_ENCODING_INVALID', 'A saved website asset has invalid base64 content.', 422);
+    }
     total += bytes.byteLength;
     if (total > MAX_BODY_BYTES) fail('BACKEND_STATIC_ASSETS_TOO_LARGE', 'The website assets exceed the Preview deployment limit.', 413);
     prepared[path] = { hash: await sha256(bytes), value: toBase64(bytes), contentType: item.contentType || mime(path) };
