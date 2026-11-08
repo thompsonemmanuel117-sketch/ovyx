@@ -19,6 +19,11 @@ const INTERNAL_FILES = new Set(['ovyx-backend-architecture.json', 'ovyx-qa-plan.
 const BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server|src\/routes\/api|src\/app\/api|app\/api|pages\/api)\//i;
 const ROOT_BACKEND_FILES = new Set(['package.json', 'wrangler.jsonc', 'wrangler.json']);
 const encoder = new TextEncoder();
+const SECRET_CONTENT_PATTERNS = [
+  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
+  /\\b(?:sk_(?:live|test|proj)_|whsec_|AIza[0-9A-Za-z_-]{30,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/i,
+  /(?:[\"'](?:password|secret|token|api[_-]?key|authorization)[\"']\\s*:\\s*[\"'][^\"']{16,}[\"'])/i,
+];
 
 function fail(code, message, status = 400) {
   throw Object.assign(new Error(message), { code, status });
@@ -82,6 +87,7 @@ function staticFiles(files) {
         /(?:^|\/)\.env(?:\..*)?$/i.test(path) || /(?:^|\/)\.dev\.vars(?:\..*)?$/i.test(path)) continue;
     const content = fileText(files, path);
     if (!content) continue;
+    if (SECRET_CONTENT_PATTERNS.some(pattern => pattern.test(content))) fail('BACKEND_SECRET_IN_STATIC_SOURCE', 'Secret-like content must be moved to a server-side secret binding before publishing.', 422);
     const bytes = encoder.encode(content);
     if (bytes.byteLength > MAX_FILE_BYTES) fail('BACKEND_STATIC_FILE_TOO_LARGE', 'A website asset exceeds the Cloudflare Pages file limit.', 413);
     output[path] = { content, contentType: item?.contentType || '' };
