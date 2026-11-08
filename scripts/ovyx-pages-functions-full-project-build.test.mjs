@@ -13,7 +13,7 @@ const healthRouteOverlay = path.join(output, 'health-route-overlay');
 await mkdir(assetsPath, { recursive: true });
 await mkdir(path.join(healthRouteOverlay, 'api', '__ovyx'), { recursive: true });
 const provisionSource = await readFile(path.join(project, 'functions/api/backend/provision.js'), 'utf8');
-const healthRouteMatch = provisionSource.match(/const PAGES_D1_HEALTHCHECK_SOURCE = `([\\s\\S]*?)`;\\nconst SECRET_CONTENT_PATTERNS/);
+const healthRouteMatch = provisionSource.match(/const PAGES_D1_HEALTHCHECK_SOURCE = `([\s\S]*?)`;\nconst SECRET_CONTENT_PATTERNS/);
 if (!healthRouteMatch) throw new Error('The internal Pages D1 persistence route source is missing.');
 await writeFile(path.join(healthRouteOverlay, 'api', '__ovyx', 'healthcheck.js'), healthRouteMatch[1], 'utf8');
 
