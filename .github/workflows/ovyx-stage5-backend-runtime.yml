@@ -8,6 +8,13 @@ on:
       - '.dockerignore'
       - 'functions/api/webstudio/backend-runtime.js'
       - 'functions/api/_middleware.js'
+      - 'functions/api/backend/provision.js'
+      - 'functions/api/backend/status.js'
+      - 'functions/api/deploy.js'
+      - 'functions/_lib/website-engine.js'
+      - 'functions/_lib/backend-pages-preview-binding.js'
+      - 'functions/_lib/backend-provisioning-registry.js'
+      - 'scripts/ovyx-backend-preview-provisioning.test.mjs'
       - 'assets/ovyx-webstudio-quality.js'
       - 'scripts/ovyx-backend-runtime-bridge.test.mjs'
       - 'docs/OVYX-BACKEND-RUNTIME-SETUP.md'
@@ -87,6 +94,8 @@ jobs:
         run: node scripts/ovyx-backend-provisioning-registry.test.mjs
       - name: Verify customer Pages Preview D1 binding isolation
         run: node scripts/ovyx-backend-pages-preview-binding.test.mjs
+      - name: Verify full-stack Preview provisioning orchestration
+        run: node scripts/ovyx-backend-preview-provisioning.test.mjs
       - name: Verify per-project backend runtime bridge contracts
         run: node scripts/ovyx-backend-runtime-bridge.test.mjs
       - name: Build the production Cloudflare Sandbox container image
