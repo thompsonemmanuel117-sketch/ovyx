@@ -31,10 +31,10 @@ function mergeRuntimeCompatibility(config, compatibilityDate, compatibilityFlags
   if (currentDate && !validDate(currentDate)) fail('BACKEND_PAGES_COMPATIBILITY_DATE_INVALID', 'The Pages project has an invalid compatibility date.');
   if (!validDate(requiredDate)) fail('BACKEND_PAGES_COMPATIBILITY_DATE_INVALID', 'The required compatibility date is invalid.');
   if (config?.always_use_latest_compatibility_date === true) fail('BACKEND_PAGES_COMPATIBILITY_CONFLICT', 'The Pages project must use a pinned compatibility date for deterministic backend builds.');
-  if (currentDate && currentDate.slice(0, 10) > requiredDate.slice(0, 10)) fail('BACKEND_PAGES_COMPATIBILITY_CONFLICT', 'The Pages project uses a newer compatibility date than this backend build; regenerate the bundle for that date instead of downgrading the project.');
+  if (currentDate && currentDate.slice(0, 10) > requiredDate.slice(0, 10)) fail('BACKEND_PAGES_COMPATIBILITY_CONFLICT', 'The Pages project uses a newer compatibility date than this backend build; regenerate the bundle for that date instead of downgrading the project.', 409);
   const currentFlags = Array.isArray(config?.compatibility_flags) ? config.compatibility_flags.filter(value => typeof value === 'string') : [];
   if (currentFlags.some(value => ['no_nodejs_compat', 'no_nodejs_compat_v2'].includes(value))) {
-    fail('BACKEND_PAGES_COMPATIBILITY_CONFLICT', 'The Pages project explicitly disables Node.js compatibility required by this backend build.');
+    fail('BACKEND_PAGES_COMPATIBILITY_CONFLICT', 'The Pages project explicitly disables Node.js compatibility required by this backend build.', 409);
   }
   const requiredFlags = Array.isArray(compatibilityFlags) ? compatibilityFlags : ['nodejs_compat'];
   if (requiredFlags.some(value => typeof value !== 'string' || !/^[a-z0-9_]{1,80}$/i.test(value))) {
