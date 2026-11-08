@@ -20,9 +20,17 @@ function graphFiles(project) {
   const source = (project?.ovyxGraph || project?.graph || {})?.files || project?.files;
   if (!source || typeof source !== 'object' || Array.isArray(source)) fail('BACKEND_PROJECT_SOURCE_NOT_SAVED', 'Save the website in Web Studio before checking its backend.', 409);
   const output = {};
-  for (const [path, value] of Object.entries(source)) {
+  for (const [rawPath, value] of Object.entries(source)) {
+    const path = String(rawPath || '').replace(/\\\\/g, '/').trim();
+    const segments = path.split('/');
     const item = typeof value === 'string' ? { content: value } : value;
     const content = typeof item?.content === 'string' ? item.content : typeof item?.text === 'string' ? item.text : '';
+    if (!path || path.startsWith('/') || segments.some(part => !part || part === '.' || part === '..' ||
+        ['.git', 'node_modules', '.wrangler', 'coverage'].includes(part.toLowerCase())) ||
+        /(?:^|\\/)\\.env(?:\\..*)?$/i.test(path) || /(?:^|\\/)\\.dev\\.vars(?:\\..*)?$/i.test(path) ||
+        /(?:secret|credential|private-key|service-account)/i.test(path)) {
+      fail('BACKEND_PROJECT_FILE_PATH_INVALID', 'The saved website contains a file path that cannot be checked safely.');
+    }
     if (content) output[path] = content;
   }
   return output;
