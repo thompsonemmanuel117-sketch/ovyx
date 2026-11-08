@@ -47,6 +47,11 @@ assert.ok(status.includes('applyMigrations'), 'The D1 migration ledger must be r
 assert.ok(status.includes("urlParams.get('environment')"), 'Status polling must be environment-specific.');
 assert.ok(status.includes("current.data.environment || ''"), 'Status polling must match the durable operation environment.');
 assert.ok(status.includes('current.data.resourceIds?.sourceHash !== sourceHash'), 'Status verification must match the deployed saved-project snapshot.');
+assert.ok(provision.includes('PAGES_D1_HEALTHCHECK_SOURCE'), 'The customer Pages bundle must include the internal D1 persistence proof route.');
+assert.ok(status.includes('createPagesBindingProbe'), 'Post-deploy status must create a one-time persisted D1 proof.');
+assert.ok(status.includes('/api/__ovyx/healthcheck?probeId='), 'Post-deploy status must call the deployed Pages API health route.');
+assert.ok(status.includes('BACKEND_D1_BINDING_PERSISTENCE_FAILED'), 'A failed live D1 binding proof must block readiness.');
+assert.ok(status.includes("targetEnvironment === 'preview' ? (deploymentUrl"), 'Preview verification must target the exact deployment URL, not a production alias.');
 assert.ok(status.includes('recovery_required') && status.includes('deployment_trigger'), 'Ambiguous Pages API outcomes must be reconciled against the deployment history.');
 assert.ok(status.includes("nextState: 'verifying'"), 'Recovery must resume only after the exact deployment is found.');
 assert.ok(provision.includes('[OVYX-OP:'), 'Each direct upload must carry a unique recovery marker.');
