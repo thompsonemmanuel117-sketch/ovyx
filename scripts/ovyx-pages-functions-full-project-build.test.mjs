@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,6 +9,7 @@ const output = await mkdtemp(path.join(os.tmpdir(), 'ovyx-full-pages-build-'));
 const bundlePath = path.join(output, '_worker.bundle');
 const routesPath = path.join(output, '_routes.json');
 const assetsPath = path.join(output, 'assets');
+await mkdir(assetsPath, { recursive: true });
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
