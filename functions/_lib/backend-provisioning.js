@@ -1,4 +1,4 @@
-const SAFE_ID = /^[A-Za-z0-9_-]{1,120}$/;
+const SAFE_OWNER_UID = /^[A-Za-z0-9_-]{1,128}$/;
 const SAFE_MIGRATION = /^migrations\/(\d{4,})_[a-z0-9][a-z0-9_-]{0,79}\.sql$/i;
 const SAFE_SOURCE_PATH = /^(?:functions|src|server|api|lib)\/[A-Za-z0-9_./-]{1,220}$/;
 const SECRET_PATTERNS = [
@@ -88,7 +88,7 @@ export async function createBackendProvisioningPlan({
 } = {}) {
   const uid = clean(ownerUid, 128);
   const id = clean(projectId, 160);
-  if (!SAFE_ID.test(uid) || !SAFE_ID.test(id)) {
+  if (!SAFE_OWNER_UID.test(uid) || !id || id.length > 160 || id === '.' || id === '..' || /[\\/\\u0000-\\u001f\\u007f]/.test(id)) {
     fail('BACKEND_PROJECT_IDENTITY_INVALID', 'A verified owner and saved project ID are required.');
   }
   if (!architecture || architecture.engine !== 'ovyx-fullstack-architecture' ||
