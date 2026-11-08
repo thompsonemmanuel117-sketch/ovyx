@@ -420,7 +420,8 @@ export async function onRequestPost(context) {
     }, 202, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store' });
   } catch (error) {
     if (store && current?.data && current.updateTime && operationId && registryKey) {
-      const nextState = deploymentAttempted ? 'recovery_required' : 'failed';
+      const providerRejectedWithoutDeployment = deploymentAttempted && Number.isInteger(error?.status) && error.status >= 400 && error.status < 500;
+      const nextState = deploymentAttempted && !providerRejectedWithoutDeployment ? 'recovery_required' : 'failed';
       try {
         if (['reserved', 'provisioning', 'migrating', 'building', 'deploying'].includes(current.data.state)) {
           current = await transitionBackendProvisioningOperation({
