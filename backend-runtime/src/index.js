@@ -183,7 +183,7 @@ async function runEvaluation(payload, env) {
 const BUILD_MAX_FILES = 140;
 const BUILD_MAX_OUTPUT_BYTES = 20_000_000;
 const INTERNAL_BUILD_FILES = new Set(['ovyx-backend-architecture.json', 'ovyx-qa-plan.json']);
-const BUILD_BACKEND_PATH = /^(?:functions|migrations|server|api|lib)\//i;
+const BUILD_BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src)\//i;
 const BUILD_ROOT_FILES = new Set([
   'package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'tsconfig.json',
   'vite.config.js', 'vite.config.ts', 'wrangler.json', 'wrangler.jsonc',
