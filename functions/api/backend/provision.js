@@ -21,6 +21,28 @@ const PROVISIONABLE_BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\
 const UNSUPPORTED_BACKEND_PATH = /^(?:app\/api|pages\/api|src\/pages\/api|src\/app\/api|src\/routes\/api|src\/api|src\/prisma|src\/drizzle|src\/db|src\/database|prisma|drizzle|app\/routes)\//i;
 const ROOT_BACKEND_FILES = new Set(['package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'tsconfig.json', 'vite.config.js', 'vite.config.ts', 'wrangler.jsonc', 'wrangler.json']);
 const encoder = new TextEncoder();
+const PAGES_D1_HEALTHCHECK_SOURCE = \`const encoder = new TextEncoder();
+const json = (status) => new Response(null, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+export async function onRequestGet({ request, env }) {
+  try {
+    if (!env.DB || typeof env.DB.prepare !== 'function') return json(503);
+    const url = new URL(request.url);
+    const probeId = url.searchParams.get('probeId') || '';
+    const token = request.headers.get('x-ovyx-probe-token') || '';
+    if (!/^[a-f0-9-]{36}$/i.test(probeId) || !/^[a-f0-9]{64}$/i.test(token)) return json(404);
+    const digest = await crypto.subtle.digest('SHA-256', encoder.encode(token));
+    const expected = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    const row = await env.DB.prepare('SELECT nonce_hash FROM _ovyx_health_probes WHERE probe_id = ?').bind(probeId).first();
+    if (!row || typeof row.nonce_hash !== 'string' || row.nonce_hash.length !== expected.length) return json(404);
+    let mismatch = 0;
+    for (let index = 0; index < expected.length; index += 1) mismatch |= expected.charCodeAt(index) ^ row.nonce_hash.toLowerCase().charCodeAt(index);
+    if (mismatch !== 0) return json(404);
+    await env.DB.prepare('DELETE FROM _ovyx_health_probes WHERE probe_id = ?').bind(probeId).run();
+    return json(204);
+  } catch {
+    return json(503);
+  }
+}\`;
 const SECRET_CONTENT_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i,
   /\b(?:sk_(?:live|test|proj)_|whsec_|AIza[0-9A-Za-z_-]{30,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[baprs]-[A-Za-z0-9-]{20,})/i,
@@ -416,6 +438,7 @@ export async function onRequestPost(context) {
         leaseMs: 600_000,
       });
     }
+    if (database) runtimeFiles.push({ path: 'functions/api/__ovyx/healthcheck.js', content: PAGES_D1_HEALTHCHECK_SOURCE });
     const build = await callRuntime(context.env, '/build-pages', {
       version: 1, projectId, databaseId: database?.id || '',
       files: runtimeFiles,
