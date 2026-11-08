@@ -190,10 +190,10 @@ const BUILD_ROOT_FILES = new Set([
 ]);
 
 function safeBuildPath(raw) {
-  const path = String(raw || '').replace(/\\\\/g, '/').replace(/^\\/+/, '');
-  if (!path || path.length > 240 || path.split('/').some(part => !part || part === '.' || part === '..')) return '';
-  if (/(?:^|\\/)(?:\\.git|node_modules|\\.wrangler|coverage)(?:\\/|$)/i.test(path)) return '';
-  if (/(?:^|\\/)(?:\\.env(?:\\..*)?|\\.dev\\.vars(?:\\..*)?)$/i.test(path)) return '';
+  const path = String(raw || '').replace(/\\/g, '/');
+  if (!path || path.startsWith('/') || path.length > 240 || path.split('/').some(part => !part || part === '.' || part === '..')) return '';
+  if (/(?:^|\/)(?:\.git|node_modules|\.wrangler|coverage)(?:\/|$)/i.test(path)) return '';
+  if (/(?:^|\/)(?:\.env(?:\..*)?|\.dev\.vars(?:\..*)?)$/i.test(path)) return '';
   return path;
 }
 
