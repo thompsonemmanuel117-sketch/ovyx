@@ -2,7 +2,7 @@ import { Sandbox, getSandbox, ContainerProxy } from '@cloudflare/sandbox';
 
 export { ContainerProxy };
 
-const MAX_BODY_BYTES = 2_200_000;
+const MAX_BODY_BYTES = 4_500_000;
 const MAX_FILES = 140;
 const MAX_FILE_BYTES = 280_000;
 const MAX_LOCKFILE_BYTES = 1_600_000;
@@ -179,13 +179,133 @@ async function runEvaluation(payload, env) {
   }
 }
 
+
+const BUILD_MAX_FILES = 140;
+const BUILD_MAX_OUTPUT_BYTES = 20_000_000;
+const INTERNAL_BUILD_FILES = new Set(['ovyx-backend-architecture.json', 'ovyx-qa-plan.json']);
+const BUILD_BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src)\//i;
+const BUILD_ROOT_FILES = new Set([
+  'package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'tsconfig.json',
+  'vite.config.js', 'vite.config.ts', 'wrangler.json', 'wrangler.jsonc',
+]);
+
+function safeBuildPath(raw) {
+  const path = String(raw || '').replace(/\\/g, '/');
+  if (!path || path.startsWith('/') || path.length > 240 || path.split('/').some(part => !part || part === '.' || part === '..')) return '';
+  if (/(?:^|\/)(?:\.git|node_modules|\.wrangler|coverage)(?:\/|$)/i.test(path)) return '';
+  if (/(?:^|\/)(?:\.env(?:\..*)?|\.dev\.vars(?:\..*)?)$/i.test(path)) return '';
+  return path;
+}
+
+function validateBuildFiles(rawFiles) {
+  if (!Array.isArray(rawFiles) || rawFiles.length < 1 || rawFiles.length > BUILD_MAX_FILES) throw new Error('build-file-count-invalid');
+  const seen = new Set();
+  let total = 0;
+  const files = [];
+  for (const item of rawFiles) {
+    const path = safeBuildPath(item?.path);
+    if (!path || seen.has(path) || typeof item?.content !== 'string') throw new Error('build-file-path-or-content-invalid');
+    const bytes = encoder.encode(item.content);
+    const maxFileBytes = path === 'package-lock.json' ? MAX_LOCKFILE_BYTES : MAX_FILE_BYTES;
+    if (bytes.byteLength > maxFileBytes) throw new Error('build-file-size-limit');
+    if (SECRET_PATTERNS.some(pattern => pattern.test(item.content))) throw new Error('build-secret-like-source-blocked');
+    total += bytes.byteLength;
+    if (total > MAX_BODY_BYTES) throw new Error('build-source-size-limit');
+    seen.add(path);
+    if (!INTERNAL_BUILD_FILES.has(path)) files.push({ path, content: item.content });
+  }
+  if (!files.some(file => file.path.startsWith('functions/'))) throw new Error('pages-functions-directory-required');
+  return files;
+}
+
+function encodeBuildBase64(bytes) {
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function shellQuoteBuild(value) {
+  return "'" + String(value).replace(/'/g, "'\\''") + "'";
+}
+
+async function runPagesBuild(payload, env) {
+  const projectId = clean(payload.projectId, 120);
+  const databaseId = clean(payload.databaseId, 64);
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(projectId) || (databaseId && !/^[a-f0-9-]{20,64}$/i.test(databaseId))) {
+    throw new Error('build-project-or-database-identity-invalid');
+  }
+  const files = validateBuildFiles(payload.files);
+  const sandboxId = 'ovyx-build-' + crypto.randomUUID();
+  const sandbox = getSandbox(env.SANDBOX, sandboxId, { enableDefaultSession: false, sleepAfter: '1m' });
+  try {
+    await sandbox.exec('mkdir -p /workspace/project/public /workspace/project/functions /workspace/project/.wrangler');
+    for (const file of files) {
+      const isBackend = BUILD_BACKEND_PATH.test(file.path) || BUILD_ROOT_FILES.has(file.path);
+      const target = isBackend
+        ? '/workspace/project/' + file.path
+        : '/workspace/project/public/' + file.path;
+      const parent = target.slice(0, target.lastIndexOf('/'));
+      await sandbox.exec('mkdir -p ' + shellQuoteBuild(parent));
+      await sandbox.writeFile(target, file.content);
+    }
+
+    const packageFile = files.find(file => file.path === 'package.json');
+    if (packageFile) {
+      try { JSON.parse(packageFile.content); } catch { throw new Error('build-package-json-invalid'); }
+      await installProjectDependencies(sandbox, files);
+    }
+    // The customer's frontend assets are uploaded separately from the saved
+    // Web Studio graph. This isolated step compiles only Pages Functions.
+    // Package registry egress is closed before the Wrangler build begins.
+    await sandbox.removeAllowedHost('npm.registry');
+
+    const wranglerConfig = {
+      name: 'ovyx-preview-build',
+      compatibility_date: '2026-11-01',
+      compatibility_flags: ['nodejs_compat'],
+      pages_build_output_dir: './public',
+    };
+    await sandbox.writeFile('/workspace/project/wrangler.jsonc', JSON.stringify(wranglerConfig, null, 2));
+    const command = '/opt/ovyx-runtime/node_modules/.bin/wrangler pages functions build ./functions ' +
+      '--project-directory /workspace/project ' +
+      '--build-output-directory /workspace/project/public ' +
+      '--outfile /workspace/project/public/_worker.bundle ' +
+      '--output-routes-path /workspace/project/public/_routes.json ' +
+      '--compatibility-date 2026-11-01 --compatibility-flag nodejs_compat';
+    const result = await sandbox.exec(command, { timeout: 120_000 });
+    if (!result.success) throw new Error('pages-functions-build-failed: ' + clean(result.stderr || result.stdout, 260));
+
+    const bundle = await sandbox.readFile('/workspace/project/public/_worker.bundle');
+    const routesFile = await sandbox.readFile('/workspace/project/public/_routes.json');
+    const bundleBytes = encoder.encode(bundle.content || '');
+    if (!bundleBytes.byteLength || bundleBytes.byteLength > BUILD_MAX_OUTPUT_BYTES) throw new Error('pages-worker-bundle-size-invalid');
+    let routes;
+    try { routes = JSON.parse(routesFile.content); } catch { throw new Error('pages-functions-routes-invalid'); }
+    if (!routes || !Array.isArray(routes.include) || !Array.isArray(routes.exclude)) throw new Error('pages-functions-routes-invalid');
+    return {
+      ok: true,
+      projectId,
+      databaseId,
+      bundleBase64: encodeBuildBase64(bundleBytes),
+      routes,
+      bundleBytes: bundleBytes.byteLength,
+      build: 'wrangler-pages-functions',
+      networkIsolation: 'egress-disabled-after-dependency-install',
+    };
+  } finally {
+    try { await sandbox.destroy(); } catch {}
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === 'GET' && url.pathname === '/health') {
       return json({ ok: true, service: 'ovyx-backend-runtime', runtime: 'cloudflare-sandbox-pages-d1', version: 1 });
     }
-    if (request.method !== 'POST' || url.pathname !== '/evaluate') return json({ ok: false, code: 'NOT_FOUND' }, 404);
+    if (request.method !== 'POST' || !['/evaluate', '/build-pages'].includes(url.pathname)) return json({ ok: false, code: 'NOT_FOUND' }, 404);
     const length = Number(request.headers.get('content-length') || 0);
     if (length > MAX_BODY_BYTES) return json({ ok: false, code: 'BODY_TOO_LARGE' }, 413);
     const raw = await request.text();
@@ -194,6 +314,7 @@ export default {
     let payload;
     try { payload = JSON.parse(raw); } catch { return json({ ok: false, code: 'INVALID_JSON' }, 400); }
     try {
+      if (url.pathname === '/build-pages') return json(await runPagesBuild(payload, env), 200);
       const result = await runEvaluation(payload, env);
       return json(result, result.status === 'passed' || result.status === 'not-required' ? 200 : 422);
     } catch (error) {

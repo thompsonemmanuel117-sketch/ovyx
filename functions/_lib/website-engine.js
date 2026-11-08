@@ -848,7 +848,7 @@ export function parseBackendFiles(response) {
       let filePath = String(rawPath || '').trim();
       while (filePath.startsWith('/')) filePath = filePath.slice(1);
       const fileContent = typeof value === 'string' ? value : value && (value.content || value.text || value.code);
-      const allowedRoot = [
+      const allowedRoot = filePath === 'ovyx-qa-plan.json' || [
         'functions/', 'api/', 'app/api/', 'src/app/api/', 'pages/api/', 'src/pages/api/',
         'prisma/', 'migrations/', 'drizzle/', 'db/', 'database/', 'server/', 'src/server/',
         'src/lib/server/', 'src/routes/', 'app/routes/', 'server/api/', 'server/routes/', 'tests/', 'test/', '__tests__/',
@@ -1138,6 +1138,7 @@ function buildBackendSourcePrompt(architecture, originalPrompt, existingPaths, f
     'OVYX FULL-STACK SOURCE GENERATION — REQUIRED IMPLEMENTATION STAGE',
     'Return only valid JSON: {"files":{"relative/path":"complete source text"}}. No Markdown fences.',
     'Generate real server route handlers, database schema, versioned migrations, relationships, constraints, indexes and safe tests for every declared API contract and model. A frontend-only response is not acceptable.',
+    'Also generate ovyx-qa-plan.json with {version:1, backendRequired:true, backendChecks:[...]}. Each check must have a unique id, method, route beginning /api/, sourceFile pointing to the exact functions/... route source, and expectedStatus. Include representative GET and mutation checks where applicable; every mutating check must set sideEffect to disposable-local-only and use synthetic non-personal fixture data. Keep at most 24 checks, use no real customer data, and make the checks safe to run only against a fresh disposable local database. This manifest is required for preview provisioning; do not omit it.',
     'Preserve the framework detected in existing project paths: Cloudflare Pages Functions, Next.js App Router/Pages Router, SvelteKit, Remix, Nuxt or an existing Node server. Use that framework’s native route-handler conventions. Prefer the explicitly selected database/auth/payment/email provider in the architecture contract; its connection metadata is not proof of live access, so generate server-only adapters and fail safely when bindings are absent. Only when no framework or database provider is selected, target Cloudflare Pages Functions with Cloudflare D1-compatible SQLite migrations and matching onRequestGet/onRequestPost/onRequestPut/onRequestPatch/onRequestDelete exports.',
     'Every route that declares data models must execute a real provider-backed read or write through a server-only repository/service in the same route or an imported local module. Generate actual create/read/update/delete operations required by the declared routes; never satisfy persistence with hard-coded arrays, in-memory maps, TODOs, mock repositories or success-shaped responses. Mutating handlers must validate request bodies with a concrete schema/validator before side effects. Use prepared database statements, safe error envelopes, size limits, owner scoping, deny-by-default authorization, idempotency and transactional business-state changes. Missing DB/auth bindings must fail explicitly; never simulate persistence or success.',
     'Generate provider-appropriate schemas, migrations, relationships, constraints and indexes for every model. Use SQL CREATE TABLE/foreign keys plus a versioned migrations/0001_initial.sql for relational databases; for Firebase Firestore emit db/firestore-schema.js and db/firestore.indexes.json with explicit collection/document validators, reference fields and required composite-index declarations. Keep money in integer minor units with ISO currency and timestamps in UTC with IANA timezone context.',
@@ -1250,10 +1251,17 @@ export async function runWebsiteGeneration(options = {}) {
       quotaOutputText += (quotaOutputText ? '\n\n' : '') + String(backendResponse && backendResponse.text || '');
       generatedFiles = parseBackendFiles(backendResponse);
       fullStackSourceEvidence = auditBackendFiles(generatedFiles, fullStackArchitecture);
-      if (fullStackSourceEvidence.status === 'source-evidence-present-runtime-unverified') break;
-      failures = fullStackSourceEvidence.missing.length
-        ? fullStackSourceEvidence.missing
-        : ['No valid backend files object was returned.'];
+      let qaPlanValid = false;
+      try {
+        const qaPlan = JSON.parse(String(generatedFiles['ovyx-qa-plan.json'] || ''));
+        qaPlanValid = qaPlan.version === 1 && qaPlan.backendRequired === true &&
+          Array.isArray(qaPlan.backendChecks) && qaPlan.backendChecks.length > 0 && qaPlan.backendChecks.length <= 24 &&
+          qaPlan.backendChecks.every(check => typeof check?.id === 'string' && typeof check?.sourceFile === 'string' && check.sourceFile.startsWith('functions/'));
+      } catch {}
+      if (fullStackSourceEvidence.status === 'source-evidence-present-runtime-unverified' && qaPlanValid) break;
+      failures = fullStackSourceEvidence.missing.slice();
+      if (!qaPlanValid) failures.push('Missing or invalid ovyx-qa-plan.json with executable disposable backend checks.');
+      if (!failures.length) failures = ['No valid backend files object was returned.'];
     }
     if (!Object.keys(generatedFiles).length ||
         fullStackSourceEvidence.status !== 'source-evidence-present-runtime-unverified') {
@@ -1265,14 +1273,30 @@ export async function runWebsiteGeneration(options = {}) {
       error.quotaOutputText = quotaOutputText;
       throw error;
     }
+    const backendArchitectureFile = JSON.stringify({
+      schemaVersion: 1,
+      engine: 'ovyx-fullstack-architecture',
+      architectureStatus: 'planned-not-provisioned',
+      ...fullStackArchitecture,
+    });
     result = {
       ...result,
-      files: { ...(result.files || {}), ...generatedFiles },
+      files: {
+        ...(result.files || {}),
+        ...generatedFiles,
+        'ovyx-backend-architecture.json': backendArchitectureFile,
+        'wrangler.jsonc': JSON.stringify({
+          name: 'ovyx-generated-preview',
+          compatibility_date: '2026-11-01',
+          compatibility_flags: ['nodejs_compat'],
+        }, null, 2),
+      },
       rawUsage: mergeGenerationUsage(result.rawUsage, backendUsage) || result.rawUsage || null,
       fullStackSourceEvidence,
       fullStackGeneration: {
         status: 'source-generated-runtime-unverified',
         filesGenerated: Object.keys(generatedFiles).length,
+        architectureManifest: 'ovyx-backend-architecture.json',
       },
     };
 

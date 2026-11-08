@@ -41,13 +41,18 @@ A public HTTPS Worker URL can be used instead by setting OVYX_BACKEND_RUNTIME_UR
 
 ## 4. What is executed
 
-- Only files needed for Cloudflare Pages backend testing are sent: Wrangler config, package manifests/lockfiles, functions/, migrations/, and the QA plan.
-- .env, .dev.vars, private keys, common API-key/token patterns, and secret-like QA payloads are rejected.
-- Project dependencies are installed with lifecycle scripts disabled. Package registry access is removed before the evaluator starts.
-- Each evaluation gets a fresh sandbox, synthetic QA identity and new local D1 database IDs. Supported KV/R2 bindings use local Wrangler emulation.
-- Unsupported bindings, frameworks, package installs, migrations or runtime operations remain blocked; they are never reported as passed.
-- The sandbox is destroyed after every run. Reports contain only bounded, sanitized check evidence.
+The runtime now has two signed operations:
+
+- `/evaluate`: runs the saved disposable backend QA plan against a fresh local Pages Functions + D1 environment.
+- `/build-pages`: writes the validated customer Functions source into a fresh sandbox, installs declared dependencies with lifecycle scripts disabled, removes package-registry egress, and runs the pinned Wrangler Pages Functions build. It returns only a bounded `_worker.bundle` and validated `_routes.json` manifest to the authenticated OVYX Pages API route.
+
+The customer provisioning route sends only backend source, migrations, the package manifest and a server-generated Wrangler configuration to the runtime build. Frontend/static assets are uploaded separately from the verified saved-project graph; the isolated backend container does not need access to customer browser assets.
+
+- .env, .dev.vars, private keys, common API-key/token patterns and secret-like QA payloads are rejected.
+- Each evaluation/build gets a fresh sandbox. No production database or third-party provider credential is passed into it.
+- Package registry egress is removed before Wrangler compiles the Functions bundle.
+- The sandbox is destroyed after each operation. Reports and error codes are bounded and sanitized.
 
 ## Supported boundary
 
-The current evaluator executes Cloudflare Pages Functions with D1 migrations and supported local KV/R2 bindings. It intentionally blocks remote bindings, Durable Objects, external service bindings, production secrets, external delivery, real payment settlement and unsupported server frameworks. Those need their own dedicated disposable adapters before they can be marked tested.
+The automated customer path currently supports Cloudflare Pages Functions with Cloudflare D1. The evaluator can emulate supported local KV/R2 bindings, but the customer deployment path does not yet provision or bind KV, R2, Durable Objects, Queues, external service bindings, production secrets, payment settlement or email delivery. Other server frameworks and selected non-D1 database providers fail closed rather than being silently rewritten. Each additional provider needs a dedicated owner-scoped adapter, isolated test environment, production binding policy and recovery plan.
