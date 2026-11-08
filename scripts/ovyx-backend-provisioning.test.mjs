@@ -79,6 +79,14 @@ await assert.rejects(
   }),
   { code: 'BACKEND_DATABASE_CAPABILITY_MISMATCH' },
 );
+await assert.rejects(
+  createBackendProvisioningPlan({
+    ownerUid: 'owner', projectId: 'project',
+    architecture: { ...architecture, capabilities: { backend: false, database: false } },
+    files: [{ path: 'functions/api/contact.js', content: 'export default {};' }],
+  }),
+  { code: 'BACKEND_CAPABILITY_NOT_REQUESTED' },
+);
 for (const capability of ['payments', 'commerce', 'email', 'newsletter', 'subscriptions', 'notifications', 'integrations', 'automation', 'booking', 'fileStorage', 'backgroundWork']) {
   await assert.rejects(
     createBackendProvisioningPlan({
