@@ -316,6 +316,7 @@ const singlePageBackend = await runWebsiteGeneration({
           'migrations/0001_initial.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'server/workflows/contact-submission.js': workflowSource,
           'tests/backend-contracts.test.js': backendTestSource,
+          'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: true, backendChecks: [{ id: 'contact-submission-read', sourceFile: 'functions/api/contact-submissions.js', method: 'GET', route: '/api/contact-submissions', expectedStatus: 200 }] }),
         },
       }),
       usage: { prompt_tokens: 4, completion_tokens: 6, total_tokens: 10 },
@@ -350,6 +351,7 @@ const secureBackendBuild = await runWebsiteGeneration({
           'migrations/0001_initial.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
           'server/workflows/contact-submission.js': workflowSource,
           'tests/backend-contracts.test.js': backendTestSource,
+          'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: true, backendChecks: [{ id: 'contact-submission-read', sourceFile: 'functions/api/contact-submissions.js', method: 'GET', route: '/api/contact-submissions', expectedStatus: 200 }] }),
         },
       }),
     };
@@ -406,12 +408,13 @@ const backendPlanBuild = await runWebsiteGeneration({
     text: 'Generated full-stack contact app.',
     files: {
       'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Contact app</title></head><body><h1>Contact app</h1></body></html>',
+      'functions/api/health.js': 'export async function onRequestGet() { return Response.json({ ok: true }); }',
       'ovyx-qa-plan.json': JSON.stringify({
         version: 1,
         backendRequired: true,
         journeys: [{ id: 'contact-home', name: 'Contact app home', startRoute: '/', steps: [{ action: 'expectText', text: 'Contact app' }] }],
         apiChecks: [],
-        backendChecks: [{ id: 'health', name: 'API health', method: 'GET', route: '/api/health', expectedStatus: 200 }],
+        backendChecks: [{ id: 'health', name: 'API health', method: 'GET', route: '/api/health', sourceFile: 'functions/api/health.js', expectedStatus: 200 }],
       }),
     },
   }),
