@@ -23,7 +23,7 @@ function graphFiles(project) {
   if (!source || typeof source !== 'object' || Array.isArray(source)) fail('BACKEND_PROJECT_SOURCE_NOT_SAVED', 'Save the website in Web Studio before checking its backend.', 409);
   const output = {};
   for (const [rawPath, value] of Object.entries(source)) {
-    const path = String(rawPath || '').replace(/\\\\/g, '/').trim();
+    const path = String(rawPath || '').replaceAll('\\', '/').trim();
     const segments = path.split('/');
     const item = typeof value === 'string' ? { content: value } : value;
     const content = typeof item?.content === 'string' ? item.content : typeof item?.text === 'string' ? item.text : '';
