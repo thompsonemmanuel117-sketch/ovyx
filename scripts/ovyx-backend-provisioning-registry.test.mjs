@@ -93,30 +93,22 @@ assert.equal(retry.outcome, 'reserved');
 assert.equal(retry.record.attempt, 2);
 assert.equal(retry.record.lastErrorCode, null);
 
-const expired = await reserveBackendProvisioningOperation({
-  store: memoryStore(), plan: { ...plan, namespace: 'fedcba9876543210' },
+const expiringStore = memoryStore();
+const expiringReservation = await reserveBackendProvisioningOperation({
+  store: expiringStore, plan: { ...plan, namespace: 'fedcba9876543210' },
   ownerUid: 'firebase-user-1', projectId: 'saved-project-1',
-  operationId: 'operation-5', now: '2026-11-08T10:00:00.000Z', leaseMs: 10_000,
+  operationId: 'operation-expiring', now: '2026-11-08T10:00:00.000Z', leaseMs: 10_000,
+});
+await transitionBackendProvisioningOperation({
+  store: expiringStore, key: expiringReservation.key, current: expiringReservation,
+  operationId: 'operation-expiring', nextState: 'provisioning',
+  now: '2026-11-08T10:00:01.000Z', leaseMs: 10_000,
 });
 const recovery = await reserveBackendProvisioningOperation({
-  store: expiredStoreForRecovery(), plan: { ...plan, namespace: 'fedcba9876543210' },
+  store: expiringStore, plan: { ...plan, namespace: 'fedcba9876543210' },
   ownerUid: 'firebase-user-1', projectId: 'saved-project-1',
-  operationId: 'operation-6', now: '2026-11-08T10:01:00.000Z',
+  operationId: 'operation-recovery', now: '2026-11-08T10:01:00.000Z',
 });
 assert.equal(recovery.outcome, 'recovery_required');
 
-function expiredStoreForRecovery() {
-  const docs = new Map();
-  const data = {
-    schemaVersion: 1, namespace: 'fedcba9876543210', environment: 'preview',
-    ownerHash: null, projectHash: null, state: 'provisioning',
-    operationId: 'old-op', attempt: 1, leaseExpiresAt: '2026-11-08T10:00:10.000Z',
-    resourceNames: plan.resources, migrationVersionsApplied: [], resourceIds: {},
-  };
-  return {
-    async read(key) { const item = docs.get(key); return item ? structuredClone(item) : { data: structuredClone(data), updateTime: '1' }; },
-    async create() { throw new Error('not expected'); },
-    async compareAndSet() { throw new Error('not expected'); },
-  };
-}
 console.log('OVYX durable backend provisioning registry tests passed.');
