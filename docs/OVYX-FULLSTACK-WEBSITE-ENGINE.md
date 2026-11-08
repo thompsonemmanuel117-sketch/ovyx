@@ -206,3 +206,23 @@ The manifest currently enforces:
 - The lifecycle gate list requires owner/project verification, idempotent operation reservation, resource verification, preview migration, server-only bindings, Worker deployment, API/database/isolation verification and explicit owner approval before production promotion.
 
 The safety contract tests are run by the isolated backend-runtime workflow. This phase does **not** claim that customer Workers or D1 databases are provisioned or deployed. The next increment must implement the Cloudflare resource adapter and durable lifecycle registry, then exercise it against isolated preview resources before any production promotion is enabled.
+
+
+## Customer backend provisioning — Phase 2 D1 resource adapter
+
+The Phase 2 increment adds a server-only Cloudflare D1 adapter in `functions/_lib/backend-cloudflare-adapter.js`. It uses the Cloudflare account D1 REST API with a narrowly scoped API token supplied through the server environment. It never returns or logs the token.
+
+The adapter:
+- Accepts only deterministic OVYX resource names derived from the verified owner/project namespace and target environment.
+- Reconciles by exact database name before creation, verifies the returned database ID/name with a separate GET, and handles the create race by re-reading the exact name.
+- Applies versioned migrations through the D1 query API with a private `_ovyx_migrations` ledger, SHA-256 source-to-manifest verification, drift detection, and transactional D1 batch requests.
+- Allows only additive `CREATE TABLE`, `CREATE INDEX`, and `ALTER TABLE ADD COLUMN` statements; rejects DML, destructive DDL, triggers, PRAGMA changes, and use of the reserved ledger table.
+- Treats a matching already-applied migration as idempotent and refuses a changed checksum for an applied version.
+
+The adapter is not yet wired to a customer-facing route and has not been run against the live Cloudflare account. It creates/verifies D1 resources only: it does not upload or deploy Worker code, bind a D1 database to a Worker, provision R2/KV/Queues/Durable Objects, create customer domains, or promote production. No live customer resources are created by CI. Before enabling the adapter, the next increment must add a durable provisioning-operation registry with crash recovery, a project-owner authorization boundary, an audited preview-only execution route, and an end-to-end isolated Cloudflare acceptance test. Worker upload must use the documented module multipart API and must be independently verified before any publishing path is changed.
+
+Cloudflare API references:
+- D1 create/list/get/query: https://developers.cloudflare.com/api/resources/d1/
+- D1 query and migration/batch behavior: https://developers.cloudflare.com/d1/worker-api/d1-database/
+- Worker secret bindings: https://developers.cloudflare.com/workers/configuration/secrets/
+- Worker module upload and D1 binding metadata: https://developers.cloudflare.com/api/resources/workers/subresources/scripts/methods/update/
