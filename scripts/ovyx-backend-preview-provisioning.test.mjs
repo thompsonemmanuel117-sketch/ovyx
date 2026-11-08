@@ -14,6 +14,7 @@ const [provision, status, middleware, engine, deploy, worker, plan, binding] = a
 ]);
 
 assert.ok(provision.includes('assertAuthenticated(context.data?.user)'), 'Provisioning must require the verified Firebase identity.');
+assert.ok(provision.includes('user.emailVerified !== true'), 'Provisioning must require a verified account email.');
 assert.ok(provision.includes("['users', email, 'projects', projectId]"), 'Provisioning must load the canonical saved project.');
 assert.ok(provision.includes('assertOwnedSavedProject'), 'Provisioning must enforce server-side project ownership.');
 assert.ok(provision.includes('sourceHash'), 'Provisioning must fingerprint the exact saved project source snapshot.');
@@ -46,6 +47,7 @@ assert.ok(status.includes('applyMigrations'), 'The D1 migration ledger must be r
 assert.ok(status.includes("urlParams.get('environment')"), 'Status polling must be environment-specific.');
 assert.ok(status.includes("current.data.environment || ''"), 'Status polling must match the durable operation environment.');
 assert.ok(status.includes('current.data.resourceIds?.sourceHash !== sourceHash'), 'Status verification must match the deployed saved-project snapshot.');
+assert.ok(status.includes('pagesProjectName !== expected.name'), 'Status polling must verify the exact owner-scoped Pages project name.');
 
 assert.ok(middleware.includes("'/api/backend/provision'"), 'The provisioning route must be registered with shared API middleware.');
 assert.ok(middleware.includes("'/api/backend/status'"), 'The status route must be registered with shared API middleware.');
