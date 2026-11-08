@@ -206,7 +206,8 @@ function validateBuildFiles(rawFiles) {
     const path = safeBuildPath(item?.path);
     if (!path || seen.has(path) || typeof item?.content !== 'string') throw new Error('build-file-path-or-content-invalid');
     const bytes = encoder.encode(item.content);
-    if (bytes.byteLength > MAX_FILE_BYTES) throw new Error('build-file-size-limit');
+    const maxFileBytes = path === 'package-lock.json' ? MAX_LOCKFILE_BYTES : MAX_FILE_BYTES;
+    if (bytes.byteLength > maxFileBytes) throw new Error('build-file-size-limit');
     if (SECRET_PATTERNS.some(pattern => pattern.test(item.content))) throw new Error('build-secret-like-source-blocked');
     total += bytes.byteLength;
     if (total > MAX_BODY_BYTES) throw new Error('build-source-size-limit');
