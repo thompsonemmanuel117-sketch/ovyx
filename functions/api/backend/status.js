@@ -27,8 +27,9 @@ function graphFiles(project) {
     const segments = path.split('/');
     const item = typeof value === 'string' ? { content: value } : value;
     const content = typeof item?.content === 'string' ? item.content : typeof item?.text === 'string' ? item.text : '';
-    if (!path || path.startsWith('/') || segments.some(part => !part || part === '.' || part === '..' ||
-        ['.git', 'node_modules', '.wrangler', 'coverage'].includes(part.toLowerCase())) ||
+    if (!path || path.length > 500 || path.startsWith('/') || path.includes('..') || /[\\0\\r\\n]/.test(path) ||
+        segments.some(part => !part || part === '.' || part === '..' ||
+        ['.git', 'node_modules', '.wrangler', 'coverage', '.npmrc', '.yarnrc', '.pnp.cjs'].includes(part.toLowerCase())) ||
         /(?:^|\\/)\\.env(?:\\..*)?$/i.test(path) || /(?:^|\\/)\\.dev\\.vars(?:\\..*)?$/i.test(path) ||
         /(?:secret|credential|private-key|service-account)/i.test(path)) {
       fail('BACKEND_PROJECT_FILE_PATH_INVALID', 'The saved website contains a file path that cannot be checked safely.');
