@@ -55,11 +55,6 @@ async function cf(path, env) {
   }
   return payload.result;
 }
-function deploymentEnvironmentMismatch(record, expected) {
-  const name = String(record?.resourceNames?.database || '');
-  if (!name) return false;
-  return !name.endsWith('-' + expected);
-}
 async function pagesIdentity(user, projectId, projectName, env) {
   const digest = await crypto.subtle.digest('SHA-256', encoder.encode(user.uid + ':' + projectId));
   const hashValue = Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
@@ -100,7 +95,7 @@ export async function onRequestGet(context) {
     if (!pagesProjectName || !deploymentId) fail('BACKEND_PROVISIONING_RECORD_INCOMPLETE', 'The Preview provisioning record is missing its deployment identity.', 409);
     const expected = await pagesIdentity(user, projectId, slug(project.name || project.title || 'site'), context.env);
     if (!pagesProjectName.startsWith(expected.prefix)) fail('BACKEND_PAGES_PROJECT_OWNERSHIP_INVALID', 'The Pages project does not match this saved website.', 403);
-    if (deploymentEnvironmentMismatch(current.data, targetEnvironment)) fail('BACKEND_DEPLOYMENT_ENVIRONMENT_INVALID', 'The saved deployment environment does not match this status request.', 409);
+    if (String(current.data.environment || '') !== targetEnvironment) fail('BACKEND_DEPLOYMENT_ENVIRONMENT_INVALID', 'The saved deployment environment does not match this status request.', 409);
     const deployment = await cf(
       '/accounts/' + encodeURIComponent(context.env.CLOUDFLARE_ACCOUNT_ID) +
       '/pages/projects/' + encodeURIComponent(pagesProjectName) +
