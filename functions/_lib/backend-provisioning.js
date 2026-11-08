@@ -87,8 +87,9 @@ export async function createBackendProvisioningPlan({
   files,
 } = {}) {
   const uid = clean(ownerUid, 128);
-  const id = clean(projectId, 160);
-  if (!SAFE_OWNER_UID.test(uid) || !id || id.length > 160 || id === '.' || id === '..' || /[\\/\\u0000-\\u001f\\u007f]/.test(id)) {
+  const rawProjectId = String(projectId ?? '');
+  const id = clean(rawProjectId, 160);
+  if (!SAFE_OWNER_UID.test(uid) || !id || rawProjectId.length > 160 || rawProjectId === '.' || rawProjectId === '..' || rawProjectId.includes('/') || /[\u0000-\u001f\u007f]/.test(rawProjectId)) {
     fail('BACKEND_PROJECT_IDENTITY_INVALID', 'A verified owner and saved project ID are required.');
   }
   if (!architecture || architecture.engine !== 'ovyx-fullstack-architecture' ||
