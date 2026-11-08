@@ -33,6 +33,7 @@ assert.ok(provision.includes("form.append('branch'"), 'Preview deployments must 
 assert.ok(provision.includes('createCloudflareD1Adapter'), 'Database resources and migrations must use the Cloudflare D1 adapter.');
 assert.ok(provision.includes('applyMigrations'), 'Versioned migrations must be applied before deployment.');
 assert.ok(provision.includes('createCloudflarePagesPreviewBindingAdapter'), 'The customer Pages Preview environment must receive its D1 binding.');
+assert.ok(binding.includes('compatibility_date') && binding.includes('nodejs_compat'), 'The Pages environment must receive the same pinned runtime compatibility used to build the Worker bundle.');
 assert.ok(provision.includes("form.append('_worker.bundle'"), 'The direct Pages deployment must include the compiled Worker bundle.');
 assert.ok(provision.includes("form.append('_routes.json'"), 'The direct Pages deployment must include the generated Functions routes.');
 assert.ok(provision.includes("nextState: 'verifying'"), 'A deployment must remain unready until independent status verification.');
