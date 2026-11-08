@@ -560,7 +560,9 @@
       const status = addStatus(panel, 'ovyx-notification-server-status', 'Unsaved changes. Save to apply your notification preferences.');
       if (status) status.textContent = 'Unsaved changes. Save to apply this preference. Email notifications will not be sent until delivery is available.';
     }, true);
-    document.addEventListener('click', function (event) {
+    // Run before legacy document-level capture listeners so the account-backed
+    // Reset action cannot be consumed by an older local-only Settings handler.
+    window.addEventListener('click', function (event) {
       const save = event.target && event.target.closest && event.target.closest('#notify-save');
       const reset = event.target && event.target.closest && event.target.closest('#notify-reset');
       const button = save || reset;
