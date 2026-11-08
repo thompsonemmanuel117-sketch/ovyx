@@ -17,7 +17,7 @@ try {
   const token = 'a'.repeat(64);
   const probeId = '12345678-1234-1234-1234-123456789abc';
   const nonceHash = createHash('sha256').update(token).digest('hex');
-  const records = new Map([[probeId, { nonce_hash: nonceHash }]]);
+  const records = new Map([[probeId, { nonce_hash: nonceHash, created_at: Date.now() }]]);
   const queries = [];
   const env = {
     DB: {
