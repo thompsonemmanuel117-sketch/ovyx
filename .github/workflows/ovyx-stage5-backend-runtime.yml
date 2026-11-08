@@ -33,6 +33,8 @@ on:
       - 'scripts/ovyx-generated-backend-runtime-eval.test.mjs'
       - 'functions/_lib/autonomous-qa.js'
       - 'functions/_lib/website-engine.js'
+      - 'functions/_lib/backend-provisioning.js'
+      - 'scripts/ovyx-backend-provisioning.test.mjs'
       - 'package.json'
       - '.github/workflows/ovyx-stage5-backend-runtime.yml'
   workflow_dispatch:
