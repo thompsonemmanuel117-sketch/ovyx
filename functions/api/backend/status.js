@@ -25,6 +25,7 @@ function graphFiles(project) {
   for (const [rawPath, value] of Object.entries(source)) {
     const path = String(rawPath || '').replaceAll('\\', '/').trim();
     const segments = path.split('/');
+    if (path.toLowerCase().startsWith('functions/api/__ovyx/')) fail('BACKEND_PROJECT_RESERVED_PATH', 'The functions/api/__ovyx namespace is reserved for OVYX deployment verification.');
     const item = typeof value === 'string' ? { content: value } : value;
     const content = typeof item?.content === 'string' ? item.content : typeof item?.text === 'string' ? item.text : '';
     if (!path || path.length > 500 || path.startsWith('/') || path.includes('..') || path.includes('\0') || path.includes('\r') || path.includes('\n') ||
