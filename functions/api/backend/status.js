@@ -106,7 +106,7 @@ export async function onRequestGet(context) {
     const plan = await createBackendProvisioningPlan({ ownerUid: user.uid, projectId, environment: targetEnvironment, architecture, files: sources });
     const store = createFirestoreProvisioningRegistry(context.env);
     const key = plan.namespace + '-' + targetEnvironment;
-    const current = await store.read(key);
+    let current = await store.read(key);
     if (!current) fail('BACKEND_PROVISIONING_NOT_FOUND', 'This website does not have a Preview backend provisioning record yet.', 404);
     const [ownerHash, projectHash] = await Promise.all([hash(user.uid), hash(projectId)]);
     if (current.data.ownerHash !== ownerHash || current.data.projectHash !== projectHash) {
@@ -115,15 +115,45 @@ export async function onRequestGet(context) {
     if (current.data.resourceIds?.sourceHash !== sourceHash) {
       fail('BACKEND_PROJECT_CHANGED_SINCE_PREVIEW', 'The saved website changed after this deployment. Create a fresh Preview before marking this version ready or promoting it.', 409);
     }
-    if (current.data.state === 'failed' || current.data.state === 'recovery_required' || current.data.state === 'rolled_back') {
+    if (current.data.state === 'failed' || current.data.state === 'rolled_back') {
       return jsonResponse({ success: false, status: current.data.state, errorCode: current.data.lastErrorCode || null }, 409);
     }
     const pagesProjectName = String(current.data.resourceIds?.pagesProject || '');
-    const deploymentId = String(current.data.deploymentId || '');
-    if (!pagesProjectName || !deploymentId) fail('BACKEND_PROVISIONING_RECORD_INCOMPLETE', 'The Preview provisioning record is missing its deployment identity.', 409);
+    if (!pagesProjectName) fail('BACKEND_PROVISIONING_RECORD_INCOMPLETE', 'The provisioning record is missing its Pages project identity.', 409);
     const expected = await pagesIdentity(user, projectId, slug(project.name || project.title || 'site'), context.env);
     if (pagesProjectName !== expected.name || !pagesProjectName.startsWith(expected.prefix)) fail('BACKEND_PAGES_PROJECT_OWNERSHIP_INVALID', 'The Pages project does not match this saved website.', 403);
     if (String(current.data.environment || '') !== targetEnvironment) fail('BACKEND_DEPLOYMENT_ENVIRONMENT_INVALID', 'The saved deployment environment does not match this status request.', 409);
+    let deploymentId = String(current.data.deploymentId || '');
+    if (current.data.state === 'recovery_required' && !deploymentId) {
+      const marker = '[OVYX-OP:' + String(current.data.operationId || '') + ']';
+      const listed = await cf(
+        '/accounts/' + encodeURIComponent(context.env.CLOUDFLARE_ACCOUNT_ID) +
+        '/pages/projects/' + encodeURIComponent(pagesProjectName) + '/deployments?per_page=100',
+        context.env,
+      );
+      const deployments = Array.isArray(listed) ? listed : [];
+      const recovered = deployments.find(item => {
+        const metadata = item?.deployment_trigger?.metadata || {};
+        const commitMessage = String(metadata.commit_message || item?.commit_message || '');
+        const branch = String(metadata.branch || item?.branch || '');
+        return marker.length > 12 && commitMessage.includes(marker) &&
+          (!branch || branch === current.data.resourceIds?.deploymentBranch);
+      });
+      if (!recovered?.id) {
+        return jsonResponse({
+          success: false, status: 'recovery_required',
+          errorCode: 'BACKEND_DEPLOYMENT_RECOVERY_PENDING',
+          message: 'Cloudflare has not yet returned a deployment matching this operation marker. OVYX will not start a duplicate deployment.',
+        }, 409, { 'Cache-Control': 'no-store' });
+      }
+      const recoveredId = String(recovered.id);
+      current = await transitionBackendProvisioningOperation({
+        store, key, current, operationId: current.data.operationId,
+        nextState: 'verifying', patch: { deploymentId: recoveredId },
+      });
+      deploymentId = recoveredId;
+    }
+    if (!deploymentId) fail('BACKEND_PROVISIONING_RECORD_INCOMPLETE', 'The provisioning record is missing its deployment identity.', 409);
     const deployment = await cf(
       '/accounts/' + encodeURIComponent(context.env.CLOUDFLARE_ACCOUNT_ID) +
       '/pages/projects/' + encodeURIComponent(pagesProjectName) +
