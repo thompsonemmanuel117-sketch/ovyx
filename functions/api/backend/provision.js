@@ -45,12 +45,12 @@ function normalizeGraphFiles(project) {
   }
   const result = {};
   for (const [rawPath, value] of Object.entries(source)) {
-    const path = String(rawPath || '').replace(/\\\\/g, '/').trim();
+    const path = String(rawPath || '').replaceAll('\\', '/').trim();
     const record = typeof value === 'string' ? { content: value } : value;
     const text = typeof record?.content === 'string' ? record.content
       : typeof record?.text === 'string' ? record.text : '';
     const segments = path.split('/');
-    if (!path || path.length > 500 || path.startsWith('/') || path.includes('..') || /[\\0\\r\\n]/.test(path) ||
+    if (!path || path.length > 500 || path.startsWith('/') || path.includes('..') || path.includes('\0') || path.includes('\r') || path.includes('\n') ||
         segments.some(part => !part || part === '.' || part === '..' ||
         ['.git', 'node_modules', '.wrangler', 'coverage', '.npmrc', '.yarnrc', '.pnp.cjs'].includes(part.toLowerCase())) ||
         segments.some(part => part === '.env' || part.startsWith('.env.') || part === '.dev.vars') ||
