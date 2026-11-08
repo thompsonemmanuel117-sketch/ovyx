@@ -24,6 +24,28 @@ function validateDatabaseId(value) {
   return id;
 }
 
+function mergeRuntimeCompatibility(config, compatibilityDate, compatibilityFlags) {
+  const currentDate = String(config?.compatibility_date || '').trim();
+  if (currentDate && !/^\d{4}-\d{2}-\d{2}$/.test(currentDate)) {
+    fail('BACKEND_PAGES_COMPATIBILITY_DATE_INVALID', 'The Pages project has an invalid compatibility date.');
+  }
+  const requiredDate = String(compatibilityDate || '2026-11-01').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(requiredDate)) fail('BACKEND_PAGES_COMPATIBILITY_DATE_INVALID', 'The required compatibility date is invalid.');
+  const currentFlags = Array.isArray(config?.compatibility_flags) ? config.compatibility_flags.filter(value => typeof value === 'string') : [];
+  if (currentFlags.some(value => ['no_nodejs_compat', 'no_nodejs_compat_v2'].includes(value))) {
+    fail('BACKEND_PAGES_COMPATIBILITY_CONFLICT', 'The Pages project explicitly disables Node.js compatibility required by this backend build.');
+  }
+  const requiredFlags = Array.isArray(compatibilityFlags) ? compatibilityFlags : ['nodejs_compat'];
+  if (requiredFlags.some(value => typeof value !== 'string' || !/^[a-z0-9_]{1,80}$/i.test(value))) {
+    fail('BACKEND_PAGES_COMPATIBILITY_FLAGS_INVALID', 'The required Pages compatibility flags are invalid.');
+  }
+  return {
+    ...config,
+    compatibility_date: !currentDate || currentDate < requiredDate ? requiredDate : currentDate,
+    compatibility_flags: Array.from(new Set([...currentFlags, ...requiredFlags])),
+  };
+}
+
 function validateBindingName(value) {
   const name = String(value || 'OVYX_DB').trim();
   if (!SAFE_BINDING.test(name)) {
@@ -83,6 +105,8 @@ export function createCloudflarePagesPreviewBindingAdapter({
     expectedProjectPrefix,
     databaseId,
     bindingName = 'DB',
+    compatibilityDate = '2026-11-01',
+    compatibilityFlags = ['nodejs_compat'],
   } = {}) {
     if (!['preview', 'production'].includes(environment)) {
       fail('BACKEND_PAGES_ENVIRONMENT_INVALID', 'Choose Preview or Production for the database binding.', 400);
@@ -110,8 +134,9 @@ export function createCloudflarePagesPreviewBindingAdapter({
       fail('BACKEND_PAGES_BINDING_CONFLICT', 'The existing ' + environment + ' database binding points to a different database. OVYX will not replace it automatically.', 409);
     }
 
+    const compatibleConfig = mergeRuntimeCompatibility(existingConfig, compatibilityDate, compatibilityFlags);
     const nextConfig = {
-      ...existingConfig,
+      ...compatibleConfig,
       d1_databases: {
         ...currentBindings,
         [binding]: { id },
@@ -123,9 +148,13 @@ export function createCloudflarePagesPreviewBindingAdapter({
     });
 
     const verified = await request(projectPath, { method: 'GET' });
-    const actual = verified?.deployment_configs?.[environment]?.d1_databases?.[binding]?.id;
+    const verifiedConfig = verified?.deployment_configs?.[environment] || {};
+    const actual = verifiedConfig?.d1_databases?.[binding]?.id;
     if (String(actual || '') !== id) {
       fail('BACKEND_PAGES_BINDING_VERIFY_FAILED', 'Cloudflare did not confirm the expected ' + environment + ' database binding.', 502);
+    }
+    if (verifiedConfig.compatibility_date !== nextConfig.compatibility_date || !Array.isArray(verifiedConfig.compatibility_flags) || compatibilityFlags.some(flag => !verifiedConfig.compatibility_flags.includes(flag))) {
+      fail('BACKEND_PAGES_COMPATIBILITY_VERIFY_FAILED', 'Cloudflare did not confirm the required Pages runtime compatibility settings.', 502);
     }
     return Object.freeze({
       projectName: project,
