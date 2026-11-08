@@ -168,7 +168,7 @@ permissions:
 jobs:
   assistant-workspace-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -208,14 +208,28 @@ jobs:
           set +e
           run_shard() {
             label="$1"
-            shift
+            log_file="$2"
+            shift 2
             for script in "$@"; do
-              echo "[$label] Running $script"
-              node "scripts/$script" || return $?
+              echo "[$label] START $script"
+              timeout --signal=TERM --kill-after=30s 8m node "scripts/$script" 2>&1 | tee -a "$log_file"
+              script_status=${PIPESTATUS[0]}
+              if [ "$script_status" -ne 0 ]; then
+                if [ "$script_status" -eq 124 ] || [ "$script_status" -eq 137 ]; then
+                  echo "[$label] TIMEOUT after 8 minutes: $script"
+                else
+                  echo "[$label] FAILED ($script_status): $script"
+                fi
+                return "$script_status"
+              fi
+              echo "[$label] PASS $script"
             done
           }
 
-          run_shard "app-studio-and-admin" \
+          # Preserve every desktop/mobile assertion while streaming each suite's
+          # output. A single stuck browser suite now identifies itself within 8m
+          # instead of hiding in a long, silent shard.
+          run_shard "app-studio-and-admin" /tmp/ovyx-assistant-shard-a.log \
             ovyx-account-notifications.browser.test.mjs \
             ovyx-brand-dna.browser.test.mjs \
             ovyx-url-analyzer.browser.test.mjs \
@@ -225,11 +239,10 @@ jobs:
             ovyx-app-studio-release-health.test.mjs \
             ovyx-admin-workspace.browser.test.mjs \
             ovyx-admin-hub.browser.test.mjs \
-            ovyx-settings-workspace.browser.test.mjs \
-            > /tmp/ovyx-assistant-shard-a.log 2>&1 &
+            ovyx-settings-workspace.browser.test.mjs &
           shard_a_pid=$!
 
-          run_shard "settings-and-assistant" \
+          run_shard "settings-and-assistant" /tmp/ovyx-assistant-shard-b.log \
             ovyx-settings-security.browser.test.mjs \
             ovyx-settings-core.browser.test.mjs \
             ovyx-settings.browser.test.mjs \
@@ -239,15 +252,11 @@ jobs:
             ovyx-assistant-workspace.browser.test.mjs \
             ovyx-sentinel.browser.test.mjs \
             ovyx-provider-availability.browser.test.mjs \
-            ovyx-webstudio-reliability.browser.test.mjs \
-            > /tmp/ovyx-assistant-shard-b.log 2>&1 &
+            ovyx-webstudio-reliability.browser.test.mjs &
           shard_b_pid=$!
 
           wait "$shard_a_pid"; shard_a_status=$?
           wait "$shard_b_pid"; shard_b_status=$?
-
-          cat /tmp/ovyx-assistant-shard-a.log
-          cat /tmp/ovyx-assistant-shard-b.log
 
           if [ "$shard_a_status" -ne 0 ] || [ "$shard_b_status" -ne 0 ]; then
             echo "One or more Assistant Workspace browser-test shards failed."
