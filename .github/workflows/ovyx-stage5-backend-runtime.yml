@@ -37,6 +37,8 @@ on:
       - 'functions/_lib/website-engine.js'
       - 'functions/_lib/backend-provisioning.js'
       - 'scripts/ovyx-backend-provisioning.test.mjs'
+      - 'functions/_lib/backend-cloudflare-adapter.js'
+      - 'scripts/ovyx-cloudflare-d1-adapter.test.mjs'
       - 'package.json'
       - '.github/workflows/ovyx-stage5-backend-runtime.yml'
   workflow_dispatch:
