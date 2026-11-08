@@ -181,6 +181,16 @@ jobs:
             exit 1
           fi
 
+      - name: Print browser shard logs on failure
+        if: failure()
+        run: |
+          for log in /tmp/ovyx-settings-core.log /tmp/ovyx-settings-workspace.log /tmp/ovyx-settings-safety.log; do
+            if [ -f "$log" ]; then
+              echo "===== $log ====="
+              tail -n 500 "$log"
+            fi
+          done
+
       - name: Print local Pages logs on failure
         if: failure()
         run: cat /tmp/ovyx-settings-pages.log || true
