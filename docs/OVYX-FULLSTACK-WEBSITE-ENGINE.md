@@ -237,21 +237,34 @@ The next increment adds a server-side Firestore registry for provisioning operat
 
 The Firestore adapter uses an `exists=false` precondition for first reservation and an `updateTime` precondition for compare-and-set updates. This prevents two concurrent requests from both claiming the same operation and prevents stale workers from overwriting newer state. The lifecycle has explicit states from `reserved` through `verifying` to `ready`, plus `failed` and `recovery_required`. An expired in-flight lease is deliberately marked for recovery rather than blindly rerunning resource creation or deployment, because an external side effect may have succeeded before the worker crashed. Failed or rolled-back operations can be retried with a new operation ID after reconciliation.
 
-The registry module is a foundation and is not yet exposed as a customer-facing route. No Cloudflare resource creation or production promotion is triggered by this registry. Its state-machine, ownership-hash, lease, retry, recovery and patch allow-list contracts are covered by the isolated backend-runtime workflow.
+The registry is now used by the authenticated customer provisioning and status routes. It remains the source of truth for one operation per owner/project/environment. The state machine uses compare-and-set writes and expired in-flight leases move to `recovery_required` rather than repeating uncertain external side effects.
 
+## Customer full-stack Preview and Production provisioning
 
-## Customer backend provisioning — Phase 3 Preview binding foundation
+The customer workflow is connected through `/api/backend/provision` and `/api/backend/status`, and is exposed in the Web Studio Publishing panel when a saved project contains the generated architecture and backend QA manifests.
 
-The next increment adds `functions/_lib/backend-pages-preview-binding.js`. It reads the customer's existing Cloudflare Pages project configuration, adds the OVYX D1 binding to the **Preview environment only**, preserves existing Preview settings and other D1 bindings, and then performs a fresh GET to verify the binding ID Cloudflare saved.
+### Preview flow
 
-Safety boundaries:
+1. The route authenticates the Firebase user, loads the canonical saved project from Firestore and verifies its stored owner UID/email. Client-supplied owner fields are never trusted.
+2. The saved architecture, backend source files, migrations and executable `ovyx-qa-plan.json` are validated. Automatic provisioning currently accepts Cloudflare Pages Functions with Cloudflare D1. Unsupported frameworks and a selected non-D1 database provider fail closed.
+3. The backend QA plan runs in a fresh isolated Sandbox with local D1. Provisioning does not create customer resources unless this acceptance suite passes.
+4. Wrangler compiles the Pages Functions in the isolated Sandbox. The package-registry egress allowlist is removed before the build; the returned Worker bundle and routes manifest are size-bounded.
+5. OVYX reserves the owner/project/Preview operation in Firestore, reconciles or creates the deterministic D1 database, applies only validated additive versioned migrations, and records the applied versions.
+6. The Pages project is resolved from the deterministic owner/project namespace. The D1 binding is added to Preview only; existing settings and unrelated bindings are preserved, conflicting bindings are rejected, and a fresh GET verifies the result.
+7. Static website assets, `_worker.bundle` and `_routes.json` are direct-uploaded as a Pages Preview deployment. The internal architecture/QA/Wrangler manifests are excluded from public assets.
+8. The operation remains `verifying` until the status route confirms Cloudflare's deployment stage, performs an HTTP smoke test against the Preview URL and re-verifies the D1 migration ledger. Only then is it marked `ready`.
 
-- The project name must match the expected owner/project namespace prefix.
-- The D1 database ID must have the expected Cloudflare identifier shape.
-- A pre-existing `OVYX_DB` binding that points to a different database is a hard conflict. OVYX does not silently replace it.
-- The PATCH contains only `deployment_configs.preview`; it never sends a Production configuration update.
-- Existing Preview compatibility settings, environment variables and unrelated D1 bindings are preserved in the submitted configuration.
-- Cloudflare errors are converted to sanitized error codes; the API token is never placed in a URL or returned to the caller.
-- The adapter is covered by mocked GET/PATCH/GET tests, including conflict refusal, Production immutability and independent read-after-write verification.
+### Production flow
 
-This is still a **configuration adapter**, not a customer-facing provisioning route. No customer database is created, no generated code is deployed, and no production binding or deployment is changed by this phase. The next increment must connect the verified project owner, durable operation registry, D1 create/migration adapter, isolated Pages Functions build, Preview binding and direct-upload deployment into one recoverable Preview-only operation. Live Preview API and database persistence must then be tested before Production promotion is even considered.
+Production is a separate explicit owner action in the Publishing panel. It is blocked unless that project's Preview operation is already `ready`. Production receives its own deterministic D1 database and migrations, and the adapter patches only `deployment_configs.production`. The Production deployment uses the configured production branch; Preview settings and database remain unchanged. The status route independently verifies the Production deployment before it is marked ready.
+
+### Safety and current supported boundary
+
+- Static-only sites continue through the existing static publishing route.
+- Automatic backend provisioning supports Cloudflare Pages Functions + D1. It does not silently convert Next.js, SvelteKit, Remix, Firestore, Supabase or another provider to D1.
+- The source generator must persist a valid architecture manifest, a Wrangler config and a disposable backend acceptance plan. Missing manifests or failing acceptance tests block provisioning.
+- D1 migrations are additive-only and checksum-verified. Code rollback does not automatically reverse database migrations; schema rollback needs a separate owner-approved migration/restore plan.
+- Firestore registry records contain hashes and resource IDs, not raw UID/project IDs, API tokens or secret values.
+- Production promotion requires a separate explicit confirmation and a verified Preview; the Preview route itself never changes Production.
+- External payment, email, identity-provider, object-storage and other third-party secrets/adapters are not provisioned by this D1 path. Those capabilities remain pending until their own secure adapters and live verification are implemented.
+- The isolated Pages build and runtime QA are tested in CI, including a no-egress Wrangler bundle build. Live customer provisioning still requires the runtime Worker and Pages Service binding/secret to be deployed and configured as described in `OVYX-BACKEND-RUNTIME-SETUP.md`.
