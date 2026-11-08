@@ -189,3 +189,20 @@ Phase 2 must not be closed until all of the following are evidenced on the exact
 
 
 This is an architecture and code-generation contract. It does **not** provision a database, create provider credentials, run migrations, prove endpoint behavior or certify generated applications. The route/model/provider records are plans until generated source is inspected and the actual tests pass.
+
+
+## Customer backend provisioning — Phase 1 safety foundation
+
+The first customer-backend provisioning increment is implemented in `functions/_lib/backend-provisioning.js`. It creates a deterministic, owner-scoped provisioning manifest from the trusted full-stack architecture and generated backend source. It is deliberately a planning contract only: it does not call Cloudflare, create Worker or D1 resources, apply migrations, or access secret values.
+
+The manifest currently enforces:
+
+- A verified owner UID and saved project ID are required; the generated namespace is a one-way SHA-256-derived value, so raw owner and project identifiers are not emitted.
+- Preview and production receive distinct deterministic Worker/database resource names.
+- Backend API route contracts must be present and structurally valid.
+- Source paths are restricted to backend source and versioned SQL migration locations; traversal, duplicate paths, oversized files and secret-like source values are rejected.
+- Database-enabled architectures must include versioned SQL migrations. Migrations are limited to additive table/index/column operations; potentially destructive statements are blocked from automatic provisioning.
+- Migration hashes and source paths are included for later idempotency and drift checks, but source contents and credentials are not included in the plan.
+- The lifecycle gate list requires owner/project verification, idempotent operation reservation, resource verification, preview migration, server-only bindings, Worker deployment, API/database/isolation verification and explicit owner approval before production promotion.
+
+The safety contract tests are run by the isolated backend-runtime workflow. This phase does **not** claim that customer Workers or D1 databases are provisioned or deployed. The next increment must implement the Cloudflare resource adapter and durable lifecycle registry, then exercise it against isolated preview resources before any production promotion is enabled.
