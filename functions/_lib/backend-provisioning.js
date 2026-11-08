@@ -100,6 +100,7 @@ export async function createBackendProvisioningPlan({
     fail('BACKEND_ARCHITECTURE_INVALID', 'A valid OVYX full-stack architecture with backend API contracts is required.');
   }
   const targetEnvironment = safeEnvironment(environment);
+  if (architecture.capabilities?.backend !== true) fail('BACKEND_CAPABILITY_NOT_REQUESTED', 'This saved website has no trusted backend capability to provision.');
   const unsupportedCapabilities = ['payments', 'commerce', 'email', 'newsletter', 'subscriptions', 'notifications', 'integrations', 'automation', 'booking', 'fileStorage', 'backgroundWork']
     .filter(capability => architecture.capabilities?.[capability] === true);
   if (unsupportedCapabilities.length) {
