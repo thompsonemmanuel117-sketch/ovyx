@@ -279,6 +279,7 @@ export async function onRequestPost(context) {
   try {
     if (!enforceSameOrigin(context.request)) return errorResponse(403, 'CORS_DENIED', 'Cross-origin backend provisioning requests are not allowed.', id);
     const user = assertAuthenticated(context.data?.user);
+    if (user.emailVerified !== true) fail('BACKEND_EMAIL_VERIFICATION_REQUIRED', 'Verify your email before provisioning a customer backend.', 403);
     if (!context.env.CLOUDFLARE_ACCOUNT_ID || !context.env.CLOUDFLARE_API_TOKEN) fail('BACKEND_CLOUDFLARE_NOT_CONFIGURED', 'Cloudflare provisioning is not configured.', 503);
     const entitlement = await resolveEntitlements(context.env, user);
     if (entitlement?.capabilities?.cloudflareDeploy !== true || entitlement?.capabilities?.webStudio !== true) {
@@ -357,7 +358,8 @@ export async function onRequestPost(context) {
         sha256(encoder.encode(user.uid)), sha256(encoder.encode(projectId)),
       ]);
       if (!previewRecord || previewRecord.data.ownerHash !== ownerHash || previewRecord.data.projectHash !== projectHash ||
-          previewRecord.data.state !== 'ready' || previewRecord.data.resourceIds?.sourceHash !== sourceHash) {
+          previewRecord.data.state !== 'ready' || previewRecord.data.resourceIds?.sourceHash !== sourceHash ||
+          previewRecord.data.resourceIds?.pagesProject !== pagesIdentity.name || !previewRecord.data.deploymentId) {
         fail('BACKEND_PREVIEW_NOT_READY', 'Verify the full-stack Preview successfully before publishing this website to Production.', 409);
       }
     }
