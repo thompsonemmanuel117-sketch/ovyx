@@ -194,7 +194,6 @@ function safeBuildPath(raw) {
   if (!path || path.length > 240 || path.split('/').some(part => !part || part === '.' || part === '..')) return '';
   if (/(?:^|\\/)(?:\\.git|node_modules|\\.wrangler|coverage)(?:\\/|$)/i.test(path)) return '';
   if (/(?:^|\\/)(?:\\.env(?:\\..*)?|\\.dev\\.vars(?:\\..*)?)$/i.test(path)) return '';
-  if (SECRET_PATTERNS.some(pattern => pattern.test(String(arguments[1] ?? '')))) return '';
   return path;
 }
 
@@ -218,14 +217,14 @@ function validateBuildFiles(rawFiles) {
   return files;
 }
 
-function shellQuoteBuild(value) {
+function encodeBuildBase64(bytes) {\n  let binary = '';\n  for (let index = 0; index < bytes.length; index += 0x8000) {\n    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));\n  }\n  return btoa(binary);\n}\n\nfunction shellQuoteBuild(value) {
   return "'" + String(value).replace(/'/g, "'\\''") + "'";
 }
 
 async function runPagesBuild(payload, env) {
   const projectId = clean(payload.projectId, 120);
   const databaseId = clean(payload.databaseId, 64);
-  if (!/^[A-Za-z0-9_-]{1,120}$/.test(projectId) || !/^[a-f0-9-]{20,64}$/i.test(databaseId)) {
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(projectId) || (databaseId && !/^[a-f0-9-]{20,64}$/i.test(databaseId))) {
     throw new Error('build-project-or-database-identity-invalid');
   }
   const files = validateBuildFiles(payload.files);
@@ -291,7 +290,7 @@ async function runPagesBuild(payload, env) {
       ok: true,
       projectId,
       databaseId,
-      bundleBase64: btoa(String.fromCharCode(...bundleBytes)),
+      bundleBase64: encodeBuildBase64(bundleBytes),
       routes,
       bundleBytes: bundleBytes.byteLength,
       build: 'wrangler-pages-functions',
