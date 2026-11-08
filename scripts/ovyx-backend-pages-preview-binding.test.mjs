@@ -15,13 +15,13 @@ const original = {
   name: projectName,
   deployment_configs: {
     preview: {
-      compatibility_date: '2026-11-01',
-      compatibility_flags: ['nodejs_compat'],
+      compatibility_date: '2025-01-01T00:00:00Z',
+      compatibility_flags: ['streams_enable_constructors'],
       env_vars: { PUBLIC_MODE: { type: 'plain_text', value: 'preview' } },
       d1_databases: { LEGACY_DB: { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' } },
     },
     production: {
-      compatibility_date: '2026-11-01',
+      compatibility_date: '2025-01-01T00:00:00Z',
       d1_databases: { PRODUCTION_DB: { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' } },
     },
   },
@@ -65,7 +65,8 @@ assert.equal(calls.length, 3, 'binding setup must read, patch, and independently
 assert.equal(saved.deployment_configs.preview.d1_databases.DB.id, databaseId);
 assert.equal(saved.deployment_configs.preview.d1_databases.LEGACY_DB.id, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 assert.equal(saved.deployment_configs.preview.compatibility_date, '2026-11-01');
-assert.deepEqual(saved.deployment_configs.preview.compatibility_flags, ['nodejs_compat']);
+assert.deepEqual(saved.deployment_configs.preview.compatibility_flags, ['streams_enable_constructors', 'nodejs_compat']);
+assert.equal(saved.deployment_configs.preview.always_use_latest_compatibility_date, false);
 assert.deepEqual(saved.deployment_configs.preview.env_vars, original.deployment_configs.preview.env_vars);
 assert.deepEqual(saved.deployment_configs.production, original.deployment_configs.production,
   'preview provisioning must never modify Production bindings or settings');
@@ -144,6 +145,9 @@ const productionResult = await productionAdapter.bindProductionD1({
   projectName, expectedProjectPrefix: prefix, databaseId, bindingName: 'DB',
 });
 assert.equal(productionResult.environment, 'production');
+assert.equal(productionSaved.deployment_configs.production.compatibility_date, '2026-11-01');
+assert.deepEqual(productionSaved.deployment_configs.production.compatibility_flags, ['nodejs_compat']);
+assert.equal(productionSaved.deployment_configs.production.always_use_latest_compatibility_date, false);
 assert.equal(productionSaved.deployment_configs.production.d1_databases.DB.id, databaseId);
 assert.deepEqual(productionSaved.deployment_configs.preview, productionOriginal.deployment_configs.preview,
   'Production binding must never change Preview settings');
