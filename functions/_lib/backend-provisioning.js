@@ -100,6 +100,11 @@ export async function createBackendProvisioningPlan({
     fail('BACKEND_ARCHITECTURE_INVALID', 'A valid OVYX full-stack architecture with backend API contracts is required.');
   }
   const targetEnvironment = safeEnvironment(environment);
+  const unsupportedCapabilities = ['payments', 'commerce', 'email', 'newsletter', 'subscriptions', 'notifications', 'integrations', 'automation', 'fileStorage', 'backgroundWork']
+    .filter(capability => architecture.capabilities?.[capability] === true);
+  if (unsupportedCapabilities.length) {
+    fail('BACKEND_CAPABILITY_UNSUPPORTED', 'This deployment path currently verifies Cloudflare Pages Functions + D1 only. Add and verify dedicated adapters before enabling: ' + unsupportedCapabilities.join(', ') + '.');
+  }
   const sourceFiles = safeFiles(files);
   const routes = architecture.apiContracts.map(route => {
     const method = clean(route?.method, 12).toUpperCase();
