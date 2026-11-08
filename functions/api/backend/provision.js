@@ -32,8 +32,9 @@ export async function onRequestGet({ request, env }) {
     if (!/^[a-f0-9-]{36}$/i.test(probeId) || !/^[a-f0-9]{64}$/i.test(token)) return json(404);
     const digest = await crypto.subtle.digest('SHA-256', encoder.encode(token));
     const expected = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
-    const row = await env.DB.prepare('SELECT nonce_hash FROM _ovyx_health_probes WHERE probe_id = ?').bind(probeId).first();
-    if (!row || typeof row.nonce_hash !== 'string' || row.nonce_hash.length !== expected.length) return json(404);
+    const row = await env.DB.prepare('SELECT nonce_hash, created_at FROM _ovyx_health_probes WHERE probe_id = ?').bind(probeId).first();
+    if (!row || typeof row.nonce_hash !== 'string' || row.nonce_hash.length !== expected.length ||
+        !Number.isFinite(Number(row.created_at)) || Date.now() - Number(row.created_at) > 600_000 || Number(row.created_at) > Date.now() + 30_000) return json(404);
     let mismatch = 0;
     for (let index = 0; index < expected.length; index += 1) mismatch |= expected.charCodeAt(index) ^ row.nonce_hash.toLowerCase().charCodeAt(index);
     if (mismatch !== 0) return json(404);
