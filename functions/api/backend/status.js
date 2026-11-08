@@ -33,18 +33,30 @@ function graphFiles(project) {
         /(?:secret|credential|private-key|service-account)/i.test(path)) {
       fail('BACKEND_PROJECT_FILE_PATH_INVALID', 'The saved website contains a file path that cannot be checked safely.');
     }
-    if (content) output[path] = content;
+    if (content) output[path] = {
+      content,
+      encoding: String(item?.encoding || '').toLowerCase() === 'base64' ? 'base64' : 'text',
+      contentType: clean(item?.contentType, 120),
+    };
   }
   return output;
 }
+function fileText(files, path) {
+  const item = files[path];
+  return typeof item === 'string' ? item : typeof item?.content === 'string' ? item.content : '';
+}
 function parseFile(files, path, code) {
-  if (!files[path]) fail(code, 'The saved website is missing its backend build manifest.', 422);
-  try { return JSON.parse(files[path]); } catch { fail(code, 'The saved website backend build manifest is invalid.', 422); }
+  const content = fileText(files, path);
+  if (!content || files[path]?.encoding === 'base64') fail(code, 'The saved website is missing its backend build manifest.', 422);
+  try { return JSON.parse(content); } catch { fail(code, 'The saved website backend build manifest is invalid.', 422); }
 }
 function backendFiles(files) {
   return Object.entries(files)
     .filter(([path]) => PROVISIONABLE_BACKEND_PATH.test(path))
-    .map(([path, content]) => ({ path, content }));
+    .map(([path, item]) => {
+      if (item?.encoding === 'base64') fail('BACKEND_SOURCE_ENCODING_INVALID', 'Backend source files must be saved as text, not binary assets.', 422);
+      return { path, content: fileText(files, path) };
+    });
 }
 async function hash(value) {
   const digest = await crypto.subtle.digest('SHA-256', encoder.encode(String(value)));
@@ -86,7 +98,7 @@ export async function onRequestGet(context) {
     const project = await getFirestoreDataAtPath(context.env, ['users', email, 'projects', projectId]);
     assertOwnedSavedProject(project, { uid: user.uid, email, projectId });
     const files = graphFiles(project);
-    const sourceHash = await hash(JSON.stringify(Object.keys(files).sort().map(path => [path, files[path]])));
+    const sourceHash = await hash(JSON.stringify(Object.keys(files).sort().map(path => [path, fileText(files, path), files[path]?.encoding || 'text', files[path]?.contentType || ''])));
     const architecture = parseFile(files, 'ovyx-backend-architecture.json', 'BACKEND_ARCHITECTURE_MISSING');
     const sources = backendFiles(files);
     if (Object.keys(files).some(path => UNSUPPORTED_BACKEND_PATH.test(path))) fail('BACKEND_FRAMEWORK_UNSUPPORTED', 'The saved website contains a server framework that is not supported by this provisioning adapter.', 422);
