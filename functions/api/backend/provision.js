@@ -286,6 +286,7 @@ export async function onRequestPost(context) {
       fail('BACKEND_PROVISIONING_NOT_ENTITLED', 'Your OVYX plan does not include full-stack website provisioning.', 403);
     }
     const body = await readJson(context.request, MAX_BODY_BYTES);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) fail('BACKEND_REQUEST_INVALID', 'The provisioning request body must be a JSON object.');
     const targetEnvironment = body.environment == null || body.environment === 'preview' ? 'preview' : body.environment;
     if (!['preview', 'production'].includes(targetEnvironment)) fail('BACKEND_ENVIRONMENT_INVALID', 'Choose Preview or Production for this deployment.');
     const projectId = clean(body.projectId, 120);
