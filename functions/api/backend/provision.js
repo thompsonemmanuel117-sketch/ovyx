@@ -21,7 +21,7 @@ const PROVISIONABLE_BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\
 const UNSUPPORTED_BACKEND_PATH = /^(?:app\/api|pages\/api|src\/pages\/api|src\/app\/api|src\/routes\/api|src\/api|src\/prisma|src\/drizzle|src\/db|src\/database|prisma|drizzle|app\/routes)\//i;
 const ROOT_BACKEND_FILES = new Set(['package.json', 'package-lock.json', 'npm-shrinkwrap.json', 'tsconfig.json', 'vite.config.js', 'vite.config.ts', 'wrangler.jsonc', 'wrangler.json']);
 const encoder = new TextEncoder();
-const PAGES_D1_HEALTHCHECK_SOURCE = \`const encoder = new TextEncoder();
+const PAGES_D1_HEALTHCHECK_SOURCE = `const encoder = new TextEncoder();
 const json = (status) => new Response(null, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 export async function onRequestGet({ request, env }) {
   try {
