@@ -22,6 +22,8 @@ on:
       - 'functions/api/deploy.js'
       - 'functions/_lib/backend-project-ownership.js'
       - 'scripts/ovyx-backend-project-ownership.test.mjs'
+      - 'functions/_lib/backend-provisioning-registry.js'
+      - 'scripts/ovyx-backend-provisioning-registry.test.mjs'
       - 'package.json'
       - '.github/workflows/ovyx-stage5-backend-runtime.yml'
   push:
@@ -45,6 +47,8 @@ on:
       - 'functions/api/deploy.js'
       - 'functions/_lib/backend-project-ownership.js'
       - 'scripts/ovyx-backend-project-ownership.test.mjs'
+      - 'functions/_lib/backend-provisioning-registry.js'
+      - 'scripts/ovyx-backend-provisioning-registry.test.mjs'
       - 'package.json'
       - '.github/workflows/ovyx-stage5-backend-runtime.yml'
   workflow_dispatch:
@@ -75,6 +79,8 @@ jobs:
         run: node scripts/ovyx-cloudflare-d1-adapter.test.mjs
       - name: Verify saved-project ownership before deployment
         run: node scripts/ovyx-backend-project-ownership.test.mjs
+      - name: Verify durable provisioning registry leases and recovery states
+        run: node scripts/ovyx-backend-provisioning-registry.test.mjs
       - name: Verify per-project backend runtime bridge contracts
         run: node scripts/ovyx-backend-runtime-bridge.test.mjs
       - name: Build the production Cloudflare Sandbox container image
