@@ -18,7 +18,7 @@ const TRANSITIONS = Object.freeze({
   verifying: ['ready', 'failed', 'recovery_required'],
   ready: [],
   failed: [],
-  recovery_required: [],
+  recovery_required: ['verifying', 'failed'],
   rolled_back: [],
 });
 const PATCH_FIELDS = new Set([
