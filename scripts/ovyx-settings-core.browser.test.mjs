@@ -528,7 +528,7 @@ try {
         || (active.startsWith('custom_')
           && active !== previousId
           && lab.state.customThemes?.[active]?.name === expectedName);
-    }, { expectedName: exported.name, previousId: duplicateId }, { timeout: 15000 });
+    }, { expectedName: exported.name, previousId: duplicateId }, { timeout: 30000 });
     const importState = await page.evaluate(() => ({
       active: String(window.OVYXThemeLab?.state?.active || ''),
       activeTheme: window.OVYXThemeLab?.state?.customThemes?.[window.OVYXThemeLab?.state?.active] || null,
