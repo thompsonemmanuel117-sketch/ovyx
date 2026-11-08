@@ -122,7 +122,7 @@ export async function onRequestGet(context) {
     const deploymentId = String(current.data.deploymentId || '');
     if (!pagesProjectName || !deploymentId) fail('BACKEND_PROVISIONING_RECORD_INCOMPLETE', 'The Preview provisioning record is missing its deployment identity.', 409);
     const expected = await pagesIdentity(user, projectId, slug(project.name || project.title || 'site'), context.env);
-    if (!pagesProjectName.startsWith(expected.prefix)) fail('BACKEND_PAGES_PROJECT_OWNERSHIP_INVALID', 'The Pages project does not match this saved website.', 403);
+    if (pagesProjectName !== expected.name || !pagesProjectName.startsWith(expected.prefix)) fail('BACKEND_PAGES_PROJECT_OWNERSHIP_INVALID', 'The Pages project does not match this saved website.', 403);
     if (String(current.data.environment || '') !== targetEnvironment) fail('BACKEND_DEPLOYMENT_ENVIRONMENT_INVALID', 'The saved deployment environment does not match this status request.', 409);
     const deployment = await cf(
       '/accounts/' + encodeURIComponent(context.env.CLOUDFLARE_ACCOUNT_ID) +
