@@ -15,6 +15,7 @@ on:
       - 'functions/_lib/backend-pages-preview-binding.js'
       - 'functions/_lib/backend-provisioning-registry.js'
       - 'scripts/ovyx-backend-preview-provisioning.test.mjs'
+      - 'scripts/ovyx-pages-d1-healthcheck.test.mjs'
       - 'scripts/ovyx-backend-pages-build.test.mjs'
       - 'scripts/ovyx-pages-functions-full-project-build.test.mjs'
       - 'assets/ovyx-webstudio-quality.js'
@@ -112,6 +113,8 @@ jobs:
         run: node scripts/ovyx-backend-pages-preview-binding.test.mjs
       - name: Verify full-stack Preview provisioning orchestration
         run: node scripts/ovyx-backend-preview-provisioning.test.mjs
+      - name: Verify one-time deployed Pages D1 persistence proof
+        run: node scripts/ovyx-pages-d1-healthcheck.test.mjs
       - name: Verify per-project backend runtime bridge contracts
         run: node scripts/ovyx-backend-runtime-bridge.test.mjs
       - name: Build the production Cloudflare Sandbox container image
