@@ -392,7 +392,7 @@ export async function onRequestPost(context) {
     }
     operationId = crypto.randomUUID().replace(/-/g, '');
     const reservation = await reserveBackendProvisioningOperation({
-      store, plan, ownerUid: user.uid, projectId, operationId, leaseMs: 600_000,
+      store, plan, ownerUid: user.uid, projectId, operationId, sourceHash, leaseMs: 600_000,
     });
     registryKey = reservation.key;
     current = { data: reservation.data, updateTime: reservation.updateTime };
