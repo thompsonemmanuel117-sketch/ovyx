@@ -243,25 +243,14 @@ async function runPagesBuild(payload, env) {
     }
 
     const packageFile = files.find(file => file.path === 'package.json');
-    let scripts = {};
     if (packageFile) {
-      let manifest;
-      try { manifest = JSON.parse(packageFile.content); } catch { throw new Error('build-package-json-invalid'); }
-      scripts = manifest?.scripts && typeof manifest.scripts === 'object' ? manifest.scripts : {};
+      try { JSON.parse(packageFile.content); } catch { throw new Error('build-package-json-invalid'); }
       await installProjectDependencies(sandbox, files);
-      await sandbox.removeAllowedHost('npm.registry');
-      if (typeof scripts.build === 'string' && scripts.build.trim()) {
-        const build = await sandbox.exec('cd /workspace/project && npm run build --if-present', { timeout: 120_000 });
-        if (!build.success) throw new Error('frontend-build-failed: ' + clean(build.stderr || build.stdout, 220));
-        const copy = await sandbox.exec(
-          'cd /workspace/project && if [ -d dist ]; then cp -a dist/. public/; elif [ -d build ]; then cp -a build/. public/; elif [ -d out ]; then cp -a out/. public/; fi',
-          { timeout: 30_000 },
-        );
-        if (!copy.success) throw new Error('frontend-output-copy-failed');
-      }
-    } else {
-      await sandbox.removeAllowedHost('npm.registry');
     }
+    // The customer's frontend assets are uploaded separately from the saved
+    // Web Studio graph. This isolated step compiles only Pages Functions.
+    // Package registry egress is closed before the Wrangler build begins.
+    await sandbox.removeAllowedHost('npm.registry');
 
     const wranglerConfig = {
       name: 'ovyx-preview-build',
