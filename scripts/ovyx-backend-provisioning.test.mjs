@@ -79,7 +79,7 @@ await assert.rejects(
   }),
   { code: 'BACKEND_DATABASE_CAPABILITY_MISMATCH' },
 );
-for (const capability of ['payments', 'commerce', 'email', 'newsletter', 'subscriptions', 'notifications', 'integrations', 'automation', 'fileStorage', 'backgroundWork']) {
+for (const capability of ['payments', 'commerce', 'email', 'newsletter', 'subscriptions', 'notifications', 'integrations', 'automation', 'booking', 'fileStorage', 'backgroundWork']) {
   await assert.rejects(
     createBackendProvisioningPlan({
       ownerUid: 'owner', projectId: 'project',
