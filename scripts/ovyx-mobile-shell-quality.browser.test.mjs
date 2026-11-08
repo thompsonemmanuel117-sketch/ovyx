@@ -39,10 +39,20 @@ try {
       createHeight: createRect.height,
       createMarginTop: getComputedStyle(create).marginTop,
       activeColor: active.color,
-      homeBottomPadding: shell ? getComputedStyle(shell).paddingBottom : ''
+      homeBottomPadding: shell ? getComputedStyle(shell).paddingBottom : '',
+      homeTag: home.tagName,
+      homeClass: home.className,
+      homeStyle: home.getAttribute('style') || '',
+      homeInlineColor: home.style.getPropertyValue('color'),
+      homeInlineColorPriority: home.style.getPropertyPriority('color'),
+      rootClass: document.documentElement.className,
+      rootMode: document.documentElement.dataset.ovyxMode || '',
+      bodyClass: document.body.className,
+      qualityStylesheet: Array.from(document.styleSheets).map(sheet => sheet.href || 'inline').filter(href => href.includes('ovyx-mobile-shell-quality.css'))
     };
   });
 
+  console.log('OVYX mobile dock diagnostic: ' + JSON.stringify(result));
   assert.ok(result.dockLeft >= 8 && result.dockRight >= 8,
     'Mobile dock must float inside the viewport instead of stretching edge-to-edge.');
   assert.ok(result.dockHeight >= 62 && result.dockHeight <= 66,
