@@ -416,6 +416,9 @@
     // during the async request; a later global scan can select no panel.
     const panel = clickedPanel && clickedPanel.isConnected ? clickedPanel : notificationPanel();
     if (button) button.dataset.ovyxNotificationActionHandled = reset ? 'reset' : 'save';
+    // Keep a durable trace on the document: responsive Settings may replace the
+    // clicked panel while the account-backed request is still in flight.
+    if (document.documentElement) document.documentElement.dataset.ovyxNotificationActionHandled = reset ? 'reset' : 'save';
     const status = addStatus(panel, 'ovyx-notification-server-status', 'Saving notification preferences…');
     const next = reset ? Object.assign({}, NOTIFICATION_DEFAULTS) : Object.assign({}, notificationDraft || NOTIFICATION_DEFAULTS);
     if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Saving…'; }
