@@ -176,18 +176,34 @@ export async function onRequestGet(context) {
       return jsonResponse({ success: true, status: 'verifying', deploymentStatus: stageStatus || 'pending', deploymentId }, 202, { 'Cache-Control': 'no-store' });
     }
     const aliases = Array.isArray(deployment.aliases) ? deployment.aliases.filter(value => typeof value === 'string' && value.startsWith('https://')) : [];
-    const url = aliases[0] || (typeof deployment.url === 'string' && deployment.url.startsWith('https://') ? deployment.url : '');
+    const deploymentUrl = typeof deployment.url === 'string' && deployment.url.startsWith('https://') ? deployment.url : '';
+    const url = targetEnvironment === 'preview' ? (deploymentUrl || aliases[0] || '') : (aliases[0] || deploymentUrl);
     if (!url) fail('BACKEND_DEPLOYMENT_URL_MISSING', 'Cloudflare completed the deployment but did not return a Preview URL.', 502);
     let smoke;
     try { smoke = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(10_000) }); }
     catch { fail('BACKEND_PREVIEW_SMOKE_TEST_FAILED', 'The Preview URL did not respond to the final availability check.', 502); }
     if (smoke.status < 200 || smoke.status >= 400) fail('BACKEND_PREVIEW_SMOKE_TEST_FAILED', 'The Preview website did not return a successful response.', 502);
     const databaseId = String(current.data.resourceIds?.database || '');
+    let bindingProbe = { status: 'not-required' };
     if (databaseId) {
       const d1 = createCloudflareD1Adapter({ accountId: context.env.CLOUDFLARE_ACCOUNT_ID, apiToken: context.env.CLOUDFLARE_API_TOKEN });
       const migrations = sources.filter(file => /^migrations\/\d{4,}_[a-z0-9][a-z0-9_-]{0,79}\.sql$/i.test(file.path))
         .map(file => ({ version: Number(file.path.match(/migrations\/(\d{4,})_/i)[1]), content: file.content, sha256: plan.migrations.find(item => item.path === file.path)?.sha256 }));
       await d1.applyMigrations(databaseId, migrations);
+      const probe = await d1.createPagesBindingProbe(databaseId);
+      try {
+        const probeUrl = new URL('/api/__ovyx/healthcheck?probeId=' + encodeURIComponent(probe.probeId), url);
+        const response = await fetch(probeUrl, {
+          method: 'GET',
+          headers: { 'x-ovyx-probe-token': probe.token, Accept: 'application/json' },
+          redirect: 'error',
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (response.status !== 204) fail('BACKEND_D1_BINDING_PERSISTENCE_FAILED', 'The deployed Preview API could not read and consume its one-time D1 persistence proof.', 502);
+        bindingProbe = { status: 'passed' };
+      } finally {
+        await d1.deletePagesBindingProbe(databaseId, probe.probeId).catch(() => {});
+      }
     }
     const ready = current.data.state === 'ready' ? current : await transitionBackendProvisioningOperation({
       store, key, current, operationId: current.data.operationId, nextState: 'ready',
@@ -198,6 +214,7 @@ export async function onRequestGet(context) {
       deployment: { deploymentId, url, environment: targetEnvironment, status: stageStatus },
       database: databaseId ? { id: databaseId, migrationsVerified: plan.migrations.length } : null,
       smokeTest: { status: smoke.status, passed: true },
+      databaseBindingProbe: bindingProbe,
     }, 200, { 'Cache-Control': 'no-store' });
   } catch (error) {
     const status = Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599 ? error.status : 502;
