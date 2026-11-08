@@ -277,7 +277,7 @@ async function callRuntime(env, path, payload) {
   }
   return result;
 }
-function deploymentSummary(item, projectName) {
+function deploymentSummary(item, projectName, environment) {
   const stages = Array.isArray(item?.stages) ? item.stages : [];
   const latest = item?.latest_stage || stages.find(stage => stage.status === 'active') || stages.at(-1) || {};
   const aliases = Array.isArray(item?.aliases) ? item.aliases.filter(value => typeof value === 'string' && value.startsWith('https://')) : [];
@@ -287,7 +287,9 @@ function deploymentSummary(item, projectName) {
     environment: String(item?.environment || 'preview'),
     status: String(latest.status || item?.status || 'queued'),
     stage: String(latest.name || ''),
-    url: aliases[0] || (typeof item?.url === 'string' && item.url.startsWith('https://') ? item.url : null),
+    url: environment === 'preview'
+      ? (typeof item?.url === 'string' && item.url.startsWith('https://') ? item.url : aliases[0] || null)
+      : (aliases[0] || (typeof item?.url === 'string' && item.url.startsWith('https://') ? item.url : null)),
     createdAt: item?.created_on || null,
   };
 }
@@ -466,7 +468,7 @@ export async function onRequestPost(context) {
       '/accounts/' + encodeURIComponent(context.env.CLOUDFLARE_ACCOUNT_ID) + '/pages/projects/' + encodeURIComponent(pagesProjectName) + '/deployments',
       context.env, { method: 'POST', body: form },
     );
-    const summary = deploymentSummary(deployment, pagesProjectName);
+    const summary = deploymentSummary(deployment, pagesProjectName, targetEnvironment);
     if (!summary.deploymentId) fail('BACKEND_DEPLOYMENT_ID_MISSING', 'Cloudflare did not return a Preview deployment ID.', 502);
     current = await transitionBackendProvisioningOperation({
       store, key: registryKey, current, operationId, nextState: 'verifying',
