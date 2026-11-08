@@ -75,9 +75,9 @@ export function splitSafeAdditiveMigration(source) {
   if (!statements.length || statements.length > 80) fail('BACKEND_MIGRATION_INVALID', 'A migration must contain between 1 and 80 SQL statements.');
   for (const statement of statements) {
     const normalized = statement.replace(/\s+/g, ' ').trim();
-    const table = normalized.match(/^CREATE TABLE(?: IF NOT EXISTS)?\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\([\\s\\S]+\\)$/i);
-    const index = normalized.match(/^CREATE (?:UNIQUE )?INDEX(?: IF NOT EXISTS)?\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+ON\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\([\\s\\S]+\\)(?:\\s+WHERE\\s+[\\s\\S]+)?$/i);
-    const alter = normalized.match(/^ALTER TABLE\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+ADD COLUMN\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+[A-Z][A-Z0-9_]*(?:\\s+[\\s\\S]+)?$/i);
+    const table = normalized.match(/^CREATE TABLE(?: IF NOT EXISTS)?\s+([A-Za-z_][A-Za-z0-9_]*)\s*\([\s\S]+\)$/i);
+    const index = normalized.match(/^CREATE (?:UNIQUE )?INDEX(?: IF NOT EXISTS)?\s+([A-Za-z_][A-Za-z0-9_]*)\s+ON\s+([A-Za-z_][A-Za-z0-9_]*)\s*\([\s\S]+\)(?:\s+WHERE\s+[\s\S]+)?$/i);
+    const alter = normalized.match(/^ALTER TABLE\s+([A-Za-z_][A-Za-z0-9_]*)\s+ADD COLUMN\s+([A-Za-z_][A-Za-z0-9_]*)\s+[A-Z][A-Z0-9_]*(?:\s+[\s\S]+)?$/i);
     if (!table && !index && !alter) fail('BACKEND_MIGRATION_UNSUPPORTED', 'Only additive CREATE TABLE, CREATE INDEX and ALTER TABLE ADD COLUMN statements can run automatically.');
     if (table && safeSqlIdentifier(table[1]) === '_ovyx_migrations') fail('BACKEND_MIGRATION_RESERVED_TABLE', 'The migration ledger table name is reserved by OVYX.');
   }
