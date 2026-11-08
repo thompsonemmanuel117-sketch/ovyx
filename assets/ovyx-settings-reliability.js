@@ -396,6 +396,7 @@
     // its status attached here even if responsive visibility styles change
     // during the async request; a later global scan can select no panel.
     const panel = clickedPanel && clickedPanel.isConnected ? clickedPanel : notificationPanel();
+    if (button) button.dataset.ovyxNotificationActionHandled = reset ? 'reset' : 'save';
     const status = addStatus(panel, 'ovyx-notification-server-status', 'Saving notification preferences…');
     const next = reset ? Object.assign({}, NOTIFICATION_DEFAULTS) : Object.assign({}, notificationDraft || NOTIFICATION_DEFAULTS);
     if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Saving…'; }
@@ -404,6 +405,7 @@
       renderNotificationState(panel, data.notifications || next);
       window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
       try { localStorage.setItem(notificationStorageKey(), JSON.stringify(notificationDraft)); } catch (_) {}
+      if (panel) panel.dataset.ovyxNotificationLastResult = 'saved';
       updateNotificationStatus(panel, 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.');
       notify(reset ? 'Notification preferences reset and saved to your account.' : 'Notification preferences saved to your account.', 'success');
     } catch (error) {
