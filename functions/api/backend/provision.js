@@ -243,7 +243,7 @@ async function runtimeFetch(env, path, payload) {
     fail('BACKEND_RUNTIME_URL_INVALID', 'The isolated backend build service URL is invalid.', 503);
   }
   target.pathname = path;
-  return fetch(new Request(target.href, request));
+  return fetch(new Request(target.href, { method: 'POST', headers: request.headers, body: raw, redirect: 'error' }));
 }
 async function callRuntime(env, path, payload) {
   let response;
