@@ -310,15 +310,27 @@
   }
   let notificationDraft = null;
   let notificationLoadRevision = 0;
+  function isActuallyVisible(node) {
+    if (!node || !node.isConnected || node.getClientRects().length === 0) return false;
+    // Responsive Settings can keep duplicate desktop/mobile panels mounted.
+    // Checking only the panel's own computed style is insufficient: an
+    // ancestor may be hidden while the panel itself still reports "visible".
+    for (let current = node; current && current.nodeType === 1; current = current.parentElement) {
+      const style = getComputedStyle(current);
+      if (current.hidden || current.getAttribute('aria-hidden') === 'true'
+        || style.display === 'none' || style.visibility === 'hidden'
+        || style.visibility === 'collapse' || style.contentVisibility === 'hidden') return false;
+    }
+    return true;
+  }
   function notificationPanel() {
     const panels = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]'));
-    // The responsive Settings shell can retain both desktop and mobile panel
-    // instances. Always write status and draft state into the panel the user
-    // can actually see; updating the first (hidden) copy leaves Reset looking
-    // as if it never completed.
-    return panels.find(panel => panel.getClientRects().length > 0
-      && getComputedStyle(panel).visibility !== 'hidden'
-      && getComputedStyle(panel).display !== 'none') || panels[0] || null;
+    // Select the panel whose complete ancestor chain is visible, not merely
+    // the first duplicate with a layout box. Status, drafts and save/reset
+    // actions must all target the same responsive instance the user sees.
+    return panels.find(panel => isActuallyVisible(panel)
+      && isActuallyVisible(panel.querySelector('#notify-save'))
+      && isActuallyVisible(panel.querySelector('#notify-reset'))) || panels.find(isActuallyVisible) || panels[0] || null;
   }
   function notificationStorageKey() {
     const user = currentUser();
