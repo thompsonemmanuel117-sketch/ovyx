@@ -20,7 +20,7 @@ assert.ok(provision.includes('ovyx-backend-architecture.json'), 'Provisioning mu
 assert.ok(provision.includes('ovyx-qa-plan.json'), 'Provisioning must load the saved executable backend QA plan.');
 assert.ok(provision.includes("callRuntime(context.env, '/evaluate'"), 'Backend acceptance must run before Cloudflare resources are created.');
 assert.ok(provision.includes("callRuntime(context.env, '/build-pages'"), 'Pages Functions must be compiled in the isolated build runtime.');
-assert.ok(provision.includes("environment: 'preview'"), 'Automatic provisioning must target Preview only.');
+assert.ok(provision.includes("body.environment === 'preview' ? 'preview'"), 'Preview is the default environment for automatic provisioning.');
 assert.ok(provision.includes("targetEnvironment === 'production'"), 'Production must be a separate explicit environment path.');
 assert.ok(provision.includes("previewRecord.data.state !== 'ready'"), 'Production promotion must require a verified Preview deployment.');
 assert.ok(provision.includes('bindProductionD1'), 'Production D1 bindings must be handled by the separate environment adapter.');
