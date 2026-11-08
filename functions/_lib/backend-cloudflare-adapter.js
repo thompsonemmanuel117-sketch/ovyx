@@ -175,7 +175,7 @@ export function createCloudflareD1Adapter({ accountId, apiToken, fetchImpl = fet
     const seenVersions = new Set();
     for (const migration of ordered) {
       const version = Number(migration.version);
-      const hash = String(migration.sha256 || '');
+      const hash = String(migration.sha256 || '').toLowerCase();
       if (!Number.isSafeInteger(version) || version < 1 || !/^[a-f0-9]{64}$/i.test(hash)) {
         fail('BACKEND_MIGRATION_MANIFEST_INVALID', 'A migration version or checksum is invalid.');
       }
