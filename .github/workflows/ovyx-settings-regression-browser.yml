@@ -81,7 +81,7 @@ permissions:
 jobs:
   settings-regression-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -125,51 +125,56 @@ jobs:
           set +e
           run_shard() {
             label="$1"
-            shift
+            log_file="$2"
+            shift 2
             for script in "$@"; do
-              echo "[$label] Running $script"
-              node "scripts/$script" || return $?
+              echo "[$label] START $script"
+              timeout --signal=TERM --kill-after=30s 12m node "scripts/$script" 2>&1 | tee -a "$log_file"
+              script_status=${PIPESTATUS[0]}
+              if [ "$script_status" -ne 0 ]; then
+                if [ "$script_status" -eq 124 ] || [ "$script_status" -eq 137 ]; then
+                  echo "[$label] TIMEOUT after 12 minutes: $script"
+                else
+                  echo "[$label] FAILED ($script_status): $script"
+                fi
+                return "$script_status"
+              fi
+              echo "[$label] PASS $script"
             done
           }
 
-          # Run the theme/appearance round-trip suite alone. It exercises file
-          # chooser, download and local theme persistence; isolating it avoids
-          # concurrent Chromium load masking a real import result as a timeout.
-          run_shard "settings-core" \
+          # Keep the appearance/theme round-trip tests isolated from concurrent
+          # Chromium processes, but stream each suite's output so a slow test is
+          # visible immediately instead of leaving an empty log until completion.
+          run_shard "settings-core" /tmp/ovyx-settings-core.log \
             ovyx-settings.browser.test.mjs \
             ovyx-settings-core.browser.test.mjs \
             ovyx-settings-account.browser.test.mjs \
-            ovyx-settings-security.browser.test.mjs \
-            > /tmp/ovyx-settings-core.log 2>&1
+            ovyx-settings-security.browser.test.mjs
           core_status=$?
-          cat /tmp/ovyx-settings-core.log
           if [ "$core_status" -ne 0 ]; then
             echo "Settings core/theme round-trip shard failed."
             exit "$core_status"
           fi
 
-          # The remaining browser suites can run in two parallel groups.
-          run_shard "settings-workspace" \
+          # Run independent workspace and safety suites concurrently. Each test
+          # gets its own hard limit and a live, named log; assertions are unchanged.
+          run_shard "settings-workspace" /tmp/ovyx-settings-workspace.log \
             ovyx-settings-ai.browser.test.mjs \
             ovyx-settings-workspace.browser.test.mjs \
             ovyx-settings-shortcuts.browser.test.mjs \
-            ovyx-personal-connections.browser.test.mjs \
-            > /tmp/ovyx-settings-workspace.log 2>&1 &
+            ovyx-personal-connections.browser.test.mjs &
           workspace_pid=$!
 
-          run_shard "settings-safety" \
+          run_shard "settings-safety" /tmp/ovyx-settings-safety.log \
             ovyx-cancel-safety.browser.test.mjs \
             ovyx-scoped-rollback-performance.browser.test.mjs \
             ovyx-scoped-rollback-graph.browser.test.mjs \
-            ovyx-mobile-back-navigation.browser.test.mjs \
-            > /tmp/ovyx-settings-safety.log 2>&1 &
+            ovyx-mobile-back-navigation.browser.test.mjs &
           safety_pid=$!
 
           wait "$workspace_pid"; workspace_status=$?
           wait "$safety_pid"; safety_status=$?
-
-          cat /tmp/ovyx-settings-workspace.log
-          cat /tmp/ovyx-settings-safety.log
 
           if [ "$workspace_status" -ne 0 ] || [ "$safety_status" -ne 0 ]; then
             echo "One or more Settings browser-test shards failed."
