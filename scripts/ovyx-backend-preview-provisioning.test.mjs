@@ -48,6 +48,8 @@ assert.ok(status.includes("urlParams.get('environment')"), 'Status polling must 
 assert.ok(status.includes("current.data.environment || ''"), 'Status polling must match the durable operation environment.');
 assert.ok(status.includes('current.data.resourceIds?.sourceHash !== sourceHash'), 'Status verification must match the deployed saved-project snapshot.');
 assert.ok(provision.includes('PAGES_D1_HEALTHCHECK_SOURCE'), 'The customer Pages bundle must include the internal D1 persistence proof route.');
+assert.ok(provision.includes('functions/api/__ovyx/'), 'Customer source must not be allowed to shadow the internal Pages verification route.');
+assert.ok(status.includes('functions/api/__ovyx/'), 'Status must reject saved projects that attempt to shadow the internal verification route.');
 assert.ok(status.includes('createPagesBindingProbe'), 'Post-deploy status must create a one-time persisted D1 proof.');
 assert.ok(status.includes('/api/__ovyx/healthcheck?probeId='), 'Post-deploy status must call the deployed Pages API health route.');
 assert.ok(status.includes('BACKEND_D1_BINDING_PERSISTENCE_FAILED'), 'A failed live D1 binding proof must block readiness.');
