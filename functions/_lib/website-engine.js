@@ -1277,6 +1277,11 @@ export async function runWebsiteGeneration(options = {}) {
         ...(result.files || {}),
         ...generatedFiles,
         'ovyx-backend-architecture.json': backendArchitectureFile,
+        'wrangler.jsonc': JSON.stringify({
+          name: 'ovyx-generated-preview',
+          compatibility_date: '2026-11-01',
+          compatibility_flags: ['nodejs_compat'],
+        }, null, 2),
       },
       rawUsage: mergeGenerationUsage(result.rawUsage, backendUsage) || result.rawUsage || null,
       fullStackSourceEvidence,
