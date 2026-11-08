@@ -334,6 +334,14 @@
       && isActuallyVisible(panel.querySelector('#notify-save'))
       && isActuallyVisible(panel.querySelector('#notify-reset'))) || panels.find(isActuallyVisible) || panels[0] || null;
   }
+  function updateNotificationStatus(panel, message) {
+    const visiblePanel = notificationPanel();
+    const targets = Array.from(new Set([panel, visiblePanel].filter(node => node && node.isConnected)));
+    targets.forEach(target => {
+      const status = addStatus(target, 'ovyx-notification-server-status', message);
+      if (status) status.textContent = message;
+    });
+  }
   function notificationStorageKey() {
     const user = currentUser();
     return user && user.uid ? 'ovyx.notifications.v1.user.' + String(user.uid) : 'ovyx.notifications.v1.guest';
@@ -391,10 +399,10 @@
       renderNotificationState(panel, data.notifications || next);
       window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
       try { localStorage.setItem(notificationStorageKey(), JSON.stringify(notificationDraft)); } catch (_) {}
-      if (status) status.textContent = 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.';
+      updateNotificationStatus(panel, 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.');
       notify(reset ? 'Notification preferences reset and saved to your account.' : 'Notification preferences saved to your account.', 'success');
     } catch (error) {
-      if (status) status.textContent = 'Your notification preferences could not be saved. Please try again.';
+      updateNotificationStatus(panel, 'Your notification preferences could not be saved. Please try again.');
       notify(error.message || 'Notification preferences were not saved.', 'error');
     } finally {
       if (button) { button.disabled = false; button.textContent = button.dataset.originalText || (reset ? 'Reset' : 'Save Notification Preferences'); delete button.dataset.originalText; }
