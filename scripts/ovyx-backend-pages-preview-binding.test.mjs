@@ -57,12 +57,12 @@ const result = await adapter.bindPreviewD1({
 assert.deepEqual(result, {
   projectName,
   environment: 'preview',
-  bindingName: 'OVYX_DB',
+  bindingName: 'DB',
   databaseId,
   verified: true,
 });
 assert.equal(calls.length, 3, 'binding setup must read, patch, and independently verify');
-assert.equal(saved.deployment_configs.preview.d1_databases.OVYX_DB.id, databaseId);
+assert.equal(saved.deployment_configs.preview.d1_databases.DB.id, databaseId);
 assert.equal(saved.deployment_configs.preview.d1_databases.LEGACY_DB.id, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 assert.equal(saved.deployment_configs.preview.compatibility_date, '2026-11-01');
 assert.deepEqual(saved.deployment_configs.preview.compatibility_flags, ['nodejs_compat']);
@@ -82,7 +82,7 @@ const conflictAdapter = createCloudflarePagesPreviewBindingAdapter({
     return response({
       name: projectName,
       deployment_configs: {
-        preview: { d1_databases: { OVYX_DB: { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' } } },
+        preview: { d1_databases: { DB: { id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' } } },
       },
     });
   },
