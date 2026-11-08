@@ -125,8 +125,7 @@ export function createCloudflareD1Adapter({ accountId, apiToken, fetchImpl = fet
       const rows = Array.isArray(result) ? result : [];
       const match = rows.find(item => String(item?.name || '') === name);
       if (match) return match;
-      const pages = Number(result?.result_info?.total_pages || 1);
-      if (page >= pages || rows.length === 0) break;
+      if (rows.length < 100) break;
     }
     return null;
   }
@@ -172,12 +171,18 @@ export function createCloudflareD1Adapter({ accountId, apiToken, fetchImpl = fet
     if (!Array.isArray(migrations) || migrations.length > 140) fail('BACKEND_MIGRATION_MANIFEST_INVALID', 'The migration manifest is invalid.');
     await query(databaseId, { sql: 'CREATE TABLE IF NOT EXISTS _ovyx_migrations (version INTEGER PRIMARY KEY, sha256 TEXT NOT NULL, applied_at TEXT NOT NULL)' });
     const applied = [];
-    for (const migration of migrations.slice().sort((a, b) => Number(a.version) - Number(b.version))) {
+    const ordered = migrations.slice().sort((a, b) => Number(a.version) - Number(b.version));
+    const seenVersions = new Set();
+    for (const migration of ordered) {
       const version = Number(migration.version);
       const hash = String(migration.sha256 || '');
       if (!Number.isSafeInteger(version) || version < 1 || !/^[a-f0-9]{64}$/i.test(hash)) {
         fail('BACKEND_MIGRATION_MANIFEST_INVALID', 'A migration version or checksum is invalid.');
       }
+      if (seenVersions.has(version)) fail('BACKEND_MIGRATION_DUPLICATE_VERSION', 'Migration versions must be unique.');
+      seenVersions.add(version);
+      const actualHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(migration.content || '')))), byte => byte.toString(16).padStart(2, '0')).join('');
+      if (actualHash !== hash.toLowerCase()) fail('BACKEND_MIGRATION_HASH_MISMATCH', 'A migration source does not match its trusted SHA-256 manifest.');
       const statements = splitSafeAdditiveMigration(migration.content);
       const existingResult = await query(databaseId, { sql: 'SELECT version, sha256 FROM _ovyx_migrations WHERE version = ?', params: [version] });
       const existing = existingResult?.[0]?.results?.[0];
