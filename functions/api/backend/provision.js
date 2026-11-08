@@ -53,7 +53,7 @@ function normalizeGraphFiles(project) {
     if (!path || path.startsWith('/') || segments.some(part => !part || part === '.' || part === '..' ||
         ['.git', 'node_modules', '.wrangler', 'coverage'].includes(part.toLowerCase())) ||
         /(?:^|\/)\.env(?:\..*)?$/i.test(path) || /(?:^|\/)\.dev\.vars(?:\..*)?$/i.test(path) ||
-        /(?:secret|credential|private-key|service-account)/i.test(path)) {
+        /(?:secret|credential|private-key|service-account)/i.test(path) || ['.npmrc', '.yarnrc', '.pnp.cjs'].includes(path.toLowerCase())) {
       fail('BACKEND_PROJECT_FILE_PATH_INVALID', 'The saved website contains a file path that cannot be provisioned safely.');
     }
     if (text) result[path] = { content: text, contentType: clean(record?.contentType, 120) };
