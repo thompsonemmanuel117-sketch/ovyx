@@ -53,7 +53,7 @@ try {
       activeSelectorMatches: home.matches('#ovyx-v52-bottom-bar [data-v52-bottom="home"].is-active'),
       accentVariable: getComputedStyle(home).getPropertyValue('--accent').trim(),
       lightAccentVariable: getComputedStyle(home).getPropertyValue('--ovyx-light-accent-strong').trim(),
-      matchingRules: Array.from(document.styleSheets).flatMap(sheet => { try { return Array.from(sheet.cssRules || []).filter(rule => /ovyx-v52-bottom-bar.*(?:active|is-active)|ovyx-v52-bottom-bar/.test(rule.cssText)).map(rule => rule.cssText); } catch (_) { return []; } }).slice(-20)
+      matchingRules: (() => { const found = []; let order = 0; const walk = (rules, source) => Array.from(rules || []).forEach(rule => { order += 1; if (rule.cssRules) { walk(rule.cssRules, source); return; } if (!rule.selectorText || !rule.style || !rule.style.getPropertyValue('color')) return; try { if (home.matches(rule.selectorText)) found.push({ order, source, selector: rule.selectorText, color: rule.style.getPropertyValue('color'), important: rule.style.getPropertyPriority('color') }); } catch (_) {} }); Array.from(document.styleSheets).forEach(sheet => { try { walk(sheet.cssRules, sheet.href || 'inline'); } catch (_) {} }); return found.slice(-30); })()
     };
   });
 
