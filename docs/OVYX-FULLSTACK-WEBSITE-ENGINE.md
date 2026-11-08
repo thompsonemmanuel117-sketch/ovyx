@@ -189,3 +189,52 @@ Phase 2 must not be closed until all of the following are evidenced on the exact
 
 
 This is an architecture and code-generation contract. It does **not** provision a database, create provider credentials, run migrations, prove endpoint behavior or certify generated applications. The route/model/provider records are plans until generated source is inspected and the actual tests pass.
+
+
+## Customer backend provisioning — Phase 1 safety foundation
+
+The first customer-backend provisioning increment is implemented in `functions/_lib/backend-provisioning.js`. It creates a deterministic, owner-scoped provisioning manifest from the trusted full-stack architecture and generated backend source. It is deliberately a planning contract only: it does not call Cloudflare, create Worker or D1 resources, apply migrations, or access secret values.
+
+The manifest currently enforces:
+
+- A verified owner UID and saved project ID are required; the generated namespace is a one-way SHA-256-derived value, so raw owner and project identifiers are not emitted.
+- Preview and production receive distinct deterministic Worker/database resource names.
+- Backend API route contracts must be present and structurally valid.
+- Source paths are restricted to backend source and versioned SQL migration locations; traversal, duplicate paths, oversized files and secret-like source values are rejected.
+- Database-enabled architectures must include versioned SQL migrations. Migrations are limited to additive table/index/column operations; potentially destructive statements are blocked from automatic provisioning.
+- Migration hashes and source paths are included for later idempotency and drift checks, but source contents and credentials are not included in the plan.
+- The lifecycle gate list requires owner/project verification, idempotent operation reservation, resource verification, preview migration, server-only bindings, Worker deployment, API/database/isolation verification and explicit owner approval before production promotion.
+
+The safety contract tests are run by the isolated backend-runtime workflow. This phase does **not** claim that customer Workers or D1 databases are provisioned or deployed. The next increment must implement the Cloudflare resource adapter and durable lifecycle registry, then exercise it against isolated preview resources before any production promotion is enabled.
+
+
+## Customer backend provisioning — Phase 2 D1 resource adapter
+
+The Phase 2 increment adds a server-only Cloudflare D1 adapter in `functions/_lib/backend-cloudflare-adapter.js`. It uses the Cloudflare account D1 REST API with a narrowly scoped API token supplied through the server environment. It never returns or logs the token.
+
+The adapter:
+- Accepts only deterministic OVYX resource names derived from the verified owner/project namespace and target environment.
+- Reconciles by exact database name before creation, verifies the returned database ID/name with a separate GET, and handles the create race by re-reading the exact name.
+- Applies versioned migrations through the D1 query API with a private `_ovyx_migrations` ledger, SHA-256 source-to-manifest verification, drift detection, and transactional D1 batch requests.
+- Allows only additive `CREATE TABLE`, `CREATE INDEX`, and `ALTER TABLE ADD COLUMN` statements; rejects DML, destructive DDL, triggers, PRAGMA changes, and use of the reserved ledger table.
+- Treats a matching already-applied migration as idempotent and refuses a changed checksum for an applied version.
+
+The adapter is not yet wired to a customer-facing route and has not been run against the live Cloudflare account. It creates/verifies D1 resources only: it does not upload or deploy Worker code, bind a D1 database to a Worker, provision R2/KV/Queues/Durable Objects, create customer domains, or promote production. No live customer resources are created by CI. Before enabling the adapter, the next increment must add a durable provisioning-operation registry with crash recovery, a project-owner authorization boundary, an audited preview-only execution route, and an end-to-end isolated Cloudflare acceptance test. Worker upload must use the documented module multipart API and must be independently verified before any publishing path is changed.
+
+Cloudflare API references:
+- D1 create/list/get/query: https://developers.cloudflare.com/api/resources/d1/
+- D1 query and migration/batch behavior: https://developers.cloudflare.com/d1/worker-api/d1-database/
+- Worker secret bindings: https://developers.cloudflare.com/workers/configuration/secrets/
+- Worker module upload and D1 binding metadata: https://developers.cloudflare.com/api/resources/workers/subresources/scripts/methods/update/
+
+## Deployment ownership boundary — preview foundation
+
+The existing Pages publishing endpoint now loads the saved project from its canonical Firestore path, `users/{authenticated-email}/projects/{projectId}`, using the server-side Firebase Admin REST layer. Before it creates or uploads a Pages deployment, it requires the stored `ownerUid` and normalized `ownerEmail` to match the verified Firebase identity. The request's project ID is validated against the existing project-store format; client-supplied owner fields are not accepted as evidence. Missing records and cross-account attempts fail closed before any Cloudflare deployment request. This closes the authorization gap between the existing project-management API and the publishing endpoint; it does not yet provision a backend or change the static publishing format.
+
+## Durable provisioning operation registry — preview safety foundation
+
+The next increment adds a server-side Firestore registry for provisioning operations. A record is keyed by the deterministic owner/project namespace and environment, and stores only one-way owner/project hashes, resource names and IDs, operation ID, state, attempt count, lease timestamps, applied migration versions, deployment ID and sanitized error codes. It never stores raw owner UID, raw project ID, credentials, API tokens or secret values.
+
+The Firestore adapter uses an `exists=false` precondition for first reservation and an `updateTime` precondition for compare-and-set updates. This prevents two concurrent requests from both claiming the same operation and prevents stale workers from overwriting newer state. The lifecycle has explicit states from `reserved` through `verifying` to `ready`, plus `failed` and `recovery_required`. An expired in-flight lease is deliberately marked for recovery rather than blindly rerunning resource creation or deployment, because an external side effect may have succeeded before the worker crashed. Failed or rolled-back operations can be retried with a new operation ID after reconciliation.
+
+The registry module is a foundation and is not yet exposed as a customer-facing route. No Cloudflare resource creation or production promotion is triggered by this registry. Its state-machine, ownership-hash, lease, retry, recovery and patch allow-list contracts are covered by the isolated backend-runtime workflow.

@@ -705,6 +705,23 @@ export async function getFirestoreDocumentAtPath(env,segments){
   return response.json();
 }
 
+/**
+ * Creates a document only when its path is still absent. The Firestore
+ * exists=false precondition makes this safe under concurrent reservations.
+ */
+export async function createFirestoreDocumentAtPath(env,segments,data){
+  const serviceAccount=parseServiceAccount(env);
+  const accessToken=await getGoogleAccessToken(env);
+  const params=new URLSearchParams();
+  params.set('currentDocument.exists','false');
+  const url=firestoreDocumentPath(serviceAccount.project_id,segments)+'?'+params.toString();
+  const response=await fetch(url,{method:'PATCH',headers:{Authorization:`Bearer ${accessToken}`,'content-type':'application/json'},body:JSON.stringify(firestoreDocument(data))});
+  if(response.ok)return response.json();
+  const payload=await response.json().catch(()=>({}));
+  if(response.status===409||response.status===412)throw Object.assign(new Error('The provisioning record was reserved by another request.'),{status:409,code:'FIRESTORE_CREATE_CONFLICT'});
+  throw Object.assign(new Error(payload?.error?.message||`Firestore create failed (${response.status}).`),{status:response.status>=500?503:400,code:'FIRESTORE_CREATE_FAILED'});
+}
+
 export async function getFirestoreDataAtPath(env,segments){
   const document=await getFirestoreDocumentAtPath(env,segments);
   return document?firestoreDocumentToJs(document):null;
