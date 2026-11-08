@@ -110,5 +110,14 @@ const recovery = await reserveBackendProvisioningOperation({
   operationId: 'operation-recovery', now: '2026-11-08T10:01:00.000Z',
 });
 assert.equal(recovery.outcome, 'recovery_required');
+const recovered = await transitionBackendProvisioningOperation({
+  store: expiringStore, key: recovery.key, current: recovery,
+  operationId: 'operation-expiring', nextState: 'verifying',
+  patch: { deploymentId: 'deployment-verified-after-recovery' },
+  now: '2026-11-08T10:01:10.000Z',
+});
+assert.equal(recovered.record.state, 'verifying',
+  'an ambiguous operation may resume only after an external deployment has been found and identified');
+assert.equal(recovered.record.deploymentId, 'deployment-verified-after-recovery');
 
 console.log('OVYX durable backend provisioning registry tests passed.');
