@@ -279,13 +279,19 @@ try {
     // wait for the actual authenticated PUT and its confirmed UI result.
     await resetPreferences.click({ noWaitAfter: true });
     await resetResponse;
+    await notificationsPanel.locator('#ovyx-notification-server-status').waitFor({ state: 'visible', timeout: 12000 });
     await page.waitForFunction(
-      () => document.getElementById('ovyx-notification-server-status')?.textContent
-        ?.includes('Your notification preferences have been saved. Email notifications will be available when delivery is enabled.'),
+      () => {
+        const panel = document.querySelector('[data-settings-panel="notifications"]');
+        return panel?.querySelector('#ovyx-notification-server-status')?.textContent
+          ?.includes('Your notification preferences have been saved. Email notifications will be available when delivery is enabled.');
+      },
       null,
       { timeout: 12000 },
     );
-    await page.waitForFunction(() => !document.getElementById('notify-reset')?.disabled);
+    await page.waitForFunction(
+      () => !document.querySelector('[data-settings-panel="notifications"] #notify-reset')?.disabled,
+    );
     assert.equal(notificationPuts.length, 3, '[' + target.name + '] Reset must issue one PUT.');
     assert.deepEqual(notificationPuts[2].body.notifications, notificationDefaults);
     const savedAfterReset = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), preferencesKey);
