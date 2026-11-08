@@ -62,6 +62,7 @@ const again = await adapter.ensureDatabase({ name: 'ovyx-0123456789abcdef-previe
 assert.equal(again.id, database.id);
 assert.equal(calls.filter(call => call.method === 'POST' && call.path.endsWith('/d1/database')).length, 1);
 const migrationContent = 'CREATE TABLE people (id TEXT PRIMARY KEY);';
+const migrationHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(migrationContent))), byte => byte.toString(16).padStart(2, '0')).join('');
 const migrationWritesBeforeInvalidManifest = calls.filter(call => call.path.endsWith('/query')).length;
 const unsafeContent = 'DELETE FROM users;';
 const unsafeHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(unsafeContent))), byte => byte.toString(16).padStart(2, '0')).join('');
@@ -70,7 +71,6 @@ await assert.rejects(() => adapter.applyMigrations(database.id, [
   { version: 2, sha256: unsafeHash, content: unsafeContent },
 ]), { code: 'BACKEND_MIGRATION_UNSUPPORTED' });
 assert.equal(calls.filter(call => call.path.endsWith('/query')).length, migrationWritesBeforeInvalidManifest);
-const migrationHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(migrationContent))), byte => byte.toString(16).padStart(2, '0')).join('');
 const migrations = await adapter.applyMigrations(database.id, [
   { version: 1, sha256: migrationHash, content: migrationContent },
 ]);
