@@ -203,6 +203,18 @@ async function ovyxEnsurePagesProject(env,name){ try{ const p=(await cloudflareR
 async function ovyxUploadToken(env,name){ const d=await cloudflareRequest('/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+'/pages/projects/'+encodeURIComponent(name)+'/upload-token',env,{method:'GET'}); if(!d.result?.jwt)throw new Error('The publishing service could not prepare the upload.'); return d.result.jwt; }
 async function ovyxPrepareFiles(raw){ if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Deployment files are required.'); const es=Object.entries(raw); if(!es.length)throw new Error('The app does not contain any files to publish.'); if(es.length>MAX_FILES)throw new Error('The app contains too many files to publish.'); const out={}; let total=0; for(const [rp,rf0] of es){ if(['ovyx-backend-architecture.json','ovyx-qa-plan.json','wrangler.jsonc','wrangler.json'].includes(String(rp)))continue; const p=ovyxSafePath(rp),rf=rf0&&typeof rf0==='object'?rf0:{content:rf0}; let b; if(String(rf.encoding||'').toLowerCase()==='base64'){const x=atob(String(rf.content||''));b=Uint8Array.from(x,c=>c.charCodeAt(0));}else b=new TextEncoder().encode(String(rf.content??'')); if(b.byteLength>MAX_FILE_BYTES)throw new Error(p+' exceeds the 25 MiB Pages file limit.'); total+=b.byteLength; if(total>MAX_BODY_BYTES)throw new Error('The deployment payload exceeds 20 MiB.'); out[p]={hash:await ovyxSha256(b),value:ovyxB64(b),contentType:String(rf.contentType||ovyxMime(p))}; } return out; }
 async function ovyxUploadMissing(env,jwt,files){ const all=Object.values(files),checked=await cloudflareRequest('/pages/assets/check-missing',env,{method:'POST',body:JSON.stringify({hashes:all.map(x=>x.hash)})},jwt),missing=new Set(Array.isArray(checked.result)?checked.result.map(String):[]); let batch=[],size=0; const flush=async()=>{if(!batch.length)return;await cloudflareRequest('/pages/assets/upload',env,{method:'POST',body:JSON.stringify(batch)},jwt);batch=[];size=0;}; for(const f of all.filter(x=>missing.has(x.hash))){const item={key:f.hash,value:f.value,base64:true,metadata:{content_type:f.contentType}},n=JSON.stringify(item).length;if(batch.length>=25||(size+n>3500000&&batch.length))await flush();batch.push(item);size+=n;} await flush(); return {missing:missing.size,total:all.length}; }
+function ovyxAssertStaticOnly(project){
+  const graph=project?.ovyxGraph&&typeof project.ovyxGraph==='object'?project.ovyxGraph:project?.graph&&typeof project.graph==='object'?project.graph:{};
+  const files=graph.files&&typeof graph.files==='object'&&!Array.isArray(graph.files)?graph.files:project?.files&&typeof project.files==='object'&&!Array.isArray(project.files)?project.files:{};
+  const raw=files['ovyx-backend-architecture.json'];
+  if(raw==null)return;
+  const text=typeof raw==='string'?raw:typeof raw?.content==='string'?raw.content:'';
+  let architecture;
+  try{architecture=JSON.parse(text);}catch{throw Object.assign(new Error('The saved backend architecture is invalid. Repair the backend manifest before publishing this website.'),{status:409,code:'BACKEND_ARCHITECTURE_INVALID'});}
+  if(architecture?.capabilities?.backend===true){
+    throw Object.assign(new Error('This saved website contains server-side features. Use full-stack Preview publishing so its backend and database are not silently omitted.'),{status:409,code:'BACKEND_PROVISIONING_REQUIRED'});
+  }
+}
 function ovyxSummary(d,name,action){const x=d||{},a=Array.isArray(x.aliases)?x.aliases:[],s=Array.isArray(x.stages)?x.stages:[],last=s.find(v=>v.status==='active')||s.at(-1)||null;return{deploymentId:x.id||null,pagesProjectName:name,action,environment:x.environment||(action==='publish'?'production':'preview'),status:last?.status||x.status||'queued',stage:last?.name||null,url:a[0]||x.url||null,aliases:a,createdAt:x.created_on||null,modifiedAt:x.modified_on||null};}
 
 
@@ -225,6 +237,7 @@ export async function onRequestPost(context) {
     if(!/^[A-Za-z0-9_-]{1,120}$/.test(projectId))return json({success:false,authoritative:true,error:'Choose a valid saved app before publishing.',requestId},400);
     const savedProject = await getFirestoreDataAtPath(env, ['users', user.email, 'projects', projectId]);
     assertOwnedSavedProject(savedProject, { uid: user.uid, email: user.email, projectId });
+    ovyxAssertStaticOnly(savedProject);
     const expectedPagesPrefix=await ovyxPagesPrefix(user,projectId,env.CLOUDFLARE_PAGES_PROJECT_PREFIX);
     const requestedPagesProjectName=String(body?.pagesProjectName||'').trim().toLowerCase();
     if(requestedPagesProjectName&&!isOwnedOvyxPagesProjectName(requestedPagesProjectName,expectedPagesPrefix))return json({success:false,authoritative:true,error:'The requested hosting project does not belong to this saved website.',requestId},403);
