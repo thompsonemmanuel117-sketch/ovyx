@@ -114,6 +114,26 @@ await assert.rejects(
 );
 assert.equal(compatibilityPatchCount, 0, 'A project that disables required runtime compatibility must fail before any write.');
 
+let newerDatePatchCount = 0;
+const newerDateConflict = createCloudflarePagesPreviewBindingAdapter({
+  accountId,
+  apiToken,
+  fetchImpl: async (_url, init = {}) => {
+    if (init.method === 'PATCH') newerDatePatchCount += 1;
+    return response({
+      name: projectName,
+      deployment_configs: {
+        preview: { compatibility_date: '2026-12-01', compatibility_flags: [] },
+      },
+    });
+  },
+});
+await assert.rejects(
+  newerDateConflict.bindPreviewD1({ projectName, expectedProjectPrefix: prefix, databaseId }),
+  error => error.code === 'BACKEND_PAGES_COMPATIBILITY_CONFLICT' && error.status === 409,
+);
+assert.equal(newerDatePatchCount, 0, 'A newer existing compatibility date must not be silently downgraded.');
+
 for (const input of [
   { projectName: 'other-customer-site', expectedProjectPrefix: prefix, databaseId },
   { projectName, expectedProjectPrefix: prefix, databaseId: 'not-a-database-id' },
