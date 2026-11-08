@@ -73,6 +73,7 @@ function normalizeGraphFiles(project) {
     const text = typeof record?.content === 'string' ? record.content
       : typeof record?.text === 'string' ? record.text : '';
     const segments = path.split('/');
+    if (path.toLowerCase().startsWith('functions/api/__ovyx/')) fail('BACKEND_PROJECT_RESERVED_PATH', 'The functions/api/__ovyx namespace is reserved for OVYX deployment verification.');
     if (!path || path.length > 500 || path.startsWith('/') || path.includes('..') || path.includes('\0') || path.includes('\r') || path.includes('\n') ||
         segments.some(part => !part || part === '.' || part === '..' ||
         ['.git', 'node_modules', '.wrangler', 'coverage', '.npmrc', '.yarnrc', '.pnp.cjs'].includes(part.toLowerCase())) ||
