@@ -21,6 +21,10 @@ assert.ok(provision.includes('ovyx-qa-plan.json'), 'Provisioning must load the s
 assert.ok(provision.includes("callRuntime(context.env, '/evaluate'"), 'Backend acceptance must run before Cloudflare resources are created.');
 assert.ok(provision.includes("callRuntime(context.env, '/build-pages'"), 'Pages Functions must be compiled in the isolated build runtime.');
 assert.ok(provision.includes("environment: 'preview'"), 'Automatic provisioning must target Preview only.');
+assert.ok(provision.includes("targetEnvironment === 'production'"), 'Production must be a separate explicit environment path.');
+assert.ok(provision.includes("previewRecord.data.state !== 'ready'"), 'Production promotion must require a verified Preview deployment.');
+assert.ok(provision.includes('bindProductionD1'), 'Production D1 bindings must be handled by the separate environment adapter.');
+assert.ok(provision.includes("form.append('branch'"), 'Preview deployments must use an explicit non-production branch.');
 assert.ok(provision.includes('createCloudflareD1Adapter'), 'Database resources and migrations must use the Cloudflare D1 adapter.');
 assert.ok(provision.includes('applyMigrations'), 'Versioned migrations must be applied before deployment.');
 assert.ok(provision.includes('createCloudflarePagesPreviewBindingAdapter'), 'The customer Pages Preview environment must receive its D1 binding.');
@@ -35,6 +39,8 @@ assert.ok(status.includes('current.data.ownerHash') && status.includes('current.
 assert.ok(status.includes("nextState: 'ready'"), 'A Preview deployment becomes ready only after verification.');
 assert.ok(status.includes('fetch(url'), 'The final Preview URL must pass an independent HTTP smoke test.');
 assert.ok(status.includes('applyMigrations'), 'The D1 migration ledger must be re-verified before readiness.');
+assert.ok(status.includes("urlParams.get('environment')"), 'Status polling must be environment-specific.');
+assert.ok(status.includes("current.data.environment || ''"), 'Status polling must match the durable operation environment.');
 
 assert.ok(middleware.includes("'/api/backend/provision'"), 'The provisioning route must be registered with shared API middleware.');
 assert.ok(middleware.includes("'/api/backend/status'"), 'The status route must be registered with shared API middleware.');
