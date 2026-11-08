@@ -40,7 +40,7 @@ try {
       },
     },
   };
-  const request = (value = token) => new Request('https://preview.example.pages.dev/api/__ovyx/healthcheck?probeId=' + probeId, {
+  const request = (value = token, id = probeId) => new Request('https://preview.example.pages.dev/api/__ovyx/healthcheck?probeId=' + id, {
     headers: { 'x-ovyx-probe-token': value },
   });
   const wrong = await route.onRequestGet({ request: request('b'.repeat(64)), env });
@@ -52,6 +52,11 @@ try {
   const replay = await route.onRequestGet({ request: request(), env });
   assert.equal(replay.status, 404, 'A consumed proof must not be replayable.');
   assert.equal(queries.filter(item => item.action === 'delete').length, 1);
+  const staleId = '22345678-1234-1234-1234-123456789abc';
+  records.set(staleId, { nonce_hash: nonceHash, created_at: Date.now() - 601_000 });
+  const stale = await route.onRequestGet({ request: request(token, staleId), env });
+  assert.equal(stale.status, 404, 'Expired proof tokens must not be accepted.');
+  assert.equal(records.has(staleId), true, 'Expired proof rows are left for the bounded cleanup query.');
   const unavailable = await route.onRequestGet({ request: request(), env: {} });
   assert.equal(unavailable.status, 503);
   console.log('OVYX Pages D1 live-binding healthcheck route tests passed.');
