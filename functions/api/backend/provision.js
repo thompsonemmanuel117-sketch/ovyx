@@ -261,6 +261,14 @@ export async function onRequestPost(context) {
         architecture.capabilities?.backend !== true || !Array.isArray(architecture.apiContracts) || architecture.apiContracts.length < 1) {
       fail('BACKEND_ARCHITECTURE_INVALID', 'The saved website does not contain a valid OVYX full-stack architecture contract.', 422);
     }
+    const databaseIntegration = Array.isArray(architecture.integrations)
+      ? architecture.integrations.find(item => item?.capability === 'database') : null;
+    const selectedDatabaseProvider = clean(databaseIntegration?.provider, 120).toLowerCase();
+    if (architecture.capabilities.database === true &&
+        selectedDatabaseProvider && selectedDatabaseProvider !== 'not-selected-by-architecture-planner' &&
+        !/\\bd1\\b/.test(selectedDatabaseProvider)) {
+      fail('BACKEND_DATABASE_PROVIDER_UNSUPPORTED', 'Automatic full-stack provisioning currently supports Cloudflare D1. The selected database provider must be connected through its own adapter before deployment.', 422);
+    }
     if (qaPlan.version !== 1 || qaPlan.backendRequired !== true || !Array.isArray(qaPlan.backendChecks) ||
         qaPlan.backendChecks.length < 1 || qaPlan.backendChecks.length > 24) {
       fail('BACKEND_QA_PLAN_INVALID', 'The saved website does not contain an executable backend acceptance plan.', 422);
