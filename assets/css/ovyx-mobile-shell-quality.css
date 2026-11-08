@@ -231,3 +231,26 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) body.ovyx-v88-dock-home #ovyx-v52-
 html:is(.ovyx-light,[data-ovyx-mode="light"]) body.ovyx-v88-dock-home #ovyx-v52-bottom-bar .v52-bottom-create {
   color: #fff !important; background: #704600 !important; border-color: #704600 !important;
 }
+
+/* Dashboard-specific legacy accents: keep gold expressive, not pale or washed out. */
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home :is(.v59-build-btn,.v59-tool-icon.gold,.v59-command-link,.v59-live-dot) {
+  color: var(--ovyx-light-accent-strong) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .v59-build-btn {
+  color: #fff !important;
+  background: var(--ovyx-light-accent-strong) !important;
+  border-color: var(--ovyx-light-accent-strong) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home :is(.v59-routing-note,.v59-plus-note,.v59-home-state,.v59-model-wrap,.v59-tool-card small,.v59-section-head h2,.v59-command-link) {
+  color: var(--ovyx-light-secondary) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .ovyx-ai-readiness-chip,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home [data-ovyx-ai-readiness] {
+  color: var(--ovyx-light-accent-strong) !important;
+  border-color: rgba(112,70,0,.32) !important;
+  background: rgba(135,85,0,.07) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .v59-tool-card b,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .v59-section-head h2 {
+  color: var(--ovyx-light-text) !important;
+}
