@@ -10,6 +10,8 @@ import {
 } from '../../_lib/backend-provisioning-registry.js';
 
 const encoder = new TextEncoder();
+const PROVISIONABLE_BACKEND_PATH = /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server|src\/routes\/api|src\/app\/api)\//i;
+const UNSUPPORTED_BACKEND_PATH = /^(?:app\/api|pages\/api|src\/pages\/api|prisma|drizzle|db|database|app\/routes|src\/routes\/(?!api\/))\//i;
 const clean = (value, max = 320) => String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
 function fail(code, message, status = 400) { throw Object.assign(new Error(message), { code, status }); }
 function slug(value, fallback = 'site') {
@@ -41,7 +43,7 @@ function parseFile(files, path, code) {
 }
 function backendFiles(files) {
   return Object.entries(files)
-    .filter(([path]) => /^(?:functions|migrations|server|api|lib|src\/server|src\/lib\/server|src\/routes\/api|src\/app\/api|app\/api|pages\/api)\//i.test(path))
+    .filter(([path]) => PROVISIONABLE_BACKEND_PATH.test(path))
     .map(([path, content]) => ({ path, content }));
 }
 async function hash(value) {
@@ -87,6 +89,7 @@ export async function onRequestGet(context) {
     const sourceHash = await hash(JSON.stringify(Object.keys(files).sort().map(path => [path, files[path]])));
     const architecture = parseFile(files, 'ovyx-backend-architecture.json', 'BACKEND_ARCHITECTURE_MISSING');
     const sources = backendFiles(files);
+    if (Object.keys(files).some(path => UNSUPPORTED_BACKEND_PATH.test(path))) fail('BACKEND_FRAMEWORK_UNSUPPORTED', 'The saved website contains a server framework that is not supported by this provisioning adapter.', 422);
     const plan = await createBackendProvisioningPlan({ ownerUid: user.uid, projectId, environment: targetEnvironment, architecture, files: sources });
     const store = createFirestoreProvisioningRegistry(context.env);
     const key = plan.namespace + '-' + targetEnvironment;
