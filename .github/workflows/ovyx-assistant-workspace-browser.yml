@@ -238,17 +238,12 @@ jobs:
             ovyx-app-studio-workspace.browser.test.mjs \
             ovyx-app-studio-release-health.test.mjs \
             ovyx-admin-workspace.browser.test.mjs \
-            ovyx-admin-hub.browser.test.mjs \
-            ovyx-settings-workspace.browser.test.mjs &
+            ovyx-admin-hub.browser.test.mjs &
           shard_a_pid=$!
 
-          run_shard "settings-and-assistant" /tmp/ovyx-assistant-shard-b.log \
-            ovyx-settings-security.browser.test.mjs \
-            ovyx-settings-core.browser.test.mjs \
-            ovyx-settings.browser.test.mjs \
-            ovyx-settings-ai.browser.test.mjs \
-            ovyx-settings-shortcuts.browser.test.mjs \
-            ovyx-settings-account.browser.test.mjs \
+          # Settings coverage runs once in the dedicated Settings Regression workflow.
+          # Keep this shard focused on Assistant, Sentinel, provider and Web Studio flows.
+          run_shard "assistant-and-runtime" /tmp/ovyx-assistant-shard-b.log \
             ovyx-assistant-workspace.browser.test.mjs \
             ovyx-sentinel.browser.test.mjs \
             ovyx-provider-availability.browser.test.mjs \
