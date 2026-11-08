@@ -47,6 +47,9 @@ assert.ok(status.includes('applyMigrations'), 'The D1 migration ledger must be r
 assert.ok(status.includes("urlParams.get('environment')"), 'Status polling must be environment-specific.');
 assert.ok(status.includes("current.data.environment || ''"), 'Status polling must match the durable operation environment.');
 assert.ok(status.includes('current.data.resourceIds?.sourceHash !== sourceHash'), 'Status verification must match the deployed saved-project snapshot.');
+assert.ok(status.includes('recovery_required') && status.includes('deployment_trigger'), 'Ambiguous Pages API outcomes must be reconciled against the deployment history.');
+assert.ok(status.includes("nextState: 'verifying'"), 'Recovery must resume only after the exact deployment is found.');
+assert.ok(provision.includes('[OVYX-OP:'), 'Each direct upload must carry a unique recovery marker.');
 assert.ok(status.includes('pagesProjectName !== expected.name'), 'Status polling must verify the exact owner-scoped Pages project name.');
 
 assert.ok(middleware.includes("'/api/backend/provision'"), 'The provisioning route must be registered with shared API middleware.');
