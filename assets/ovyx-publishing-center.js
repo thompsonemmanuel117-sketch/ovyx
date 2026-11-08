@@ -83,6 +83,10 @@
     if (!host || !w || !project() || host.querySelector('[data-ovyx-publishing-center]')) return;
     var p;
     try { p = currentProject(); } catch (error) { return; }
+    var architectureFile = p.files && p.files['ovyx-backend-architecture.json'];
+    var qaPlanFile = p.files && p.files['ovyx-qa-plan.json'];
+    var hasFullStackBackend = !!(architectureFile && (architectureFile.content || architectureFile) &&
+      qaPlanFile && (qaPlanFile.content || qaPlanFile));
     style();
 
     var legacyDomain = host.querySelector('#ws-deploy-domain');
@@ -114,7 +118,7 @@
     var status = el('div', 'ovyx-pub-status');
     root.appendChild(status);
     var actions = el('div', 'ovyx-pub-actions');
-    var preview = el('button', 'ovyx-pub-action', 'Create preview');
+    var preview = el('button', 'ovyx-pub-action', hasFullStackBackend ? 'Provision full-stack Preview' : 'Create preview');
     preview.type = 'button';
     actions.appendChild(preview);
     if (!legacyPublish) {
@@ -290,7 +294,64 @@
         toast(error.message, 'error');
       } finally { setBusy(false); }
     }
-    preview.addEventListener('click', function () { deploy('deploy'); });
+    async function provisionBackendPreview() {
+      try {
+        if (typeof w.runTests === 'function') {
+          var tests = w.runTests(true);
+          if (!tests || tests.ok !== true) {
+            w.openEngineeringConsole && w.openEngineeringConsole('tests');
+            throw new Error('Preview provisioning is blocked until the website quality checks pass.');
+          }
+        }
+        setBusy(true);
+        statusLine(status, 'Running isolated backend and database acceptance checks…');
+        await request('/api/backend/provision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: p.projectId })
+        });
+        var query = new URLSearchParams({ projectId: p.projectId });
+        var finalState = null;
+        for (var attempt = 0; attempt < 90; attempt++) {
+          await new Promise(function (resolve) { window.setTimeout(resolve, 2000); });
+          finalState = await request('/api/backend/status?' + query.toString(), { method: 'GET' });
+          statusLine(status, finalState.status === 'ready'
+            ? 'Preview is live and its backend checks are verified.'
+            : 'Verifying customer Preview deployment… ' + (finalState.deploymentStatus || 'waiting for Cloudflare'));
+          if (finalState.status === 'ready') break;
+        }
+        if (!finalState || finalState.status !== 'ready') {
+          throw new Error('Preview is still being verified. You can safely check its status again shortly.');
+        }
+        if (finalState.deployment && finalState.deployment.url) {
+          var link = el('a', 'ovyx-pub-hint', 'Open full-stack Preview: ' + finalState.deployment.url);
+          link.href = finalState.deployment.url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          status.appendChild(link);
+        }
+        var active = project();
+        if (active) {
+          active.ovyxBackendProvisioning = {
+            status: 'ready',
+            environment: 'preview',
+            deploymentId: finalState.deployment && finalState.deployment.deploymentId || '',
+            url: finalState.deployment && finalState.deployment.url || '',
+            verifiedAt: new Date().toISOString()
+          };
+          try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
+        }
+        toast('Full-stack Preview is ready.', 'success');
+        await refresh();
+      } catch (error) {
+        statusLine(status, error.message, true);
+        toast(error.message, 'error');
+      } finally { setBusy(false); }
+    }
+    preview.addEventListener('click', function () {
+      if (hasFullStackBackend) provisionBackendPreview();
+      else deploy('deploy');
+    });
     form.addEventListener('submit', async function (event) {
       event.preventDefault();
       var domain = clean(input.value, 253);
