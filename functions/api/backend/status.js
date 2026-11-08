@@ -128,7 +128,7 @@ export async function onRequestGet(context) {
       const marker = '[OVYX-OP:' + String(current.data.operationId || '') + ']';
       const listed = await cf(
         '/accounts/' + encodeURIComponent(context.env.CLOUDFLARE_ACCOUNT_ID) +
-        '/pages/projects/' + encodeURIComponent(pagesProjectName) + '/deployments?per_page=100',
+        '/pages/projects/' + encodeURIComponent(pagesProjectName) + '/deployments?env=' + encodeURIComponent(targetEnvironment) + '&per_page=100',
         context.env,
       );
       const deployments = Array.isArray(listed) ? listed : [];
