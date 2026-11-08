@@ -132,14 +132,23 @@ jobs:
             done
           }
 
+          # Run the theme/appearance round-trip suite alone. It exercises file
+          # chooser, download and local theme persistence; isolating it avoids
+          # concurrent Chromium load masking a real import result as a timeout.
           run_shard "settings-core" \
             ovyx-settings.browser.test.mjs \
             ovyx-settings-core.browser.test.mjs \
             ovyx-settings-account.browser.test.mjs \
             ovyx-settings-security.browser.test.mjs \
-            > /tmp/ovyx-settings-core.log 2>&1 &
-          core_pid=$!
+            > /tmp/ovyx-settings-core.log 2>&1
+          core_status=$?
+          cat /tmp/ovyx-settings-core.log
+          if [ "$core_status" -ne 0 ]; then
+            echo "Settings core/theme round-trip shard failed."
+            exit "$core_status"
+          fi
 
+          # The remaining browser suites can run in two parallel groups.
           run_shard "settings-workspace" \
             ovyx-settings-ai.browser.test.mjs \
             ovyx-settings-workspace.browser.test.mjs \
@@ -156,15 +165,13 @@ jobs:
             > /tmp/ovyx-settings-safety.log 2>&1 &
           safety_pid=$!
 
-          wait "$core_pid"; core_status=$?
           wait "$workspace_pid"; workspace_status=$?
           wait "$safety_pid"; safety_status=$?
 
-          cat /tmp/ovyx-settings-core.log
           cat /tmp/ovyx-settings-workspace.log
           cat /tmp/ovyx-settings-safety.log
 
-          if [ "$core_status" -ne 0 ] || [ "$workspace_status" -ne 0 ] || [ "$safety_status" -ne 0 ]; then
+          if [ "$workspace_status" -ne 0 ] || [ "$safety_status" -ne 0 ]; then
             echo "One or more Settings browser-test shards failed."
             exit 1
           fi
