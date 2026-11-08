@@ -33,10 +33,10 @@ function validateBindingName(value) {
 }
 
 /**
- * Adds one owner-scoped D1 binding to a Pages project's Preview environment.
- * It reads and preserves the existing Preview configuration, never writes the
- * Production configuration, refuses to replace a conflicting managed binding,
- * and verifies the saved binding with a fresh GET before returning.
+ * Adds one owner-scoped D1 binding to exactly one Pages environment.
+ * Preview and Production are separate explicit methods. Existing settings and
+ * unrelated bindings are preserved, conflicting managed bindings are refused,
+ * and the saved configuration is verified with a fresh GET before returning.
  */
 export function createCloudflarePagesPreviewBindingAdapter({
   accountId,
