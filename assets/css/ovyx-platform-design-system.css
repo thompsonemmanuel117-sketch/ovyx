@@ -1,10 +1,10 @@
-@import url('/assets/css/ovyx-premium-experience.css?v=20261106-1');
+@import url('/assets/css/ovyx-premium-experience.css?v=20261110-1');
 /* OVYX Stage 3 — shared platform design system. Namespaced components opt in. */
 :root {
 --ovyx-ds-black:#000;--ovyx-ds-canvas:#050607;--ovyx-ds-surface:#0b0d10;--ovyx-ds-surface-raised:#11151a;--ovyx-ds-surface-hover:#171c22;
---ovyx-ds-gold:#e8b64f;--ovyx-ds-gold-strong:#f2c96f;--ovyx-ds-gold-soft:rgba(232,182,79,.12);
+--ovyx-ds-gold:#c2a36b;--ovyx-ds-gold-strong:#d5bd8a;--ovyx-ds-gold-soft:rgba(194,163,107,.12);
 --ovyx-ds-white:#f8fafc;--ovyx-ds-silver:#a1aab5;--ovyx-ds-muted:#788391;--ovyx-ds-faint:#596371;
---ovyx-ds-border:rgba(255,255,255,.10);--ovyx-ds-border-strong:rgba(255,255,255,.16);--ovyx-ds-focus:#f2c96f;
+--ovyx-ds-border:rgba(255,255,255,.10);--ovyx-ds-border-strong:rgba(255,255,255,.16);--ovyx-ds-focus:#d5bd8a;
 --ovyx-ds-success:#4ade80;--ovyx-ds-warning:#fbbf24;--ovyx-ds-danger:#fb7185;--ovyx-ds-info:#67e8f9;
 --ovyx-ds-font-ui:var(--ovyx-font-ui,Inter,system-ui,sans-serif);--ovyx-ds-font-mono:var(--ovyx-font-mono,ui-monospace,monospace);
 --ovyx-ds-text-xs:.75rem;--ovyx-ds-text-sm:.875rem;--ovyx-ds-text-md:1rem;--ovyx-ds-text-lg:1.125rem;--ovyx-ds-text-xl:1.375rem;--ovyx-ds-text-2xl:clamp(1.5rem,2vw,2rem);
@@ -36,7 +36,7 @@
 .ovyx-ds-divider{height:1px;border:0;background:var(--ovyx-ds-border);margin-block:var(--ovyx-ds-space-4)}
 .ovyx-ds-muted{color:var(--ovyx-ds-silver)}.ovyx-ds-subtle{color:var(--ovyx-ds-muted)}.ovyx-ds-mono{font-family:var(--ovyx-ds-font-mono);font-variant-numeric:tabular-nums}
 .ovyx-ds-button{display:inline-flex;align-items:center;justify-content:center;gap:.55rem;min-height:2.75rem;padding:.65rem 1rem;border:1px solid var(--ovyx-ds-border-strong);border-radius:var(--ovyx-ds-radius-sm);background:rgba(255,255,255,.045);color:var(--ovyx-ds-white);font:600 var(--ovyx-ds-text-sm)/1.2 var(--ovyx-ds-font-ui);text-decoration:none;cursor:pointer;transition:background var(--ovyx-ds-motion-fast) var(--ovyx-ds-ease),border-color var(--ovyx-ds-motion-fast) var(--ovyx-ds-ease),transform var(--ovyx-ds-motion-fast) var(--ovyx-ds-ease)}
-.ovyx-ds-button:hover:not(:disabled){background:rgba(255,255,255,.09);border-color:rgba(232,182,79,.48)}.ovyx-ds-button:active:not(:disabled){transform:translateY(1px)}
+.ovyx-ds-button:hover:not(:disabled){background:rgba(255,255,255,.09);border-color:rgba(194,163,107,.45)}.ovyx-ds-button:active:not(:disabled){transform:translateY(1px)}
 .ovyx-ds-button:disabled,.ovyx-ds-button[aria-disabled=true]{opacity:.48;cursor:not-allowed}
 .ovyx-ds-button--primary{color:#17120a;background:var(--ovyx-ds-gold);border-color:var(--ovyx-ds-gold)}.ovyx-ds-button--primary:hover:not(:disabled){background:var(--ovyx-ds-gold-strong);border-color:var(--ovyx-ds-gold-strong)}
 .ovyx-ds-button--quiet{background:transparent;border-color:transparent;color:var(--ovyx-ds-silver)}.ovyx-ds-button--danger{color:#fecdd3;border-color:rgba(251,113,133,.35);background:rgba(251,113,133,.08)}
@@ -50,9 +50,9 @@
 .ovyx-ds-table th{color:var(--ovyx-ds-muted);background:rgba(255,255,255,.025);font-size:var(--ovyx-ds-text-xs);font-weight:650;letter-spacing:.06em;text-transform:uppercase}
 .ovyx-ds-table th,.ovyx-ds-table td{padding:.85rem 1rem;border-bottom:1px solid var(--ovyx-ds-border);vertical-align:middle}.ovyx-ds-table tr:last-child td{border-bottom:0}
 .ovyx-ds-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.25rem .55rem;border:1px solid var(--ovyx-ds-border);border-radius:999px;color:var(--ovyx-ds-silver);background:rgba(255,255,255,.035);font-size:var(--ovyx-ds-text-xs);font-weight:600}
-.ovyx-ds-badge--gold{color:var(--ovyx-ds-gold-strong);border-color:rgba(232,182,79,.28);background:var(--ovyx-ds-gold-soft)}
+.ovyx-ds-badge--gold{color:var(--ovyx-ds-gold-strong);border-color:rgba(194,163,107,.30);background:var(--ovyx-ds-gold-soft)}
 .ovyx-ds-badge--success{color:var(--ovyx-ds-success);border-color:rgba(74,222,128,.25)}.ovyx-ds-badge--warning{color:var(--ovyx-ds-warning);border-color:rgba(251,191,36,.25)}.ovyx-ds-badge--danger{color:var(--ovyx-ds-danger);border-color:rgba(251,113,133,.25)}
-.ovyx-ds-icon{display:inline-grid;place-items:center;flex:0 0 auto;width:2.5rem;height:2.5rem;border:1px solid var(--ovyx-ds-border);border-radius:var(--ovyx-ds-radius-sm);color:var(--ovyx-ds-gold);background:rgba(232,182,79,.07)}
+.ovyx-ds-icon{display:inline-grid;place-items:center;flex:0 0 auto;width:2.5rem;height:2.5rem;border:1px solid var(--ovyx-ds-border);border-radius:var(--ovyx-ds-radius-sm);color:var(--ovyx-ds-gold);background:rgba(194,163,107,.07)}
 .ovyx-ds-button:focus-visible,.ovyx-ds-input:focus-visible,.ovyx-ds-select:focus-visible,.ovyx-ds-textarea:focus-visible,.ovyx-ds a:focus-visible,.ovyx-ds [tabindex]:focus-visible{outline:2px solid var(--ovyx-ds-focus);outline-offset:3px}
 .ovyx-ds a{color:inherit}
 @media(max-width:900px){.ovyx-ds-span-8,.ovyx-ds-span-6,.ovyx-ds-span-4{grid-column:span 12}}
