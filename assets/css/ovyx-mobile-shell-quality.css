@@ -421,6 +421,12 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-router-viewport > #view
   --ovyx-brand-gold: #E8B64F;
   --ovyx-brand-gold-strong: #F5C96A;
   --ovyx-brand-gold-muted: #C58B2B;
+  --ovyx-platform-accent: var(--ovyx-brand-gold);
+  --ovyx-platform-accent-strong: var(--ovyx-brand-gold-strong);
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) {
+  --ovyx-platform-accent: var(--ovyx-light-accent);
+  --ovyx-platform-accent-strong: var(--ovyx-light-accent-strong);
 }
 @keyframes ovyxGoldShimmer {
   0%, 68%, 100% { background-position: 140% 0; }
