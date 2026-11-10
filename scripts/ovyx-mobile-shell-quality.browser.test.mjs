@@ -144,6 +144,23 @@ try {
   assert.equal(lightThemeState.gold,'rgb(111, 84, 40)','Light appearance must preserve the selected contrast-safe muted-gold theme accent rather than bright yellow.');
   if(lightThemeState.surfaceBackground!=='missing')assert.equal(lightThemeState.surfaceBackground,'rgb(255, 255, 255)','App Studio workspace panels must become clean white surfaces in Light appearance.');
 
+  const dashboardActionState = await page.evaluate(() => {
+    const home = document.getElementById('view-home');
+    const probe = document.createElement('button');
+    probe.className = 'v59-build-btn';
+    probe.style.backgroundImage = 'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 10 10%27%3E%3Cpath d=%27M1 5h8%27 stroke=%27black%27/%3E%3C/svg%3E")';
+    home?.appendChild(probe);
+    const artwork = getComputedStyle(probe).backgroundImage;
+    probe.remove();
+    const login = Array.from(document.querySelectorAll('#ovyx-topbar button, #ovyx-topbar a, header button, header a'))
+      .find(node => /^log\\s*in$/i.test((node.innerText || node.textContent || '').trim()));
+    return { artwork, loginColor: login ? getComputedStyle(login).color : 'not-found' };
+  });
+  assert.match(dashboardActionState.artwork, /^url\\(/, 'The dashboard Build/send action must retain its existing icon artwork.');
+  if (dashboardActionState.loginColor !== 'not-found') {
+    assert.equal(dashboardActionState.loginColor, 'rgb(24, 33, 47)', 'The Log In action must remain readable in Light appearance.');
+  }
+
   assert.deepEqual(errors, [], 'Mobile shell must not emit browser errors.');
   console.log('OVYX mobile dock geometry and light-theme browser checks passed.');
   await page.close();
