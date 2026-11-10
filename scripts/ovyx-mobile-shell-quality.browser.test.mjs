@@ -101,7 +101,7 @@ try {
     route('home');body.classList.add('ovyx-auth-open');root.classList.add('ovyx-auth-open');const authOpen=runAll();
     route('home');body.classList.add('ovyx-v58-assistant-open');const assistantOpen=runAll();
     route('home');let management=document.getElementById('ovyx-website-management'),created=false;if(!management){management=document.createElement('div');management.id='ovyx-website-management';document.body.appendChild(management);created=true;}const oldStyle=management.getAttribute('style');management.style.cssText='position:fixed;inset:0;display:block;visibility:visible;opacity:1;';const managementOpen=runAll();if(created)management.remove();else if(oldStyle==null)management.removeAttribute('style');else management.setAttribute('style',oldStyle);
-    const appStudio=sections.some(s=>s.id==='view-appstudio')?route('appstudio'):'missing',settings=sections.some(s=>s.id==='view-settings')?route('settings'):'missing',restoredHome=route('home');
+    const appStudio=sections.some(s=>s.id==='view-appstudio')?route('appstudio'):'missing',settings=route('settings'),restoredHome=route('home');
     return {home,drawerOpen,authOpen,assistantOpen,managementOpen,appStudio,settings,restoredHome};
   });
   assert.equal(dockMatrix.home,'grid','The existing mobile dock must remain available on Home.');
