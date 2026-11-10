@@ -96,7 +96,7 @@ try {
     const sections=Array.from(viewport?.querySelectorAll(':scope > section')||[]),body=document.body,root=document.documentElement;
     const drawer=document.getElementById('mobile-drawer'),backdrop=document.getElementById('mobile-drawer-backdrop');
     const runAll=()=>{window.OVYXV57?.syncDock?.();window.OVYXV58?.syncDock?.();window.OVYXMobileShellAuthority?.sync?.();window.OVYXMobileDockAuthority?.sync?.();window.OVYXDashboardNavigationAuthority?.sync?.();return getComputedStyle(dock).display;};
-    const route=id=>{sections.forEach(section=>{const active=section.id==='view-'+id;section.classList.toggle('hidden',!active);if(active)section.style.removeProperty('display');});window.KernelState=window.KernelState||{};window.KernelState.activeView=id;body.classList.remove('ovyx-auth-open','ovyx-drawer-open','ovyx-mobile-drawer-open','ovyx-ws-mobile-nav-open','ovyx-v58-assistant-open');root.classList.remove('ovyx-auth-open');if(drawer){drawer.classList.add('-translate-x-full');drawer.classList.remove('open','is-open');drawer.setAttribute('aria-hidden','true');}if(backdrop){backdrop.classList.add('hidden');backdrop.setAttribute('aria-hidden','true');}return runAll();};
+    const route=id=>{sections.forEach(section=>{const active=section.id==='view-'+id;section.classList.toggle('hidden',!active);if(active)section.style.removeProperty('display');});window.KernelState=window.KernelState||{};window.KernelState.activeView=id;body.classList.remove('ovyx-auth-open','ovyx-drawer-open','ovyx-mobile-drawer-open','ovyx-ws-mobile-nav-open','ovyx-v58-assistant-open');root.classList.remove('ovyx-auth-open');if(drawer){drawer.classList.add('-translate-x-full');drawer.classList.remove('open','is-open');drawer.setAttribute('aria-hidden','true');}if(backdrop){backdrop.classList.add('hidden');backdrop.setAttribute('aria-hidden','true');}const auth=document.getElementById('view-master-auth');if(auth){auth.classList.add('hidden');auth.setAttribute('aria-hidden','true');auth.style.removeProperty('display');}return runAll();};
     const home=route('home');body.classList.add('ovyx-drawer-open');if(drawer){drawer.classList.remove('-translate-x-full');drawer.setAttribute('aria-hidden','false');}const drawerOpen=runAll();
     route('home');body.classList.add('ovyx-auth-open');root.classList.add('ovyx-auth-open');const authOpen=runAll();
     route('home');body.classList.add('ovyx-v58-assistant-open');const assistantOpen=runAll();
@@ -107,6 +107,17 @@ try {
   assert.equal(dockMatrix.home,'grid','The existing mobile dock must remain available on Home.');
   for(const key of ['drawerOpen','authOpen','assistantOpen','managementOpen','appStudio','settings'])assert.equal(dockMatrix[key],'none','The dashboard dock must be hidden during '+key+': '+JSON.stringify(dockMatrix));
   assert.equal(dockMatrix.restoredHome,'grid','Returning to Home must restore the existing dock.');
+  const lightThemeState = await page.evaluate(() => {
+    const root=document.documentElement,previous=root.getAttribute('data-ovyx-mode');root.setAttribute('data-ovyx-mode','light');
+    const studio=document.getElementById('view-appstudio'),surface=studio?.querySelector('.as4-shell');
+    const result={studioBackground:studio?getComputedStyle(studio).backgroundColor:'missing',studioText:studio?getComputedStyle(studio).color:'missing',surfaceBackground:surface?getComputedStyle(surface).backgroundColor:'missing',surfaceText:surface?getComputedStyle(surface).color:'missing'};
+    if(previous==null)root.removeAttribute('data-ovyx-mode');else root.setAttribute('data-ovyx-mode',previous);
+    return result;
+  });
+  assert.equal(lightThemeState.studioBackground,'rgb(245, 247, 250)','App Studio must use the neutral light canvas rather than retaining its hard-coded dark gradient.');
+  assert.equal(lightThemeState.studioText,'rgb(24, 33, 47)','App Studio text must remain readable in Light appearance.');
+  if(lightThemeState.surfaceBackground!=='missing')assert.equal(lightThemeState.surfaceBackground,'rgb(255, 255, 255)','App Studio workspace panels must become clean white surfaces in Light appearance.');
+
   assert.deepEqual(errors, [], 'Mobile shell must not emit browser errors.');
   console.log('OVYX mobile dock geometry and light-theme browser checks passed.');
   await page.close();
