@@ -518,3 +518,22 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-topbar :is(button,a) {
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-topbar :is(button,a) svg {
   color: inherit !important;
 }
+
+
+/* Final Light-theme authority: preserve the dashboard arrow's own background artwork.
+   Earlier shared button rules use the background shorthand, which erases the SVG arrow. */
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-home .v59-build-btn {
+  background-color: var(--ovyx-platform-accent-strong) !important;
+  background-image: var(--v59-build-arrow-artwork, none);
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-home .v59-build-btn :is(svg,i) {
+  color: #fff !important;
+  fill: currentColor;
+  stroke: currentColor;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-home .v59-build-btn::before,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-home .v59-build-btn::after {
+  pointer-events: none;
+}
