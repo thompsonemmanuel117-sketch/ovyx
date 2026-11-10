@@ -524,7 +524,6 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-topbar :is(button,a) svg {
    Earlier shared button rules use the background shorthand, which erases the SVG arrow. */
 html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-home .v59-build-btn {
   background-color: var(--ovyx-platform-accent-strong) !important;
-  background-image: var(--v59-build-arrow-artwork, none);
   color: #fff !important;
   -webkit-text-fill-color: #fff !important;
 }
