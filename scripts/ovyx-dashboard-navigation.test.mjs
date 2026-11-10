@@ -38,12 +38,12 @@ assert.ok(pkg.scripts.test.includes('scripts/ovyx-dashboard-navigation.test.mjs'
 
 // Parse the shipped inline application scripts as JavaScript without executing them.
 // This catches malformed tokens in the large HTML shell before browser regressions fan out.
-const inlineScripts = [...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)];
+const inlineScripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
 for (const [index, match] of inlineScripts.entries()) {
   const attrs = match[1] || '';
-  if (/\\bsrc\\s*=/.test(attrs)) continue;
-  const type = (attrs.match(/\\btype\\s*=\\s*["']([^"']+)["']/i) || [])[1] || 'text/javascript';
-  if (!/^(?:text|application)\\/(?:java|ecma)script$/i.test(type) && type !== 'text/javascript') continue;
+  if (/\bsrc\s*=/.test(attrs)) continue;
+  const type = (attrs.match(/\btype\s*=\s*["']([^"']+)["']/i) || [])[1] || 'text/javascript';
+  if (!/^(?:text|application)\/(?:java|ecma)script$/i.test(type) && type !== 'text/javascript') continue;
   try { new vm.Script(match[2], { filename: 'index.html:inline-script-' + (index + 1) }); }
   catch (error) { error.message = 'Invalid inline application script ' + (index + 1) + ': ' + error.message; throw error; }
 }
