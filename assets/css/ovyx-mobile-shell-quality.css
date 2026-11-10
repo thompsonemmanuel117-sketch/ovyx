@@ -239,8 +239,19 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home :is(.v59-build-btn,.v59
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .v59-build-btn {
   color: #fff !important;
-  background: var(--ovyx-platform-accent-strong) !important;
+  /* Set only the fill: the legacy send-arrow artwork is supplied by background-image. */
+  background-color: var(--ovyx-platform-accent-strong) !important;
   border-color: var(--ovyx-platform-accent-strong) !important;
+}
+/* Keep the dashboard send action animated in both appearances without painting over its arrow. */
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .v59-build-btn {
+  animation: ovyxGoldShimmer 5.8s ease-in-out infinite;
+  box-shadow: 0 5px 20px color-mix(in srgb,var(--ovyx-platform-accent) 20%,transparent);
+}
+@media(prefers-reduced-motion:reduce) {
+  html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .v59-build-btn {
+    animation: none !important;
+  }
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home :is(.v59-routing-note,.v59-plus-note,.v59-home-state,.v59-model-wrap,.v59-tool-card small,.v59-section-head h2,.v59-command-link) {
   color: var(--ovyx-light-secondary) !important;
