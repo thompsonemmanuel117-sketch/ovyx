@@ -14,6 +14,6 @@ assert.ok(!/\.ovyx-auth-(?:diamond|brand)(?:\W|\s*\{)/.test(css),'The OVYX sign-
 assert.ok(!/ovyx-master-auth-form|signInWith|createUserWith|onAuthStateChanged|firebase/i.test(css),'Presentation layer must not own or alter authentication behavior.');
 assert.match(css,/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
 assert.match(css,/:focus-visible/);
-assert.ok(designSystem.startsWith("@import url('/assets/css/ovyx-premium-experience.css?v=20261110-1');"),'The existing shared design system must load the premium experience layer.');
+assert.ok(designSystem.startsWith("@import url('/assets/css/ovyx-premium-experience.css?v=20261110-2');"),'The existing shared design system must load the premium experience layer.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-premium-experience.test.mjs'),'Premium experience contract must run in npm test.');
 console.log('OVYX premium platform experience contract: all checks passed.');
