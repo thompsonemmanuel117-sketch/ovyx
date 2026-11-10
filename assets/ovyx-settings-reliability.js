@@ -53,21 +53,52 @@
     try { return window.firebase && window.firebase.auth && window.firebase.auth().currentUser || null; }
     catch (_) { return null; }
   };
+  const SETTINGS_REQUEST_TIMEOUT_MS = 15000;
+  async function withSettingsTimeout(promise, label) {
+    let timer;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(Object.assign(
+            new Error(label + ' timed out. Please check your connection and try again.'),
+            { code: 'SETTINGS_TIMEOUT' }
+          )), SETTINGS_REQUEST_TIMEOUT_MS);
+        })
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
   async function api(path, options) {
     options = options || {};
     const user = currentUser();
     if (!user) throw Object.assign(new Error('Sign in to change account settings.'), { code: 'AUTH_REQUIRED' });
-    const token = await user.getIdToken(false);
+    const token = await withSettingsTimeout(user.getIdToken(false), 'Account verification');
     const headers = Object.assign({
       Accept: 'application/json',
       Authorization: 'Bearer ' + token
     }, options.headers || {});
-    const response = await fetch(path, Object.assign({
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), SETTINGS_REQUEST_TIMEOUT_MS);
+    const requestOptions = Object.assign({
       credentials: 'same-origin',
-      cache: 'no-store',
-      headers
-    }, options, { headers: headers }));
-    const data = await response.json().catch(() => ({}));
+      cache: 'no-store'
+    }, options, { headers: headers, signal: controller.signal });
+    let response;
+    try {
+      response = await fetch(path, requestOptions);
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw Object.assign(new Error('Settings request timed out. Please check your connection and try again.'), {
+          code: 'SETTINGS_TIMEOUT'
+        });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+    const data = await withSettingsTimeout(response.json().catch(() => ({})), 'Settings response');
     if (!response.ok || data.ok === false) {
       throw Object.assign(new Error(data.message || data.error || ('Request failed (HTTP ' + response.status + ').')), {
         code: data.code || 'SETTINGS_REQUEST_FAILED',
