@@ -451,16 +451,19 @@ html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   #view-home .v59-build-btn,
   #view-home .v59-command-primary,
-  .ovyx-ds-button--primary,
-  .ovyx-settings-btn.primary,
   .ovyx-auth-primary,
   .ovyx-ua-primary,
   .ovyx-lb-generate,
   .ovyx-command-primary
 ) {
-  /* Keep original background artwork intact; animate only the glow. */
+  /* Keep original background artwork intact; animate only high-visibility actions. */
   animation: ovyxGoldShimmer 7s ease-in-out infinite;
   box-shadow: 0 5px 20px color-mix(in srgb,var(--ovyx-platform-accent) 16%,transparent);
+}
+/* Settings theme controls remain static so rapid preview/import updates stay lightweight. */
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(.ovyx-ds-button--primary,.ovyx-settings-btn.primary) {
+  animation: none !important;
+  box-shadow: 0 5px 20px color-mix(in srgb,var(--ovyx-platform-accent) 12%,transparent);
 }
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   #view-home .v59-build-btn,
@@ -497,11 +500,10 @@ html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
 
 
 /* Keep signed-out Home header actions readable in Light appearance. */
-html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(#ovyx-topbar,header) :is(button,a) {
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-topbar :is(button,a) {
   color: var(--ovyx-light-text) !important;
   -webkit-text-fill-color: var(--ovyx-light-text);
 }
-html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(#ovyx-topbar,header) :is(button,a) svg {
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-topbar :is(button,a) svg {
   color: inherit !important;
-  fill: currentColor;
 }
