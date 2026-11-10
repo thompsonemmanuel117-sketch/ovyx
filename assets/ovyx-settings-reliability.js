@@ -449,10 +449,12 @@
       try { localStorage.setItem(notificationStorageKey(), JSON.stringify(notificationDraft)); } catch (_) {}
       if (panel) panel.dataset.ovyxNotificationLastResult = 'saved';
       updateNotificationStatus(panel, 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.', button, reset);
-      notify(reset ? 'Notification preferences reset and saved to your account.' : 'Notification preferences saved to your account.', 'success');
+      // The persistent aria-live status above is the canonical feedback for
+      // notification writes. Avoid routing this action through the global
+      // toast layer, which is shared with other views and can stall the
+      // Settings browser flow while its overlay is being reconciled.
     } catch (error) {
       updateNotificationStatus(panel, 'Your notification preferences could not be saved. Please try again.', button, reset);
-      notify(error.message || 'Notification preferences were not saved.', 'error');
     } finally {
       if (button) { button.disabled = false; button.textContent = button.dataset.originalText || (reset ? 'Reset' : 'Save Notification Preferences'); delete button.dataset.originalText; }
     }
