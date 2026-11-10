@@ -434,27 +434,19 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) {
 }
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   #app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,[id^="view-admin-"]
-) {
-  --ovyx-ds-gold: var(--ovyx-brand-gold);
-  --ovyx-ds-gold-strong: var(--ovyx-brand-gold-strong);
-  --ovyx-premium-gold: var(--ovyx-brand-gold);
-  --ovyx-premium-gold-strong: var(--ovyx-brand-gold-strong);
-}
-html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
-  #app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,[id^="view-admin-"]
 ) :is(.text-amber-200,.text-amber-300,.text-amber-400,.text-amber-500,.text-yellow-200,.text-yellow-300,.text-yellow-400,.text-yellow-500,.text-orange-300,.text-orange-400,.text-gold,.text-ovyx-gold) {
-  color: var(--ovyx-brand-gold) !important;
+  color: var(--ovyx-platform-accent) !important;
 }
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   #app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,[id^="view-admin-"]
 ) :is(.border-amber-200,.border-amber-300,.border-amber-400,.border-amber-500,.border-yellow-200,.border-yellow-300,.border-yellow-400,.border-yellow-500) {
-  border-color: color-mix(in srgb,var(--ovyx-brand-gold) 42%,transparent) !important;
+  border-color: color-mix(in srgb,var(--ovyx-platform-accent) 42%,transparent) !important;
 }
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   #app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,[id^="view-admin-"]
 ) :is(.bg-amber-200,.bg-amber-300,.bg-amber-400,.bg-amber-500,.bg-yellow-200,.bg-yellow-300,.bg-yellow-400,.bg-yellow-500) {
   color: #17140f !important;
-  background-color: var(--ovyx-brand-gold) !important;
+  background-color: var(--ovyx-platform-accent) !important;
 }
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   #view-home .v59-build-btn,
@@ -470,7 +462,7 @@ html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   background-size: 240% 100% !important;
   background-repeat: no-repeat !important;
   animation: ovyxGoldShimmer 7s ease-in-out infinite;
-  box-shadow: 0 5px 20px color-mix(in srgb,var(--ovyx-brand-gold) 16%,transparent);
+  box-shadow: 0 5px 20px color-mix(in srgb,var(--ovyx-platform-accent) 16%,transparent);
 }
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   #view-home .v59-build-btn,
@@ -483,7 +475,7 @@ html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   .ovyx-command-primary
 ):hover:not(:disabled) {
   filter: brightness(1.07);
-  box-shadow: 0 7px 24px color-mix(in srgb,var(--ovyx-brand-gold) 24%,transparent);
+  box-shadow: 0 7px 24px color-mix(in srgb,var(--ovyx-platform-accent) 24%,transparent);
 }
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   #view-home .v59-build-btn,
@@ -495,7 +487,7 @@ html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   .ovyx-lb-generate,
   .ovyx-command-primary
 ):focus-visible {
-  outline: 2px solid var(--ovyx-brand-gold-strong) !important;
+  outline: 2px solid var(--ovyx-platform-accent-strong) !important;
   outline-offset: 3px;
 }
 @media(prefers-reduced-motion:reduce) {
