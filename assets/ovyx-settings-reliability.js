@@ -888,8 +888,10 @@
           serverError = String(error?.message || 'account reset could not be verified');
           localStorage.removeItem(key);
         }
-        const settings = window.OVYXSettings;
-        if (settings && typeof settings.show === 'function') settings.show('ai');
+        // The AI panel is already active when this control is clicked. Reopening
+        // it here dispatches ovyx-settings-rendered, whose asynchronous account
+        // refresh can overwrite this reset confirmation with a generic load status.
+        // Keep the verified reset result authoritative in the currently open panel.
         const status = addStatus(document.querySelector('[data-settings-panel="ai"]'), 'ovyx-ai-preference-status', 'AI preference reset status');
         if (status) {
           status.textContent = serverError
