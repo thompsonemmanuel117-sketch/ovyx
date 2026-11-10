@@ -66,7 +66,7 @@ try {
     'New action must align inside the dock without floating above it.');
   assert.equal(result.createMarginTop, '0px',
     'New action must not use the legacy negative lift.');
-  assert.equal(result.activeColor, 'rgb(112, 70, 0)',
+  assert.equal(result.activeColor, 'rgb(111, 84, 40)',
     'Light-mode active navigation text must use the contrast-safe accent.');
   assert.ok(Number.parseFloat(result.homeBottomPadding) >= 100,
     'Dashboard content must reserve at least 100px of scroll clearance for the fixed dock.');
@@ -91,6 +91,22 @@ try {
     'Authentication must not leave an interactive dashboard dock underneath the login screen.');
   assert.equal(authDockState.viewportPadding, '0px',
     'The authentication screen must not inherit the dashboard dock clearance.');
+  const dockMatrix = await page.evaluate(() => {
+    const dock=document.getElementById('ovyx-v52-bottom-bar'),viewport=document.getElementById('view-router-viewport');
+    const sections=Array.from(viewport?.querySelectorAll(':scope > section')||[]),body=document.body,root=document.documentElement;
+    const drawer=document.getElementById('mobile-drawer'),backdrop=document.getElementById('mobile-drawer-backdrop');
+    const runAll=()=>{window.OVYXV57?.syncDock?.();window.OVYXV58?.syncDock?.();window.OVYXMobileShellAuthority?.sync?.();window.OVYXMobileDockAuthority?.sync?.();window.OVYXDashboardNavigationAuthority?.sync?.();return getComputedStyle(dock).display;};
+    const route=id=>{sections.forEach(section=>{const active=section.id==='view-'+id;section.classList.toggle('hidden',!active);if(active)section.style.removeProperty('display');});window.KernelState=window.KernelState||{};window.KernelState.activeView=id;body.classList.remove('ovyx-auth-open','ovyx-drawer-open','ovyx-mobile-drawer-open','ovyx-ws-mobile-nav-open','ovyx-v58-assistant-open');root.classList.remove('ovyx-auth-open');if(drawer){drawer.classList.add('-translate-x-full');drawer.classList.remove('open','is-open');drawer.setAttribute('aria-hidden','true');}if(backdrop){backdrop.classList.add('hidden');backdrop.setAttribute('aria-hidden','true');}return runAll();};
+    const home=route('home');body.classList.add('ovyx-drawer-open');if(drawer){drawer.classList.remove('-translate-x-full');drawer.setAttribute('aria-hidden','false');}const drawerOpen=runAll();
+    route('home');body.classList.add('ovyx-auth-open');root.classList.add('ovyx-auth-open');const authOpen=runAll();
+    route('home');body.classList.add('ovyx-v58-assistant-open');const assistantOpen=runAll();
+    route('home');let management=document.getElementById('ovyx-website-management'),created=false;if(!management){management=document.createElement('div');management.id='ovyx-website-management';document.body.appendChild(management);created=true;}const oldStyle=management.getAttribute('style');management.style.cssText='position:fixed;inset:0;display:block;visibility:visible;opacity:1;';const managementOpen=runAll();if(created)management.remove();else if(oldStyle==null)management.removeAttribute('style');else management.setAttribute('style',oldStyle);
+    const appStudio=sections.some(s=>s.id==='view-appstudio')?route('appstudio'):'missing',settings=sections.some(s=>s.id==='view-settings')?route('settings'):'missing',restoredHome=route('home');
+    return {home,drawerOpen,authOpen,assistantOpen,managementOpen,appStudio,settings,restoredHome};
+  });
+  assert.equal(dockMatrix.home,'grid','The existing mobile dock must remain available on Home.');
+  for(const key of ['drawerOpen','authOpen','assistantOpen','managementOpen','appStudio','settings'])assert.equal(dockMatrix[key],'none','The dashboard dock must be hidden during '+key+': '+JSON.stringify(dockMatrix));
+  assert.equal(dockMatrix.restoredHome,'grid','Returning to Home must restore the existing dock.');
   assert.deepEqual(errors, [], 'Mobile shell must not emit browser errors.');
   console.log('OVYX mobile dock geometry and light-theme browser checks passed.');
   await page.close();
