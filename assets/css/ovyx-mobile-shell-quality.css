@@ -404,3 +404,19 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(#app-sidebar,#mobile-drawer,#v
   --ovyx-ds-gold:var(--ovyx-light-accent)!important;
   --ovyx-premium-gold:var(--ovyx-light-accent)!important;
 }
+
+/* Outrank the legacy App Studio black-canvas rules when Light appearance is active. */
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-router-viewport > #view-appstudio {
+  color:var(--ovyx-light-text)!important;
+  background:var(--ovyx-light-canvas)!important;
+  background-color:var(--ovyx-light-canvas)!important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-router-viewport > #view-appstudio #app-studio-clean-canvas {
+  background:var(--ovyx-light-canvas)!important;
+  background-color:var(--ovyx-light-canvas)!important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-router-viewport > #view-appstudio :is(.as4-shell,.ovyx-as-hero,.ovyx-as-disclosure,.ovyx-ua-panel,.ovyx-lb-panel,.ovyx-lb-brain,.ovyx-lb-release,.ovyx-lb-preview,.ovyx-ua-stat,.ovyx-ua-section,.ovyx-ua-page,.ovyx-ua-asset,.ovyx-lb-frame,.ovyx-as-flow>a) {
+  color:var(--ovyx-light-text)!important;
+  background:#fff!important;
+  border-color:var(--ovyx-light-border)!important;
+}
