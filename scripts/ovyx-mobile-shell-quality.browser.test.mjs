@@ -15,8 +15,9 @@ try {
     String(sheet.href || '').includes('ovyx-mobile-shell-quality.css')));
   await page.waitForFunction(() => !!document.getElementById('ovyx-v52-bottom-bar') && !!document.getElementById('view-home'));
 
-  const result = await page.evaluate(() => {
-    document.documentElement.dataset.ovyxMode = 'light';
+  const result = await page.evaluate(async () => {
+    window.ThemeContext?.set?.({mode:'light',backgroundColor:'#F8FAFC',sidebarColor:'#F1F3F6',cardColor:'#FFFFFF',borderColor:'#CBD5E1',textColor:'#111827',mutedColor:'#475569',accentColor:'#F59E0B'});
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     document.body.classList.add('ovyx-v88-dock-home');
     const dock = document.getElementById('ovyx-v52-bottom-bar');
     const home = dock.querySelector('[data-v52-bottom="home"]');
@@ -115,14 +116,15 @@ try {
   assert.equal(dockMatrix.home,'grid','The existing mobile dock must remain available on Home.');
   for(const key of ['drawerOpen','authOpen','assistantOpen','managementOpen','appStudio','settings','adminOpen'])assert.equal(dockMatrix[key],'none','The dashboard dock must be hidden during '+key+': '+JSON.stringify(dockMatrix));
   assert.equal(dockMatrix.restoredHome,'grid','Returning to Home must restore the existing dock.');
-  const darkGoldState = await page.evaluate(() => {
-    const root=document.documentElement,previousMode=root.getAttribute('data-ovyx-mode'),wasLight=root.classList.contains('ovyx-light');
-    root.removeAttribute('data-ovyx-mode');root.classList.remove('ovyx-light');
+  const darkGoldState = await page.evaluate(async () => {
+    const theme=window.ThemeContext,previous=theme?.get?.();
+    theme?.set?.({mode:'dark',accentColor:'#F59E0B'});
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     const host=document.querySelector('#view-home');if(!host)return 'missing';
     const probe=document.createElement('span');probe.className='text-amber-400';probe.textContent='Accent probe';host.appendChild(probe);
     const color=getComputedStyle(probe).color;probe.remove();
-    if(previousMode==null)root.removeAttribute('data-ovyx-mode');else root.setAttribute('data-ovyx-mode',previousMode);
-    if(wasLight)root.classList.add('ovyx-light');
+    if(previous)theme.set(previous);
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     return color;
   });
   assert.equal(darkGoldState,'rgb(194, 163, 107)','Platform gold utilities must use the restrained champagne brand colour.');
