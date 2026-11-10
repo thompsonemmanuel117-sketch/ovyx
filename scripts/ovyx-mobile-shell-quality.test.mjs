@@ -45,5 +45,4 @@ assert.match(css, /@keyframes ovyxGoldShimmer/, 'Gold primary actions must have 
 assert.match(css, /prefers-reduced-motion:\s*reduce/, 'Gold animation must respect reduced-motion preferences.');
 assert.match(css, /section:not\(#view-webstudio\)/, 'Gold polish must not alter Web Studio internals.');
 
-assert.match(css, /html:is\\(\\.ovyx-light,\\[data-ovyx-mode="light"\\]\\) \\{[\\s\\S]*?--ovyx-platform-accent:\\s*var\\(--ovyx-light-accent\\)/, 'Light mode must default to contrast-safe gold while still allowing inline user theme overrides.');
 assert.ok(css.includes('html:is(.ovyx-light,[data-ovyx-mode="light"]) {') && css.includes('--ovyx-platform-accent: var(--ovyx-light-accent);'), 'Light mode must default to contrast-safe gold while still allowing inline user theme overrides.');
