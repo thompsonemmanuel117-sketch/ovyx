@@ -39,7 +39,7 @@ try {
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto(base,{waitUntil:'load'});
  await page.waitForFunction(()=>document.getElementById('ovyx-app-studio-visual-refresh-style'));
- await page.waitForFunction(()=>document.querySelector('#view-appstudio .ovyx-as-flow__copy b')?.textContent==='Build');
+ await page.waitForFunction(()=>document.querySelector('#view-appstudio [data-ovyx-as-step="generate"] .ovyx-as-flow__copy b')?.textContent==='Build');
  const desktop=await page.evaluate(()=>{
   const root=document.getElementById('view-appstudio'),panel=document.querySelector('.ovyx-ua-panel'),hero=document.querySelector('.ovyx-as-hero');
   return {paddingBottom:getComputedStyle(root).paddingBottom,text:getComputedStyle(panel).color,heroTitle:document.getElementById('ovyx-as-title').textContent,description:document.querySelector('.ovyx-as-hero__desc').textContent,panelBackground:getComputedStyle(panel).backgroundImage,animation:getComputedStyle(hero).animationName,dashboardPosition:getComputedStyle(document.getElementById('ovyx-v52-bottom-bar')).position};
