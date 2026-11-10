@@ -71,6 +71,7 @@ try {
     assert.notEqual(layout.overflowY, 'hidden', '[' + target.name + '] Settings content must not be vertically clipped.');
     assert.ok(layout.minHeight >= 400, '[' + target.name + '] Settings content surface must not collapse to a short strip.');
 
+
     if (target.name === 'mobile') {
       const sidebar = root.locator('.ovyx-settings-sidebar');
       const metrics = await sidebar.evaluate(el => ({
@@ -78,6 +79,15 @@ try {
         scrollWidth: el.scrollWidth,
         overflowX: getComputedStyle(el).overflowX,
       }));
+      const touchStyles = await sidebar.evaluate(el => ({
+        position: getComputedStyle(el).position,
+        touchAction: getComputedStyle(el).touchAction,
+        overscrollY: getComputedStyle(el).overscrollBehaviorY,
+      }));
+      assert.notEqual(touchStyles.position, 'sticky', '[mobile] category navigation must not pin itself and obstruct natural page movement.');
+      assert.match(touchStyles.touchAction, /pan-x/);
+      assert.match(touchStyles.touchAction, /pan-y/);
+      assert.equal(touchStyles.overscrollY, 'auto', '[mobile] vertical gestures must continue to the Settings page.');
       assert.equal(metrics.overflowX, 'auto', '[mobile] category strip must allow horizontal touch scrolling.');
       assert.ok(metrics.scrollWidth > metrics.clientWidth, '[mobile] every category must remain reachable in the scrollable strip.');
       await navItems.last().scrollIntoViewIfNeeded();
