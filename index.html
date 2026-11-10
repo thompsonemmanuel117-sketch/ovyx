@@ -5912,7 +5912,8 @@ function dockBlocked(){
  const drawerOpen=body.classList.contains('ovyx-drawer-open')||body.classList.contains('ovyx-mobile-drawer-open')||body.classList.contains('ovyx-ws-mobile-nav-open')||!!(drawer&&(drawer.classList.contains('open')||drawer.classList.contains('is-open')||drawer.getAttribute('aria-hidden')==='false'||!drawer.classList.contains('-translate-x-full')))||shown(backdrop);
  const authOpen=body.classList.contains('ovyx-auth-open')||html.classList.contains('ovyx-auth-open')||shown($('view-master-auth'));
  const assistantOpen=body.classList.contains('ovyx-v58-assistant-open')||shown($('kernel-brain-bot-panel'));
- const standaloneOpen=shown($('ovyx-website-management'))||shown($('ovyx-owner-console'));
+ const standaloneOpen=shown($('ovyx-website-management'))||shown($('ovyx-owner-console'))||
+   Array.from(document.querySelectorAll('#view-settings,[id^="view-admin-"]')).some(shown);
  const modalOpen=Array.from(document.querySelectorAll('[role="dialog"],[aria-modal="true"],.v55-preview-modal')).some(shown);
  return drawerOpen||authOpen||assistantOpen||standaloneOpen||modalOpen||body.classList.contains('ovyx-webstudio-active');
 }
