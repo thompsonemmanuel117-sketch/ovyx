@@ -24,6 +24,8 @@ assert.match(runtime, /ovyx-website-management/);
 assert.match(runtime, /window\.innerWidth >= 768/, 'Desktop navigation layout must remain untouched.');
 assert.match(runtime, /function drawerOpen\(\)/, 'The final authority must independently detect an open mobile drawer.');
 assert.match(runtime, /window\.OVYXDashboardDockBlocked/, 'The final authority must use the shared protected-surface contract.');
+assert.ok(runtime.includes('#view-settings'), 'Standalone Settings must suppress the dashboard dock outside the routed viewport.');
+assert.ok(runtime.includes('[id^="view-admin-"]'), 'Standalone Admin views must suppress the dashboard dock.');
 assert.match(html, /window\.OVYXDashboardDockBlocked=dockBlocked/, 'All route writers must share one dock visibility predicate.');
 assert.ok((html.match(/!window\.OVYXDashboardDockBlocked\?\.\(\)/g) || []).length >= 4, 'Legacy dock writers must fail closed for drawers, authentication and standalone overlays.');
 assert.match(runtime, /new MutationObserver/, 'The authority must follow route and dock re-renders.');
