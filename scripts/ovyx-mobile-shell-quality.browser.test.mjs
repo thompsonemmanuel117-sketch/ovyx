@@ -126,10 +126,11 @@ try {
     return color;
   });
   assert.equal(darkGoldState,'rgb(194, 163, 107)','Platform gold utilities must use the restrained champagne brand colour.');
-  const lightThemeState = await page.evaluate(() => {
+  const lightThemeState = await page.evaluate(async () => {
     const root=document.documentElement,theme=window.ThemeContext,previousTheme=theme?.get?.(),previousMode=root.getAttribute('data-ovyx-mode');
     if(theme?.set)theme.set({mode:'light',backgroundColor:'#F8FAFC',sidebarColor:'#F1F3F6',cardColor:'#FFFFFF',borderColor:'#CBD5E1',textColor:'#111827',mutedColor:'#475569',accentColor:'#6F5428'});
     else root.setAttribute('data-ovyx-mode','light');
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     const studio=document.getElementById('view-appstudio'),surface=studio?.querySelector('.as4-shell');
     const canvas=document.getElementById('app-studio-clean-canvas'),home=document.getElementById('view-home'),probe=document.createElement('span');probe.className='text-amber-400';if(home)home.appendChild(probe);const gold=home?getComputedStyle(probe).color:'missing';probe.remove();const result={studioBackground:studio?getComputedStyle(studio).backgroundColor:'missing',studioText:studio?getComputedStyle(studio).color:'missing',canvasBackground:canvas?getComputedStyle(canvas).backgroundColor:'missing',surfaceBackground:surface?getComputedStyle(surface).backgroundColor:'missing',surfaceText:surface?getComputedStyle(surface).color:'missing',gold};
     if(previousTheme&&theme?.set)theme.set(previousTheme);else if(previousMode==null)root.removeAttribute('data-ovyx-mode');else root.setAttribute('data-ovyx-mode',previousMode);
