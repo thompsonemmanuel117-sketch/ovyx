@@ -377,6 +377,7 @@ html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(#app-sidebar,#mobile-dra
   --ovyx-ds-gold-soft:color-mix(in srgb,var(--ovyx-platform-accent) 12%,transparent)!important;
   --ovyx-ds-focus:var(--ovyx-platform-accent-strong)!important;
   --ovyx-premium-gold:var(--ovyx-platform-accent)!important;
+  --ovyx-premium-gold-strong:var(--ovyx-platform-accent-strong)!important;
 }
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(#app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,[id^="view-admin-"]) :is(
   .text-amber-200,.text-amber-300,.text-amber-400,.text-amber-500,.text-yellow-200,.text-yellow-300,.text-yellow-400,.text-yellow-500,
