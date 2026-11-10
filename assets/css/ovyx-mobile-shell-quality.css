@@ -374,3 +374,33 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-appstudio :is(.ovyx-ua-input
 
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-router-viewport > section:not(#view-webstudio) :is(.text-white,.text-zinc-100,.text-gray-100,.text-slate-100):not(button):not(a):not(button *):not(a *) { color:var(--ovyx-light-text)!important; }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-router-viewport > section:not(#view-webstudio) :is(.text-zinc-300,.text-zinc-400,.text-gray-300,.text-gray-400,.text-slate-300,.text-slate-400):not(button):not(a):not(button *):not(a *) { color:var(--ovyx-light-secondary)!important; }
+
+/* One restrained brand-accent authority across platform surfaces. Web Studio is intentionally excluded. */
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(#app-sidebar,#mobile-drawer,#view-router-viewport > section:not(#view-webstudio)) {
+  --app-accent:var(--ovyx-brand-gold)!important;
+  --accent:var(--ovyx-brand-gold)!important;
+  --ov-accent:var(--ovyx-brand-gold)!important;
+  --ovyx-gold:var(--ovyx-brand-gold)!important;
+  --ovyx-ds-gold:var(--ovyx-brand-gold)!important;
+  --ovyx-premium-gold:var(--ovyx-brand-gold)!important;
+}
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) #view-router-viewport > section:not(#view-webstudio) :is(
+  .text-amber-200,.text-amber-300,.text-amber-400,.text-amber-500,.text-yellow-200,.text-yellow-300,.text-yellow-400,.text-yellow-500,
+  .text-orange-300,.text-orange-400,.text-gold,.text-ovyx-gold
+) { color:var(--ovyx-brand-gold)!important; }
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) #view-router-viewport > section:not(#view-webstudio) :is(
+  .border-amber-200,.border-amber-300,.border-amber-400,.border-amber-500,.border-yellow-200,.border-yellow-300,.border-yellow-400,.border-yellow-500,
+  .border-orange-300,.border-orange-400
+) { border-color:rgba(194,163,107,.34)!important; }
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) #view-router-viewport > section:not(#view-webstudio) :is(
+  .bg-amber-200,.bg-amber-300,.bg-amber-400,.bg-amber-500,.bg-yellow-200,.bg-yellow-300,.bg-yellow-400,.bg-yellow-500,
+  .bg-orange-200,.bg-orange-300
+) { color:#17140f!important; background-color:var(--ovyx-brand-gold)!important; }
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(#app-sidebar,#mobile-drawer,#view-router-viewport > section:not(#view-webstudio)) {
+  --app-accent:var(--ovyx-light-accent)!important;
+  --accent:var(--ovyx-light-accent)!important;
+  --ov-accent:var(--ovyx-light-accent)!important;
+  --ovyx-gold:var(--ovyx-light-accent)!important;
+  --ovyx-ds-gold:var(--ovyx-light-accent)!important;
+  --ovyx-premium-gold:var(--ovyx-light-accent)!important;
+}
