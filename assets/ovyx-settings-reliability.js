@@ -3,6 +3,89 @@
   if (window.__OVYX_SETTINGS_RELIABILITY_V1__) return;
   window.__OVYX_SETTINGS_RELIABILITY_V1__ = true;
 
+  // Settings navigation quality: keep every category reachable and every control
+  // comfortable to use on touch screens without changing any Settings features.
+  (function installSettingsNavigationQuality() {
+    if (document.getElementById('ovyx-settings-navigation-quality-v1')) return;
+    const style = document.createElement('style');
+    style.id = 'ovyx-settings-navigation-quality-v1';
+    style.textContent = `
+      .ovyx-settings-shell { width: 100%; min-height: calc(100svh - 112px); }
+      .ovyx-settings-layout { align-items: stretch; }
+      .ovyx-settings-sidebar {
+        max-height: calc(100svh - 132px);
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        scrollbar-width: thin;
+        scrollbar-gutter: stable;
+      }
+      .ovyx-settings-nav {
+        min-height: 44px;
+        padding: 9px 10px;
+        cursor: pointer;
+        pointer-events: auto;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .ovyx-settings-nav:focus-visible {
+        outline: 2px solid var(--ovyx-platform-accent, #E8B64F);
+        outline-offset: 2px;
+      }
+      .ovyx-settings-main {
+        min-height: 62svh;
+        height: auto;
+        overflow: visible;
+        scroll-margin-top: 84px;
+      }
+      .ovyx-settings-panel { min-width: 0; }
+      .ovyx-settings-panel.active { min-height: 62svh; }
+      @media (max-width: 850px) {
+        .ovyx-settings-shell {
+          min-height: 0;
+          padding-bottom: max(28px, env(safe-area-inset-bottom));
+        }
+        .ovyx-settings-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+        .ovyx-settings-sidebar {
+          position: sticky;
+          top: 6px;
+          z-index: 30;
+          display: flex;
+          flex-wrap: nowrap;
+          gap: 7px;
+          max-height: none;
+          overflow-x: auto;
+          overflow-y: hidden;
+          padding: 7px;
+          scrollbar-width: thin;
+          scrollbar-gutter: auto;
+          overscroll-behavior-x: contain;
+          -webkit-overflow-scrolling: touch;
+          touch-action: pan-x pan-y;
+          background: var(--ov-panel);
+          border-radius: 12px;
+        }
+        .ovyx-settings-nav {
+          flex: 0 0 auto;
+          min-width: max-content;
+          min-height: 44px;
+          padding: 8px 12px;
+          gap: 8px;
+          font-size: 12px;
+          scroll-snap-align: start;
+        }
+        .ovyx-settings-nav i { width: 28px; height: 28px; flex: 0 0 28px; }
+        .ovyx-settings-nav small { display: none; }
+        .ovyx-settings-main { min-height: 58svh; }
+        .ovyx-settings-panel.active { min-height: 58svh; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .ovyx-settings-panel.active { animation: none !important; }
+        .ovyx-settings-nav { scroll-behavior: auto !important; }
+      }
+    `;
+    document.head.appendChild(style);
+  })();
+
   const PROFILE_ENDPOINT = '/api/settings/profile';
   const NOTIFICATIONS_ENDPOINT = '/api/settings/preferences';
   const AI_PREFERENCES_ENDPOINT = '/api/settings/ai';
