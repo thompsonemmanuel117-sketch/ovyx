@@ -5,8 +5,8 @@
   --ovyx-premium-surface:rgba(255,255,255,.025);
   --ovyx-premium-surface-raised:rgba(255,255,255,.045);
   --ovyx-premium-border:rgba(255,255,255,.095);
-  --ovyx-premium-border-hover:rgba(194,163,107,.28);
-  --ovyx-premium-gold:#c2a36b;
+  --ovyx-premium-border-hover:rgba(232,182,79,.28);
+  --ovyx-premium-gold:#e8b64f; --ovyx-premium-gold-strong:#f4ce7c;
   --ovyx-premium-silver:#a1aab5;
   --ovyx-premium-ease:cubic-bezier(.22,1,.36,1);
   --ovyx-premium-duration:220ms;
@@ -121,8 +121,8 @@
   min-height:52px;
   margin-top:4px;
   border-radius:11px;
-  background:linear-gradient(110deg,var(--ovyx-premium-gold),#d5bd8a);
-  box-shadow:0 10px 32px rgba(194,163,107,.12);
+  background:linear-gradient(110deg,var(--ovyx-premium-gold),var(--ovyx-premium-gold-strong));
+  box-shadow:0 10px 32px rgba(232,182,79,.12);
   font-size:10px;
   letter-spacing:.09em;
 }
