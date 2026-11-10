@@ -393,3 +393,10 @@ assert.ok(html.includes('rollbackAgentChanges(baseGraph,appliedGraph,originalPro
   'Failed Build/Fix runs must restore only agent-touched files rather than replacing the entire project list.');
 
 console.log('OVYX Settings actions tests passed: server-backed profile and notifications, account and email-scoped cleanup, Brand Identity, live Universal Connection tests, session revocation, usage, workspace toggles, editor mode and AI routing.');
+
+assert.match(runtime, /const SETTINGS_REQUEST_TIMEOUT_MS = 15000/, 'Settings network operations must have a bounded timeout.');
+assert.match(runtime, /withSettingsTimeout\(user\.getIdToken\(false\), 'Account verification'\)/, 'Firebase token refresh must not leave Settings actions waiting forever.');
+assert.match(runtime, /const controller = new AbortController\(\)/, 'Settings fetches must be abortable when the request deadline is reached.');
+assert.match(runtime, /signal: controller\.signal/, 'The request deadline must cancel the underlying fetch.');
+assert.match(runtime, /code: 'SETTINGS_TIMEOUT'/, 'Timed-out Settings operations must expose a stable recoverable error code.');
+assert.match(runtime, /finally \{\s*clearTimeout\(timeout\);\s*\}/, 'Fetch timeout handles must always be cleared.');
