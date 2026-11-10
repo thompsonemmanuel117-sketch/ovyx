@@ -211,11 +211,23 @@
       el.id = id;
       el.className = 'ovyx-settings-action-status';
       el.setAttribute('role', 'status');
-      // Keep action feedback visible even when responsive theme rules target
-      // generic status elements or panel descendants.
-      el.style.cssText = 'display:block!important;visibility:visible!important;opacity:1!important;min-height:18px;padding:9px 14px;color:var(--ov-muted,#858990);font:600 9px/1.5 JetBrains Mono,monospace;overflow-wrap:anywhere';
       panel.appendChild(el);
     }
+    // The status node may have been created by an earlier panel hydration
+    // before a responsive/theme pass. Re-assert its visible presentation on
+    // every update; otherwise inherited Settings rules can leave an existing
+    // node hidden even though a newly-created fallback would be visible.
+    el.hidden = false;
+    el.removeAttribute('aria-hidden');
+    el.setAttribute('role', 'status');
+    el.style.setProperty('display', 'block', 'important');
+    el.style.setProperty('visibility', 'visible', 'important');
+    el.style.setProperty('opacity', '1', 'important');
+    el.style.setProperty('min-height', '18px', 'important');
+    el.style.setProperty('padding', '9px 14px', 'important');
+    el.style.setProperty('color', 'var(--ov-muted,#858990)', 'important');
+    el.style.setProperty('font', '600 9px/1.5 JetBrains Mono,monospace', 'important');
+    el.style.setProperty('overflow-wrap', 'anywhere', 'important');
     if (text) el.textContent = text;
     return el;
   }
@@ -334,6 +346,49 @@
       && isActuallyVisible(panel.querySelector('#notify-save'))
       && isActuallyVisible(panel.querySelector('#notify-reset'))) || panels.find(isActuallyVisible) || panels[0] || null;
   }
+  function updateNotificationStatus(panel, message, button, reset) {
+    // The clicked control is the authoritative responsive instance. A status
+    // element previously hydrated elsewhere in the panel can be hidden or
+    // detached by Settings panel refreshes, so replace it beside the control
+    // that completed the server request rather than reusing a stale node.
+    const clickedPanel = button && button.closest('[data-settings-panel="notifications"]');
+    // Settings can replace a responsive panel while the authenticated PUT is
+    // in flight. Prefer the original panel when it survives; otherwise resolve
+    // the currently mounted visible panel instead of writing into a detached
+    // node captured before the request.
+    const primary = (clickedPanel && clickedPanel.isConnected ? clickedPanel : null)
+      || (panel && panel.isConnected ? panel : null)
+      || notificationPanel();
+    if (!primary || !primary.isConnected) return null;
+
+    primary.querySelectorAll('#ovyx-notification-server-status').forEach(node => node.remove());
+    const status = document.createElement('div');
+    status.id = 'ovyx-notification-server-status';
+    status.className = 'ovyx-settings-action-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.hidden = false;
+    status.textContent = message;
+    status.style.setProperty('display', 'block', 'important');
+    status.style.setProperty('visibility', 'visible', 'important');
+    status.style.setProperty('opacity', '1', 'important');
+    status.style.setProperty('min-height', '18px', 'important');
+    status.style.setProperty('padding', '9px 14px', 'important');
+    status.style.setProperty('color', 'var(--ov-muted,#858990)', 'important');
+    status.style.setProperty('font', '600 9px/1.5 JetBrains Mono,monospace', 'important');
+    status.style.setProperty('overflow-wrap', 'anywhere', 'important');
+
+    const activeButton = button && button.isConnected
+      && button.closest('[data-settings-panel="notifications"]') === primary
+      ? button
+      : primary.querySelector(reset ? '#notify-reset' : '#notify-save');
+    if (activeButton && activeButton.isConnected) {
+      activeButton.insertAdjacentElement('afterend', status);
+    } else {
+      primary.appendChild(status);
+    }
+    return status;
+  }
   function notificationStorageKey() {
     const user = currentUser();
     return user && user.uid ? 'ovyx.notifications.v1.user.' + String(user.uid) : 'ovyx.notifications.v1.guest';
@@ -383,6 +438,7 @@
     // its status attached here even if responsive visibility styles change
     // during the async request; a later global scan can select no panel.
     const panel = clickedPanel && clickedPanel.isConnected ? clickedPanel : notificationPanel();
+    if (button) button.dataset.ovyxNotificationActionHandled = reset ? 'reset' : 'save';
     const status = addStatus(panel, 'ovyx-notification-server-status', 'Saving notification preferences…');
     const next = reset ? Object.assign({}, NOTIFICATION_DEFAULTS) : Object.assign({}, notificationDraft || NOTIFICATION_DEFAULTS);
     if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Saving…'; }
@@ -391,11 +447,14 @@
       renderNotificationState(panel, data.notifications || next);
       window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
       try { localStorage.setItem(notificationStorageKey(), JSON.stringify(notificationDraft)); } catch (_) {}
-      if (status) status.textContent = 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.';
-      notify(reset ? 'Notification preferences reset and saved to your account.' : 'Notification preferences saved to your account.', 'success');
+      if (panel) panel.dataset.ovyxNotificationLastResult = 'saved';
+      updateNotificationStatus(panel, 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.', button, reset);
+      // The persistent aria-live status above is the canonical feedback for
+      // notification writes. Avoid routing this action through the global
+      // toast layer, which is shared with other views and can stall the
+      // Settings browser flow while its overlay is being reconciled.
     } catch (error) {
-      if (status) status.textContent = 'Your notification preferences could not be saved. Please try again.';
-      notify(error.message || 'Notification preferences were not saved.', 'error');
+      updateNotificationStatus(panel, 'Your notification preferences could not be saved. Please try again.', button, reset);
     } finally {
       if (button) { button.disabled = false; button.textContent = button.dataset.originalText || (reset ? 'Reset' : 'Save Notification Preferences'); delete button.dataset.originalText; }
     }
@@ -545,7 +604,9 @@
       const status = addStatus(panel, 'ovyx-notification-server-status', 'Unsaved changes. Save to apply your notification preferences.');
       if (status) status.textContent = 'Unsaved changes. Save to apply this preference. Email notifications will not be sent until delivery is available.';
     }, true);
-    document.addEventListener('click', function (event) {
+    // Run before legacy document-level capture listeners so the account-backed
+    // Reset action cannot be consumed by an older local-only Settings handler.
+    window.addEventListener('click', function (event) {
       const save = event.target && event.target.closest && event.target.closest('#notify-save');
       const reset = event.target && event.target.closest && event.target.closest('#notify-reset');
       const button = save || reset;
@@ -827,8 +888,13 @@
           serverError = String(error?.message || 'account reset could not be verified');
           localStorage.removeItem(key);
         }
-        const settings = window.OVYXSettings;
-        if (settings && typeof settings.show === 'function') settings.show('ai');
+        // Refresh the visible controls directly; do not reopen the panel because that
+        // dispatches ovyx-settings-rendered and can race the verified reset status.
+        syncAISettingsControls();
+        // The AI panel is already active when this control is clicked. Reopening
+        // it here dispatches ovyx-settings-rendered, whose asynchronous account
+        // refresh can overwrite this reset confirmation with a generic load status.
+        // Keep the verified reset result authoritative in the currently open panel.
         const status = addStatus(document.querySelector('[data-settings-panel="ai"]'), 'ovyx-ai-preference-status', 'AI preference reset status');
         if (status) {
           status.textContent = serverError

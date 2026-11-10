@@ -38,7 +38,9 @@ try {
       if (/Settings|profile|notification|OVYXSettings/i.test(error.message)) pageErrors.push(error.message);
     });
 
+    console.log('[settings-account] ' + target.name + ': loading app');
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    console.log('[settings-account] ' + target.name + ': app loaded');
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX app failed to load.');
     await page.waitForFunction(
       () => typeof window.Router?.go === 'function' && typeof window.OVYXSettings?.show === 'function',
@@ -46,6 +48,7 @@ try {
       { timeout: 45000 },
     );
     await waitForRouteRestore(page);
+    console.log('[settings-account] ' + target.name + ': route restored');
     await page.evaluate(() => window.Router.go('settings'));
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
@@ -136,7 +139,8 @@ try {
 
     await displayName.fill('Stage Two Browser Name');
     await workspaceName.fill('Stage Two Browser Workspace');
-    await profileSave.click();
+    await profileSave.click({ noWaitAfter: true });
+    console.log('[settings-account] ' + target.name + ': first profile save clicked');
     await page.waitForFunction(
       () => document.getElementById('ovyx-profile-server-status')?.textContent
         ?.includes('Your profile was not saved. Please try again.'),
@@ -156,7 +160,8 @@ try {
       () => !document.querySelector('#profile-save-action, [data-settings-panel="profile"] [data-save-profile]')?.disabled,
     );
 
-    await profileSave.click();
+    await profileSave.click({ noWaitAfter: true });
+    console.log('[settings-account] ' + target.name + ': second profile save clicked');
     await page.waitForFunction(
       () => document.getElementById('ovyx-profile-server-status')?.textContent
         ?.includes('Profile saved to your OVYX account. Last updated'),
@@ -239,7 +244,8 @@ try {
     assert.equal(savedBeforeFail.projectActivity, true);
 
     const savePreferences = notificationsPanel.locator('#notify-save');
-    await savePreferences.click();
+    await savePreferences.click({ noWaitAfter: true });
+    console.log('[settings-account] ' + target.name + ': notification save clicked');
     await page.waitForFunction(
       () => {
         const visiblePanel = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).find(node => node.getClientRects().length > 0
@@ -258,7 +264,8 @@ try {
       '[' + target.name + '] failed Save must not persist an unsaved draft.');
     await page.waitForFunction(() => !document.getElementById('notify-save')?.disabled);
 
-    await savePreferences.click();
+    await savePreferences.click({ noWaitAfter: true });
+    console.log('[settings-account] ' + target.name + ': notification retry clicked');
     await page.waitForFunction(
       () => {
         const visiblePanel = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).find(node => node.getClientRects().length > 0
@@ -287,7 +294,43 @@ try {
     // wait for the actual authenticated PUT and its confirmed UI result.
     await resetPreferences.click({ noWaitAfter: true });
     await resetResponse;
-    await page.locator('[data-settings-panel="notifications"]:visible #ovyx-notification-server-status').waitFor({ state: 'visible', timeout: 12000 });
+    console.log('[settings-account] ' + target.name + ': reset response received');
+    // The authenticated PUT is the server-side completion signal. Verify
+    // the resulting status through Playwright's locator polling instead of
+    // evaluating a diagnostic snapshot during the async click handler; this
+    // keeps the browser test focused on user-visible behavior and avoids
+    // blocking the account regression shard on a nonessential page.evaluate.
+    try {
+      await page.locator('[data-settings-panel="notifications"]:visible #ovyx-notification-server-status').waitFor({ state: 'visible', timeout: 12000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        url: location.href,
+        readyState: document.readyState,
+        activeView: window.KernelState?.activeView || null,
+        panels: Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).map((node, index) => ({
+          index,
+          connected: node.isConnected,
+          rects: node.getClientRects().length,
+          display: getComputedStyle(node).display,
+          visibility: getComputedStyle(node).visibility,
+          opacity: getComputedStyle(node).opacity,
+          save: node.querySelector('#notify-save')?.outerHTML || null,
+          reset: node.querySelector('#notify-reset')?.outerHTML || null,
+          status: node.querySelector('#ovyx-notification-server-status')?.outerHTML || null,
+          html: node.outerHTML.slice(0, 5000),
+        })),
+        statusNodes: Array.from(document.querySelectorAll('#ovyx-notification-server-status')).map(node => ({
+          parentPanel: !!node.closest('[data-settings-panel="notifications"]'),
+          connected: node.isConnected,
+          rects: node.getClientRects().length,
+          display: getComputedStyle(node).display,
+          visibility: getComputedStyle(node).visibility,
+          text: node.textContent,
+        })),
+      })).catch(e => ({ diagnosticError: String(e) }));
+      console.log('[settings-account] ' + target.name + ': reset status diagnostic ' + JSON.stringify(diagnostic));
+      throw error;
+    }
     await page.waitForFunction(
       () => {
         const visiblePanel = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).find(node => node.getClientRects().length > 0
@@ -310,6 +353,7 @@ try {
 
     assert.deepEqual(pageErrors, [], '[' + target.name + '] Profile and Notifications must not throw Settings errors.');
     await context.close();
+    console.log('[settings-account] ' + target.name + ': context closed');
   }
   console.log('OVYX Profile and Notifications browser tests passed on desktop and mobile: authenticated single-write Profile saves, failed-save retry, draft-only notification switches, failed-save preservation, server-confirmed retry, Reset defaults, and truthful email-delivery copy.');
 } finally {
