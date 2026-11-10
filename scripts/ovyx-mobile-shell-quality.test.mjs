@@ -15,7 +15,7 @@ assert.match(css, /padding-bottom:\s*calc\(112px\s*\+\s*env\(safe-area-inset-bot
 assert.doesNotMatch(css, /padding-bottom:\s*calc\(94px\s*\+\s*env\(safe-area-inset-bottom/, 'The previous 94px clearance is below the required browser-quality threshold.');
 assert.match(css, /data-ovyx-mode="light"/, 'Light appearance must work with the canonical mode attribute.');
 assert.match(css, /\.ovyx-light/, 'Light appearance must also support the legacy theme class.');
-assert.match(css, /--ovyx-light-accent:\s*#875500/, 'Light-theme accent text must use a contrast-safe darker gold.');
+assert.match(css, /--ovyx-light-accent:\s*#806331/, 'Light-theme accent text must use a contrast-safe darker gold.');
 assert.match(css, /\.text-amber-300[\s\S]*?color:\s*var\(--ovyx-light-accent-strong\)/, 'Legacy pale amber text utilities must remain legible on white surfaces.');
 assert.match(css, /#ovyx-v52-bottom-bar button\.is-active/, 'The active dock item must retain a clear light-theme state.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-mobile-shell-quality.test.mjs'), 'The mobile shell quality contract must run in npm test.');
@@ -25,5 +25,5 @@ console.log('OVYX mobile dock geometry and light-theme contrast contracts passed
 
 assert.match(css, /#view-router-viewport\s*\{[\s\S]*?padding-bottom:\s*0\s*!important/, 'Shared route viewport must not reserve dashboard dock space on authentication and other non-dashboard routes.');
 assert.match(css, /body\.ovyx-auth-open #view-master-auth/, 'Authentication must receive mobile safe-area and full-height layout treatment.');
-assert.match(css, /--ovyx-ds-focus:\s*#704600/, 'Light appearance must use a contrast-safe gold focus/accent token.');
-assert.match(css, /\.text-yellow-500[\s\S]*?color:\s*#805400/, 'Yellow/gold text utilities must remain readable on light surfaces.');
+assert.match(css, /--ovyx-ds-focus:\s*#6F5428/, 'Light appearance must use a contrast-safe gold focus/accent token.');
+assert.match(css, /\.text-yellow-500[\s\S]*?color:\s*#806331/, 'Yellow/gold text utilities must remain readable on light surfaces.');
