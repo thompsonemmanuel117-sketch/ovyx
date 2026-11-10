@@ -168,10 +168,17 @@
       new MutationObserver(function (records) {
         if (records.some(function (record) {
           return Array.prototype.some.call(record.addedNodes || [], function (node) {
-            return node.nodeType === 1 && (node.id === DOCK_ID || node.id === VIEWPORT_ID ||
-              node.matches?.('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console,#view-settings,[id^="view-admin-"]') ||
-              (node.querySelector && (node.querySelector('#' + DOCK_ID) || node.querySelector('#' + VIEWPORT_ID) ||
-                node.querySelector('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console,#view-settings,[id^="view-admin-"]))));
+            var protectedSurfaceSelector = '[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console,#view-settings,[id^="view-admin-"]';
+            return node.nodeType === 1 && (
+              node.id === DOCK_ID ||
+              node.id === VIEWPORT_ID ||
+              (node.matches && node.matches(protectedSurfaceSelector)) ||
+              (node.querySelector && (
+                node.querySelector('#' + DOCK_ID) ||
+                node.querySelector('#' + VIEWPORT_ID) ||
+                node.querySelector(protectedSurfaceSelector)
+              ))
+            );
           });
         })) {
           observe();
