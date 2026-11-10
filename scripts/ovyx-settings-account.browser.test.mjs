@@ -300,7 +300,37 @@ try {
     // evaluating a diagnostic snapshot during the async click handler; this
     // keeps the browser test focused on user-visible behavior and avoids
     // blocking the account regression shard on a nonessential page.evaluate.
-    await page.locator('[data-settings-panel="notifications"]:visible #ovyx-notification-server-status').waitFor({ state: 'visible', timeout: 12000 });
+    try {
+      await page.locator('[data-settings-panel="notifications"]:visible #ovyx-notification-server-status').waitFor({ state: 'visible', timeout: 12000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        url: location.href,
+        readyState: document.readyState,
+        activeView: window.KernelState?.activeView || null,
+        panels: Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).map((node, index) => ({
+          index,
+          connected: node.isConnected,
+          rects: node.getClientRects().length,
+          display: getComputedStyle(node).display,
+          visibility: getComputedStyle(node).visibility,
+          opacity: getComputedStyle(node).opacity,
+          save: node.querySelector('#notify-save')?.outerHTML || null,
+          reset: node.querySelector('#notify-reset')?.outerHTML || null,
+          status: node.querySelector('#ovyx-notification-server-status')?.outerHTML || null,
+          html: node.outerHTML.slice(0, 5000),
+        })),
+        statusNodes: Array.from(document.querySelectorAll('#ovyx-notification-server-status')).map(node => ({
+          parentPanel: !!node.closest('[data-settings-panel="notifications"]'),
+          connected: node.isConnected,
+          rects: node.getClientRects().length,
+          display: getComputedStyle(node).display,
+          visibility: getComputedStyle(node).visibility,
+          text: node.textContent,
+        })),
+      })).catch(e => ({ diagnosticError: String(e) }));
+      console.log('[settings-account] ' + target.name + ': reset status diagnostic ' + JSON.stringify(diagnostic));
+      throw error;
+    }
     await page.waitForFunction(
       () => {
         const visiblePanel = Array.from(document.querySelectorAll('[data-settings-panel="notifications"]')).find(node => node.getClientRects().length > 0
