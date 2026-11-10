@@ -115,16 +115,23 @@ try {
   assert.equal(dockMatrix.home,'grid','The existing mobile dock must remain available on Home.');
   for(const key of ['drawerOpen','authOpen','assistantOpen','managementOpen','appStudio','settings','adminOpen'])assert.equal(dockMatrix[key],'none','The dashboard dock must be hidden during '+key+': '+JSON.stringify(dockMatrix));
   assert.equal(dockMatrix.restoredHome,'grid','Returning to Home must restore the existing dock.');
+  const darkGoldState = await page.evaluate(() => {
+    const host=document.querySelector('#view-home');if(!host)return 'missing';
+    const probe=document.createElement('span');probe.className='text-amber-400';probe.textContent='Accent probe';host.appendChild(probe);
+    const color=getComputedStyle(probe).color;probe.remove();return color;
+  });
+  assert.equal(darkGoldState,'rgb(194, 163, 107)','Platform gold utilities must use the restrained champagne brand colour.');
   const lightThemeState = await page.evaluate(() => {
     const root=document.documentElement,previous=root.getAttribute('data-ovyx-mode');root.setAttribute('data-ovyx-mode','light');
     const studio=document.getElementById('view-appstudio'),surface=studio?.querySelector('.as4-shell');
-    const canvas=document.getElementById('app-studio-clean-canvas');const result={studioBackground:studio?getComputedStyle(studio).backgroundColor:'missing',studioText:studio?getComputedStyle(studio).color:'missing',canvasBackground:canvas?getComputedStyle(canvas).backgroundColor:'missing',surfaceBackground:surface?getComputedStyle(surface).backgroundColor:'missing',surfaceText:surface?getComputedStyle(surface).color:'missing'};
+    const canvas=document.getElementById('app-studio-clean-canvas'),home=document.getElementById('view-home'),probe=document.createElement('span');probe.className='text-amber-400';if(home)home.appendChild(probe);const gold=home?getComputedStyle(probe).color:'missing';probe.remove();const result={studioBackground:studio?getComputedStyle(studio).backgroundColor:'missing',studioText:studio?getComputedStyle(studio).color:'missing',canvasBackground:canvas?getComputedStyle(canvas).backgroundColor:'missing',surfaceBackground:surface?getComputedStyle(surface).backgroundColor:'missing',surfaceText:surface?getComputedStyle(surface).color:'missing',gold};
     if(previous==null)root.removeAttribute('data-ovyx-mode');else root.setAttribute('data-ovyx-mode',previous);
     return result;
   });
   assert.equal(lightThemeState.studioBackground,'rgb(245, 247, 250)','App Studio must use the neutral light canvas rather than retaining its hard-coded dark gradient.');
   assert.equal(lightThemeState.studioText,'rgb(24, 33, 47)','App Studio text must remain readable in Light appearance.');
   assert.equal(lightThemeState.canvasBackground,'rgb(245, 247, 250)','The App Studio full-screen background canvas must not cover Light appearance with black.');
+  assert.equal(lightThemeState.gold,'rgb(111, 84, 40)','Light appearance must use readable muted gold rather than bright yellow.');
   if(lightThemeState.surfaceBackground!=='missing')assert.equal(lightThemeState.surfaceBackground,'rgb(255, 255, 255)','App Studio workspace panels must become clean white surfaces in Light appearance.');
 
   assert.deepEqual(errors, [], 'Mobile shell must not emit browser errors.');
