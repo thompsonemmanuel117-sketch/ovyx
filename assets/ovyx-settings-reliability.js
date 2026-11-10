@@ -689,7 +689,10 @@
     if (model.value !== 'automatic' && !supported.includes(model.value)) model.value = 'automatic';
   }
   function syncAISettingsControls(targetPanel) {
-    const panel = targetPanel || document.querySelector('[data-settings-panel="ai"]');
+    // The settings-rendered event passes an Event object; only accept an actual panel node.
+    const panel = targetPanel && typeof targetPanel.querySelector === 'function'
+      ? targetPanel
+      : document.querySelector('[data-settings-panel="ai"]');
     if (!panel) return;
     const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
     const prefs = canonicalAIPreferences(safeJson(localStorage.getItem(key)));
