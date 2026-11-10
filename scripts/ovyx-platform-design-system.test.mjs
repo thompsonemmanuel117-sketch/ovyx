@@ -13,6 +13,6 @@ assert.match(css,/@media\s*\(max-width:\s*900px\)/);
 assert.match(css,/@media\s*\(max-width:\s*600px\)/);
 assert.match(css,/:focus-visible/);
 assert.ok(!/^(?:html|body|button|input|select|textarea|table)\s*[{,]/m.test(css),'Components must remain opt-in; no global element resets.');
-assert.ok(middleware.includes('/assets/css/ovyx-platform-design-system.css?v=20261106-1'),'Shell must load design system.');
+assert.ok(middleware.includes('/assets/css/ovyx-platform-design-system.css?v=20261110-3'),'Shell must load design system.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-platform-design-system.test.mjs'),'Design-system test must run in npm test.');
 console.log('OVYX platform design-system contract: all checks passed.');

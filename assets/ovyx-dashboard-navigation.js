@@ -13,10 +13,14 @@
   }
 
   function visible(element) {
-    if (!element || !element.isConnected || element.hidden) return false;
+    if (!element || !element.isConnected || element.hidden || element.classList.contains('hidden')) return false;
     var style = window.getComputedStyle(element);
-    return style.display !== 'none' && style.visibility !== 'hidden' &&
-      style.visibility !== 'collapse' && element.getClientRects().length > 0;
+    return style.display !== 'none' && style.visibility !== 'hidden' && style.visibility !== 'collapse' &&
+      element.getClientRects().length > 0;
+  }
+
+  function visibleOverlay(element) {
+    return visible(element) && window.getComputedStyle(element).opacity !== '0';
   }
 
   function activeRoute() {
@@ -36,15 +40,23 @@
     return renderedRoute === stateRoute ? stateRoute : null;
   }
 
+  function drawerOpen() {
+    var drawer = document.getElementById('mobile-drawer');
+    var backdrop = document.getElementById('mobile-drawer-backdrop');
+    return document.body.classList.contains('ovyx-drawer-open') ||
+      document.body.classList.contains('ovyx-mobile-drawer-open') ||
+      document.body.classList.contains('ovyx-ws-mobile-nav-open') ||
+      !!(drawer && (drawer.classList.contains('open') || drawer.classList.contains('is-open') ||
+        drawer.getAttribute('aria-hidden') === 'false' || !drawer.classList.contains('-translate-x-full'))) ||
+      visibleOverlay(backdrop);
+  }
   function overlayOpen() {
-    // Authentication is a full-screen protected surface layered over Home.
-    // KernelState can legitimately remain on Home while this overlay is open,
-    // so route-only checks are insufficient to own the dashboard dock.
-    return document.body.classList.contains('ovyx-auth-open') ||
-      document.documentElement.classList.contains('ovyx-auth-open') ||
-      visible(document.getElementById('view-master-auth')) ||
-      visible(document.getElementById('kernel-brain-bot-panel')) ||
-      visible(document.getElementById('ovyx-website-management'));
+    var sharedBlocked = typeof window.OVYXDashboardDockBlocked === 'function' && window.OVYXDashboardDockBlocked();
+    return sharedBlocked || drawerOpen() || document.body.classList.contains('ovyx-auth-open') ||
+      document.documentElement.classList.contains('ovyx-auth-open') || visibleOverlay(document.getElementById('view-master-auth')) ||
+      visibleOverlay(document.getElementById('kernel-brain-bot-panel')) || visibleOverlay(document.getElementById('ovyx-website-management')) ||
+      Array.prototype.some.call(document.querySelectorAll('#view-settings,[id^="view-admin-"]'), visibleOverlay) ||
+      Array.prototype.some.call(document.querySelectorAll('[role="dialog"],[aria-modal="true"],.v55-preview-modal'), visibleOverlay);
   }
 
   function read(style, property) {
@@ -132,6 +144,21 @@
       });
     }
 
+    var body = document.body;
+    if (body && !body.dataset.ovyxDashboardDockStateObserved) {
+      body.dataset.ovyxDashboardDockStateObserved = '1';
+      new MutationObserver(schedule).observe(body, { attributes: true, attributeFilter: ['class', 'data-ovyx-v57-view', 'data-ovyx-v57-drawer', 'data-ovyx-v57-modal'] });
+    }
+    [document.getElementById('mobile-drawer'), document.getElementById('mobile-drawer-backdrop')].filter(Boolean).forEach(function (surface) {
+      if (surface.dataset.ovyxDashboardDockObserved) return;
+      surface.dataset.ovyxDashboardDockObserved = '1';
+      new MutationObserver(schedule).observe(surface, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
+    });
+    document.querySelectorAll('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console,#view-settings,[id^="view-admin-"]').forEach(function (surface) {
+      if (surface.dataset.ovyxDashboardDockSurfaceObserved) return;
+      surface.dataset.ovyxDashboardDockSurfaceObserved = '1';
+      new MutationObserver(schedule).observe(surface, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
+    });
     var dock = document.getElementById(DOCK_ID);
     if (dock && !dock.dataset.ovyxDashboardDockObserved) {
       dock.dataset.ovyxDashboardDockObserved = '1';
@@ -145,8 +172,17 @@
       new MutationObserver(function (records) {
         if (records.some(function (record) {
           return Array.prototype.some.call(record.addedNodes || [], function (node) {
-            return node.nodeType === 1 && (node.id === DOCK_ID || node.id === VIEWPORT_ID ||
-              (node.querySelector && (node.querySelector('#' + DOCK_ID) || node.querySelector('#' + VIEWPORT_ID))));
+            var protectedSurfaceSelector = '[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console,#view-settings,[id^="view-admin-"]';
+            return node.nodeType === 1 && (
+              node.id === DOCK_ID ||
+              node.id === VIEWPORT_ID ||
+              (node.matches && node.matches(protectedSurfaceSelector)) ||
+              (node.querySelector && (
+                node.querySelector('#' + DOCK_ID) ||
+                node.querySelector('#' + VIEWPORT_ID) ||
+                node.querySelector(protectedSurfaceSelector)
+              ))
+            );
           });
         })) {
           observe();

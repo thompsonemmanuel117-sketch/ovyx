@@ -15,8 +15,9 @@ try {
     String(sheet.href || '').includes('ovyx-mobile-shell-quality.css')));
   await page.waitForFunction(() => !!document.getElementById('ovyx-v52-bottom-bar') && !!document.getElementById('view-home'));
 
-  const result = await page.evaluate(() => {
-    document.documentElement.dataset.ovyxMode = 'light';
+  const result = await page.evaluate(async () => {
+    window.ThemeContext?.set?.({mode:'light',backgroundColor:'#F8FAFC',sidebarColor:'#F1F3F6',cardColor:'#FFFFFF',borderColor:'#CBD5E1',textColor:'#111827',mutedColor:'#475569',accentColor:'#F59E0B'});
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     document.body.classList.add('ovyx-v88-dock-home');
     const dock = document.getElementById('ovyx-v52-bottom-bar');
     const home = dock.querySelector('[data-v52-bottom="home"]');
@@ -66,7 +67,7 @@ try {
     'New action must align inside the dock without floating above it.');
   assert.equal(result.createMarginTop, '0px',
     'New action must not use the legacy negative lift.');
-  assert.equal(result.activeColor, 'rgb(112, 70, 0)',
+  assert.equal(result.activeColor, 'rgb(111, 84, 40)',
     'Light-mode active navigation text must use the contrast-safe accent.');
   assert.ok(Number.parseFloat(result.homeBottomPadding) >= 100,
     'Dashboard content must reserve at least 100px of scroll clearance for the fixed dock.');
@@ -91,6 +92,58 @@ try {
     'Authentication must not leave an interactive dashboard dock underneath the login screen.');
   assert.equal(authDockState.viewportPadding, '0px',
     'The authentication screen must not inherit the dashboard dock clearance.');
+  const dockMatrix = await page.evaluate(() => {
+    const dock=document.getElementById('ovyx-v52-bottom-bar'),viewport=document.getElementById('view-router-viewport');
+    const sections=Array.from(viewport?.querySelectorAll(':scope > section')||[]),body=document.body,root=document.documentElement;
+    const drawer=document.getElementById('mobile-drawer'),backdrop=document.getElementById('mobile-drawer-backdrop');
+    const runAll=()=>{window.OVYXV57?.syncDock?.();window.OVYXV58?.syncDock?.();window.OVYXMobileShellAuthority?.sync?.();window.OVYXMobileDockAuthority?.sync?.();window.OVYXDashboardNavigationAuthority?.sync?.();return getComputedStyle(dock).display;};
+    const route=id=>{sections.forEach(section=>{const active=section.id==='view-'+id;section.classList.toggle('hidden',!active);if(active)section.style.removeProperty('display');});window.KernelState=window.KernelState||{};window.KernelState.activeView=id;body.classList.remove('ovyx-auth-open','ovyx-drawer-open','ovyx-mobile-drawer-open','ovyx-ws-mobile-nav-open','ovyx-v58-assistant-open');root.classList.remove('ovyx-auth-open');if(drawer){drawer.classList.add('-translate-x-full');drawer.classList.remove('open','is-open');drawer.setAttribute('aria-hidden','true');}if(backdrop){backdrop.classList.add('hidden');backdrop.setAttribute('aria-hidden','true');}const auth=document.getElementById('view-master-auth');if(auth){auth.classList.add('hidden');auth.setAttribute('aria-hidden','true');auth.style.removeProperty('display');}return runAll();};
+    const home=route('home');body.classList.add('ovyx-drawer-open');if(drawer){drawer.classList.remove('-translate-x-full');drawer.setAttribute('aria-hidden','false');}const drawerOpen=runAll();
+    route('home');body.classList.add('ovyx-auth-open');root.classList.add('ovyx-auth-open');const authOpen=runAll();
+    route('home');body.classList.add('ovyx-v58-assistant-open');const assistantOpen=runAll();
+    route('home');let management=document.getElementById('ovyx-website-management'),created=false;if(!management){management=document.createElement('div');management.id='ovyx-website-management';document.body.appendChild(management);created=true;}const oldStyle=management.getAttribute('style'),oldClass=management.getAttribute('class');management.classList.remove('hidden');management.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;display:block!important;visibility:visible!important;opacity:1!important;';const managementOpen=runAll();if(created)management.remove();else{if(oldStyle==null)management.removeAttribute('style');else management.setAttribute('style',oldStyle);if(oldClass==null)management.removeAttribute('class');else management.setAttribute('class',oldClass);}
+    const appStudio=sections.some(s=>s.id==='view-appstudio')?route('appstudio'):'missing';
+    route('home');
+    const settingsView=document.getElementById('view-settings'),settingsOldStyle=settingsView?.getAttribute('style'),settingsWasHidden=settingsView?.classList.contains('hidden');
+    if(settingsView){settingsView.classList.remove('hidden');settingsView.style.removeProperty('display');}
+    const settings=runAll();
+    if(settingsView){if(settingsWasHidden)settingsView.classList.add('hidden');else settingsView.classList.remove('hidden');if(settingsOldStyle==null)settingsView.removeAttribute('style');else settingsView.setAttribute('style',settingsOldStyle);}
+    const adminFixture=document.createElement('div');adminFixture.id='view-admin-dock-regression-fixture';adminFixture.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;display:block!important;visibility:visible!important;opacity:1!important;';document.body.appendChild(adminFixture);
+    const adminOpen=runAll();adminFixture.remove();
+    const restoredHome=route('home');
+    return {home,drawerOpen,authOpen,assistantOpen,managementOpen,appStudio,settings,adminOpen,restoredHome};
+  });
+  assert.equal(dockMatrix.home,'grid','The existing mobile dock must remain available on Home.');
+  for(const key of ['drawerOpen','authOpen','assistantOpen','managementOpen','appStudio','settings','adminOpen'])assert.equal(dockMatrix[key],'none','The dashboard dock must be hidden during '+key+': '+JSON.stringify(dockMatrix));
+  assert.equal(dockMatrix.restoredHome,'grid','Returning to Home must restore the existing dock.');
+  const darkGoldState = await page.evaluate(async () => {
+    const theme=window.ThemeContext,previous=theme?.get?.();
+    theme?.set?.({mode:'dark',accentColor:'#F59E0B'});
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const host=document.querySelector('#view-home');if(!host)return 'missing';
+    const probe=document.createElement('span');probe.className='text-amber-400';probe.textContent='Accent probe';host.appendChild(probe);
+    const color=getComputedStyle(probe).color;probe.remove();
+    if(previous)theme.set(previous);
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    return color;
+  });
+  assert.equal(darkGoldState,'rgb(194, 163, 107)','Platform gold utilities must use the restrained champagne brand colour.');
+  const lightThemeState = await page.evaluate(async () => {
+    const root=document.documentElement,theme=window.ThemeContext,previousTheme=theme?.get?.(),previousMode=root.getAttribute('data-ovyx-mode');
+    if(theme?.set)theme.set({mode:'light',backgroundColor:'#F8FAFC',sidebarColor:'#F1F3F6',cardColor:'#FFFFFF',borderColor:'#CBD5E1',textColor:'#111827',mutedColor:'#475569',accentColor:'#6F5428'});
+    else root.setAttribute('data-ovyx-mode','light');
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    const studio=document.getElementById('view-appstudio'),surface=studio?.querySelector('.as4-shell');
+    const canvas=document.getElementById('app-studio-clean-canvas'),home=document.getElementById('view-home'),probe=document.createElement('span');probe.className='text-amber-400';if(home)home.appendChild(probe);const gold=home?getComputedStyle(probe).color:'missing';probe.remove();const result={studioBackground:studio?getComputedStyle(studio).backgroundColor:'missing',studioText:studio?getComputedStyle(studio).color:'missing',canvasBackground:canvas?getComputedStyle(canvas).backgroundColor:'missing',surfaceBackground:surface?getComputedStyle(surface).backgroundColor:'missing',surfaceText:surface?getComputedStyle(surface).color:'missing',gold};
+    if(previousTheme&&theme?.set)theme.set(previousTheme);else if(previousMode==null)root.removeAttribute('data-ovyx-mode');else root.setAttribute('data-ovyx-mode',previousMode);
+    return result;
+  });
+  assert.equal(lightThemeState.studioBackground,'rgb(248, 250, 252)','App Studio must use the neutral light canvas rather than retaining its hard-coded dark gradient.');
+  assert.equal(lightThemeState.studioText,'rgb(24, 33, 47)','App Studio text must remain readable in Light appearance.');
+  assert.equal(lightThemeState.canvasBackground,'rgb(245, 247, 250)','The App Studio full-screen background canvas must not cover Light appearance with black.');
+  assert.equal(lightThemeState.gold,'rgb(111, 84, 40)','Light appearance must preserve the selected contrast-safe muted-gold theme accent rather than bright yellow.');
+  if(lightThemeState.surfaceBackground!=='missing')assert.equal(lightThemeState.surfaceBackground,'rgb(255, 255, 255)','App Studio workspace panels must become clean white surfaces in Light appearance.');
+
   assert.deepEqual(errors, [], 'Mobile shell must not emit browser errors.');
   console.log('OVYX mobile dock geometry and light-theme browser checks passed.');
   await page.close();
