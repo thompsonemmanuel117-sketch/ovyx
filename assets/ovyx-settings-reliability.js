@@ -346,13 +346,19 @@
       && isActuallyVisible(panel.querySelector('#notify-save'))
       && isActuallyVisible(panel.querySelector('#notify-reset'))) || panels.find(isActuallyVisible) || panels[0] || null;
   }
-  function updateNotificationStatus(panel, message, button) {
+  function updateNotificationStatus(panel, message, button, reset) {
     // The clicked control is the authoritative responsive instance. A status
     // element previously hydrated elsewhere in the panel can be hidden or
     // detached by Settings panel refreshes, so replace it beside the control
     // that completed the server request rather than reusing a stale node.
     const clickedPanel = button && button.closest('[data-settings-panel="notifications"]');
-    const primary = clickedPanel && clickedPanel.isConnected ? clickedPanel : panel;
+    // Settings can replace a responsive panel while the authenticated PUT is
+    // in flight. Prefer the original panel when it survives; otherwise resolve
+    // the currently mounted visible panel instead of writing into a detached
+    // node captured before the request.
+    const primary = (clickedPanel && clickedPanel.isConnected ? clickedPanel : null)
+      || (panel && panel.isConnected ? panel : null)
+      || notificationPanel();
     if (!primary || !primary.isConnected) return null;
 
     primary.querySelectorAll('#ovyx-notification-server-status').forEach(node => node.remove());
@@ -372,8 +378,12 @@
     status.style.setProperty('font', '600 9px/1.5 JetBrains Mono,monospace', 'important');
     status.style.setProperty('overflow-wrap', 'anywhere', 'important');
 
-    if (button && button.isConnected && button.closest('[data-settings-panel="notifications"]') === primary) {
-      button.insertAdjacentElement('afterend', status);
+    const activeButton = button && button.isConnected
+      && button.closest('[data-settings-panel="notifications"]') === primary
+      ? button
+      : primary.querySelector(reset ? '#notify-reset' : '#notify-save');
+    if (activeButton && activeButton.isConnected) {
+      activeButton.insertAdjacentElement('afterend', status);
     } else {
       primary.appendChild(status);
     }
@@ -438,10 +448,10 @@
       window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
       try { localStorage.setItem(notificationStorageKey(), JSON.stringify(notificationDraft)); } catch (_) {}
       if (panel) panel.dataset.ovyxNotificationLastResult = 'saved';
-      updateNotificationStatus(panel, 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.', button);
+      updateNotificationStatus(panel, 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.', button, reset);
       notify(reset ? 'Notification preferences reset and saved to your account.' : 'Notification preferences saved to your account.', 'success');
     } catch (error) {
-      updateNotificationStatus(panel, 'Your notification preferences could not be saved. Please try again.', button);
+      updateNotificationStatus(panel, 'Your notification preferences could not be saved. Please try again.', button, reset);
       notify(error.message || 'Notification preferences were not saved.', 'error');
     } finally {
       if (button) { button.disabled = false; button.textContent = button.dataset.originalText || (reset ? 'Reset' : 'Save Notification Preferences'); delete button.dataset.originalText; }
