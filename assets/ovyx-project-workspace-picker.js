@@ -562,16 +562,40 @@
           current.textContent = 'Current';
           button.appendChild(current);
         }
-        button.addEventListener('click', () => {
+        button.addEventListener('click', async () => {
           const selectedId = button.dataset.projectId;
-          const exists = (typeof STORE()?.list === 'function' ? STORE().list() : [])
-            .some(item => String(item?.id || '') === selectedId);
+          if (button.disabled) return;
+          const inventory = Array.isArray(state().projects)
+            ? state().projects
+            : (typeof STORE()?.list === 'function' ? STORE().list() : []);
+          const exists = inventory.some(item => String(item?.id || '') === selectedId);
           if (!exists) {
+            workspaceNote.textContent = 'This project is no longer in the current list. Refreshing projects…';
+            refreshProjectListing();
             render();
             return;
           }
-          close();
-          STORE().open(selectedId);
+
+          const label = button.querySelector('.ovx-picker-name');
+          const originalLabel = label?.textContent || 'Untitled project';
+          button.disabled = true;
+          button.setAttribute('aria-busy', 'true');
+          if (label) label.textContent = 'Opening…';
+          workspaceNote.textContent = 'Opening ' + originalLabel + '…';
+          try {
+            const result = await Promise.resolve(STORE().open(selectedId));
+            if (result === false) {
+              workspaceNote.textContent = 'OVYX could not open this project. Please try again.';
+              return;
+            }
+            close();
+          } catch (error) {
+            workspaceNote.textContent = error?.message || 'Project could not be opened. Your project is still saved; please try again.';
+          } finally {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+            if (label && label.isConnected) label.textContent = originalLabel;
+          }
         });
         list.appendChild(button);
       });
