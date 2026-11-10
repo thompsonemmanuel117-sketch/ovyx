@@ -888,6 +888,9 @@
           serverError = String(error?.message || 'account reset could not be verified');
           localStorage.removeItem(key);
         }
+        // Refresh the visible controls directly; do not reopen the panel because that
+        // dispatches ovyx-settings-rendered and can race the verified reset status.
+        syncAISettingsControls();
         // The AI panel is already active when this control is clicked. Reopening
         // it here dispatches ovyx-settings-rendered, whose asynchronous account
         // refresh can overwrite this reset confirmation with a generic load status.
