@@ -101,11 +101,19 @@ try {
     route('home');body.classList.add('ovyx-auth-open');root.classList.add('ovyx-auth-open');const authOpen=runAll();
     route('home');body.classList.add('ovyx-v58-assistant-open');const assistantOpen=runAll();
     route('home');let management=document.getElementById('ovyx-website-management'),created=false;if(!management){management=document.createElement('div');management.id='ovyx-website-management';document.body.appendChild(management);created=true;}const oldStyle=management.getAttribute('style');management.style.cssText='position:fixed;inset:0;display:block;visibility:visible;opacity:1;';const managementOpen=runAll();if(created)management.remove();else if(oldStyle==null)management.removeAttribute('style');else management.setAttribute('style',oldStyle);
-    const appStudio=sections.some(s=>s.id==='view-appstudio')?route('appstudio'):'missing',settings=route('settings'),restoredHome=route('home');
-    return {home,drawerOpen,authOpen,assistantOpen,managementOpen,appStudio,settings,restoredHome};
+    const appStudio=sections.some(s=>s.id==='view-appstudio')?route('appstudio'):'missing';
+    route('home');
+    const settingsView=document.getElementById('view-settings'),settingsOldStyle=settingsView?.getAttribute('style'),settingsWasHidden=settingsView?.classList.contains('hidden');
+    if(settingsView){settingsView.classList.remove('hidden');settingsView.style.removeProperty('display');}
+    const settings=runAll();
+    if(settingsView){if(settingsWasHidden)settingsView.classList.add('hidden');else settingsView.classList.remove('hidden');if(settingsOldStyle==null)settingsView.removeAttribute('style');else settingsView.setAttribute('style',settingsOldStyle);}
+    const adminFixture=document.createElement('div');adminFixture.id='view-admin-dock-regression-fixture';adminFixture.style.cssText='position:fixed;inset:0;display:block;visibility:visible;opacity:1;';document.body.appendChild(adminFixture);
+    const adminOpen=runAll();adminFixture.remove();
+    const restoredHome=route('home');
+    return {home,drawerOpen,authOpen,assistantOpen,managementOpen,appStudio,settings,adminOpen,restoredHome};
   });
   assert.equal(dockMatrix.home,'grid','The existing mobile dock must remain available on Home.');
-  for(const key of ['drawerOpen','authOpen','assistantOpen','managementOpen','appStudio','settings'])assert.equal(dockMatrix[key],'none','The dashboard dock must be hidden during '+key+': '+JSON.stringify(dockMatrix));
+  for(const key of ['drawerOpen','authOpen','assistantOpen','managementOpen','appStudio','settings','adminOpen'])assert.equal(dockMatrix[key],'none','The dashboard dock must be hidden during '+key+': '+JSON.stringify(dockMatrix));
   assert.equal(dockMatrix.restoredHome,'grid','Returning to Home must restore the existing dock.');
   const lightThemeState = await page.evaluate(() => {
     const root=document.documentElement,previous=root.getAttribute('data-ovyx-mode');root.setAttribute('data-ovyx-mode','light');
