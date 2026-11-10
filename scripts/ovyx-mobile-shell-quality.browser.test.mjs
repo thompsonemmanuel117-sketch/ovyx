@@ -139,7 +139,7 @@ try {
   assert.equal(lightThemeState.studioBackground,'rgb(248, 250, 252)','App Studio must use the neutral light canvas rather than retaining its hard-coded dark gradient.');
   assert.equal(lightThemeState.studioText,'rgb(24, 33, 47)','App Studio text must remain readable in Light appearance.');
   assert.equal(lightThemeState.canvasBackground,'rgb(245, 247, 250)','The App Studio full-screen background canvas must not cover Light appearance with black.');
-  assert.equal(lightThemeState.gold,'rgb(111, 84, 40)','Light appearance must use readable muted gold rather than bright yellow.');
+  assert.equal(lightThemeState.gold,'rgb(128, 99, 49)','Light appearance must use the restrained, readable brand gold rather than bright yellow.');
   if(lightThemeState.surfaceBackground!=='missing')assert.equal(lightThemeState.surfaceBackground,'rgb(255, 255, 255)','App Studio workspace panels must become clean white surfaces in Light appearance.');
 
   assert.deepEqual(errors, [], 'Mobile shell must not emit browser errors.');
