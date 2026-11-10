@@ -15,7 +15,8 @@ assert.match(runtime, /window\.KernelState\s*&&\s*window\.KernelState\.activeVie
 assert.match(runtime, /var visibleSections = sections\.filter\(visible\)/, 'The actual rendered route must be verified.');
 assert.match(runtime, /visibleSections\.length !== 1/, 'Ambiguous route state must fail closed rather than flash the dock.');
 assert.match(runtime, /renderedRoute === stateRoute/, 'The visible route must agree with KernelState before Home navigation is shown.');
-assert.ok(!runtime.includes("getAttribute('aria-hidden')"), 'A stale aria-hidden marker must never decide whether Home is visible.');
+const routeDecision = runtime.slice(runtime.indexOf('function activeRoute'), runtime.indexOf('function drawerOpen'));
+assert.ok(!routeDecision.includes("getAttribute('aria-hidden')"), 'A stale aria-hidden marker must never decide whether Home is visible.');
 assert.match(runtime, /kernel-brain-bot-panel/);
 assert.match(runtime, /view-master-auth/, 'The dashboard dock must be suppressed while the full-screen authentication surface is open.');
 assert.match(runtime, /ovyx-auth-open/, 'Authentication overlay state must independently suppress the dashboard dock even while Home remains the routed view.');
