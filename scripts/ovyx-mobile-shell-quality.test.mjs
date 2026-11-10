@@ -38,3 +38,9 @@ assert.match(css, /#view-router-viewport\s*\{[\s\S]*?padding-bottom:\s*0\s*!impo
 assert.match(css, /body\.ovyx-auth-open #view-master-auth/, 'Authentication must receive mobile safe-area and full-height layout treatment.');
 assert.match(css, /--ovyx-ds-focus:\s*var\(--ovyx-platform-accent-strong\)/, 'Light appearance must use the selected contrast-safe platform accent for focus states.');
 assert.match(css, /\.text-yellow-500[\s\S]*?color:\s*var\(--ovyx-platform-accent\)/, 'Yellow/gold text utilities must remain readable and follow the selected platform accent on light surfaces.');
+
+assert.match(css, /--ovyx-brand-gold:\s*#E8B64F/, 'Dark appearance must use a clear, bright champagne-gold brand accent.');
+assert.match(css, /--ovyx-brand-gold-strong:\s*#F5C96A/, 'Primary gold actions must use a brighter highlight tone.');
+assert.match(css, /@keyframes ovyxGoldShimmer/, 'Gold primary actions must have a restrained shimmer animation.');
+assert.match(css, /prefers-reduced-motion:\s*reduce/, 'Gold animation must respect reduced-motion preferences.');
+assert.match(css, /section:not\(#view-webstudio\)/, 'Gold polish must not alter Web Studio internals.');
