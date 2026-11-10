@@ -51,6 +51,7 @@
     return sharedBlocked || drawerOpen() || document.body.classList.contains('ovyx-auth-open') ||
       document.documentElement.classList.contains('ovyx-auth-open') || visible(document.getElementById('view-master-auth')) ||
       visible(document.getElementById('kernel-brain-bot-panel')) || visible(document.getElementById('ovyx-website-management')) ||
+      Array.prototype.some.call(document.querySelectorAll('#view-settings,[id^="view-admin-"]'), visible) ||
       Array.prototype.some.call(document.querySelectorAll('[role="dialog"],[aria-modal="true"],.v55-preview-modal'), visible);
   }
 
@@ -149,7 +150,7 @@
       surface.dataset.ovyxDashboardDockObserved = '1';
       new MutationObserver(schedule).observe(surface, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
     });
-    document.querySelectorAll('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console').forEach(function (surface) {
+    document.querySelectorAll('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console,#view-settings,[id^="view-admin-"]').forEach(function (surface) {
       if (surface.dataset.ovyxDashboardDockSurfaceObserved) return;
       surface.dataset.ovyxDashboardDockSurfaceObserved = '1';
       new MutationObserver(schedule).observe(surface, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
@@ -168,9 +169,9 @@
         if (records.some(function (record) {
           return Array.prototype.some.call(record.addedNodes || [], function (node) {
             return node.nodeType === 1 && (node.id === DOCK_ID || node.id === VIEWPORT_ID ||
-              node.matches?.('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console') ||
+              node.matches?.('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console,#view-settings,[id^="view-admin-"]') ||
               (node.querySelector && (node.querySelector('#' + DOCK_ID) || node.querySelector('#' + VIEWPORT_ID) ||
-                node.querySelector('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console'))));
+                node.querySelector('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console,#view-settings,[id^="view-admin-"]))));
           });
         })) {
           observe();
