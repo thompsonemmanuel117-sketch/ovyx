@@ -16,10 +16,10 @@ assert.ok(runtime.includes("document.addEventListener('ovyx:theme-applied'") && 
 assert.ok(runtime.includes('lab.apply = function ()') && runtime.includes('context.preview(mapped)'), 'Theme Lab presets must update the canonical ThemeContext rather than only legacy --ov-* variables.');
 assert.ok(runtime.includes('Theme preview applied. Save Appearance to keep it.'), 'Theme Lab feedback must not claim an unsaved preview was permanently saved.');
 assert.ok(runtime.includes('#view-appstudio{padding-bottom:22px!important}'), 'App Studio must remove the old oversized bottom gap.');
-assert.ok(runtime.includes('#view-home .v59-dashboard-shell{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important;scroll-padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important}'), 'The Home dashboard must reserve enough but not excessive scroll runway to clear the fixed dock.');
+assert.ok(runtime.includes('#view-home .v59-dashboard-shell{padding-bottom:calc(108px + env(safe-area-inset-bottom,0px))!important;scroll-padding-bottom:calc(108px + env(safe-area-inset-bottom,0px))!important}'), 'The Home dashboard must reserve enough but not excessive scroll runway to clear the fixed dock.');
 assert.ok(runtime.includes('#view-router-viewport{padding-bottom:0!important}'), 'Other routes must not inherit the dashboard dock clearance.');
 assert.ok(runtime.includes('#view-router-viewport{padding-bottom:0!important}'), 'Non-dashboard routes must not reserve space for the Home-only dock.');
-assert.ok(runtime.includes('scroll-padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important}'), 'Only the Home dashboard must reserve dock clearance.');
+assert.ok(runtime.includes('scroll-padding-bottom:calc(108px + env(safe-area-inset-bottom,0px))!important}'), 'Only the Home dashboard must reserve dock clearance.');
 assert.ok(runtime.includes('#ovyx-launch-toasts .ovyx-launch-toast,#ovyx-launch-toasts .ovyx-launch-toast *{pointer-events:none!important}'), 'Informational toast surfaces and close controls must not block taps on workspace controls.');
 assert.ok(runtime.includes('#ovyx-v52-bottom-bar{position:fixed!important;left:0!important;right:0!important;bottom:0!important'), 'The mobile dock must be anchored to the dashboard screen edge.');
 assert.ok(runtime.includes('background:linear-gradient(180deg,color-mix(in srgb,var(--card'), 'The dock must keep its own theme-aware surface rather than inherit the flat page canvas.');
