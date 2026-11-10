@@ -34,7 +34,7 @@
       .ovyx-settings-main {
         min-height: 62svh;
         height: auto;
-        overflow: visible;
+        overflow: visible !important;
         scroll-margin-top: 84px;
       }
       .ovyx-settings-panel { min-width: 0; }
