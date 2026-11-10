@@ -110,12 +110,13 @@ try {
   const lightThemeState = await page.evaluate(() => {
     const root=document.documentElement,previous=root.getAttribute('data-ovyx-mode');root.setAttribute('data-ovyx-mode','light');
     const studio=document.getElementById('view-appstudio'),surface=studio?.querySelector('.as4-shell');
-    const result={studioBackground:studio?getComputedStyle(studio).backgroundColor:'missing',studioText:studio?getComputedStyle(studio).color:'missing',surfaceBackground:surface?getComputedStyle(surface).backgroundColor:'missing',surfaceText:surface?getComputedStyle(surface).color:'missing'};
+    const canvas=document.getElementById('app-studio-clean-canvas');const result={studioBackground:studio?getComputedStyle(studio).backgroundColor:'missing',studioText:studio?getComputedStyle(studio).color:'missing',canvasBackground:canvas?getComputedStyle(canvas).backgroundColor:'missing',surfaceBackground:surface?getComputedStyle(surface).backgroundColor:'missing',surfaceText:surface?getComputedStyle(surface).color:'missing'};
     if(previous==null)root.removeAttribute('data-ovyx-mode');else root.setAttribute('data-ovyx-mode',previous);
     return result;
   });
   assert.equal(lightThemeState.studioBackground,'rgb(245, 247, 250)','App Studio must use the neutral light canvas rather than retaining its hard-coded dark gradient.');
   assert.equal(lightThemeState.studioText,'rgb(24, 33, 47)','App Studio text must remain readable in Light appearance.');
+  assert.equal(lightThemeState.canvasBackground,'rgb(245, 247, 250)','The App Studio full-screen background canvas must not cover Light appearance with black.');
   if(lightThemeState.surfaceBackground!=='missing')assert.equal(lightThemeState.surfaceBackground,'rgb(255, 255, 255)','App Studio workspace panels must become clean white surfaces in Light appearance.');
 
   assert.deepEqual(errors, [], 'Mobile shell must not emit browser errors.');
