@@ -10,7 +10,7 @@
   --ovyx-light-border: #cbd3df;
   --ovyx-light-accent: #806331;
   --ovyx-light-accent-strong: #6F5428;
-  --ovyx-light-accent-soft: rgba(128,99,49,.09);
+  --ovyx-light-accent-soft: color-mix(in srgb,var(--ovyx-platform-accent) 9%,transparent);
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) {
   color-scheme: light;
@@ -21,12 +21,12 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) {
   --app-border: var(--ovyx-light-border) !important;
   --app-text: var(--ovyx-light-text) !important;
   --app-muted: var(--ovyx-light-secondary) !important;
-  --app-accent: var(--ovyx-light-accent) !important;
+  
   --bg: var(--ovyx-light-canvas) !important;
   --border: var(--ovyx-light-border) !important;
   --text: var(--ovyx-light-text) !important;
   --muted: var(--ovyx-light-secondary) !important;
-  --accent: var(--ovyx-light-accent) !important;
+  
   --ov-bg: var(--ovyx-light-canvas) !important;
   --ov-panel: var(--ovyx-light-surface) !important;
   --ov-elev: var(--ovyx-light-surface-raised) !important;
@@ -34,8 +34,8 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) {
   --ov-secondary: var(--ovyx-light-secondary) !important;
   --ov-muted: var(--ovyx-light-muted) !important;
   --ov-line: rgba(24,33,47,.15) !important;
-  --ov-accent: var(--ovyx-light-accent) !important;
-  --ov-accent-soft: var(--ovyx-light-accent-soft) !important;
+  
+  
   --ovyx-ds-canvas: var(--ovyx-light-canvas);
   --ovyx-ds-surface: var(--ovyx-light-surface);
   --ovyx-ds-surface-raised: var(--ovyx-light-surface-raised);
@@ -44,9 +44,9 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) {
   --ovyx-ds-silver: var(--ovyx-light-secondary);
   --ovyx-ds-muted: var(--ovyx-light-muted);
   --ovyx-ds-faint: #687487;
-  --ovyx-ds-gold: var(--ovyx-light-accent);
-  --ovyx-ds-gold-strong: var(--ovyx-light-accent-strong);
-  --ovyx-ds-gold-soft: var(--ovyx-light-accent-soft);
+  --ovyx-ds-gold: var(--ovyx-platform-accent);
+  --ovyx-ds-gold-strong: var(--ovyx-platform-accent-strong);
+  --ovyx-ds-gold-soft: color-mix(in srgb,var(--ovyx-platform-accent) 9%,transparent);
   --ovyx-ds-border: rgba(24,33,47,.14);
   --ovyx-ds-border-strong: rgba(24,33,47,.23);
   --ovyx-premium-canvas: var(--ovyx-light-canvas);
@@ -54,7 +54,7 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) {
   --ovyx-premium-surface-raised: #eef1f5;
   --ovyx-premium-border: rgba(24,33,47,.14);
   --ovyx-premium-border-hover: rgba(128,99,49,.42);
-  --ovyx-premium-gold: var(--ovyx-light-accent);
+  --ovyx-premium-gold: var(--ovyx-platform-accent);
   --ovyx-premium-silver: var(--ovyx-light-secondary);
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]),
@@ -73,7 +73,7 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-title,.ovyx-ds-card__
   color: var(--ovyx-light-text);
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-eyebrow,.ovyx-ds-icon,.ovyx-ds-badge--gold,.ovyx-settings-shell .ovyx-panel-kicker) {
-  color: var(--ovyx-light-accent) !important;
+  color: var(--ovyx-platform-accent) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-panel,.ovyx-ds-card,.v0-card,.v0-panel,.ovyx-settings-sidebar,.ovyx-settings-main) {
   color: var(--ovyx-light-text);
@@ -91,11 +91,11 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-input,.ovyx-ds-select
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-button--primary,.ovyx-settings-btn.primary,.ovyx-auth-primary) {
   color: #fff !important;
-  background: var(--ovyx-light-accent-strong) !important;
-  border-color: var(--ovyx-light-accent-strong) !important;
+  background: var(--ovyx-platform-accent-strong) !important;
+  border-color: var(--ovyx-platform-accent-strong) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(#app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,[id^="view-admin-"]) :is(.text-amber-300,.text-amber-400,.text-amber-500,.text-yellow-300,.text-yellow-400,.text-orange-300,.text-orange-400) {
-  color: var(--ovyx-light-accent-strong) !important;
+  color: var(--ovyx-platform-accent-strong) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(#app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,[id^="view-admin-"]) :is(.border-amber-300,.border-amber-400,.border-yellow-300,.border-yellow-400) {
   border-color: rgba(128,99,49,.45) !important;
@@ -182,19 +182,19 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button {
   color: #536174 !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button.is-active {
-  color: var(--ovyx-light-accent-strong) !important;
+  color: var(--ovyx-platform-accent-strong) !important;
   transition-property: background-color, border-color, transform !important;
-  background: rgba(128,99,49,.09) !important;
+  background: color-mix(in srgb,var(--ovyx-platform-accent) 9%,transparent) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar button.is-active:before {
-  background: var(--ovyx-light-accent) !important;
-  box-shadow: 0 0 10px rgba(128,99,49,.22) !important;
+  background: var(--ovyx-platform-accent) !important;
+  box-shadow: 0 0 10px color-mix(in srgb,var(--ovyx-platform-accent) 22%,transparent) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar .v52-bottom-create {
   color: #fff !important;
-  background: var(--ovyx-light-accent-strong) !important;
-  border-color: var(--ovyx-light-accent-strong) !important;
-  box-shadow: 0 7px 18px rgba(111,84,40,.24) !important;
+  background: var(--ovyx-platform-accent-strong) !important;
+  border-color: var(--ovyx-platform-accent-strong) !important;
+  box-shadow: 0 7px 18px color-mix(in srgb,var(--ovyx-platform-accent-strong) 24%,transparent) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar .v52-bottom-create b {
   color: var(--ovyx-platform-accent-strong) !important;
@@ -230,26 +230,26 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) body.ovyx-v88-dock-home #ovyx-v52-
 html:is(.ovyx-light,[data-ovyx-mode="light"]) body.ovyx-v88-dock-home #ovyx-v52-bottom-bar button { color: #536174 !important; }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) body.ovyx-v88-dock-home #ovyx-v52-bottom-bar button.is-active { color: var(--ovyx-platform-accent-strong) !important; }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) body.ovyx-v88-dock-home #ovyx-v52-bottom-bar .v52-bottom-create {
-  color: #fff !important; background: #6F5428 !important; border-color: var(--ovyx-platform-accent-strong) !important;
+  color: #fff !important; background: var(--ovyx-platform-accent-strong) !important; border-color: var(--ovyx-platform-accent-strong) !important;
 }
 
 /* Dashboard-specific legacy accents: keep gold expressive, not pale or washed out. */
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home :is(.v59-build-btn,.v59-tool-icon.gold,.v59-command-link,.v59-live-dot) {
-  color: var(--ovyx-light-accent-strong) !important;
+  color: var(--ovyx-platform-accent-strong) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .v59-build-btn {
   color: #fff !important;
-  background: var(--ovyx-light-accent-strong) !important;
-  border-color: var(--ovyx-light-accent-strong) !important;
+  background: var(--ovyx-platform-accent-strong) !important;
+  border-color: var(--ovyx-platform-accent-strong) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home :is(.v59-routing-note,.v59-plus-note,.v59-home-state,.v59-model-wrap,.v59-tool-card small,.v59-section-head h2,.v59-command-link) {
   color: var(--ovyx-light-secondary) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .ovyx-ai-readiness-chip,
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home [data-ovyx-ai-readiness] {
-  color: var(--ovyx-light-accent-strong) !important;
-  border-color: rgba(111,84,40,.32) !important;
-  background: rgba(128,99,49,.07) !important;
+  color: var(--ovyx-platform-accent-strong) !important;
+  border-color: color-mix(in srgb,var(--ovyx-platform-accent) 32%,transparent) !important;
+  background: color-mix(in srgb,var(--ovyx-platform-accent) 7%,transparent) !important;
 }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .v59-tool-card b,
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home .v59-section-head h2 {
@@ -300,17 +300,14 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar .is-active {
 
 /* Neutral, platform-native light appearance with durable gold contrast. */
 html:is(.ovyx-light,[data-ovyx-mode="light"]) {
-  --ovyx-ds-focus: #6F5428 !important;
+  --ovyx-ds-focus: var(--ovyx-platform-accent-strong) !important;
   --ovyx-ds-success: #187344 !important;
   --ovyx-ds-warning: #806331 !important;
   --ovyx-ds-info: #176b83 !important;
-  --ovyx-premium-gold: #806331 !important;
+  --ovyx-premium-gold: var(--ovyx-platform-accent) !important;
   --ovyx-premium-silver: #465366 !important;
-  --accent: #806331 !important;
-  --app-accent: #806331 !important;
-  --ov-accent: #806331 !important;
 }
-html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(#app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,#view-master-auth,[id^="view-admin-"]) :is(
   .text-amber-200,.text-amber-300,.text-amber-400,.text-amber-500,.text-amber-600,
   .text-yellow-200,.text-yellow-300,.text-yellow-400,.text-yellow-500,.text-yellow-600,
   .text-orange-300,.text-orange-400,.text-orange-500,.text-orange-600,
