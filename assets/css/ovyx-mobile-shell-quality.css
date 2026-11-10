@@ -348,7 +348,7 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-master-auth .ovyx-auth-card-
 
 
 /* OVYX brand and appearance coherence: restrained champagne gold, neutral light surfaces. */
-:root { --ovyx-brand-gold:#C2A36B; --ovyx-brand-gold-strong:#D5BD8A; --ovyx-brand-gold-muted:#9B8355; --ovyx-platform-accent:var(--ovyx-brand-gold); --ovyx-platform-accent-strong:var(--ovyx-brand-gold-strong); }
+:root { --ovyx-brand-gold:#E8B64F; --ovyx-brand-gold-strong:#F5C96A; --ovyx-brand-gold-muted:#C58B2B; --ovyx-platform-accent:var(--ovyx-brand-gold); --ovyx-platform-accent-strong:var(--ovyx-brand-gold-strong); }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) .ovyx-ds { color:var(--ovyx-light-text)!important; }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(.ovyx-ds-panel,.ovyx-ds-panel--flat,.ovyx-ds-card) { color:var(--ovyx-light-text)!important; background:#fff!important; border-color:var(--ovyx-light-border)!important; box-shadow:0 10px 28px rgba(24,33,47,.055)!important; }
 html:is(.ovyx-light,[data-ovyx-mode="light"]) .ovyx-ds-panel__header,html:is(.ovyx-light,[data-ovyx-mode="light"]) .ovyx-ds-table th { color:var(--ovyx-light-secondary)!important; background:#f0f2f5!important; border-color:var(--ovyx-light-border)!important; }
@@ -413,4 +413,86 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-router-viewport > #view
   color:var(--ovyx-light-text)!important;
   background:#fff!important;
   border-color:var(--ovyx-light-border)!important;
+}
+
+
+/* OVYX bright champagne-gold finish. Presentation only: route, dock and dashboard geometry stay untouched. */
+:root {
+  --ovyx-brand-gold: #E8B64F;
+  --ovyx-brand-gold-strong: #F5C96A;
+  --ovyx-brand-gold-muted: #C58B2B;
+  --ovyx-platform-accent: var(--ovyx-brand-gold);
+  --ovyx-platform-accent-strong: var(--ovyx-brand-gold-strong);
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) {
+  --ovyx-platform-accent: var(--ovyx-light-accent);
+  --ovyx-platform-accent-strong: var(--ovyx-light-accent-strong);
+}
+@keyframes ovyxGoldShimmer {
+  0%, 68%, 100% { background-position: 140% 0; }
+  34% { background-position: -40% 0; }
+}
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
+  #app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,[id^="view-admin-"]
+) :is(.text-amber-200,.text-amber-300,.text-amber-400,.text-amber-500,.text-yellow-200,.text-yellow-300,.text-yellow-400,.text-yellow-500,.text-orange-300,.text-orange-400,.text-gold,.text-ovyx-gold) {
+  color: var(--ovyx-platform-accent) !important;
+}
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
+  #app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,[id^="view-admin-"]
+) :is(.border-amber-200,.border-amber-300,.border-amber-400,.border-amber-500,.border-yellow-200,.border-yellow-300,.border-yellow-400,.border-yellow-500) {
+  border-color: color-mix(in srgb,var(--ovyx-platform-accent) 42%,transparent) !important;
+}
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
+  #app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,[id^="view-admin-"]
+) :is(.bg-amber-200,.bg-amber-300,.bg-amber-400,.bg-amber-500,.bg-yellow-200,.bg-yellow-300,.bg-yellow-400,.bg-yellow-500) {
+  color: #17140f !important;
+  background-color: var(--ovyx-platform-accent) !important;
+}
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
+  #view-home .v59-build-btn,
+  #view-home .v59-command-primary,
+  .ovyx-ds-button--primary,
+  .ovyx-settings-btn.primary,
+  .ovyx-auth-primary,
+  .ovyx-ua-primary,
+  .ovyx-lb-generate,
+  .ovyx-command-primary
+) {
+  background-image: linear-gradient(110deg,transparent 0%,rgba(255,255,255,.17) 46%,transparent 62%) !important;
+  background-size: 240% 100% !important;
+  background-repeat: no-repeat !important;
+  animation: ovyxGoldShimmer 7s ease-in-out infinite;
+  box-shadow: 0 5px 20px color-mix(in srgb,var(--ovyx-platform-accent) 16%,transparent);
+}
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
+  #view-home .v59-build-btn,
+  #view-home .v59-command-primary,
+  .ovyx-ds-button--primary,
+  .ovyx-settings-btn.primary,
+  .ovyx-auth-primary,
+  .ovyx-ua-primary,
+  .ovyx-lb-generate,
+  .ovyx-command-primary
+):hover:not(:disabled) {
+  filter: brightness(1.07);
+  box-shadow: 0 7px 24px color-mix(in srgb,var(--ovyx-platform-accent) 24%,transparent);
+}
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
+  #view-home .v59-build-btn,
+  #view-home .v59-command-primary,
+  .ovyx-ds-button--primary,
+  .ovyx-settings-btn.primary,
+  .ovyx-auth-primary,
+  .ovyx-ua-primary,
+  .ovyx-lb-generate,
+  .ovyx-command-primary
+):focus-visible {
+  outline: 2px solid var(--ovyx-platform-accent-strong) !important;
+  outline-offset: 3px;
+}
+@media(prefers-reduced-motion:reduce) {
+  html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
+    #view-home .v59-build-btn,#view-home .v59-command-primary,.ovyx-ds-button--primary,
+    .ovyx-settings-btn.primary,.ovyx-auth-primary,.ovyx-ua-primary,.ovyx-lb-generate,.ovyx-command-primary
+  ) { animation: none !important; }
 }

@@ -9,7 +9,7 @@ const middleware = fs.readFileSync(path.join(root, 'functions/_middleware.js'), 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
-assert.match(middleware, /ovyx-mobile-shell-quality\.css\?v=20261110-11/, 'The shell quality layer must be delivered with the existing HTML shell.');
+assert.match(middleware, /ovyx-mobile-shell-quality\.css\?v=20261110-13/, 'The shell quality layer must be delivered with the existing HTML shell.');
 assert.match(css, /#ovyx-v52-bottom-bar\s*\{[\s\S]*?height:\s*64px\s*!important/, 'The existing mobile dock must have a compact fixed height.');
 assert.match(css, /\.v52-bottom-create\s*\{[\s\S]*?height:\s*54px\s*!important/, 'The New action must align within the dock, not float above it.');
 assert.match(css, /padding-bottom:\s*calc\(112px\s*\+\s*env\(safe-area-inset-bottom/, 'Home content must reserve at least 100px of dock clearance including the safe area.');
@@ -38,3 +38,11 @@ assert.match(css, /#view-router-viewport\s*\{[\s\S]*?padding-bottom:\s*0\s*!impo
 assert.match(css, /body\.ovyx-auth-open #view-master-auth/, 'Authentication must receive mobile safe-area and full-height layout treatment.');
 assert.match(css, /--ovyx-ds-focus:\s*var\(--ovyx-platform-accent-strong\)/, 'Light appearance must use the selected contrast-safe platform accent for focus states.');
 assert.match(css, /\.text-yellow-500[\s\S]*?color:\s*var\(--ovyx-platform-accent\)/, 'Yellow/gold text utilities must remain readable and follow the selected platform accent on light surfaces.');
+
+assert.match(css, /--ovyx-brand-gold:\s*#E8B64F/, 'Dark appearance must use a clear, bright champagne-gold brand accent.');
+assert.match(css, /--ovyx-brand-gold-strong:\s*#F5C96A/, 'Primary gold actions must use a brighter highlight tone.');
+assert.match(css, /@keyframes ovyxGoldShimmer/, 'Gold primary actions must have a restrained shimmer animation.');
+assert.match(css, /prefers-reduced-motion:\s*reduce/, 'Gold animation must respect reduced-motion preferences.');
+assert.match(css, /section:not\(#view-webstudio\)/, 'Gold polish must not alter Web Studio internals.');
+
+assert.ok(css.includes('html:is(.ovyx-light,[data-ovyx-mode="light"]) {') && css.includes('--ovyx-platform-accent: var(--ovyx-light-accent);'), 'Light mode must default to contrast-safe gold while still allowing inline user theme overrides.');

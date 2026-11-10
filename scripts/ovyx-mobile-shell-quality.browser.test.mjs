@@ -127,7 +127,7 @@ try {
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     return color;
   });
-  assert.equal(darkGoldState,'rgb(194, 163, 107)','Platform gold utilities must use the restrained champagne brand colour.');
+  assert.equal(darkGoldState,'rgb(232, 182, 79)','Platform gold utilities must use the restrained champagne brand colour.');
   const lightThemeState = await page.evaluate(async () => {
     const root=document.documentElement,theme=window.ThemeContext,previousTheme=theme?.get?.(),previousMode=root.getAttribute('data-ovyx-mode');
     if(theme?.set)theme.set({mode:'light',backgroundColor:'#F8FAFC',sidebarColor:'#F1F3F6',cardColor:'#FFFFFF',borderColor:'#CBD5E1',textColor:'#111827',mutedColor:'#475569',accentColor:'#6F5428'});
