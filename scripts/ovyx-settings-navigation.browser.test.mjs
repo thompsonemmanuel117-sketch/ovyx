@@ -82,7 +82,6 @@ try {
       assert.ok(metrics.scrollWidth > metrics.clientWidth, '[mobile] every category must remain reachable in the scrollable strip.');
       await navItems.last().scrollIntoViewIfNeeded();
       await navItems.last().click();
-      assert.equal(await navItems.last().getAttribute('data-settings-nav'), await navItems.last().getAttribute('data-settings-nav'));
       assert.ok(await navItems.last().evaluate(el => el.classList.contains('active')), '[mobile] the last category must remain tappable after scrolling.');
     }
 
