@@ -8,7 +8,9 @@ assert.doesNotThrow(() => new Function(asset), 'The project picker runtime must 
 
 assert.match(asset, /showWorkspacePicker\s*=\s*function/);
 assert.match(asset, /ProjectStore\.list|STORE\(\)\.list/);
-assert.match(asset, /STORE\(\)\.open\(selectedId\)/);
+assert.match(asset, /await Promise\.resolve\(STORE\(\)\.open\(selectedId\)\)/, 'Project opening must await async navigation before closing the picker.');
+assert.match(asset, /button\.setAttribute\('aria-busy', 'true'\)/, 'Project opening must expose an immediate busy state.');
+assert.match(asset, /Project could not be opened/, 'A failed project open must show recoverable feedback.');
 assert.match(asset, /createPromptModal/);
 assert.match(asset, /showModal\(\)/);
 assert.match(asset, /aria-labelledby/);
@@ -30,6 +32,6 @@ assert.match(asset, /workspaceLoadGeneration/, 'Late workspace responses must no
 assert.match(asset, /const targetWorkspaceId = selectedWorkspaceId/, 'Workspace mutation responses must not overwrite a later selection.');
 assert.match(asset, /ovyx\.active-workspace\.v1\./, 'Workspace selection must be scoped to the signed-in account.');
 assert.doesNotMatch(asset, /window\.prompt\s*\(/, 'The new project picker must not use a browser prompt.');
-assert.match(middleware, /ovyx-project-workspace-picker\.js\?v=20261106-19/, 'The project picker runtime must be injected into the production app shell.');
+assert.match(middleware, /ovyx-project-workspace-picker\.js\?v=20261110-20/, 'The project picker runtime must be injected into the production app shell.');
 
 console.log('OVYX project workspace picker contract tests passed.');
