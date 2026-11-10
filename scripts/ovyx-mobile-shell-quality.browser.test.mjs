@@ -116,9 +116,14 @@ try {
   for(const key of ['drawerOpen','authOpen','assistantOpen','managementOpen','appStudio','settings','adminOpen'])assert.equal(dockMatrix[key],'none','The dashboard dock must be hidden during '+key+': '+JSON.stringify(dockMatrix));
   assert.equal(dockMatrix.restoredHome,'grid','Returning to Home must restore the existing dock.');
   const darkGoldState = await page.evaluate(() => {
+    const root=document.documentElement,previousMode=root.getAttribute('data-ovyx-mode'),wasLight=root.classList.contains('ovyx-light');
+    root.removeAttribute('data-ovyx-mode');root.classList.remove('ovyx-light');
     const host=document.querySelector('#view-home');if(!host)return 'missing';
     const probe=document.createElement('span');probe.className='text-amber-400';probe.textContent='Accent probe';host.appendChild(probe);
-    const color=getComputedStyle(probe).color;probe.remove();return color;
+    const color=getComputedStyle(probe).color;probe.remove();
+    if(previousMode==null)root.removeAttribute('data-ovyx-mode');else root.setAttribute('data-ovyx-mode',previousMode);
+    if(wasLight)root.classList.add('ovyx-light');
+    return color;
   });
   assert.equal(darkGoldState,'rgb(194, 163, 107)','Platform gold utilities must use the restrained champagne brand colour.');
   const lightThemeState = await page.evaluate(() => {
