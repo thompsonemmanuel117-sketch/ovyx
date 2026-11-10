@@ -12,7 +12,7 @@ const report = {
   summary: { pagesDiscovered: 3, pagesInspected: 2, assetsDiscovered: 4, pagesBlocked: 0 },
   branding: { name: 'Coastal Living', confidence: 'high', colors: { primary: '#D81B60', secondary: '#302060' } }
 };
-const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body data-ovyx-v57-view="home">
 <section id="view-router-viewport"><section id="view-home"><div class="v59-dashboard-shell">Dashboard content fixture</div></section></section>
 <nav id="ovyx-v52-bottom-bar" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr))"><button>Home</button><button>Build</button><button class="v52-bottom-create"><b>+</b>New</button><button>Code</button><button>More</button></nav>
 <section id="view-appstudio" class="flex flex-col">

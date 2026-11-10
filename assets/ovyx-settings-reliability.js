@@ -688,8 +688,11 @@
     });
     if (model.value !== 'automatic' && !supported.includes(model.value)) model.value = 'automatic';
   }
-  function syncAISettingsControls() {
-    const panel = document.querySelector('[data-settings-panel="ai"]');
+  function syncAISettingsControls(targetPanel) {
+    // The settings-rendered event passes an Event object; only accept an actual panel node.
+    const panel = targetPanel && typeof targetPanel.querySelector === 'function'
+      ? targetPanel
+      : document.querySelector('[data-settings-panel="ai"]');
     if (!panel) return;
     const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
     const prefs = canonicalAIPreferences(safeJson(localStorage.getItem(key)));
@@ -813,7 +816,7 @@
       if (!button) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       try {
-        const panel = document.querySelector('[data-settings-panel="ai"]');
+        const panel = button.closest('[data-settings-panel="ai"]') || document.querySelector('[data-settings-panel="ai"]');
         const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
         let prefs = canonicalAIPreferences(safeJson(localStorage.getItem(key)));
         const visibleMode = String(
@@ -853,8 +856,8 @@
         if (!serverError || !currentUser()) {
           window.OVYXAI = Object.assign({}, window.OVYXAI || {}, savedPreferences);
         }
-        syncAISettingsControls();
-        const status = addStatus(document.querySelector('[data-settings-panel="ai"]'), 'ovyx-ai-preference-status', 'AI preference save status');
+        syncAISettingsControls(panel);
+        const status = addStatus(panel, 'ovyx-ai-preference-status', 'AI preference save status');
         if (status) {
           status.textContent = serverError
             ? 'Preferences were not confirmed as saved to your OVYX account. Previous settings remain active: ' + serverError
@@ -871,6 +874,7 @@
       if (!button) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       try {
+        const panel = button.closest('[data-settings-panel="ai"]') || document.querySelector('[data-settings-panel="ai"]');
         const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
         let serverError = '';
         let defaults = canonicalAIPreferences(AI_PREFERENCE_DEFAULTS);
@@ -890,12 +894,12 @@
         }
         // Refresh the visible controls directly; do not reopen the panel because that
         // dispatches ovyx-settings-rendered and can race the verified reset status.
-        syncAISettingsControls();
+        syncAISettingsControls(panel);
         // The AI panel is already active when this control is clicked. Reopening
         // it here dispatches ovyx-settings-rendered, whose asynchronous account
         // refresh can overwrite this reset confirmation with a generic load status.
         // Keep the verified reset result authoritative in the currently open panel.
-        const status = addStatus(document.querySelector('[data-settings-panel="ai"]'), 'ovyx-ai-preference-status', 'AI preference reset status');
+        const status = addStatus(panel, 'ovyx-ai-preference-status', 'AI preference reset status');
         if (status) {
           status.textContent = serverError
             ? 'Device preferences were reset, but the account reset could not be verified: ' + serverError

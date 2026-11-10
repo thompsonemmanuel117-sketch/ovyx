@@ -70,6 +70,27 @@ try {
     'Light-mode active navigation text must use the contrast-safe accent.');
   assert.ok(Number.parseFloat(result.homeBottomPadding) >= 100,
     'Dashboard content must reserve at least 100px of scroll clearance for the fixed dock.');
+
+  const authDockState = await page.evaluate(() => {
+    const dock = document.getElementById('ovyx-v52-bottom-bar');
+    const auth = document.getElementById('view-master-auth');
+    document.body.classList.add('ovyx-auth-open');
+    document.documentElement.classList.add('ovyx-auth-open');
+    auth?.classList.remove('hidden');
+    auth?.setAttribute('aria-hidden', 'false');
+    window.OVYXDashboardNavigationAuthority?.sync();
+    return {
+      dockDisplay: getComputedStyle(dock).display,
+      dockVisibility: getComputedStyle(dock).visibility,
+      viewportPadding: getComputedStyle(document.getElementById('view-router-viewport')).paddingBottom
+    };
+  });
+  assert.equal(authDockState.dockDisplay, 'none',
+    'The Home dock must be hidden while the full-screen authentication overlay is open.');
+  assert.equal(authDockState.dockVisibility, 'hidden',
+    'Authentication must not leave an interactive dashboard dock underneath the login screen.');
+  assert.equal(authDockState.viewportPadding, '0px',
+    'The authentication screen must not inherit the dashboard dock clearance.');
   assert.deepEqual(errors, [], 'Mobile shell must not emit browser errors.');
   console.log('OVYX mobile dock geometry and light-theme browser checks passed.');
   await page.close();

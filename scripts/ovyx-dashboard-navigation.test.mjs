@@ -16,12 +16,14 @@ assert.match(runtime, /visibleSections\.length !== 1/, 'Ambiguous route state mu
 assert.match(runtime, /renderedRoute === stateRoute/, 'The visible route must agree with KernelState before Home navigation is shown.');
 assert.ok(!runtime.includes("getAttribute('aria-hidden')"), 'A stale aria-hidden marker must never decide whether Home is visible.');
 assert.match(runtime, /kernel-brain-bot-panel/);
+assert.match(runtime, /view-master-auth/, 'The dashboard dock must be suppressed while the full-screen authentication surface is open.');
+assert.match(runtime, /ovyx-auth-open/, 'Authentication overlay state must independently suppress the dashboard dock even while Home remains the routed view.');
 assert.match(runtime, /ovyx-website-management/);
 assert.match(runtime, /window\.innerWidth >= 768/, 'Desktop navigation layout must remain untouched.');
 assert.match(runtime, /new MutationObserver/, 'The authority must follow route and dock re-renders.');
 assert.match(runtime, /state\.saved\[property\] = current/, 'Original shell style changes must be preserved while the dock is controlled.');
 assert.match(runtime, /function restore\(dock\)/, 'The dock styles must be restored when the mobile authority is not applicable.');
-assert.match(middleware, /ovyx-dashboard-navigation\.js\?v=20261107-1/, 'The dashboard navigation authority must load through the Pages shell.');
+assert.match(middleware, /ovyx-dashboard-navigation\.js\?v=20261110-1/, 'The dashboard navigation authority must load through the Pages shell.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-dashboard-navigation.test.mjs'), 'The dashboard navigation contract must run in npm test.');
 
 console.log('OVYX dashboard navigation authority contract checks passed.');

@@ -8,7 +8,7 @@ const css = fs.readFileSync(path.join(root, 'assets/css/ovyx-mobile-shell-qualit
 const middleware = fs.readFileSync(path.join(root, 'functions/_middleware.js'), 'utf8');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
-assert.match(middleware, /ovyx-mobile-shell-quality\.css\?v=20261108-1/, 'The shell quality layer must be delivered with the existing HTML shell.');
+assert.match(middleware, /ovyx-mobile-shell-quality\.css\?v=20261110-1/, 'The shell quality layer must be delivered with the existing HTML shell.');
 assert.match(css, /#ovyx-v52-bottom-bar\s*\{[\s\S]*?height:\s*64px\s*!important/, 'The existing mobile dock must have a compact fixed height.');
 assert.match(css, /\.v52-bottom-create\s*\{[\s\S]*?height:\s*54px\s*!important/, 'The New action must align within the dock, not float above it.');
 assert.match(css, /padding-bottom:\s*calc\(112px\s*\+\s*env\(safe-area-inset-bottom/, 'Home content must reserve at least 100px of dock clearance including the safe area.');
@@ -21,3 +21,9 @@ assert.match(css, /#ovyx-v52-bottom-bar button\.is-active/, 'The active dock ite
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-mobile-shell-quality.test.mjs'), 'The mobile shell quality contract must run in npm test.');
 
 console.log('OVYX mobile dock geometry and light-theme contrast contracts passed.');
+
+
+assert.match(css, /#view-router-viewport\s*\{[\s\S]*?padding-bottom:\s*0\s*!important/, 'Shared route viewport must not reserve dashboard dock space on authentication and other non-dashboard routes.');
+assert.match(css, /body\.ovyx-auth-open #view-master-auth/, 'Authentication must receive mobile safe-area and full-height layout treatment.');
+assert.match(css, /--ovyx-ds-focus:\s*#704600/, 'Light appearance must use a contrast-safe gold focus/accent token.');
+assert.match(css, /\.text-yellow-500[\s\S]*?color:\s*#805400/, 'Yellow/gold text utilities must remain readable on light surfaces.');
