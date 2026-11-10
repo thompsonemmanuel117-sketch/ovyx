@@ -37,7 +37,13 @@
   }
 
   function overlayOpen() {
-    return visible(document.getElementById('kernel-brain-bot-panel')) ||
+    // Authentication is a full-screen protected surface layered over Home.
+    // KernelState can legitimately remain on Home while this overlay is open,
+    // so route-only checks are insufficient to own the dashboard dock.
+    return document.body.classList.contains('ovyx-auth-open') ||
+      document.documentElement.classList.contains('ovyx-auth-open') ||
+      visible(document.getElementById('view-master-auth')) ||
+      visible(document.getElementById('kernel-brain-bot-panel')) ||
       visible(document.getElementById('ovyx-website-management'));
   }
 
