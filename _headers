@@ -140,3 +140,6 @@
 
 /assets/ovyx-app-studio-workspace.js
   Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-app-studio-visual-refresh.js
+  Cache-Control: no-store, no-cache, must-revalidate
