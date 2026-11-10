@@ -149,6 +149,11 @@
       surface.dataset.ovyxDashboardDockObserved = '1';
       new MutationObserver(schedule).observe(surface, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
     });
+    document.querySelectorAll('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console').forEach(function (surface) {
+      if (surface.dataset.ovyxDashboardDockSurfaceObserved) return;
+      surface.dataset.ovyxDashboardDockSurfaceObserved = '1';
+      new MutationObserver(schedule).observe(surface, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
+    });
     var dock = document.getElementById(DOCK_ID);
     if (dock && !dock.dataset.ovyxDashboardDockObserved) {
       dock.dataset.ovyxDashboardDockObserved = '1';
@@ -163,7 +168,9 @@
         if (records.some(function (record) {
           return Array.prototype.some.call(record.addedNodes || [], function (node) {
             return node.nodeType === 1 && (node.id === DOCK_ID || node.id === VIEWPORT_ID ||
-              (node.querySelector && (node.querySelector('#' + DOCK_ID) || node.querySelector('#' + VIEWPORT_ID))));
+              node.matches?.('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console') ||
+              (node.querySelector && (node.querySelector('#' + DOCK_ID) || node.querySelector('#' + VIEWPORT_ID) ||
+                node.querySelector('[role="dialog"],[aria-modal="true"],.v55-preview-modal,#view-master-auth,#kernel-brain-bot-panel,#ovyx-website-management,#ovyx-owner-console'))));
           });
         })) {
           observe();
