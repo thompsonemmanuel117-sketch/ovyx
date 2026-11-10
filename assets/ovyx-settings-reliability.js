@@ -46,12 +46,14 @@
         }
         .ovyx-settings-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
         .ovyx-settings-sidebar {
-          position: sticky;
-          top: 6px;
-          z-index: 30;
+          position: relative;
+          top: auto;
+          z-index: 1;
           display: flex;
           flex-wrap: nowrap;
-          gap: 7px;
+          flex: 0 0 auto;
+          width: 100%;
+          max-width: 100%;
           max-height: none;
           overflow-x: auto;
           overflow-y: hidden;
@@ -59,10 +61,13 @@
           scrollbar-width: thin;
           scrollbar-gutter: auto;
           overscroll-behavior-x: contain;
+          overscroll-behavior-y: auto;
           -webkit-overflow-scrolling: touch;
           touch-action: pan-x pan-y;
+          scroll-behavior: auto;
           background: var(--ov-panel);
           border-radius: 12px;
+          contain: inline-size;
         }
         .ovyx-settings-nav {
           flex: 0 0 auto;
@@ -84,6 +89,27 @@
       }
     `;
     document.head.appendChild(style);
+
+    // Keep the selected category visible without calling scrollIntoView(), which
+    // can unexpectedly move the whole page vertically on small touch screens.
+    const settingsRoot = document.getElementById('view-settings');
+    const sidebar = settingsRoot && settingsRoot.querySelector('.ovyx-settings-sidebar');
+    if (sidebar && typeof MutationObserver === 'function') {
+      const revealActiveCategory = () => {
+        const active = sidebar.querySelector('[data-settings-nav].active');
+        if (!active) return;
+        const sidebarRect = sidebar.getBoundingClientRect();
+        const itemRect = active.getBoundingClientRect();
+        if (itemRect.left < sidebarRect.left || itemRect.right > sidebarRect.right) {
+          const targetLeft = Math.max(0, active.offsetLeft - (sidebar.clientWidth - active.offsetWidth) / 2);
+          const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          sidebar.scrollTo({ left: targetLeft, behavior: reducedMotion ? 'auto' : 'smooth' });
+        }
+      };
+      const observer = new MutationObserver(revealActiveCategory);
+      observer.observe(sidebar, { subtree: true, attributes: true, attributeFilter: ['class'] });
+      sidebar.addEventListener('click', () => window.requestAnimationFrame(revealActiveCategory), { passive: true });
+    }
   })();
 
   const PROFILE_ENDPOINT = '/api/settings/profile';
