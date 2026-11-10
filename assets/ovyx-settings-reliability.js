@@ -211,11 +211,23 @@
       el.id = id;
       el.className = 'ovyx-settings-action-status';
       el.setAttribute('role', 'status');
-      // Keep action feedback visible even when responsive theme rules target
-      // generic status elements or panel descendants.
-      el.style.cssText = 'display:block!important;visibility:visible!important;opacity:1!important;min-height:18px;padding:9px 14px;color:var(--ov-muted,#858990);font:600 9px/1.5 JetBrains Mono,monospace;overflow-wrap:anywhere';
       panel.appendChild(el);
     }
+    // The status node may have been created by an earlier panel hydration
+    // before a responsive/theme pass. Re-assert its visible presentation on
+    // every update; otherwise inherited Settings rules can leave an existing
+    // node hidden even though a newly-created fallback would be visible.
+    el.hidden = false;
+    el.removeAttribute('aria-hidden');
+    el.setAttribute('role', 'status');
+    el.style.setProperty('display', 'block', 'important');
+    el.style.setProperty('visibility', 'visible', 'important');
+    el.style.setProperty('opacity', '1', 'important');
+    el.style.setProperty('min-height', '18px', 'important');
+    el.style.setProperty('padding', '9px 14px', 'important');
+    el.style.setProperty('color', 'var(--ov-muted,#858990)', 'important');
+    el.style.setProperty('font', '600 9px/1.5 JetBrains Mono,monospace', 'important');
+    el.style.setProperty('overflow-wrap', 'anywhere', 'important');
     if (text) el.textContent = text;
     return el;
   }
