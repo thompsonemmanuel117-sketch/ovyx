@@ -400,3 +400,9 @@ assert.match(runtime, /const controller = new AbortController\(\)/, 'Settings fe
 assert.match(runtime, /signal: controller\.signal/, 'The request deadline must cancel the underlying fetch.');
 assert.match(runtime, /code: 'SETTINGS_TIMEOUT'/, 'Timed-out Settings operations must expose a stable recoverable error code.');
 assert.match(runtime, /finally \{\s*clearTimeout\(timeout\);\s*\}/, 'Fetch timeout handles must always be cleared.');
+
+assert.match(runtime, /ovyx-settings-navigation-quality-v1/, 'The Settings runtime must install the dedicated navigation quality layer.');
+assert.ok(runtime.includes('min-height: 44px'), 'Settings category controls must meet comfortable touch-target height.');
+assert.ok(runtime.includes('overflow-x: auto'), 'Mobile Settings categories must remain horizontally reachable without clipping.');
+assert.ok(runtime.includes('-webkit-overflow-scrolling: touch'), 'Mobile Settings category navigation must support native momentum scrolling.');
+assert.ok(runtime.includes('.ovyx-settings-main {\n        min-height: 62svh;\n        height: auto;\n        overflow: visible !important;'), 'Settings content must not be clipped by the main panel wrapper.');
