@@ -7,6 +7,7 @@ on:
     paths:
       - 'index.html'
       - 'assets/ovyx-settings-reliability.js'
+      - 'scripts/ovyx-settings-navigation.browser.test.mjs'
       - 'assets/ovyx-settings-billing-live.js'
       - 'assets/ovyx-account-notifications.js'
       - 'assets/ovyx-personal-connections-center.js'
@@ -43,6 +44,7 @@ on:
     paths:
       - 'index.html'
       - 'assets/ovyx-settings-reliability.js'
+      - 'scripts/ovyx-settings-navigation.browser.test.mjs'
       - 'assets/ovyx-settings-billing-live.js'
       - 'assets/ovyx-account-notifications.js'
       - 'assets/ovyx-personal-connections-center.js'
@@ -148,6 +150,7 @@ jobs:
           # visible immediately instead of leaving an empty log until completion.
           run_shard "settings-core" /tmp/ovyx-settings-core.log \
             ovyx-settings.browser.test.mjs \
+            ovyx-settings-navigation.browser.test.mjs \
             ovyx-settings-core.browser.test.mjs \
             ovyx-settings-account.browser.test.mjs \
             ovyx-settings-security.browser.test.mjs
