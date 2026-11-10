@@ -13,10 +13,10 @@
   }
 
   function visible(element) {
-    if (!element || !element.isConnected || element.hidden) return false;
+    if (!element || !element.isConnected || element.hidden || element.classList.contains('hidden')) return false;
     var style = window.getComputedStyle(element);
-    return style.display !== 'none' && style.visibility !== 'hidden' &&
-      style.visibility !== 'collapse' && element.getClientRects().length > 0;
+    return style.display !== 'none' && style.visibility !== 'hidden' && style.visibility !== 'collapse' &&
+      style.opacity !== '0' && element.getClientRects().length > 0;
   }
 
   function activeRoute() {
@@ -36,15 +36,22 @@
     return renderedRoute === stateRoute ? stateRoute : null;
   }
 
+  function drawerOpen() {
+    var drawer = document.getElementById('mobile-drawer');
+    var backdrop = document.getElementById('mobile-drawer-backdrop');
+    return document.body.classList.contains('ovyx-drawer-open') ||
+      document.body.classList.contains('ovyx-mobile-drawer-open') ||
+      document.body.classList.contains('ovyx-ws-mobile-nav-open') ||
+      !!(drawer && (drawer.classList.contains('open') || drawer.classList.contains('is-open') ||
+        drawer.getAttribute('aria-hidden') === 'false' || !drawer.classList.contains('-translate-x-full'))) ||
+      visible(backdrop);
+  }
   function overlayOpen() {
-    // Authentication is a full-screen protected surface layered over Home.
-    // KernelState can legitimately remain on Home while this overlay is open,
-    // so route-only checks are insufficient to own the dashboard dock.
-    return document.body.classList.contains('ovyx-auth-open') ||
-      document.documentElement.classList.contains('ovyx-auth-open') ||
-      visible(document.getElementById('view-master-auth')) ||
-      visible(document.getElementById('kernel-brain-bot-panel')) ||
-      visible(document.getElementById('ovyx-website-management'));
+    var sharedBlocked = typeof window.OVYXDashboardDockBlocked === 'function' && window.OVYXDashboardDockBlocked();
+    return sharedBlocked || drawerOpen() || document.body.classList.contains('ovyx-auth-open') ||
+      document.documentElement.classList.contains('ovyx-auth-open') || visible(document.getElementById('view-master-auth')) ||
+      visible(document.getElementById('kernel-brain-bot-panel')) || visible(document.getElementById('ovyx-website-management')) ||
+      Array.prototype.some.call(document.querySelectorAll('[role="dialog"],[aria-modal="true"],.v55-preview-modal'), visible);
   }
 
   function read(style, property) {
@@ -132,6 +139,16 @@
       });
     }
 
+    var body = document.body;
+    if (body && !body.dataset.ovyxDashboardDockStateObserved) {
+      body.dataset.ovyxDashboardDockStateObserved = '1';
+      new MutationObserver(schedule).observe(body, { attributes: true, attributeFilter: ['class', 'data-ovyx-v57-view', 'data-ovyx-v57-drawer', 'data-ovyx-v57-modal'] });
+    }
+    [document.getElementById('mobile-drawer'), document.getElementById('mobile-drawer-backdrop')].filter(Boolean).forEach(function (surface) {
+      if (surface.dataset.ovyxDashboardDockObserved) return;
+      surface.dataset.ovyxDashboardDockObserved = '1';
+      new MutationObserver(schedule).observe(surface, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
+    });
     var dock = document.getElementById(DOCK_ID);
     if (dock && !dock.dataset.ovyxDashboardDockObserved) {
       dock.dataset.ovyxDashboardDockObserved = '1';
