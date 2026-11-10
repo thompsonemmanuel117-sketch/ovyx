@@ -145,6 +145,8 @@ try {
   if(lightThemeState.surfaceBackground!=='missing')assert.equal(lightThemeState.surfaceBackground,'rgb(255, 255, 255)','App Studio workspace panels must become clean white surfaces in Light appearance.');
 
   const dashboardActionState = await page.evaluate(() => {
+    const root = document.documentElement, theme = window.ThemeContext, previousTheme = theme?.get?.(), previousMode = root.getAttribute('data-ovyx-mode');
+    theme?.set?.({mode:'light',backgroundColor:'#F8FAFC',sidebarColor:'#F1F3F6',cardColor:'#FFFFFF',borderColor:'#CBD5E1',textColor:'#111827',mutedColor:'#475569',accentColor:'#6F5428'});
     const home = document.getElementById('view-home');
     const probe = document.createElement('button');
     probe.className = 'v59-build-btn';
@@ -154,7 +156,11 @@ try {
     probe.remove();
     const login = Array.from(document.querySelectorAll('#ovyx-topbar button, #ovyx-topbar a, header button, header a'))
       .find(node => /^log\\s*in$/i.test((node.innerText || node.textContent || '').trim()));
-    return { artwork, loginColor: login ? getComputedStyle(login).color : 'not-found' };
+    const result = { artwork, loginColor: login ? getComputedStyle(login).color : 'not-found' };
+    if (previousTheme && theme?.set) theme.set(previousTheme);
+    else if (previousMode == null) root.removeAttribute('data-ovyx-mode');
+    else root.setAttribute('data-ovyx-mode', previousMode);
+    return result;
   });
   assert.match(dashboardActionState.artwork, /^url\\(/, 'The dashboard Build/send action must retain its existing icon artwork.');
   if (dashboardActionState.loginColor !== 'not-found') {
