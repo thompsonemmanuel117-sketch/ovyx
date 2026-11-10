@@ -36,5 +36,5 @@ console.log('OVYX mobile dock geometry and light-theme contrast contracts passed
 
 assert.match(css, /#view-router-viewport\s*\{[\s\S]*?padding-bottom:\s*0\s*!important/, 'Shared route viewport must not reserve dashboard dock space on authentication and other non-dashboard routes.');
 assert.match(css, /body\.ovyx-auth-open #view-master-auth/, 'Authentication must receive mobile safe-area and full-height layout treatment.');
-assert.match(css, /--ovyx-ds-focus:\s*#6F5428/, 'Light appearance must use a contrast-safe gold focus/accent token.');
-assert.match(css, /\.text-yellow-500[\s\S]*?color:\s*#806331/, 'Yellow/gold text utilities must remain readable on light surfaces.');
+assert.match(css, /--ovyx-ds-focus:\s*var\(--ovyx-platform-accent-strong\)/, 'Light appearance must use the selected contrast-safe platform accent for focus states.');
+assert.match(css, /\.text-yellow-500[\s\S]*?color:\s*var\(--ovyx-platform-accent\)/, 'Yellow/gold text utilities must remain readable and follow the selected platform accent on light surfaces.');
