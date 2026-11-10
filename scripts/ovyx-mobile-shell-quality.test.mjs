@@ -49,8 +49,8 @@ assert.ok(css.includes('html:is(.ovyx-light,[data-ovyx-mode="light"]) {') && css
 
 assert.match(css, /@keyframes ovyxGoldShimmer[\s\S]*?box-shadow:/, 'Gold shimmer must animate its glow without replacing button artwork.');
 assert.doesNotMatch(css, /background-image:\s*linear-gradient\(110deg,transparent 0%,rgba\(255,255,255/, 'The gold shimmer must not overwrite CSS-rendered send icons or button backgrounds.');
-assert.match(css, /:is\(#ovyx-topbar,header\) :is\(button,a\)[\s\S]*?color:\s*var\(--ovyx-light-text\)\s*!important/, 'Light-theme header actions such as Log In must use readable dark text.');
+assert.match(css, /#ovyx-topbar :is\(button,a\)[\s\S]*?color:\s*var\(--ovyx-light-text\)\s*!important/, 'Light-theme header actions such as Log In must use readable dark text.');
 
-assert.match(css, /Settings theme controls remain static[\\s\\S]*?animation:\\s*none\\s*!important/, 'Settings theme controls must not run continuous paint animations during theme preview/import.');
-assert.match(css, /#ovyx-topbar :is\\(button,a\\)[\\s\\S]*?color:\\s*var\\(--ovyx-light-text\\)\\s*!important/, 'Light-theme Log In actions must remain readable without overriding unrelated page headers.');
-assert.doesNotMatch(css, /:is\\(#ovyx-topbar,header\\) :is\\(button,a\\)/, 'Light-theme header contrast must not blanket-style unrelated Settings headers.');
+assert.match(css, /Settings theme controls remain static[\s\S]*?animation:\s*none\s*!important/, 'Settings theme controls must not run continuous paint animations during theme preview/import.');
+assert.match(css, /#ovyx-topbar :is\(button,a\)[\s\S]*?color:\s*var\(--ovyx-light-text\)\s*!important/, 'Light-theme Log In actions must remain readable without overriding unrelated page headers.');
+assert.doesNotMatch(css, /:is\(#ovyx-topbar,header\) :is\(button,a\)/, 'Light-theme header contrast must not blanket-style unrelated Settings headers.');
