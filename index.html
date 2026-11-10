@@ -7167,6 +7167,14 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     const t=effective(theme);
     const root=document.documentElement;
     const set=(k,v)=>root.style.setProperty(k,v);
+    // Keep the platform's default accent on-brand without overriding a user's
+    // saved custom accent. Web Studio continues to use the original --app-accent.
+    const lightMode=resolveMode(theme.mode)==='light';
+    const legacyDefaultAccent=/^#f59e0b$/i.test(String(t.accentColor||''));
+    const platformAccent=legacyDefaultAccent?(lightMode?'#806331':'#C2A36B'):t.accentColor;
+    const platformAccentStrong=legacyDefaultAccent?(lightMode?'#6F5428':'#D5BD8A'):t.accentColor;
+    set('--ovyx-platform-accent',platformAccent);
+    set('--ovyx-platform-accent-strong',platformAccentStrong);
     set('--bg',t.backgroundColor); set('--app-bg',t.backgroundColor); set('--sidebar',t.sidebarColor); set('--card',t.cardColor); set('--border',t.borderColor); set('--text',t.textColor); set('--muted',t.mutedColor); set('--accent',t.accentColor);
     set('--black-canvas',t.backgroundColor); set('--graphite',t.cardColor); set('--titanium',t.borderColor); set('--soft-white',t.textColor); set('--steel',t.mutedColor);
     set('--ovyx-canvas',t.backgroundColor); set('--ovyx-graphite',t.cardColor); set('--ovyx-titanium',t.borderColor); set('--ovyx-white',t.textColor); set('--ovyx-steel',t.mutedColor); set('--ovyx-gold',t.accentColor);
