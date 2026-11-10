@@ -347,36 +347,37 @@
       && isActuallyVisible(panel.querySelector('#notify-reset'))) || panels.find(isActuallyVisible) || panels[0] || null;
   }
   function updateNotificationStatus(panel, message, button) {
-    // Responsive Settings can keep multiple copies of the Notifications panel
-    // mounted. Always update the exact panel that owns the clicked control,
-    // then mirror the result to other mounted copies.
+    // The clicked control is the authoritative responsive instance. A status
+    // element previously hydrated elsewhere in the panel can be hidden or
+    // detached by Settings panel refreshes, so replace it beside the control
+    // that completed the server request rather than reusing a stale node.
     const clickedPanel = button && button.closest('[data-settings-panel="notifications"]');
     const primary = clickedPanel && clickedPanel.isConnected ? clickedPanel : panel;
-    const targets = Array.from(new Set([
-      primary,
-      ...Array.from(document.querySelectorAll('[data-settings-panel="notifications"]'))
-    ].filter(node => node && node.isConnected)));
-    let primaryStatus = null;
-    targets.forEach(target => {
-      const status = addStatus(target, 'ovyx-notification-server-status', message);
-      if (status) {
-        status.textContent = message;
-        if (target === primary) primaryStatus = status;
-      }
-    });
-    // Last-resort visible feedback belongs beside the actual action control.
-    // This covers responsive panel replacement between click and API response.
-    if (!primaryStatus && button && button.isConnected) {
-      const status = document.createElement('div');
-      status.id = 'ovyx-notification-server-status';
-      status.className = 'ovyx-settings-action-status';
-      status.setAttribute('role', 'status');
-      status.style.cssText = 'display:block!important;visibility:visible!important;opacity:1!important;min-height:18px;padding:9px 14px;color:var(--ov-muted,#858990);font:600 9px/1.5 JetBrains Mono,monospace;overflow-wrap:anywhere';
-      status.textContent = message;
+    if (!primary || !primary.isConnected) return null;
+
+    primary.querySelectorAll('#ovyx-notification-server-status').forEach(node => node.remove());
+    const status = document.createElement('div');
+    status.id = 'ovyx-notification-server-status';
+    status.className = 'ovyx-settings-action-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.hidden = false;
+    status.textContent = message;
+    status.style.setProperty('display', 'block', 'important');
+    status.style.setProperty('visibility', 'visible', 'important');
+    status.style.setProperty('opacity', '1', 'important');
+    status.style.setProperty('min-height', '18px', 'important');
+    status.style.setProperty('padding', '9px 14px', 'important');
+    status.style.setProperty('color', 'var(--ov-muted,#858990)', 'important');
+    status.style.setProperty('font', '600 9px/1.5 JetBrains Mono,monospace', 'important');
+    status.style.setProperty('overflow-wrap', 'anywhere', 'important');
+
+    if (button && button.isConnected && button.closest('[data-settings-panel="notifications"]') === primary) {
       button.insertAdjacentElement('afterend', status);
-      primaryStatus = status;
+    } else {
+      primary.appendChild(status);
     }
-    return primaryStatus;
+    return status;
   }
   function notificationStorageKey() {
     const user = currentUser();
