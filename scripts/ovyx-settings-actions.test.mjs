@@ -405,4 +405,4 @@ assert.match(runtime, /ovyx-settings-navigation-quality-v1/, 'The Settings runti
 assert.ok(runtime.includes('min-height: 44px'), 'Settings category controls must meet comfortable touch-target height.');
 assert.ok(runtime.includes('overflow-x: auto'), 'Mobile Settings categories must remain horizontally reachable without clipping.');
 assert.ok(runtime.includes('-webkit-overflow-scrolling: touch'), 'Mobile Settings category navigation must support native momentum scrolling.');
-assert.match(runtime, /\.ovyx-settings-main[\\s\\S]*?overflow:\\s*visible/, 'Settings content must not be clipped by the main panel wrapper.');
+assert.ok(runtime.includes('.ovyx-settings-main {\n        min-height: 62svh;\n        height: auto;\n        overflow: visible;'), 'Settings content must not be clipped by the main panel wrapper.');
