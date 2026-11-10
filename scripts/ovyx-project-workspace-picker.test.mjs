@@ -8,7 +8,9 @@ assert.doesNotThrow(() => new Function(asset), 'The project picker runtime must 
 
 assert.match(asset, /showWorkspacePicker\s*=\s*function/);
 assert.match(asset, /ProjectStore\.list|STORE\(\)\.list/);
-assert.match(asset, /STORE\(\)\.open\(selectedId\)/);
+assert.match(asset, /await Promise\.resolve\(STORE\(\)\.open\(selectedId\)\)/, 'Project opening must await async navigation before closing the picker.');
+assert.match(asset, /button\.setAttribute\('aria-busy', 'true'\)/, 'Project opening must expose an immediate busy state.');
+assert.match(asset, /Project could not be opened/, 'A failed project open must show recoverable feedback.');
 assert.match(asset, /createPromptModal/);
 assert.match(asset, /showModal\(\)/);
 assert.match(asset, /aria-labelledby/);
