@@ -16,7 +16,11 @@
     if (!element || !element.isConnected || element.hidden || element.classList.contains('hidden')) return false;
     var style = window.getComputedStyle(element);
     return style.display !== 'none' && style.visibility !== 'hidden' && style.visibility !== 'collapse' &&
-      style.opacity !== '0' && element.getClientRects().length > 0;
+      element.getClientRects().length > 0;
+  }
+
+  function visibleOverlay(element) {
+    return visible(element) && window.getComputedStyle(element).opacity !== '0';
   }
 
   function activeRoute() {
@@ -44,15 +48,15 @@
       document.body.classList.contains('ovyx-ws-mobile-nav-open') ||
       !!(drawer && (drawer.classList.contains('open') || drawer.classList.contains('is-open') ||
         drawer.getAttribute('aria-hidden') === 'false' || !drawer.classList.contains('-translate-x-full'))) ||
-      visible(backdrop);
+      visibleOverlay(backdrop);
   }
   function overlayOpen() {
     var sharedBlocked = typeof window.OVYXDashboardDockBlocked === 'function' && window.OVYXDashboardDockBlocked();
     return sharedBlocked || drawerOpen() || document.body.classList.contains('ovyx-auth-open') ||
-      document.documentElement.classList.contains('ovyx-auth-open') || visible(document.getElementById('view-master-auth')) ||
-      visible(document.getElementById('kernel-brain-bot-panel')) || visible(document.getElementById('ovyx-website-management')) ||
-      Array.prototype.some.call(document.querySelectorAll('#view-settings,[id^="view-admin-"]'), visible) ||
-      Array.prototype.some.call(document.querySelectorAll('[role="dialog"],[aria-modal="true"],.v55-preview-modal'), visible);
+      document.documentElement.classList.contains('ovyx-auth-open') || visibleOverlay(document.getElementById('view-master-auth')) ||
+      visibleOverlay(document.getElementById('kernel-brain-bot-panel')) || visibleOverlay(document.getElementById('ovyx-website-management')) ||
+      Array.prototype.some.call(document.querySelectorAll('#view-settings,[id^="view-admin-"]'), visibleOverlay) ||
+      Array.prototype.some.call(document.querySelectorAll('[role="dialog"],[aria-modal="true"],.v55-preview-modal'), visibleOverlay);
   }
 
   function read(style, property) {
