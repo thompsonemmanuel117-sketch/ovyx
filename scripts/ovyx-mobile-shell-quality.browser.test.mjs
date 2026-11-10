@@ -100,14 +100,14 @@ try {
     const home=route('home');body.classList.add('ovyx-drawer-open');if(drawer){drawer.classList.remove('-translate-x-full');drawer.setAttribute('aria-hidden','false');}const drawerOpen=runAll();
     route('home');body.classList.add('ovyx-auth-open');root.classList.add('ovyx-auth-open');const authOpen=runAll();
     route('home');body.classList.add('ovyx-v58-assistant-open');const assistantOpen=runAll();
-    route('home');let management=document.getElementById('ovyx-website-management'),created=false;if(!management){management=document.createElement('div');management.id='ovyx-website-management';document.body.appendChild(management);created=true;}const oldStyle=management.getAttribute('style');management.style.cssText='position:fixed;inset:0;display:block;visibility:visible;opacity:1;';const managementOpen=runAll();if(created)management.remove();else if(oldStyle==null)management.removeAttribute('style');else management.setAttribute('style',oldStyle);
+    route('home');let management=document.getElementById('ovyx-website-management'),created=false;if(!management){management=document.createElement('div');management.id='ovyx-website-management';document.body.appendChild(management);created=true;}const oldStyle=management.getAttribute('style'),oldClass=management.getAttribute('class');management.classList.remove('hidden');management.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;display:block!important;visibility:visible!important;opacity:1!important;';const managementOpen=runAll();if(created)management.remove();else{if(oldStyle==null)management.removeAttribute('style');else management.setAttribute('style',oldStyle);if(oldClass==null)management.removeAttribute('class');else management.setAttribute('class',oldClass);}
     const appStudio=sections.some(s=>s.id==='view-appstudio')?route('appstudio'):'missing';
     route('home');
     const settingsView=document.getElementById('view-settings'),settingsOldStyle=settingsView?.getAttribute('style'),settingsWasHidden=settingsView?.classList.contains('hidden');
     if(settingsView){settingsView.classList.remove('hidden');settingsView.style.removeProperty('display');}
     const settings=runAll();
     if(settingsView){if(settingsWasHidden)settingsView.classList.add('hidden');else settingsView.classList.remove('hidden');if(settingsOldStyle==null)settingsView.removeAttribute('style');else settingsView.setAttribute('style',settingsOldStyle);}
-    const adminFixture=document.createElement('div');adminFixture.id='view-admin-dock-regression-fixture';adminFixture.style.cssText='position:fixed;inset:0;display:block;visibility:visible;opacity:1;';document.body.appendChild(adminFixture);
+    const adminFixture=document.createElement('div');adminFixture.id='view-admin-dock-regression-fixture';adminFixture.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;display:block!important;visibility:visible!important;opacity:1!important;';document.body.appendChild(adminFixture);
     const adminOpen=runAll();adminFixture.remove();
     const restoredHome=route('home');
     return {home,drawerOpen,authOpen,assistantOpen,managementOpen,appStudio,settings,adminOpen,restoredHome};
