@@ -7,8 +7,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const css = fs.readFileSync(path.join(root, 'assets/css/ovyx-mobile-shell-quality.css'), 'utf8');
 const middleware = fs.readFileSync(path.join(root, 'functions/_middleware.js'), 'utf8');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
-assert.match(middleware, /ovyx-mobile-shell-quality\.css\?v=20261110-8/, 'The shell quality layer must be delivered with the existing HTML shell.');
+assert.match(middleware, /ovyx-mobile-shell-quality\.css\?v=20261110-9/, 'The shell quality layer must be delivered with the existing HTML shell.');
 assert.match(css, /#ovyx-v52-bottom-bar\s*\{[\s\S]*?height:\s*64px\s*!important/, 'The existing mobile dock must have a compact fixed height.');
 assert.match(css, /\.v52-bottom-create\s*\{[\s\S]*?height:\s*54px\s*!important/, 'The New action must align within the dock, not float above it.');
 assert.match(css, /padding-bottom:\s*calc\(112px\s*\+\s*env\(safe-area-inset-bottom/, 'Home content must reserve at least 100px of dock clearance including the safe area.');
@@ -20,10 +21,13 @@ assert.match(css, /One restrained brand-accent authority across platform surface
 assert.match(css, /Outrank the legacy App Studio black-canvas rules/);
 assert.match(css, /body #view-router-viewport > #view-appstudio/, 'Light appearance must outrank legacy hard-coded App Studio backgrounds.');
 assert.match(css, /section:not\(#view-webstudio\)/, 'Platform accent overrides must explicitly leave Web Studio outside their scope.');
-assert.match(css, /#ovyx-topbar[^}]*--app-accent|#ovyx-topbar[^}]*#view-router-viewport/, 'The top bar must share the restrained brand accent.');
-assert.match(css, /#view-settings[^}]*--app-accent|#view-settings[^}]*#view-router-viewport/, 'Standalone Settings must share the restrained brand accent.');
-assert.match(css, /--app-accent:var\(--ovyx-brand-gold\)!important/, 'Legacy platform accents must resolve to the canonical champagne gold.');
-assert.match(css, /\.text-amber-300[\s\S]*?color:\s*var\(--ovyx-light-accent-strong\)/, 'Legacy pale amber text utilities must remain legible on white surfaces.');
+assert.ok(css.includes('#ovyx-topbar') && css.includes('--ovyx-platform-accent'), 'The top bar must share the restrained platform accent.');
+assert.ok(css.includes('#view-settings') && css.includes('--ovyx-platform-accent'), 'Standalone Settings must share the restrained platform accent.');
+assert.match(css, /--ovyx-ds-gold:var\(--ovyx-platform-accent\)!important/, 'Platform design tokens must resolve through the canonical platform accent.');
+assert.doesNotMatch(css, /--(?:app-accent|accent|ov-accent)\s*:/, 'The platform polish layer must not override ThemeContext-owned custom accent variables.');
+assert.match(html, /const platformAccent=legacyDefaultAccent\?/, 'The canonical ThemeContext must map the legacy orange default to a restrained platform gold.');
+assert.match(html, /set\('--ovyx-platform-accent',platformAccent\)/, 'Custom appearance colours must flow into the platform accent token.');
+assert.match(css, /\.text-amber-300[\s\S]*?color:\s*var\(--ovyx-platform-accent-strong\)/, 'Legacy pale amber text utilities must remain legible on white surfaces.');
 assert.match(css, /#ovyx-v52-bottom-bar button\.is-active/, 'The active dock item must retain a clear light-theme state.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-mobile-shell-quality.test.mjs'), 'The mobile shell quality contract must run in npm test.');
 
