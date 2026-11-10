@@ -267,3 +267,84 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar [data-v52-bot
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-v52-bottom-bar .is-active {
   color: #704600 !important;
 }
+
+
+/* Keep the dock and its scroll clearance exclusive to the actual Home dashboard.
+   Auth, Settings, Assistant and workspace routes must use the full viewport. */
+@media (max-width: 767px) {
+  html body:not([data-ovyx-v57-view="home"]) #view-router-viewport {
+    padding-bottom: 0 !important;
+  }
+  html body.ovyx-auth-open #view-router-viewport {
+    padding-bottom: 0 !important;
+    scroll-padding-bottom: 0 !important;
+  }
+  html body.ovyx-auth-open #ovyx-v52-bottom-bar,
+  html.ovyx-auth-open #ovyx-v52-bottom-bar * {
+    pointer-events: none !important;
+  }
+  html body.ovyx-auth-open #view-master-auth {
+    overscroll-behavior: contain;
+    min-height: 100dvh;
+    padding-bottom: max(18px, env(safe-area-inset-bottom, 0px));
+    box-sizing: border-box;
+  }
+  html body.ovyx-auth-open #view-master-auth .ovyx-master-auth-shell {
+    min-height: 100dvh !important;
+    max-height: 100dvh !important;
+    padding-top: max(28px, env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: max(26px, env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-block: 24px;
+  }
+}
+
+/* Neutral, platform-native light appearance with durable gold contrast. */
+html:is(.ovyx-light,[data-ovyx-mode="light"]) {
+  --ovyx-ds-focus: #704600 !important;
+  --ovyx-ds-success: #187344 !important;
+  --ovyx-ds-warning: #805400 !important;
+  --ovyx-ds-info: #176b83 !important;
+  --ovyx-premium-gold: #805400 !important;
+  --ovyx-premium-silver: #465366 !important;
+  --accent: #805400 !important;
+  --app-accent: #805400 !important;
+  --ov-accent: #805400 !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(
+  .text-amber-200,.text-amber-300,.text-amber-400,.text-amber-500,.text-amber-600,
+  .text-yellow-200,.text-yellow-300,.text-yellow-400,.text-yellow-500,.text-yellow-600,
+  .text-orange-300,.text-orange-400,.text-orange-500,.text-orange-600,
+  .text-gold,.text-ovyx-gold
+) {
+  color: #805400 !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(
+  .border-amber-200,.border-amber-300,.border-amber-400,.border-amber-500,
+  .border-yellow-200,.border-yellow-300,.border-yellow-400,.border-yellow-500,
+  .border-orange-300,.border-orange-400,.border-orange-500
+) {
+  border-color: rgba(128,84,0,.38) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(
+  .bg-amber-200,.bg-amber-300,.bg-amber-400,.bg-yellow-200,.bg-yellow-300,
+  .bg-yellow-400,.bg-orange-200,.bg-orange-300
+) {
+  color: #704600 !important;
+  background-color: rgba(135,85,0,.12) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) :is(
+  .ovyx-ds-button--primary,.ovyx-settings-btn.primary,.ovyx-auth-primary,
+  .v59-build-btn,.v59-command-primary
+) {
+  color: #fff !important;
+  background-color: #704600 !important;
+  border-color: #704600 !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-master-auth {
+  color: var(--ovyx-light-text) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-master-auth .ovyx-auth-kicker,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-master-auth .ovyx-auth-eyebrow,
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-master-auth .ovyx-auth-card-kicker {
+  color: #805400 !important;
+}
