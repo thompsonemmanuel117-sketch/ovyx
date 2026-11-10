@@ -16,6 +16,8 @@ assert.match(runtime, /visibleSections\.length !== 1/, 'Ambiguous route state mu
 assert.match(runtime, /renderedRoute === stateRoute/, 'The visible route must agree with KernelState before Home navigation is shown.');
 assert.ok(!runtime.includes("getAttribute('aria-hidden')"), 'A stale aria-hidden marker must never decide whether Home is visible.');
 assert.match(runtime, /kernel-brain-bot-panel/);
+assert.match(runtime, /view-master-auth/, 'The dashboard dock must be suppressed while the full-screen authentication surface is open.');
+assert.match(runtime, /ovyx-auth-open/, 'Authentication overlay state must independently suppress the dashboard dock even while Home remains the routed view.');
 assert.match(runtime, /ovyx-website-management/);
 assert.match(runtime, /window\.innerWidth >= 768/, 'Desktop navigation layout must remain untouched.');
 assert.match(runtime, /new MutationObserver/, 'The authority must follow route and dock re-renders.');
