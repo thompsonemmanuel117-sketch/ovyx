@@ -32,7 +32,7 @@ assert.ok((html.match(/!window\.OVYXDashboardDockBlocked\?\.\(\)/g) || []).lengt
 assert.match(runtime, /new MutationObserver/, 'The authority must follow route and dock re-renders.');
 assert.match(runtime, /state\.saved\[property\] = current/, 'Original shell style changes must be preserved while the dock is controlled.');
 assert.match(runtime, /function restore\(dock\)/, 'The dock styles must be restored when the mobile authority is not applicable.');
-assert.match(middleware, /ovyx-dashboard-navigation\.js\?v=20261110-4/, 'The dashboard navigation authority must load through the Pages shell.');
+assert.match(middleware, /ovyx-dashboard-navigation\.js\?v=20261110-5/, 'The dashboard navigation authority must load through the Pages shell.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-dashboard-navigation.test.mjs'), 'The dashboard navigation contract must run in npm test.');
 
 
