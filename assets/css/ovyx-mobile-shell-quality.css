@@ -429,8 +429,8 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) {
   --ovyx-platform-accent-strong: var(--ovyx-light-accent-strong);
 }
 @keyframes ovyxGoldShimmer {
-  0%, 68%, 100% { background-position: 140% 0; }
-  34% { background-position: -40% 0; }
+  0%, 68%, 100% { box-shadow: 0 5px 20px color-mix(in srgb,var(--ovyx-platform-accent) 15%,transparent); }
+  34% { box-shadow: 0 6px 24px color-mix(in srgb,var(--ovyx-platform-accent) 25%,transparent); }
 }
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   #app-sidebar,#mobile-drawer,#ovyx-topbar,#view-router-viewport > section:not(#view-webstudio),#view-settings,[id^="view-admin-"]
@@ -451,18 +451,19 @@ html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   #view-home .v59-build-btn,
   #view-home .v59-command-primary,
-  .ovyx-ds-button--primary,
-  .ovyx-settings-btn.primary,
   .ovyx-auth-primary,
   .ovyx-ua-primary,
   .ovyx-lb-generate,
   .ovyx-command-primary
 ) {
-  background-image: linear-gradient(110deg,transparent 0%,rgba(255,255,255,.17) 46%,transparent 62%) !important;
-  background-size: 240% 100% !important;
-  background-repeat: no-repeat !important;
+  /* Keep original background artwork intact; animate only high-visibility actions. */
   animation: ovyxGoldShimmer 7s ease-in-out infinite;
   box-shadow: 0 5px 20px color-mix(in srgb,var(--ovyx-platform-accent) 16%,transparent);
+}
+/* Settings theme controls remain static so rapid preview/import updates stay lightweight. */
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(.ovyx-ds-button--primary,.ovyx-settings-btn.primary) {
+  animation: none !important;
+  box-shadow: 0 5px 20px color-mix(in srgb,var(--ovyx-platform-accent) 12%,transparent);
 }
 html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
   #view-home .v59-build-btn,
@@ -495,4 +496,14 @@ html:not(.ovyx-light):not([data-ovyx-mode="light"]) :is(
     #view-home .v59-build-btn,#view-home .v59-command-primary,.ovyx-ds-button--primary,
     .ovyx-settings-btn.primary,.ovyx-auth-primary,.ovyx-ua-primary,.ovyx-lb-generate,.ovyx-command-primary
   ) { animation: none !important; }
+}
+
+
+/* Keep signed-out Home header actions readable in Light appearance. */
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-topbar :is(button,a) {
+  color: var(--ovyx-light-text) !important;
+  -webkit-text-fill-color: var(--ovyx-light-text);
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) #ovyx-topbar :is(button,a) svg {
+  color: inherit !important;
 }
