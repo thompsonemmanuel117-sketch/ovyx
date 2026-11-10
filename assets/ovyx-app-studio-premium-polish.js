@@ -36,7 +36,7 @@
           '<span class="ovyx-as-flow__number">01</span><span class="ovyx-as-flow__copy"><b>Analyze</b><small>Inspect a public URL</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Start here</span>' +
         '</a>' +
         '<a href="#ovyx-app-studio-link-builder" data-ovyx-as-step="generate">' +
-          '<span class="ovyx-as-flow__number">02</span><span class="ovyx-as-flow__copy"><b>Generate</b><small>Create your app</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Next</span>' +
+          '<span class="ovyx-as-flow__number">02</span><span class="ovyx-as-flow__copy"><b>Build</b><small>Create your app</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Next</span>' +
         '</a>' +
         '<a href="#ovyx-app-studio-project-brain" data-ovyx-as-step="verify">' +
           '<span class="ovyx-as-flow__number">03</span><span class="ovyx-as-flow__copy"><b>Verify</b><small>Test real behaviour</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Next</span>' +
@@ -247,7 +247,7 @@
     const style = el('style', '');
     style.id = 'ovyx-app-studio-premium-polish-style';
     style.textContent = [
-      '#view-appstudio{position:relative!important;flex-direction:column!important;align-items:stretch!important;gap:clamp(14px,2vw,22px)!important;box-sizing:border-box!important;width:100%!important;height:100%!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain;padding:clamp(14px,2.7vw,34px) clamp(12px,2.8vw,36px) 72px!important;scroll-behavior:smooth!important;background:radial-gradient(ellipse at 50% -15%,rgba(194,163,107,.11),transparent 44%),linear-gradient(180deg,#080b11 0%,#05070b 70%,#090b10 100%)!important}',
+      '#view-appstudio{position:relative!important;flex-direction:column!important;align-items:stretch!important;gap:clamp(14px,2vw,22px)!important;box-sizing:border-box!important;width:100%!important;height:100%!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain;padding:clamp(14px,2.7vw,34px) clamp(12px,2.8vw,36px) max(24px,env(safe-area-inset-bottom))!important;scroll-behavior:smooth!important;background:radial-gradient(ellipse at 50% -15%,rgba(194,163,107,.11),transparent 44%),linear-gradient(180deg,#080b11 0%,#05070b 70%,#090b10 100%)!important}',
       '#view-appstudio>*{flex-shrink:0!important;max-width:none!important;width:100%!important;margin-left:auto!important;margin-right:auto!important;min-width:0!important;box-sizing:border-box!important}',
       '#view-appstudio #app-studio-clean-canvas{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;min-height:0!important;overflow:visible!important;pointer-events:auto!important;background:transparent!important;border:0!important;box-shadow:none!important}',
       '#view-appstudio #app-studio-clean-canvas .as4-shell{box-sizing:border-box!important;width:100%!important;min-height:0!important;max-width:none!important;padding:clamp(15px,2vw,24px)!important;margin:0 auto!important;border:1px solid rgba(255,255,255,.09);border-radius:18px;background:linear-gradient(145deg,rgba(18,23,32,.94),rgba(9,12,18,.96));box-shadow:0 18px 45px rgba(0,0,0,.2)}',
@@ -268,6 +268,44 @@
     document.head.appendChild(style);
   }
 
+
+  function enhanceStages(root) {
+    const stages = [
+      { id: 'ovyx-app-studio-url-analyzer-panel', number: '01', label: 'SOURCE', title: 'Understand the website', status: () => window.__OVYX_URL_ANALYZER_LAST_REPORT__ ? 'Reviewed' : 'Waiting' },
+      { id: 'ovyx-app-studio-link-builder', number: '02', label: 'CREATE', title: 'Build your app', status: () => window.__OVYX_APP_STUDIO_GENERATED_PROJECT__ ? 'App created' : window.__OVYX_URL_ANALYZER_LAST_REPORT__ ? 'Ready to build' : 'Waiting' },
+      { id: 'ovyx-app-studio-project-brain', number: '03', label: 'QUALITY', title: 'Check app behaviour', status: () => {
+        const report = window.__OVYX_PROJECT_BRAIN_REPORT__;
+        return !report ? 'Not checked' : report.status === 'failed' ? 'Failed checks' : report.status === 'needs-attention' ? 'Review needed' : report.summary?.runtimeChecked ? 'Verified' : 'Source checked';
+      } },
+      { id: 'ovyx-app-studio-release', number: '04', label: 'RELEASE', title: 'Prepare for launch', status: () => {
+        const project = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
+        const state = project?.releaseState || {};
+        const production = state.web?.production;
+        const live = production && production.action === 'publish' && ['active','success','deployed','completed'].includes(String(production.status || '').toLowerCase());
+        return live ? 'Published' : project?.savedToProjects ? 'Saved · ready' : project ? 'Ready when you are' : 'Waiting';
+      } }
+    ];
+    for (const stage of stages) {
+      const panel = document.getElementById(stage.id);
+      if (!panel || !root.contains(panel)) continue;
+      panel.dataset.ovyxAsStage = stage.label.toLowerCase();
+      let meta = panel.querySelector(':scope > .ovyx-as-stage-meta');
+      if (!meta) {
+        meta = el('div', 'ovyx-as-stage-meta');
+        meta.innerHTML = '<span class="ovyx-as-stage-meta__index"></span><span class="ovyx-as-stage-meta__label"></span><span class="ovyx-as-stage-meta__title"></span><span class="ovyx-as-stage-meta__status" role="status" aria-live="polite"></span>';
+        panel.insertBefore(meta, panel.firstChild);
+      }
+      const index = $(meta, '.ovyx-as-stage-meta__index');
+      const label = $(meta, '.ovyx-as-stage-meta__label');
+      const title = $(meta, '.ovyx-as-stage-meta__title');
+      const status = $(meta, '.ovyx-as-stage-meta__status');
+      if (index) index.textContent = stage.number;
+      if (label) label.textContent = stage.label;
+      if (title) title.textContent = stage.title;
+      if (status) status.textContent = stage.status();
+    }
+  }
+
   function polish() {
     const root = document.querySelector(ROOT);
     if (!root || !root.isConnected) return;
@@ -276,6 +314,7 @@
     }
     wrapIdentity(root);
     wrapLegacyConversion(root);
+    enhanceStages(root);
     groupAnalyzerDetails(root);
     const findings = document.querySelector('#ovyx-app-studio-project-brain .ovyx-lb-brain-findings');
     if (findings && !findings.dataset.ovyxAsInitial) {
