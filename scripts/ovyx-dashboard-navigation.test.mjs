@@ -7,6 +7,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtime = fs.readFileSync(path.join(root, 'assets/ovyx-dashboard-navigation.js'), 'utf8');
 const middleware = fs.readFileSync(path.join(root, 'functions/_middleware.js'), 'utf8');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
 assert.ok(runtime.includes("var DOCK_ID = 'ovyx-v52-bottom-bar'"), 'The authority must target the existing Home dock, not create another navigation bar.');
 assert.ok(runtime.includes("var VIEWPORT_ID = 'view-router-viewport'"), 'The authority must inspect the existing routed viewport.');
@@ -20,6 +21,10 @@ assert.match(runtime, /view-master-auth/, 'The dashboard dock must be suppressed
 assert.match(runtime, /ovyx-auth-open/, 'Authentication overlay state must independently suppress the dashboard dock even while Home remains the routed view.');
 assert.match(runtime, /ovyx-website-management/);
 assert.match(runtime, /window\.innerWidth >= 768/, 'Desktop navigation layout must remain untouched.');
+assert.match(runtime, /function drawerOpen\(\)/, 'The final authority must independently detect an open mobile drawer.');
+assert.match(runtime, /window\.OVYXDashboardDockBlocked/, 'The final authority must use the shared protected-surface contract.');
+assert.match(html, /window\.OVYXDashboardDockBlocked=dockBlocked/, 'All route writers must share one dock visibility predicate.');
+assert.ok((html.match(/!window\.OVYXDashboardDockBlocked\?\.\(\)/g) || []).length >= 4, 'Legacy dock writers must fail closed for drawers, authentication and standalone overlays.');
 assert.match(runtime, /new MutationObserver/, 'The authority must follow route and dock re-renders.');
 assert.match(runtime, /state\.saved\[property\] = current/, 'Original shell style changes must be preserved while the dock is controlled.');
 assert.match(runtime, /function restore\(dock\)/, 'The dock styles must be restored when the mobile authority is not applicable.');
