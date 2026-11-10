@@ -317,6 +317,18 @@
     }
   }
 
+  function refinePanelCopy(root) {
+    const copy = [
+      ['.ovyx-ua-panel .ovyx-ua-muted', 'Scan a public site for its pages, brand and useful assets.'],
+      ['.ovyx-lb-panel > .ovyx-lb-heading > .ovyx-lb-muted', 'Create an app from the site structure and brand. Preview it before release.'],
+      ['.ovyx-app-brand-dna__intro', 'Set the logo, colours and design rules for this app.']
+    ];
+    for (const [selector, value] of copy) {
+      const target = $(root, selector);
+      if (target && target.textContent.trim() !== value) target.textContent = value;
+    }
+  }
+
   function polish() {
     const root = document.querySelector(ROOT);
     if (!root || !root.isConnected) return;
@@ -326,6 +338,7 @@
     wrapIdentity(root);
     wrapLegacyConversion(root);
     enhanceStages(root);
+    refinePanelCopy(root);
     groupAnalyzerDetails(root);
     const findings = document.querySelector('#ovyx-app-studio-project-brain .ovyx-lb-brain-findings');
     if (findings && !findings.dataset.ovyxAsInitial) {
