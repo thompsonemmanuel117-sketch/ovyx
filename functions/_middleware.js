@@ -50,7 +50,7 @@ export async function onRequest(context) {
     })
     .on('body', {
       element(element) {
-        element.append(LAUNCH_SCRIPT + '<link rel="stylesheet" href="/assets/css/ovyx-mobile-shell-quality.css?v=20261110-15">', { html: true });
+        element.append(LAUNCH_SCRIPT + '<link rel="stylesheet" href="/assets/css/ovyx-mobile-shell-quality.css?v=20261110-16">', { html: true });
       },
     })
     .transform(response);
