@@ -55,6 +55,17 @@ try {
       }
       document.body.classList.add('ovyx-webstudio-active');
     });
+    // This browser test navigates before the full shell has necessarily
+    // completed parsing. Wait until the inline Pulse runtime has installed its
+    // route listener, then publish the same route-change signal used by the app.
+    await page.waitForFunction(
+      () => window.__OVYX_WEBSTUDIO_PULSE_COMPOSER_V1__ === true,
+      null,
+      { timeout: 45000 },
+    );
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent('ovyx:view-changed', { detail: { view: 'webstudio' } }));
+    });
     await page.waitForSelector('#ws-pulse-trigger', { state: 'attached', timeout: 45000 });
 
     const pulse = page.locator('#ws-pulse-trigger');
