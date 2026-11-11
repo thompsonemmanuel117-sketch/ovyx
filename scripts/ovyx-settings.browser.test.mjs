@@ -25,7 +25,7 @@ try {
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX app did not load.');
     await page.waitForFunction(
-      () => document.readyState === 'complete'
+      () => document.readyState !== 'loading'
         && typeof window.OVYXRouteAuthority?.go === 'function'
         && typeof window.OVYXSettings?.show === 'function'
         && !!window.OVYXDataLayerSettings
@@ -239,7 +239,7 @@ try {
     // Verify local persistence across an actual page reload as well.
     await page.reload({ waitUntil: 'commit', timeout: 60000 });
     await page.waitForFunction(
-      () => document.readyState === 'complete'
+      () => document.readyState !== 'loading'
         && typeof window.OVYXRouteAuthority?.go === 'function'
         && typeof window.OVYXSettings?.show === 'function'
         && !!window.OVYXDataLayerSettings
