@@ -33,7 +33,7 @@ try {
     // reaching DOMContentLoaded before the feature can be exercised.
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, `[${target.name}] app returned an HTTP error`);
-    await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 45000 });
+    await page.waitForFunction(() => window.OVYXStability?.bot && window.WorkspaceBrainBot?.__v52 === true && typeof window.WorkspaceBrainBot?.open === 'function' && !!document.getElementById('kernel-brain-bot-panel') && typeof window.OVYXV58?.route === 'function', null, { timeout: 60000 });
 
     // The shell's asset loader may remove transient script elements after execution.
     // Verify the fetched asset through the browser resource timing buffer instead
