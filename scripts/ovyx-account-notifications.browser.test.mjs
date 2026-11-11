@@ -27,7 +27,7 @@ try {
 
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
-    await page.waitForFunction(() => document.readyState === 'complete' && !!window.OVYXNotifications && !!window.firebase?.auth?.()?.currentUser && typeof window.OVYXRouteAuthority?.go === 'function', null, { timeout: 60000 });
+    await page.waitForFunction(() => document.readyState !== 'loading' && !!window.OVYXNotifications && !!window.firebase?.auth?.()?.currentUser && typeof window.OVYXRouteAuthority?.go === 'function', null, { timeout: 60000 });
 
     // The current product inbox is backed by the published Firestore announcement
     // stream. Supply one deterministic snapshot through the existing browser
