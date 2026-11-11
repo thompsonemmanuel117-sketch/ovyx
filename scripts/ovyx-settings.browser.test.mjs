@@ -4,21 +4,21 @@ import { chromium } from 'playwright';
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
 
-async function waitForRouteRestore(page) {
-  // The late V25 controller reapplies the stored route at load/pageshow. Do not
-  // issue a test navigation until that boot restoration has finished.
+async function waitForAppBoot(page) {
+  // Wait for the current app's real route controller. The former
+  // __OVYX_BOOT_ROUTE hook is not part of this shell and must not gate tests.
   await page.waitForFunction(
     () => document.readyState === 'complete'
-      && typeof window.__OVYX_BOOT_ROUTE === 'string'
-      && window.KernelState?.activeView === window.__OVYX_BOOT_ROUTE,
+      && typeof window.Router?.go === 'function'
+      && !!window.KernelState
+      && typeof window.KernelState.activeView === 'string',
     null,
     { timeout: 45000 },
   );
-  await page.waitForTimeout(120);
+  const bootView = await page.evaluate(() => window.KernelState.activeView);
   await page.waitForFunction(
-    () => typeof window.__OVYX_BOOT_ROUTE === 'string'
-      && window.KernelState?.activeView === window.__OVYX_BOOT_ROUTE,
-    null,
+    expectedView => window.KernelState?.activeView === expectedView,
+    bootView,
     { timeout: 10000 },
   );
 }
@@ -50,7 +50,7 @@ try {
       { timeout: 45000 },
     );
 
-    await waitForRouteRestore(page);
+    await waitForAppBoot(page);
     // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
     await page.evaluate(() => (window.OVYXRouteAuthority?.go || window.Router.go)('settings'));
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
