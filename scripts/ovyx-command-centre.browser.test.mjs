@@ -18,6 +18,10 @@ try {
     });
     page.setDefaultTimeout(15000);
     const errors = [];
+    const pendingRequests = new Map();
+    page.on('request', request => pendingRequests.set(request.url(), request.resourceType()));
+    page.on('requestfinished', request => pendingRequests.delete(request.url()));
+    page.on('requestfailed', request => pendingRequests.delete(request.url()));
     page.on('pageerror', error => {
       const detail = String(error?.stack || error?.message || error);
       if (/ovyx-command-centre/i.test(detail)) errors.push(detail);
@@ -32,7 +36,10 @@ try {
       }
     });
 
-    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
+    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 }).catch(error => {
+      console.error('[' + target.name + '] navigation failed; pending browser requests: ' + JSON.stringify(Array.from(pendingRequests.entries())));
+      throw error;
+    });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
     const bootstrapDiagnostic = await Promise.race([
       page.evaluate(() => ({
@@ -47,6 +54,7 @@ try {
       new Promise(resolve => setTimeout(() => resolve({ diagnostic: 'Renderer did not answer the bootstrap probe within 5 seconds.' }), 5000)),
     ]);
     console.log('[' + target.name + '] dashboard bootstrap diagnostic: ' + JSON.stringify(bootstrapDiagnostic));
+    console.log('[' + target.name + '] pending browser requests after bootstrap probe: ' + JSON.stringify(Array.from(pendingRequests.entries())));
     await page.waitForFunction(() => document.readyState !== 'loading'
       && !!document.querySelector('#view-home .v59-dashboard-shell'), null, { timeout: 60000, polling: 250 });
     assert.equal(await page.locator('#view-home .v59-hero').count(), 1,
