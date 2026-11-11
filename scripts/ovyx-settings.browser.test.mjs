@@ -25,7 +25,8 @@ try {
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX app did not load.');
     await page.waitForFunction(
-      () => typeof window.Router?.go === 'function'
+      () => document.readyState === 'complete'
+        && typeof window.OVYXRouteAuthority?.go === 'function'
         && typeof window.OVYXSettings?.show === 'function'
         && !!window.OVYXDataLayerSettings
         && !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main')
@@ -35,7 +36,7 @@ try {
     );
 
     // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
-    await page.evaluate(() => window.Router.go('settings'));
+    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
     const layer = page.locator('#ovyx-data-layer-panel');
@@ -252,7 +253,7 @@ try {
     // not need the unrelated app-wide last-view restoration to equal Settings.
     // Wait for pageshow/late route guards to settle, then explicitly open Settings.
     await page.waitForTimeout(400);
-    await page.evaluate(() => window.Router.go('settings'));
+    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
     await page.locator('#ovyx-data-endpoint').waitFor({ state: 'visible' });
