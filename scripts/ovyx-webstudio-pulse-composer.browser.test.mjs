@@ -37,13 +37,9 @@ try {
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
     await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached', timeout: 45000 });
-    // The composer shell is present in the initial HTML, while its Pulse control
-    // is added by the Web Studio runtime. Let page startup finish before asserting it.
-    await page.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
-    await page.waitForSelector('#ws-pulse-trigger', { state: 'attached', timeout: 45000 });
     await page.evaluate(() => {
-      // Use the real router; forcing CSS classes alone lets the shell route
-      // synchronizer hide the view again during a longer browser interaction.
+      // Activate Web Studio before waiting for its lazy composer runtime.
+      // The Pulse button is intentionally mounted only when this view opens.
       if (typeof window.switchView === 'function') {
         window.switchView('webstudio', { silent: true });
       } else {
@@ -58,7 +54,8 @@ try {
         window.dispatchEvent(new CustomEvent('ovyx:view-changed', { detail: { view: 'webstudio' } }));
       }
       document.body.classList.add('ovyx-webstudio-active');
-    });;
+    });
+    await page.waitForSelector('#ws-pulse-trigger', { state: 'attached', timeout: 45000 });
 
     const pulse = page.locator('#ws-pulse-trigger');
     const mic = page.locator('#ws-composer-mic');
