@@ -8,6 +8,22 @@ import assert from 'node:assert/strict';
  * Keep the response bodies shaped like the corresponding public/admin APIs.
  */
 export async function installOwnerBrowserApiFixtures(page, options = {}) {
+  // The production shell references Google Fonts and Font Awesome stylesheets.
+  // CI has no need to test those vendors, and a slow external CSS response can
+  // block the HTML parser before OVYX's inline runtimes and DOM-ready handlers
+  // execute. Fulfil only these presentation styles locally; app/API requests
+  // and all product behavior remain under the normal browser test.
+  for (const stylesheet of [
+    'https://fonts.googleapis.com/**',
+    'https://cdnjs.cloudflare.com/**',
+  ]) {
+    await page.route(stylesheet, route => route.fulfill({
+      status: 200,
+      contentType: 'text/css; charset=utf-8',
+      headers: { 'cache-control': 'no-store' },
+      body: '',
+    }));
+  }
   // Avoid depending on outbound Firebase CDN availability in a local browser
   // test. This facade only exists inside the Playwright page; API authority is
   // represented by route fixtures and is independently verified server-side.
