@@ -57,6 +57,44 @@ try {
     // against a not-yet-created panel and mistake that race for a UI regression.
     await panel.waitFor({ state: 'attached', timeout: 45000 });
     await page.evaluate(() => window.WorkspaceBrainBot.open());
+    const panelState = await panel.evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      const computed = getComputedStyle(el);
+      const ancestors = [];
+      for (let node = el; node && node !== document.documentElement && ancestors.length < 6; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        const box = node.getBoundingClientRect();
+        ancestors.push({
+          tag: node.tagName,
+          id: node.id || '',
+          className: typeof node.className === 'string' ? node.className : '',
+          display: style.display,
+          visibility: style.visibility,
+          opacity: style.opacity,
+          width: Math.round(box.width),
+          height: Math.round(box.height),
+        });
+      }
+      return {
+        hidden: el.hidden,
+        ariaHidden: el.getAttribute('aria-hidden'),
+        className: el.className,
+        inlineStyle: el.getAttribute('style') || '',
+        computed: {
+          display: computed.display,
+          visibility: computed.visibility,
+          opacity: computed.opacity,
+          position: computed.position,
+          width: computed.width,
+          height: computed.height,
+          pointerEvents: computed.pointerEvents,
+          transform: computed.transform,
+        },
+        rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
+        ancestors,
+      };
+    });
+    console.log('[' + target.name + '] assistant panel state after open: ' + JSON.stringify(panelState));
     await panel.waitFor({ state: 'visible', timeout: 15000 });
 
     // The real Home dock has inline !important styles and multiple shell
