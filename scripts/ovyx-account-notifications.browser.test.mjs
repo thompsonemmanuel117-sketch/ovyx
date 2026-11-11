@@ -33,6 +33,7 @@ try {
     // stream. Supply one deterministic snapshot through the existing browser
     // Firebase facade instead of testing a retired REST-based notification panel.
     await page.evaluate(() => {
+      window.__ovyxNotificationFixtureCalls = 0;
       const originalFirestore = window.firebase.firestore;
       window.firebase.firestore = function () {
         const db = originalFirestore();
@@ -43,6 +44,7 @@ try {
               where() { return this; },
               limit() { return this; },
               onSnapshot(callback) {
+                window.__ovyxNotificationFixtureCalls += 1;
                 const createdAt = {
                   toMillis: () => 1792486800000,
                   toDate: () => new Date('2026-10-20T09:00:00.000Z'),
@@ -74,6 +76,17 @@ try {
       window.OVYXRouteAuthority.go('inbox');
     });
 
+    const inboxDiagnostic = await page.evaluate(() => ({
+      route: window.KernelState?.activeView || null,
+      user: window.firebase?.auth?.()?.currentUser?.uid || null,
+      snapshotCalls: window.__ovyxNotificationFixtureCalls || 0,
+      notificationDocs: (window.OVYXNotifications?.docs || []).map(item => ({ id: item.id, title: item.title, published: item.published })),
+      listText: document.querySelector('#v34-inbox-list')?.innerText || null,
+      listDisplay: document.querySelector('#v34-inbox-list') ? getComputedStyle(document.querySelector('#v34-inbox-list')).display : null,
+      viewDisplay: document.getElementById('view-inbox') ? getComputedStyle(document.getElementById('view-inbox')).display : null,
+      pageErrors,
+    }));
+    console.log('[' + target.name + '] inbox state after subscription: ' + JSON.stringify(inboxDiagnostic));
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'inbox' && getComputedStyle(document.getElementById('view-inbox')).display !== 'none' && !document.getElementById('view-inbox').classList.contains('hidden'), null, { timeout: 15000 });
     const list = page.locator('#view-inbox #v34-inbox-list');
     await list.waitFor({ state: 'visible' });
