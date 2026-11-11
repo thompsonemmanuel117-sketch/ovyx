@@ -23,18 +23,29 @@ try {
   ]) {
     lastCheckpoint = target.name + ': viewport started';
     console.log('[' + target.name + '] checkpoint: viewport started');
-    const page = await browser.newPage({ viewport: target.viewport });
+    const context = await bounded(browser.newContext({ viewport: target.viewport }), target.name + ': create browser context', 20000);
+    lastCheckpoint = target.name + ': browser context ready';
+    console.log('[' + target.name + '] checkpoint: browser context ready');
+    const page = await bounded(context.newPage(), target.name + ': create browser page', 20000);
+    lastCheckpoint = target.name + ': page ready';
+    console.log('[' + target.name + '] checkpoint: page ready');
     page.on('console', message => console.log('[' + target.name + '] browser console: ' + message.type() + ' ' + message.text()));
     page.on('pageerror', error => console.error('[' + target.name + '] page JavaScript error: ' + String(error?.stack || error)));
     page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed'));
     page.on('close', () => console.error('[' + target.name + '] Chromium page closed unexpectedly'));
     page.setDefaultTimeout(20000);
-    await installOwnerBrowserApiFixtures(page, {
+    await bounded(installOwnerBrowserApiFixtures(page, {
       initialUser: { uid: 'ovyx-webstudio-browser-user', email: 'webstudio@example.test', token: 'ovyx-webstudio-browser-token' }
-    });
+    }), target.name + ': install browser API fixtures', 20000);
+    lastCheckpoint = target.name + ': browser fixtures ready';
+    console.log('[' + target.name + '] checkpoint: browser fixtures ready');
     // The production shell executes large inline boot scripts before
     // DOMContentLoaded. Assert the Web Studio controls directly after commit.
-    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
+    lastCheckpoint = target.name + ': navigating to local Pages shell';
+    console.log('[' + target.name + '] checkpoint: navigating to local Pages shell');
+    const response = await bounded(page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 }), target.name + ': load local Pages shell', 65000);
+    lastCheckpoint = target.name + ': Pages shell response received';
+    console.log('[' + target.name + '] checkpoint: Pages shell response received');
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
     await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached', timeout: 45000 });
     await page.evaluate(() => {
