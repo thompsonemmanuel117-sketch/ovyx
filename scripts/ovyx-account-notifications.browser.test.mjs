@@ -27,7 +27,7 @@ try {
 
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
-    await page.waitForFunction(() => !!window.OVYXNotifications && !!window.firebase?.auth?.()?.currentUser && typeof window.OVYXV58?.route === 'function', null, { timeout: 60000 });
+    await page.waitForFunction(() => document.readyState === 'complete' && !!window.OVYXNotifications && !!window.firebase?.auth?.()?.currentUser && typeof window.OVYXRouteAuthority?.go === 'function', null, { timeout: 60000 });
 
     // The current product inbox is backed by the published Firestore announcement
     // stream. Supply one deterministic snapshot through the existing browser
@@ -71,9 +71,11 @@ try {
       window.OVYXNotifications.subscribe();
       // V58 is the final route authority. Earlier legacy wrappers can still be
       // replaced during shell boot, so route only after that runtime is ready.
-      window.OVYXV58.route('inbox');
+      window.OVYXRouteAuthority.go('inbox');
+      window.OVYXStability?.releaseShell?.();
     });
 
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'inbox' && getComputedStyle(document.getElementById('view-inbox')).display !== 'none' && !document.getElementById('view-inbox').classList.contains('hidden'), null, { timeout: 15000 });
     const list = page.locator('#view-inbox #v34-inbox-list');
     await list.waitFor({ state: 'visible' });
     const notification = list.locator('[data-inbox-id="broadcast-test-1"]');
