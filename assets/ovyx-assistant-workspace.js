@@ -116,7 +116,7 @@
     // every observed class/style mutation, even when there was nothing to hide.
     if (!shouldHide) {
       for (const node of suppressedDockNodes) {
-        if (!(node instanceof HTMLElement) || !node.isConnected) {
+        if (!(node instanceof HTMLElement)) {
           suppressedDockNodes.delete(node);
           continue;
         }
