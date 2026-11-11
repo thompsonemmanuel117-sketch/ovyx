@@ -35,7 +35,7 @@ function extractWorkflowRunCommands(source) {
     const match = lines[index].match(/^(\s*)run:\s*(.*)$/);
     if (!match) continue;
     const parentIndent = match[1].length;
-    if (match[2].trim()) commands.push(match[2]);
+    if (match[2].trim() && !/^[|>][+-]?$/.test(match[2].trim())) commands.push(match[2]);
     else {
       for (index += 1; index < lines.length; index += 1) {
         const line = lines[index];
