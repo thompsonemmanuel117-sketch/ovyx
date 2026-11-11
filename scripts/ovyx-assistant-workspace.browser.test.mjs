@@ -33,10 +33,21 @@ try {
     assert.ok(response && response.status() < 400, `[${target.name}] app returned an HTTP error`);
     await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 45000 });
 
-    const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
-    assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
-    const scriptSources = await assistantScript.evaluateAll(nodes => nodes.map(node => node.src));
-    assert.ok(scriptSources.some(src => /[?&]v=20261030-1(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
+    // The shell's asset loader may remove transient script elements after execution.
+    // Verify the fetched asset through the browser resource timing buffer instead
+    // of requiring its temporary <script> node to remain in the DOM.
+    await page.waitForFunction(() => {
+      const resources = performance.getEntriesByType('resource').map(entry => entry.name);
+      return resources.some(src => /\/assets\/ovyx-assistant-workspace\.js(?:\?|$)/.test(src));
+    }, null, { timeout: 15000 });
+    const assistantAssetSources = await page.evaluate(() =>
+      performance.getEntriesByType('resource')
+        .map(entry => entry.name)
+        .filter(src => /\/assets\/ovyx-assistant-workspace\.js(?:\?|$)/.test(src))
+    );
+    assert.ok(assistantAssetSources.length, `[${target.name}] assistant workspace asset was not fetched`);
+    assert.ok(assistantAssetSources.some(src => /[?&]v=20261030-1(?:&|$)/.test(src)),
+      `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
 
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
