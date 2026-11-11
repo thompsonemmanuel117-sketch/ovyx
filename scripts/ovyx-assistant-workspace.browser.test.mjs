@@ -51,9 +51,13 @@ try {
     assert.ok(assistantAssetSources.some(src => /[?&]v=20261030-1(?:&|$)/.test(src)),
       `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
 
-    await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
-    await panel.waitFor({ state: 'visible' });
+    // The assistant panel is created by the shell's deferred UI boot. The
+    // WorkspaceBrainBot API can exist before its DOM target; do not call open
+    // against a not-yet-created panel and mistake that race for a UI regression.
+    await panel.waitFor({ state: 'attached', timeout: 45000 });
+    await page.evaluate(() => window.WorkspaceBrainBot.open());
+    await panel.waitFor({ state: 'visible', timeout: 15000 });
 
     // The real Home dock has inline !important styles and multiple shell
     // controllers. Verify the actual production element is hidden when the
