@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixtures.mjs';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
@@ -13,6 +14,7 @@ try {
     const context = await browser.newContext({ viewport: target.viewport });
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
+    await installOwnerBrowserApiFixtures(page);
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
 
