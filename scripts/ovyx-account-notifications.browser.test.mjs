@@ -27,7 +27,7 @@ try {
 
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
-    await page.waitForFunction(() => !!window.OVYXNotifications && !!window.firebase?.auth?.()?.currentUser, null, { timeout: 45000 });
+    await page.waitForFunction(() => !!window.OVYXNotifications && !!window.firebase?.auth?.()?.currentUser && typeof window.OVYXV58?.route === 'function', null, { timeout: 60000 });
 
     // The current product inbox is backed by the published Firestore announcement
     // stream. Supply one deterministic snapshot through the existing browser
@@ -69,7 +69,9 @@ try {
         return db;
       };
       window.OVYXNotifications.subscribe();
-      window.Router.go('inbox');
+      // V58 is the final route authority. Earlier legacy wrappers can still be
+      // replaced during shell boot, so route only after that runtime is ready.
+      window.OVYXV58.route('inbox');
     });
 
     const list = page.locator('#view-inbox #v34-inbox-list');
