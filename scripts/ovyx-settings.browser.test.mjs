@@ -24,16 +24,38 @@ try {
 
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX app did not load.');
-    await page.waitForFunction(
-      () => document.readyState !== 'loading'
-        && typeof window.OVYXRouteAuthority?.go === 'function'
-        && typeof window.OVYXSettings?.show === 'function'
-        && !!window.OVYXDataLayerSettings
-        && !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main')
-        && window.OVYXSettings.__n1415 === true,
-      null,
-      { timeout: 45000 },
-    );
+    try {
+      await page.waitForFunction(
+        () => document.readyState !== 'loading'
+          && typeof window.OVYXRouteAuthority?.go === 'function'
+          && typeof window.OVYXSettings?.show === 'function'
+          && !!window.OVYXDataLayerSettings
+          && !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main')
+          && window.OVYXSettings.__n1415 === true,
+        null,
+        { timeout: 45000, polling: 250 },
+      );
+    } catch (error) {
+      const diagnostic = await Promise.race([
+        page.evaluate(() => ({
+          readyState: document.readyState,
+          routeAuthority: typeof window.OVYXRouteAuthority?.go,
+          settingsShow: typeof window.OVYXSettings?.show,
+          settingsRoot: !!window.OVYXSettings?.root,
+          settingsMain: !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main'),
+          dataLayerSettings: !!window.OVYXDataLayerSettings,
+          dataLayerMarker: window.OVYXSettings?.__n1415 === true,
+          settingsCurrent: window.OVYXSettings?.current || null,
+          scripts: Array.from(document.scripts).filter(script => script.src).map(script => ({
+            src: script.src, readyState: script.readyState || null
+          })),
+          bodyChildren: document.body?.children?.length || 0,
+        })),
+        new Promise(resolve => setTimeout(() => resolve({ diagnostic: 'Browser page did not answer the bootstrap diagnostic within 5 seconds.' }), 5000)),
+      ]);
+      console.error('[' + target.name + '] OVYX bootstrap diagnostic: ' + JSON.stringify(diagnostic));
+      throw error;
+    }
 
     // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
     await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
@@ -553,5 +575,17 @@ try {
   }
   console.log('OVYX Settings browser tests passed on desktop and mobile: Data Layer, Appearance, Notifications, connection/security statuses, and mocked Token Booster failure handling.');
 } finally {
-  await browser.close();
+  let closeTimer;
+  try {
+    await Promise.race([
+      browser.close(),
+      new Promise((_, reject) => { closeTimer = setTimeout(() => reject(new Error('Chromium shutdown exceeded 8 seconds.')), 8000); }),
+    ]);
+  } catch (error) {
+    console.error('[settings-browser] ' + String(error?.message || error));
+    process.exitCode = 1;
+    process.exit(1);
+  } finally {
+    if (closeTimer) clearTimeout(closeTimer);
+  }
 }
