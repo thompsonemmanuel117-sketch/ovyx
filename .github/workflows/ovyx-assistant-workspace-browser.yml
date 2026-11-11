@@ -203,7 +203,7 @@ jobs:
         run: npx wrangler deploy --config sentinel-worker/wrangler.toml --dry-run
 
       - name: Install Chromium
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Start local Cloudflare Pages app
         run: |
