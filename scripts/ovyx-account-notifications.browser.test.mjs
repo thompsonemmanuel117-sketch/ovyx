@@ -16,15 +16,9 @@ try {
     let isRead = false;
     let readPosts = 0;
     const ownErrors = [];
-    const runtimeErrors = [];
-    const failedRequests = [];
     page.on('pageerror', error => {
       const detail = String(error?.stack || error?.message || error);
-      runtimeErrors.push(detail);
       if (/ovyx-account-notifications|ovyx-notification|ovyx-welcome/i.test(detail)) ownErrors.push(detail);
-    });
-    page.on('requestfailed', request => {
-      failedRequests.push({ url: request.url(), error: request.failure()?.errorText || 'request failed' });
     });
 
     await installOwnerBrowserApiFixtures(page, {
@@ -75,44 +69,7 @@ try {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, pushConfigured: false, reason: 'Push is intentionally disabled in this browser fixture.' }) });
     });
 
-    // The full OVYX shell loads many deferred modules. Wait for the navigation commit,
-    // then wait for the exact notification UI this test exercises instead of
-    // making unrelated deferred modules gate the browser's DOMContentLoaded event.
-    await page.goto(baseURL, { waitUntil: 'commit' });
-    // Wait for the notification module to finish booting, then publish the
-    // signed-in state through the same Firebase listener path used by the app.
-    // This avoids racing the shell's deferred Firebase initialization.
-    try {
-      await page.waitForFunction(
-        () => typeof window.__setOVYXBrowserAuthUser === 'function'
-          && window.__OVYX_ACCOUNT_NOTIFICATIONS_V1__ === true
-          && typeof window.OVYXAccountNotifications?.open === 'function',
-        null,
-        { timeout: 15000 },
-      );
-    } catch (error) {
-      const runtime = await page.evaluate(() => ({
-        readyState: document.readyState,
-        notificationAssetLoaded: window.__OVYX_ACCOUNT_NOTIFICATIONS_V1__ === true,
-        notificationApiReady: typeof window.OVYXAccountNotifications?.open === 'function',
-        widgetPresent: !!document.querySelector('#ovyx-account-notifications-root'),
-        scripts: Array.from(document.scripts).map(script => script.src).filter(src => /account-notifications|assistant-workspace/.test(src)),
-      })).catch(() => ({ pageUnavailable: true }));
-      throw new Error(
-        'Account notifications did not boot within 15 seconds. Runtime: '
-        + JSON.stringify(runtime)
-        + '; page errors: ' + JSON.stringify(runtimeErrors)
-        + '; failed requests: ' + JSON.stringify(failedRequests)
-        + '; notification errors: ' + JSON.stringify(ownErrors)
-        + '; wait error: ' + String(error?.message || error),
-      );
-    }
-    await page.evaluate(() => window.__setOVYXBrowserAuthUser({
-      uid: 'ovyx-notification-user',
-      email: 'maria.doe@example.test',
-      displayName: '',
-      token: 'ovyx-notification-token',
-    }));
+    await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
     await page.locator('#ovyx-account-notifications-root').waitFor({ state: 'visible' });
     await page.locator('#ovyx-welcome-name').waitFor({ state: 'visible' });
     assert.equal(await page.locator('.ovyx-welcome-logo').getAttribute('src'), '/assets/ovyx-brand-mark.svg', '[' + target.name + '] welcome overlay must use canonical OVYX brand mark');
