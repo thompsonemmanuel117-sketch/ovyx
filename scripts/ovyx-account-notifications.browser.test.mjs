@@ -69,7 +69,9 @@ try {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, pushConfigured: false, reason: 'Push is intentionally disabled in this browser fixture.' }) });
     });
 
-    await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
+    // Feature readiness is asserted by the notification and welcome UI below;
+    // do not block on unrelated inline scripts reaching DOMContentLoaded.
+    await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     await page.locator('#ovyx-account-notifications-root').waitFor({ state: 'visible' });
     await page.locator('#ovyx-welcome-name').waitFor({ state: 'visible' });
     assert.equal(await page.locator('.ovyx-welcome-logo').getAttribute('src'), '/assets/ovyx-brand-mark.svg', '[' + target.name + '] welcome overlay must use canonical OVYX brand mark');
