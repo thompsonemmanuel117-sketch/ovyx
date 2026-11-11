@@ -240,7 +240,7 @@ try {
     await page.reload({ waitUntil: 'commit', timeout: 60000 });
     await page.waitForFunction(
       () => document.readyState === 'complete'
-        && typeof window.Router?.go === 'function'
+        && typeof window.OVYXRouteAuthority?.go === 'function'
         && typeof window.OVYXSettings?.show === 'function'
         && !!window.OVYXDataLayerSettings
         && document.readyState !== 'loading'
@@ -298,7 +298,7 @@ try {
     // the test's assertions concern Settings persistence, not that global hint.
     // Wait for its late restoration pass to settle, then navigate directly.
     await page.waitForTimeout(400);
-    await page.evaluate(() => window.Router.go('settings'));
+    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('appearance'));
     const appearance = page.locator('[data-settings-panel="appearance"]');
@@ -531,7 +531,7 @@ try {
     await page.locator('#view-pricing').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#view-pricing').getAttribute('aria-label'), 'OVYX Plans',
       '[' + target.name + '] Upgrade to Pro must navigate to the Plans view.');
-    await page.evaluate(() => window.Router.go('settings'));
+    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
     // Clear the payment-only identity fixture before verifying signed-out Security state.
