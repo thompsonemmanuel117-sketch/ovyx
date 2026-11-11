@@ -22,7 +22,10 @@ async function walk(directory) {
 // Only count explicit script paths in executable command text. Workflow path
 // filters, comments, job names, and documentation are not proof of execution.
 function stripShellComments(source) {
-  return source.split('\n').map(line => line.replace(/\s+#.*$/, '')).join('\n');
+  return source.split('\n')
+    .filter(line => !/^\s*#/.test(line))
+    .map(line => line.replace(/\s+#.*$/, ''))
+    .join('\n');
 }
 
 function extractWorkflowRunCommands(source) {
@@ -72,12 +75,25 @@ const unregistered = testFiles.filter(file => !executedPaths.has(file));
 
 // Guard the audit itself against the two false-positive patterns that caused
 // the previous implementation to overstate coverage.
-assert.deepEqual([...extractTestPaths([
-  '# node scripts/comment-only.test.mjs',
-  'paths:',
-  '  - scripts/path-filter-only.test.mjs',
-  'run: node scripts/actually-run.test.mjs',
-].join('\n'))], ['scripts/actually-run.test.mjs']);
+const fixtureWorkflow = [
+  'on:',
+  '  pull_request:',
+  '    paths:',
+  '      - scripts/path-filter-only.test.mjs',
+  'jobs:',
+  '  test:',
+  '    steps:',
+  '      - name: Run test',
+  '        run: node scripts/actually-run.test.mjs # scripts/inline-comment.test.mjs',
+  '      - name: Comment only',
+  '        run: |',
+  '          # node scripts/comment-only.test.mjs',
+].join('\n');
+assert.deepEqual(
+  [...extractTestPaths(extractWorkflowRunCommands(fixtureWorkflow))],
+  ['scripts/actually-run.test.mjs'],
+  'Only executable workflow run commands count; comments and path filters must not count.',
+);
 
 console.log(`OVYX automated test discovery: ${testFiles.length} test files, ${workflowFiles.length} workflows, ${executedPaths.size} explicit executable test references.`);
 if (unregistered.length) {
