@@ -67,7 +67,14 @@ export async function onRequest(context) {
   headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
   headers.set('Pragma', 'no-cache');
   headers.set('Expires', '0');
+  // rewritten.text() has already decoded the upstream body. Do not carry
+  // representation metadata for the original compressed response onto the
+  // newly constructed UTF-8 HTML body; Pages may compress it again as needed.
+  headers.delete('content-encoding');
   headers.delete('content-length');
+  headers.delete('content-md5');
+  headers.delete('content-range');
+  headers.delete('etag');
   return new Response(html, {
     status: rewritten.status,
     statusText: rewritten.statusText,
