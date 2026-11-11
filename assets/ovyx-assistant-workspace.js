@@ -72,6 +72,9 @@
   }
 
   const suppressedDockStyles = new WeakMap();
+  // Keep the small set of docks we actually changed so closing the assistant
+  // never needs to walk the entire application DOM just to restore them.
+  const suppressedDockNodes = new Set();
   const DOCK_HIDE_PROPERTIES = ['display', 'visibility', 'opacity', 'pointer-events', 'transform'];
 
   function readInlineProperty(style, property) {
@@ -107,6 +110,27 @@
     const shouldHide = forceHidden === true || composerFocused || assistantOpen;
     document.body?.classList.toggle('ovyx-native-composer-focus-mode', shouldHide);
 
+    // When the assistant is closed, restore only the docks this runtime
+    // previously changed. The old unconditional querySelectorAll('*') scan
+    // forced computed-style/layout work across the whole 2 MB app shell on
+    // every observed class/style mutation, even when there was nothing to hide.
+    if (!shouldHide) {
+      for (const node of suppressedDockNodes) {
+        if (!(node instanceof HTMLElement) || !node.isConnected) {
+          suppressedDockNodes.delete(node);
+          continue;
+        }
+        node.classList.remove(UNDERLYING_BOTTOM_NAV_CLASS);
+        const saved = suppressedDockStyles.get(node);
+        if (saved) {
+          for (const property of DOCK_HIDE_PROPERTIES) restoreInlineProperty(node.style, property, saved[property]);
+          suppressedDockStyles.delete(node);
+        }
+        suppressedDockNodes.delete(node);
+      }
+      return;
+    }
+
     // The dashboard shell has several controllers that write inline
     // !important display values. A class-only hide loses to those inline
     // declarations, so temporarily take ownership of the actual dock styles.
@@ -122,6 +146,7 @@
             DOCK_HIDE_PROPERTIES.map(property => [property, readInlineProperty(node.style, property)])
           ));
         }
+        suppressedDockNodes.add(node);
         const saved = suppressedDockStyles.get(node);
         // If another OVYX controller tries to reveal the dock while the
         // assistant is open, remember its latest requested values before
@@ -151,6 +176,7 @@
           for (const property of DOCK_HIDE_PROPERTIES) restoreInlineProperty(node.style, property, saved[property]);
           suppressedDockStyles.delete(node);
         }
+        suppressedDockNodes.delete(node);
       }
     });
   }
