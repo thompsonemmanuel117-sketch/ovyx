@@ -32,7 +32,10 @@ try {
     // gated on the feature under test rather than every unrelated deferred module.
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, `[${target.name}] app returned an HTTP error`);
-    await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 45000 });
+    await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 45000 }).catch(async error => {
+      const state = await page.evaluate(() => ({ readyState: document.readyState, title: document.title, body: Boolean(document.body), bot: typeof window.WorkspaceBrainBot, native: typeof window.OVYXNativeAssistant, scripts: document.scripts.length, firebaseReady: window.__OVYX_FIREBASE_READY__ }));
+      throw new Error('Assistant startup diagnostics: ' + JSON.stringify(state) + '; ' + error.message);
+    });
 
     const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
     assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
