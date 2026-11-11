@@ -112,6 +112,11 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) header {
   background: rgba(255,255,255,.96) !important;
   border-color: var(--ovyx-light-border) !important;
 }
+/* Dark appearance keeps legacy amber utility text on the shared champagne brand token. */
+html:not(.ovyx-light):not([data-ovyx-mode="light"]) #view-router-viewport > section:not(#view-webstudio) :is(.text-amber-300,.text-amber-400,.text-amber-500,.text-yellow-300,.text-yellow-400,.text-orange-300,.text-orange-400) {
+  color: var(--ovyx-ds-gold, #e8b64f) !important;
+}
+
 /* Keep the existing five actions; correct only the dock's mobile geometry. */
 @media (max-width: 767px) {
   #ovyx-v52-bottom-bar {
