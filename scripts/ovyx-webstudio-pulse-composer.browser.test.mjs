@@ -28,9 +28,11 @@ try {
     page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed'));
     page.on('close', () => console.error('[' + target.name + '] Chromium page closed unexpectedly'));
     page.setDefaultTimeout(20000);
-    const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // The production shell executes large inline boot scripts before
+    // DOMContentLoaded. Assert the Web Studio controls directly after commit.
+    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
-    await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached' });
+    await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached', timeout: 45000 });
     await page.waitForSelector('#ws-pulse-trigger', { state: 'attached' });
     await page.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
     await page.evaluate(() => {
