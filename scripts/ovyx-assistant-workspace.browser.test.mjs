@@ -21,30 +21,15 @@ try {
   ]) {
     const page = await browser.newPage({ viewport: target.viewport, acceptDownloads: true });
     page.setDefaultTimeout(20000);
-    await installOwnerBrowserApiFixtures(page, {
-      // The production assistant is account-scoped; exercise its real signed-in
-      // startup path rather than waiting for an unauthenticated shell to expose it.
-      initialUser: {
-        uid: 'ovyx-assistant-browser-user',
-        email: 'assistant@example.test',
-        displayName: 'Assistant Browser Test',
-        token: 'ovyx-assistant-browser-token',
-      },
-    });
+    await installOwnerBrowserApiFixtures(page);
     const errors = [];
     page.on('pageerror', error => {
       if (/ovyx-native|menuAction|workspaceTool|recoverLatestWorkspaceEdit|reviewWorkspaceEditHistory/i.test(error.message)) errors.push(error.message);
     });
 
-    // The full OVYX shell loads many deferred modules. Commit the document first,
-    // then explicitly wait for the assistant runtime below; this keeps the test
-    // gated on the feature under test rather than every unrelated deferred module.
-    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
+    const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     assert.ok(response && response.status() < 400, `[${target.name}] app returned an HTTP error`);
-    await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 45000 }).catch(async error => {
-      const state = await page.evaluate(() => ({ readyState: document.readyState, title: document.title, body: Boolean(document.body), bot: typeof window.WorkspaceBrainBot, native: typeof window.OVYXNativeAssistant, scripts: document.scripts.length, firebaseReady: window.__OVYX_FIREBASE_READY__ }));
-      throw new Error('Assistant startup diagnostics: ' + JSON.stringify(state) + '; ' + error.message);
-    });
+    await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 45000 });
 
     const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
     assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
