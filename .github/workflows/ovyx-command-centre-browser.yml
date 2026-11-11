@@ -51,7 +51,7 @@ jobs:
           npm install --ignore-scripts
           npm install --ignore-scripts --no-save playwright@^1.55.0
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Run dashboard de-duplication contract and static validation
         run: |
           node scripts/ovyx-command-centre.test.mjs
