@@ -73,6 +73,21 @@ try {
     // then wait for the exact notification UI this test exercises instead of
     // making unrelated deferred modules gate the browser's DOMContentLoaded event.
     await page.goto(baseURL, { waitUntil: 'commit' });
+    // Wait for the notification module to finish booting, then publish the
+    // signed-in state through the same Firebase listener path used by the app.
+    // This avoids racing the shell's deferred Firebase initialization.
+    await page.waitForFunction(
+      () => typeof window.__setOVYXBrowserAuthUser === 'function'
+        && typeof window.OVYXAccountNotifications?.open === 'function',
+      null,
+      { timeout: 45000 },
+    );
+    await page.evaluate(() => window.__setOVYXBrowserAuthUser({
+      uid: 'ovyx-notification-user',
+      email: 'maria.doe@example.test',
+      displayName: '',
+      token: 'ovyx-notification-token',
+    }));
     await page.locator('#ovyx-account-notifications-root').waitFor({ state: 'visible' });
     await page.locator('#ovyx-welcome-name').waitFor({ state: 'visible' });
     assert.equal(await page.locator('.ovyx-welcome-logo').getAttribute('src'), '/assets/ovyx-brand-mark.svg', '[' + target.name + '] welcome overlay must use canonical OVYX brand mark');
