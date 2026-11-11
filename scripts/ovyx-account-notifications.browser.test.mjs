@@ -27,7 +27,18 @@ try {
 
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
-    await page.waitForFunction(() => document.readyState !== 'loading' && !!window.OVYXNotifications && !!window.firebase?.auth?.()?.currentUser && typeof window.OVYXRouteAuthority?.go === 'function', null, { timeout: 60000 });
+    await page.waitForFunction(() => document.readyState !== 'loading' && !document.documentElement.hasAttribute('data-ovyx-stabilizing') && !document.getElementById('ovyx-first-paint-curtain') && !!window.OVYXNotifications && typeof window.OVYXRouteAuthority?.go === 'function', null, { timeout: 60000 });
+    await page.evaluate(() => {
+      const user = window.__setOVYXBrowserAuthUser?.({
+        uid: 'ovyx-notification-user',
+        email: 'maria.doe@example.test',
+        displayName: 'Maria Doe',
+        token: 'ovyx-notification-token',
+      });
+      if (!user || !window.firebase?.auth?.()?.currentUser) {
+        throw new Error('The isolated Firebase browser fixture did not restore its signed-in test user after shell boot.');
+      }
+    });
 
     // The current product inbox is backed by the published Firestore announcement
     // stream. Supply one deterministic snapshot through the existing browser
