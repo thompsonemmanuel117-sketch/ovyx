@@ -48,36 +48,31 @@ try {
     console.log('[' + target.name + '] checkpoint: Pages shell response received');
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
     await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached', timeout: 45000 });
-    await page.evaluate(() => {
-      // Activate Web Studio before waiting for its lazy composer runtime.
-      // The Pulse button is intentionally mounted only when this view opens.
-      if (typeof window.switchView === 'function') {
-        window.switchView('webstudio', { silent: true });
-      } else {
-        if (window.KernelState) window.KernelState.activeView = 'webstudio';
-        window.__OVYX_BOOT_ROUTE = 'webstudio';
-        document.body.classList.add('ovyx-webstudio-active');
-        const view = document.getElementById('view-webstudio');
-        if (view) {
-          view.classList.remove('hidden');
-          view.setAttribute('aria-hidden', 'false');
-        }
-        window.dispatchEvent(new CustomEvent('ovyx:view-changed', { detail: { view: 'webstudio' } }));
-      }
-      document.body.classList.add('ovyx-webstudio-active');
-    });
-    // This browser test navigates before the full shell has necessarily
-    // completed parsing. Wait until the inline Pulse runtime has installed its
-    // route listener, then publish the same route-change signal used by the app.
+    // Let the full document finish parsing before navigating. The Pulse runtime
+    // installs its DOMContentLoaded boot hook while the large shell is parsing;
+    // dispatching a route event before that hook has run can leave the composer
+    // permanently unmounted in a fast commit-navigation test.
+    await page.waitForFunction(() => document.readyState === 'complete', null, { timeout: 45000 });
     await page.waitForFunction(
-      () => window.__OVYX_WEBSTUDIO_PULSE_COMPOSER_V1__ === true,
+      () => typeof window.OVYXRouteAuthority?.go === 'function'
+        && window.__OVYX_WEBSTUDIO_PULSE_COMPOSER_V1__ === true,
       null,
       { timeout: 45000 },
     );
     await page.evaluate(() => {
-      window.dispatchEvent(new CustomEvent('ovyx:view-changed', { detail: { view: 'webstudio' } }));
+      const route = window.OVYXRouteAuthority?.go;
+      if (typeof route !== 'function') throw new Error('Final OVYX route authority is unavailable.');
+      route('webstudio', { force: true });
+      document.body.classList.add('ovyx-webstudio-active');
     });
-    await page.waitForSelector('#ws-pulse-trigger', { state: 'attached', timeout: 45000 });
+    await page.waitForFunction(
+      () => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'webstudio'
+        && !document.getElementById('view-webstudio')?.classList.contains('hidden')
+        && document.getElementById('ws-chat-composer')?.dataset.ovyxPulseComposer === '1',
+      null,
+      { timeout: 45000 },
+    );
+    await page.waitForSelector('#ws-pulse-trigger', { state: 'attached', timeout: 15000 });
 
     const pulse = page.locator('#ws-pulse-trigger');
     const mic = page.locator('#ws-composer-mic');
