@@ -99,7 +99,7 @@ jobs:
           npm install --ignore-scripts --no-save playwright@^1.55.0
 
       - name: Install Chromium
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Start local Cloudflare Pages app shell
         run: |
