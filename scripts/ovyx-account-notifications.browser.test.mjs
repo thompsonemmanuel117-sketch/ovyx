@@ -72,7 +72,6 @@ try {
       // V58 is the final route authority. Earlier legacy wrappers can still be
       // replaced during shell boot, so route only after that runtime is ready.
       window.OVYXRouteAuthority.go('inbox');
-      window.OVYXStability?.releaseShell?.();
     });
 
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'inbox' && getComputedStyle(document.getElementById('view-inbox')).display !== 'none' && !document.getElementById('view-inbox').classList.contains('hidden'), null, { timeout: 15000 });
