@@ -53,9 +53,24 @@ function extractWorkflowRunCommands(source) {
 function extractTestPaths(source) {
   const paths = new Set();
   const executable = stripShellComments(source);
-  const pattern = /(?:^|[\s"'\x60])((?:\.\/)?scripts\/[A-Za-z0-9_./-]+\.test\.mjs)(?=$|[\s"'\x60])/gm;
+  const pattern = /(?:^|[\\s\"'\\x60])((?:\\.\\/)?scripts\\/[A-Za-z0-9_./-]+\\.test\\.mjs)(?=$|[\\s\"'\\x60])/gm;
   for (const match of executable.matchAll(pattern)) {
-    paths.add(match[1].replace(/^\.\//, ''));
+    paths.add(match[1].replace(/^\\.\\//, ''));
+  }
+
+  // Shared browser workflows pass explicit test filenames to run_shard(),
+  // which executes each one as node \"scripts/$script\". Count only those
+  // executable arguments, not workflow path filters or comments.
+  const lines = executable.split('\\n');
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!/^\\s*run_shard\\s/.test(lines[index])) continue;
+    let invocation = lines[index];
+    while (invocation.trimEnd().endsWith('\\\\') && index + 1 < lines.length) {
+      invocation = invocation.trimEnd().slice(0, -1) + ' ' + lines[++index].trim();
+    }
+    for (const match of invocation.matchAll(/\\b([A-Za-z0-9_.-]+\\.test\\.mjs)\\b/g)) {
+      paths.add('scripts/' + match[1]);
+    }
   }
   return paths;
 }
@@ -87,11 +102,16 @@ const fixtureWorkflow = [
   '        run: node scripts/actually-run.test.mjs # scripts/inline-comment.test.mjs',
   '      - name: Comment only',
   '        run: |',
-  '          # node scripts/comment-only.test.mjs',
+  '          # node scripts/comment-only.test.mjs',,
+  '      - name: Browser shard',
+  '        run: |',
+  '          run_shard "browser" /tmp/browser.log \\\',
+  '            actually-run.browser.test.mjs \\\',
+  '            second-run.browser.test.mjs &'
 ].join('\n');
 assert.deepEqual(
   [...extractTestPaths(extractWorkflowRunCommands(fixtureWorkflow))],
-  ['scripts/actually-run.test.mjs'],
+  ['scripts/actually-run.test.mjs', 'scripts/actually-run.browser.test.mjs', 'scripts/second-run.browser.test.mjs'],
   'Only executable workflow run commands count; comments and path filters must not count.',
 );
 
