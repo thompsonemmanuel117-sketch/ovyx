@@ -101,6 +101,8 @@ try {
   );
 
   assert.equal(await page.locator('script[src*="ovyx-shell-favicon-lock.js?v=20261021-3"]').count(), 1, 'The authoritative shell favicon lock must load exactly once.');
+  assert.equal(await page.locator('script[src*="ovyx-shell-favicon-lock.js?v=20261021-3"]').evaluate(node => node.defer), true,
+    'The middleware-injected favicon lock must be deferred so it cannot block parsing the OVYX document body.');
   assert.ok(
     /no-store|no-cache/.test(response.headers()['cache-control'] || ''),
     'The HTML shell response must not reuse a cached page containing an old favicon reference.'
