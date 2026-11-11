@@ -21,7 +21,16 @@ try {
   ]) {
     const page = await browser.newPage({ viewport: target.viewport, acceptDownloads: true });
     page.setDefaultTimeout(20000);
-    await installOwnerBrowserApiFixtures(page);
+    await installOwnerBrowserApiFixtures(page, {
+      // The production assistant is account-scoped; exercise its real signed-in
+      // startup path rather than waiting for an unauthenticated shell to expose it.
+      initialUser: {
+        uid: 'ovyx-assistant-browser-user',
+        email: 'assistant@example.test',
+        displayName: 'Assistant Browser Test',
+        token: 'ovyx-assistant-browser-token',
+      },
+    });
     const errors = [];
     page.on('pageerror', error => {
       if (/ovyx-native|menuAction|workspaceTool|recoverLatestWorkspaceEdit|reviewWorkspaceEditHistory/i.test(error.message)) errors.push(error.message);
