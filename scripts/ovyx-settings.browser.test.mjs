@@ -25,7 +25,10 @@ try {
     await page.waitForFunction(
       () => typeof window.Router?.go === 'function'
         && typeof window.OVYXSettings?.show === 'function'
-        && !!window.OVYXDataLayerSettings,
+        && !!window.OVYXDataLayerSettings
+        && document.readyState !== 'loading'
+        && !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main')
+        && window.OVYXSettings.__n1415 === true,
       null,
       { timeout: 45000 },
     );
@@ -237,7 +240,10 @@ try {
       () => document.readyState === 'complete'
         && typeof window.Router?.go === 'function'
         && typeof window.OVYXSettings?.show === 'function'
-        && !!window.OVYXDataLayerSettings,
+        && !!window.OVYXDataLayerSettings
+        && document.readyState !== 'loading'
+        && !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main')
+        && window.OVYXSettings.__n1415 === true,
       null,
       { timeout: 45000 },
     );
