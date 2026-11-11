@@ -4,22 +4,17 @@ import { chromium } from 'playwright';
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
 
-async function waitForAppBoot(page) {
-  // Wait for the current app's real route controller. The former
-  // __OVYX_BOOT_ROUTE hook is not part of this shell and must not gate tests.
+async function waitForSettingsShell(page) {
+  // The current shell exposes the router and Settings view directly. KernelState
+  // is not a browser-global contract, so route readiness is asserted from the
+  // rendered view rather than an internal state object.
   await page.waitForFunction(
     () => document.readyState === 'complete'
       && typeof window.Router?.go === 'function'
-      && !!window.KernelState
-      && typeof window.KernelState.activeView === 'string',
+      && typeof window.OVYXSettings?.show === 'function'
+      && !!document.querySelector('#view-settings'),
     null,
     { timeout: 45000 },
-  );
-  const bootView = await page.evaluate(() => window.KernelState.activeView);
-  await page.waitForFunction(
-    expectedView => window.KernelState?.activeView === expectedView,
-    bootView,
-    { timeout: 10000 },
   );
 }
 
@@ -50,10 +45,9 @@ try {
       { timeout: 45000 },
     );
 
-    await waitForAppBoot(page);
+    await waitForSettingsShell(page);
     // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
-    await page.evaluate(() => (window.OVYXRouteAuthority?.go || window.Router.go)('settings'));
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
+    await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
     const layer = page.locator('#ovyx-data-layer-panel');
@@ -542,12 +536,10 @@ try {
     assert.equal(await upgradeToPro.evaluate(element => element.isConnected), true,
       '[' + target.name + '] a quota refresh must not detach the visible Upgrade to Pro control.');
     await upgradeToPro.click();
-    await page.waitForFunction(() => window.KernelState?.activeView === 'pricing', null, { timeout: 15000 });
     await page.locator('#view-pricing').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#view-pricing').getAttribute('aria-label'), 'OVYX Plans',
       '[' + target.name + '] Upgrade to Pro must navigate to the Plans view.');
     await page.evaluate(() => window.Router.go('settings'));
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
     // Clear the payment-only identity fixture before verifying signed-out Security state.
