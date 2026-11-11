@@ -18,7 +18,7 @@ try {
   assert.ok(parserOnlyResponse && parserOnlyResponse.status() === 200,
     'The complete HTML shell must parse even with JavaScript disabled.');
   const parserOnlyHtml = await parserOnlyResponse.text();
-  const parserOnlyComplete = /<\\/html>\\s*$/i.test(parserOnlyHtml);
+  const parserOnlyComplete = /<\/html>\s*$/i.test(parserOnlyHtml);
   assert.ok(parserOnlyComplete, 'The buffered Pages response must deliver the complete HTML document, not a truncated or mis-encoded body.');
   assert.ok(parserOnlyHtml.includes('id="app-container"'), 'The complete HTML response must include the existing OVYX application shell.');
   assert.ok(parserOnlyHtml.includes('ovyx-webstudio-pulse-composer-runtime-v1'), 'The complete HTML response must retain the final Web Studio runtime marker.');
