@@ -69,7 +69,10 @@ try {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, pushConfigured: false, reason: 'Push is intentionally disabled in this browser fixture.' }) });
     });
 
-    // The full OVYX shell loads many deferred modules. Wait for the navigation commit,\n    // then wait for the exact notification UI this test exercises instead of\n    // making unrelated deferred modules gate the browser's DOMContentLoaded event.\n    await page.goto(baseURL, { waitUntil: 'commit' });
+    // The full OVYX shell loads many deferred modules. Wait for the navigation commit,
+    // then wait for the exact notification UI this test exercises instead of
+    // making unrelated deferred modules gate the browser's DOMContentLoaded event.
+    await page.goto(baseURL, { waitUntil: 'commit' });
     await page.locator('#ovyx-account-notifications-root').waitFor({ state: 'visible' });
     await page.locator('#ovyx-welcome-name').waitFor({ state: 'visible' });
     assert.equal(await page.locator('.ovyx-welcome-logo').getAttribute('src'), '/assets/ovyx-brand-mark.svg', '[' + target.name + '] welcome overlay must use canonical OVYX brand mark');
