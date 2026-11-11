@@ -47,7 +47,7 @@ try {
       workspaceFixtures[index] = workspace;
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, workspace }) });
     });
-    await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     await page.waitForFunction(() => typeof window.ProjectStore?.showWorkspacePicker === 'function'
       && window.OVYXWorkspacePicker?.version === 1, null, { timeout: 45000 });
 
