@@ -27,7 +27,10 @@ try {
       if (/ovyx-native|menuAction|workspaceTool|recoverLatestWorkspaceEdit|reviewWorkspaceEditHistory/i.test(error.message)) errors.push(error.message);
     });
 
-    // The full OVYX shell loads many deferred modules. Commit the document first,\n    // then explicitly wait for the assistant runtime below; this keeps the test\n    // gated on the feature under test rather than every unrelated deferred module.\n    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
+    // The full OVYX shell loads many deferred modules. Commit the document first,
+    // then explicitly wait for the assistant runtime below; this keeps the test
+    // gated on the feature under test rather than every unrelated deferred module.
+    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, `[${target.name}] app returned an HTTP error`);
     await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 45000 });
 
