@@ -21,7 +21,9 @@ try {
   ]) {
     const page = await browser.newPage({ viewport: target.viewport, acceptDownloads: true });
     page.setDefaultTimeout(20000);
-    await installOwnerBrowserApiFixtures(page);
+    await installOwnerBrowserApiFixtures(page, {
+      initialUser: { uid: 'ovyx-assistant-browser-user', email: 'assistant@example.test', token: 'ovyx-assistant-browser-token' }
+    });
     const errors = [];
     page.on('pageerror', error => {
       if (/ovyx-native|menuAction|workspaceTool|recoverLatestWorkspaceEdit|reviewWorkspaceEditHistory/i.test(error.message)) errors.push(error.message);
