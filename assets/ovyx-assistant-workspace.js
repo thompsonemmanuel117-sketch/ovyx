@@ -3155,8 +3155,10 @@
     }, 250);
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
-  else boot();
+  // Start the idempotent runtime immediately. The legacy shell can delay DOMContentLoaded
+  // behind long-running inline startup work; boot() already polls safely until its
+  // dependencies exist, so waiting for that event can leave the assistant unpatched.
+  boot();
   window.addEventListener('ovyx:view-changed', () => setTimeout(installNativeRouting, 80), { passive: true });
   window.addEventListener('firebase-auth-state-ready', () => setTimeout(installNativeRouting, 100), { passive: true });
   window.addEventListener('pageshow', () => setTimeout(installNativeRouting, 100), { passive: true });
