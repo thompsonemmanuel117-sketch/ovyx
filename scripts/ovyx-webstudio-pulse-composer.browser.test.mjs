@@ -47,18 +47,17 @@ try {
     lastCheckpoint = target.name + ': Pages shell response received';
     console.log('[' + target.name + '] checkpoint: Pages shell response received');
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
-    await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached', timeout: 45000 });
-    // Let the full document finish parsing before navigating. The Pulse runtime
-    // installs its DOMContentLoaded boot hook while the large shell is parsing;
-    // dispatching a route event before that hook has run can leave the composer
-    // permanently unmounted in a fast commit-navigation test.
-    await page.waitForFunction(() => document.readyState === 'complete', null, { timeout: 45000 });
+    // Wait for DOMContentLoaded and the Pulse runtime before looking for
+    // controls that the runtime mounts from its DOMContentLoaded hook. Waiting
+    // for "load"/readyState complete here can hang on unrelated external assets.
     await page.waitForFunction(
-      () => typeof window.OVYXRouteAuthority?.go === 'function'
+      () => document.readyState !== 'loading'
+        && typeof window.OVYXRouteAuthority?.go === 'function'
         && window.__OVYX_WEBSTUDIO_PULSE_COMPOSER_V1__ === true,
       null,
       { timeout: 45000 },
     );
+    await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached', timeout: 45000 });
     await page.evaluate(() => {
       const route = window.OVYXRouteAuthority?.go;
       if (typeof route !== 'function') throw new Error('Final OVYX route authority is unavailable.');
