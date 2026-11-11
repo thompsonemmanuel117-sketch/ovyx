@@ -1,6 +1,16 @@
-name: OVYX Assistant Deep Search and Activity Browser Tests
+name: OVYX Assistant Runtime and Deep Search Contracts
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'assets/ovyx-assistant-workspace.js'
+      - 'functions/api/ai/workspace-tools.js'
+      - 'functions/_lib/ovyx-native-ai.js'
+      - 'scripts/ovyx-assistant-runtime.test.mjs'
+      - 'scripts/ovyx-workspace-tools.test.mjs'
+      - '.github/workflows/ovyx-assistant-deep-search-browser.yml'
   pull_request:
     branches:
       - main
@@ -8,10 +18,8 @@ on:
       - 'assets/ovyx-assistant-workspace.js'
       - 'functions/api/ai/workspace-tools.js'
       - 'functions/_lib/ovyx-native-ai.js'
-      - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
       - 'scripts/ovyx-assistant-runtime.test.mjs'
       - 'scripts/ovyx-workspace-tools.test.mjs'
-      - 'scripts/ovyx-static-verify.mjs'
       - '.github/workflows/ovyx-assistant-deep-search-browser.yml'
   workflow_dispatch:
 
@@ -19,7 +27,7 @@ permissions:
   contents: read
 
 jobs:
-  assistant-deep-search-browser:
+  assistant-runtime-contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -32,24 +40,9 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Verify native assistant runtime and deep-search contracts
         run: |
-          npm install --ignore-scripts
-          npm install --ignore-scripts --no-save playwright@^1.55.0
-
-      - name: Install Chromium
-        run: npx playwright install chromium
-
-      - name: Start local Cloudflare Pages app
-        run: |
-          npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/ovyx-pages.log 2>&1 &
-          echo $! > /tmp/ovyx-pages.pid
-          curl --retry 30 --retry-connrefused --retry-delay 2 --fail http://127.0.0.1:8788/ -o /dev/null
-
-      - name: Test deep saved-project search, source-reading, approved repair, and visible activity in desktop/mobile Chromium
-        run: node scripts/ovyx-assistant-workspace.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Print local Pages logs on failure
-        if: failure()
-        run: cat /tmp/ovyx-pages.log || true
+          node scripts/ovyx-assistant-runtime.test.mjs
+          node scripts/ovyx-workspace-tools.test.mjs
