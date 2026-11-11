@@ -27,7 +27,9 @@ try {
       if (/ovyx-native|menuAction|workspaceTool|recoverLatestWorkspaceEdit|reviewWorkspaceEditHistory/i.test(error.message)) errors.push(error.message);
     });
 
-    const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // Gate on the Assistant runtime below rather than unrelated inline scripts
+    // reaching DOMContentLoaded before the feature can be exercised.
+    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, `[${target.name}] app returned an HTTP error`);
     await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 45000 });
 
