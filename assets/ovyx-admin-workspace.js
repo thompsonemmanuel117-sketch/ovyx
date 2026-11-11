@@ -70,16 +70,26 @@
   }
 
   function syncLegacyAdminGuard(isRoot, data = null) {
+    const verifiedRoot = isRoot === true;
     const lockdown = window.FirebaseAuthLockdown;
     if (lockdown && typeof lockdown === 'object') {
       // Older Router guards consult this same flag. It is synchronized only
       // after /api/entitlements has verified the current Firebase identity.
-      lockdown.isSuperuser = isRoot === true;
-      if (isRoot === true) {
+      lockdown.isSuperuser = verifiedRoot;
+      if (verifiedRoot) {
         lockdown.adminEmail = String(data?.email || currentUser()?.email || '').trim().toLowerCase();
       }
       try { lockdown.enforceAccess?.(); } catch (error) {
         console.warn('[OVYX Admin Workspace] Legacy admin visibility sync failed:', String(error?.message || 'unavailable').slice(0, 90));
+      }
+    }
+    // The current Router also checks the subscription gate. A server-verified
+    // root owner must bypass that client-side plan gate; ordinary users never do.
+    const configurator = window.AdminConfigurator;
+    if (configurator && typeof configurator === 'object') {
+      configurator.adminOverride = verifiedRoot;
+      try { configurator.updateLockIcons?.(); } catch (error) {
+        console.warn('[OVYX Admin Workspace] Admin gate sync failed:', String(error?.message || 'unavailable').slice(0, 90));
       }
     }
     try {
