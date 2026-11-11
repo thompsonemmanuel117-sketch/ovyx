@@ -59,16 +59,15 @@ function extractTestPaths(source) {
   }
 
   // Shared browser workflows pass explicit test filenames to run_shard(),
-  // which executes each one as node "scripts/$script". Count only those
-  // executable arguments, not workflow path filters or comments.
+  // which executes each one as node "scripts/$script". Read only the
+  // contiguous filename arguments after that executable helper call.
   const lines = executable.split('\n');
   for (let index = 0; index < lines.length; index += 1) {
     if (!/^\s*run_shard\s/.test(lines[index])) continue;
-    let invocation = lines[index];
-    while (invocation.trimEnd().endsWith('\\') && index + 1 < lines.length) {
-      invocation = invocation.trimEnd().slice(0, -1) + ' ' + lines[++index].trim();
-    }
-    for (const match of invocation.matchAll(/\b([A-Za-z0-9_.-]+\.test\.mjs)\b/g)) {
+    for (let next = index + 1; next < lines.length; next += 1) {
+      const argument = lines[next].trim();
+      const match = argument.match(/^([A-Za-z0-9_.-]+\.test\.mjs)(?:\s*\\)?\s*&?$/);
+      if (!match) break;
       paths.add('scripts/' + match[1]);
     }
   }
