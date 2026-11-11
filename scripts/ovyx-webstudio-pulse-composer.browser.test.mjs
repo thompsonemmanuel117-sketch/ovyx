@@ -31,6 +31,10 @@ try {
     console.log('[' + target.name + '] checkpoint: page ready');
     page.on('console', message => console.log('[' + target.name + '] browser console: ' + message.type() + ' ' + message.text()));
     page.on('pageerror', error => console.error('[' + target.name + '] page JavaScript error: ' + String(error?.stack || error)));
+    page.on('requestfailed', request => console.error('[' + target.name + '] request failed: ' + request.url() + ' ' + (request.failure()?.errorText || '')));
+    page.on('response', response => {
+      if (response.status() >= 400) console.error('[' + target.name + '] HTTP ' + response.status() + ' ' + response.url());
+    });
     page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed'));
     page.on('close', () => console.error('[' + target.name + '] Chromium page closed unexpectedly'));
     page.setDefaultTimeout(20000);
@@ -47,15 +51,33 @@ try {
     lastCheckpoint = target.name + ': Pages shell response received';
     console.log('[' + target.name + '] checkpoint: Pages shell response received');
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
-    // Wait for DOMContentLoaded and the Pulse runtime before looking for
-    // controls that the runtime mounts from its DOMContentLoaded hook. Waiting
-    // for "load"/readyState complete here can hang on unrelated external assets.
+    console.log('[' + target.name + '] Pages response headers: ' + JSON.stringify(response.headers()));
+    // Capture the renderer state before waiting. If the page stops servicing
+    // evaluations, the Node-side fallback still records that distinction.
+    const bootstrapDiagnostic = await Promise.race([
+      page.evaluate(() => ({
+        readyState: document.readyState,
+        pulseMarker: window.__OVYX_WEBSTUDIO_PULSE_COMPOSER_V1__ === true,
+        routeAuthority: typeof window.OVYXRouteAuthority?.go,
+        composerPresent: !!document.querySelector('#ws-chat-composer'),
+        bodyChildren: document.body?.children?.length || 0,
+        bodyTextLength: document.body?.innerText?.length || 0,
+        scripts: Array.from(document.scripts).filter(script => script.src).map(script => ({
+          src: script.src,
+          readyState: script.readyState || null,
+        })),
+      })),
+      new Promise(resolve => setTimeout(() => resolve({ diagnostic: 'Browser page did not answer the bootstrap probe within 5 seconds.' }), 5000)),
+    ]).catch(error => ({ diagnosticError: String(error?.stack || error) }));
+    console.log('[' + target.name + '] bootstrap diagnostic: ' + JSON.stringify(bootstrapDiagnostic));
+    // Poll on a timer rather than requestAnimationFrame so the readiness gate
+    // still progresses if the shell has a paused animation frame queue.
     await page.waitForFunction(
       () => document.readyState !== 'loading'
         && typeof window.OVYXRouteAuthority?.go === 'function'
         && window.__OVYX_WEBSTUDIO_PULSE_COMPOSER_V1__ === true,
       null,
-      { timeout: 45000 },
+      { timeout: 45000, polling: 250 },
     );
     await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached', timeout: 45000 });
     await page.evaluate(() => {
