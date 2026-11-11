@@ -133,7 +133,27 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
   let integrationLive = true;
 
   const responseFor = (path, method, request) => {
-    if (path === '/api/entitlements') return null; // explicit identity fixture is registered after this catch-all
+    if (path === '/api/entitlements') {
+      // Keep authenticated UI regressions isolated from Firestore. Tests that
+      // verify owner authority register a later, explicit route and override
+      // this least-privilege browser-only response.
+      const user = options && options.initialUser && typeof options.initialUser === 'object' ? options.initialUser : null;
+      if (!user) return null;
+      const capabilities = {
+        webStudio: true, advancedWebStudio: false, appStudio: false,
+        gameStudio: false, aiGeneration: true, github: false,
+        cloudflareDeploy: true, teamWorkspace: false, templates: true
+      };
+      const email = String(user.email || 'builder@example.test').trim().toLowerCase();
+      return {
+        ok: true, uid: String(user.uid || 'ovyx-browser-test-user'), email,
+        role: 'FREE_USER', owner: false, admin: false, bypass: false, isRoot: false,
+        planTier: 'free', planTierState: 'free', accessActive: false,
+        capabilities, featureRules: [], gating: {}, planFeatures: {},
+        planFeaturesManaged: false,
+        entitlements: { role: 'FREE_USER', owner: false, admin: false, bypass: false, capabilities }
+      };
+    }
     if (path === '/api/health') return {
       ok: true, status: 'READY', healthy: true, groups: {}, summary: { ok: true }, routes: [],
       missingRequiredEnvironment: [], invalidRequiredEnvironment: [], checkedAt: new Date().toISOString()
