@@ -164,8 +164,8 @@ try {
     else root.setAttribute('data-ovyx-mode', previousMode);
     return result;
   });
-  assert.match(dashboardActionState.artwork, /^url\\(/, 'The dashboard Build/send action must retain its existing icon artwork.');
-  assert.match(dashboardActionState.realArtwork, /^url\\(/, 'The actual dashboard Build/send button must retain its arrow artwork in Light appearance.');
+  assert.match(dashboardActionState.artwork, /^url\(/, 'The dashboard Build/send action must retain its existing icon artwork.');
+  assert.match(dashboardActionState.realArtwork, /^url\(/, 'The actual dashboard Build/send button must retain its arrow artwork in Light appearance.');
   if (dashboardActionState.loginColor !== 'not-found') {
     assert.equal(dashboardActionState.loginColor, 'rgb(24, 33, 47)', 'The Log In action must remain readable in Light appearance.');
   }
