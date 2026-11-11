@@ -27,7 +27,10 @@ try {
       if (/ovyx-native|menuAction|workspaceTool|recoverLatestWorkspaceEdit|reviewWorkspaceEditHistory/i.test(error.message)) errors.push(error.message);
     });
 
-    // The full OVYX shell loads many deferred modules. Commit the document first,\n    // then explicitly wait for the assistant runtime below; this keeps the test\n    // gated on the feature under test rather than every unrelated deferred module.\n    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
+    // The full OVYX shell loads many deferred modules. Commit the document first,
+    // then explicitly wait for the assistant runtime below; this keeps the test
+    // gated on the feature under test rather than every unrelated deferred module.
+    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, `[${target.name}] app returned an HTTP error`);
     await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 45000 });
 
@@ -273,8 +276,10 @@ try {
     // Exercise the real browser-side agent loop with authenticated endpoint
     // responses mocked at the network boundary. The server persistence contract
     // is tested separately against mocked Firestore in the integration suite.
-    const originalSource = "export function toggleMobileMenu(button, menu) { menu.hidden = !menu.hidden; button.setAttribute('aria-expanded', String(!menu.hidden)); }\n";
-    const repairedSource = "export function toggleMobileMenu(button, menu) { menu.hidden = !menu.hidden; button.setAttribute('aria-expanded', String(!menu.hidden)); menu.classList.toggle('is-open', !menu.hidden); }\n";
+    const originalSource = "export function toggleMobileMenu(button, menu) { menu.hidden = !menu.hidden; button.setAttribute('aria-expanded', String(!menu.hidden)); }
+";
+    const repairedSource = "export function toggleMobileMenu(button, menu) { menu.hidden = !menu.hidden; button.setAttribute('aria-expanded', String(!menu.hidden)); menu.classList.toggle('is-open', !menu.hidden); }
+";
     const workspaceCalls = [];
     const aiPayloads = [];
     const snapshotProject = {
@@ -380,7 +385,8 @@ try {
           changed: true,
           linesAdded: 1,
           linesRemoved: 0,
-          preview: '- old menu handler\n+ menu handler preserves accessible state and exposes the open class',
+          preview: '- old menu handler
++ menu handler preserves accessible state and exposes the open class',
           approvalRequired: true,
           note: 'Preview mode: no app files have been changed.',
         };
@@ -455,7 +461,8 @@ try {
         id: 'project_123',
         name: 'Assistant browser-loop test project',
         status: 'draft',
-        ovyxGraph: { files: { 'src/menu.js': { type: 'text/javascript', content: "export function toggleMobileMenu(button, menu) { menu.hidden = !menu.hidden; button.setAttribute('aria-expanded', String(!menu.hidden)); }\n" } } },
+        ovyxGraph: { files: { 'src/menu.js': { type: 'text/javascript', content: "export function toggleMobileMenu(button, menu) { menu.hidden = !menu.hidden; button.setAttribute('aria-expanded', String(!menu.hidden)); }
+" } } },
       };
       state.activeProject = project;
       state.projects = [project];
@@ -485,12 +492,16 @@ try {
       {
         name: 'assistant-reference.md',
         mimeType: 'text/markdown',
-        buffer: Buffer.from('ATTACHMENT_CONTEXT_SENTINEL\nPlease keep the file handoff truthful and preserve relevant project details.\napi_key=ATTACHMENT_SECRET_SHOULD_NOT_REACH_MODEL'),
+        buffer: Buffer.from('ATTACHMENT_CONTEXT_SENTINEL
+Please keep the file handoff truthful and preserve relevant project details.
+api_key=ATTACHMENT_SECRET_SHOULD_NOT_REACH_MODEL'),
       },
       {
         name: 'assistant-reference.pdf',
         mimeType: 'application/pdf',
-        buffer: Buffer.from('%PDF-1.4\\nbinary-file-fixture\\n%%EOF'),
+        buffer: Buffer.from('%PDF-1.4\
+binary-file-fixture\
+%%EOF'),
       },
     ]);
     const attachmentStrip = panel.locator('.ovyx-native-attachments');
