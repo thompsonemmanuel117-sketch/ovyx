@@ -24,6 +24,16 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
       body: '',
     }));
   }
+  // The test installs its own Firebase facade before page scripts execute.
+  // Do not also fetch the production SDK from the network: a slow parser-
+  // blocking Firebase script can prevent DOMContentLoaded and stall every
+  // otherwise isolated browser regression.
+  await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript; charset=utf-8',
+    headers: { 'cache-control': 'no-store' },
+    body: '',
+  }));
   // Avoid depending on outbound Firebase CDN availability in a local browser
   // test. This facade only exists inside the Playwright page; API authority is
   // represented by route fixtures and is independently verified server-side.
