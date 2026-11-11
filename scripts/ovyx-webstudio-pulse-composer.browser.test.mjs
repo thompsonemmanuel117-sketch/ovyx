@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixtures.mjs';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || 'http://127.0.0.1:8789').trim();
 const browser = await chromium.launch({ headless: true });
@@ -28,6 +29,9 @@ try {
     page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed'));
     page.on('close', () => console.error('[' + target.name + '] Chromium page closed unexpectedly'));
     page.setDefaultTimeout(20000);
+    await installOwnerBrowserApiFixtures(page, {
+      initialUser: { uid: 'ovyx-webstudio-browser-user', email: 'webstudio@example.test', token: 'ovyx-webstudio-browser-token' }
+    });
     // The production shell executes large inline boot scripts before
     // DOMContentLoaded. Assert the Web Studio controls directly after commit.
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
