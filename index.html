@@ -4400,7 +4400,7 @@ const Settings={
 };
 function applyThemeToShell(){ThemeLab.apply();const st=load(APPEAR,{mode:'dark',density:'balanced',scale:'balanced',motion:'full'});const m=st.mode==='system'?(matchMedia?.('(prefers-color-scheme:light)').matches?'light':'dark'):st.mode;document.documentElement.classList.toggle('ovyx-light',m==='light');document.documentElement.dataset.ovyxMode=m}
 applyThemeToShell();
-Settings.init();
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>Settings.init(),{once:true});else Settings.init();
 window.OVYXThemeLab=ThemeLab;window.OVYXSettings=Settings;
 window.addEventListener('storage',()=>{applyThemeToShell();Settings.syncAppearance()});
 window.matchMedia?.('(prefers-color-scheme:light)').addEventListener?.('change',()=>{const st=load(APPEAR,{mode:'dark'});if(st.mode==='system')applyThemeToShell()});
