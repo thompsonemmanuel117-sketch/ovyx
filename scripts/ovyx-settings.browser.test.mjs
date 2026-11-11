@@ -40,7 +40,7 @@ try {
       }
     });
 
-    const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX app did not load.');
     await page.waitForFunction(
       () => typeof window.Router?.go === 'function'
@@ -254,7 +254,7 @@ try {
     assert.equal(await page.locator('#ovyx-data-sync').getAttribute('aria-checked'), 'false');
 
     // Verify local persistence across an actual page reload as well.
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.reload({ waitUntil: 'commit', timeout: 60000 });
     await page.waitForFunction(
       () => document.readyState === 'complete'
         && typeof window.Router?.go === 'function'
@@ -302,7 +302,7 @@ try {
       const session = JSON.parse(localStorage.getItem('ovyx.runtime.session.v4') || '{}');
       localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ ...session, route: 'settings' }));
     });
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.reload({ waitUntil: 'commit', timeout: 60000 });
     await page.waitForFunction(
       () => typeof window.Router?.go === 'function' && typeof window.OVYXSettings?.show === 'function',
       null,
