@@ -4,21 +4,6 @@ import { chromium } from 'playwright';
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
 
-async function waitForSettingsShell(page) {
-  // The current shell exposes the router and Settings view directly. KernelState
-  // is not a browser-global contract, so route readiness is asserted from the
-  // rendered view rather than an internal state object.
-  await page.waitForFunction(
-    () => document.readyState === 'complete'
-      && typeof window.Router?.go === 'function'
-      && typeof window.OVYXSettings?.show === 'function'
-      && !!document.querySelector('#view-settings'),
-    null,
-    { timeout: 45000 },
-  );
-}
-
-
 const browser = await chromium.launch({ headless: true });
 try {
   for (const target of [
@@ -45,7 +30,6 @@ try {
       { timeout: 45000 },
     );
 
-    await waitForSettingsShell(page);
     // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
