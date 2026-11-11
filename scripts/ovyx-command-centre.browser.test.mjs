@@ -32,7 +32,7 @@ try {
       }
     });
 
-    await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     await page.locator('#view-home .v59-dashboard-shell').waitFor({ state: 'attached', timeout: 45000 });
     assert.equal(await page.locator('#view-home .v59-hero').count(), 1,
       '[' + target.name + '] the original Home dashboard hero must remain.');
