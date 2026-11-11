@@ -53,9 +53,9 @@ function extractWorkflowRunCommands(source) {
 function extractTestPaths(source) {
   const paths = new Set();
   const executable = stripShellComments(source);
-  const pattern = /(?:^|[\s"'"])((?:\.\/)?scripts\/[A-Za-z0-9_./-]+\.test\.mjs)(?=$|[\s"'"])/gm;
+  const pattern = /scripts\/[A-Za-z0-9_./-]+\.test\.mjs/g;
   for (const match of executable.matchAll(pattern)) {
-    paths.add(match[1].replace(/^\.\//, ''));
+    paths.add(match[0].replace(/^\.\//, ''));
   }
 
   // Shared browser workflows pass explicit test filenames to run_shard(),
