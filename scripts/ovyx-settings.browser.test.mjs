@@ -52,7 +52,10 @@ try {
           bodyChildren: document.body?.children?.length || 0,
         })),
         new Promise(resolve => setTimeout(() => resolve({ diagnostic: 'Browser page did not answer the bootstrap diagnostic within 5 seconds.' }), 5000)),
-      ]);
+      ]).catch(error => ({
+        diagnostic: 'Browser page or context closed before the bootstrap diagnostic completed.',
+        error: String(error?.message || error),
+      }));
       console.error('[' + target.name + '] OVYX bootstrap diagnostic: ' + JSON.stringify(diagnostic));
       throw error;
     }
