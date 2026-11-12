@@ -148,27 +148,29 @@ try {
     const root = document.documentElement, theme = window.ThemeContext, previousTheme = theme?.get?.(), previousMode = root.getAttribute('data-ovyx-mode');
     theme?.set?.({mode:'light',backgroundColor:'#F8FAFC',sidebarColor:'#F1F3F6',cardColor:'#FFFFFF',borderColor:'#CBD5E1',textColor:'#111827',mutedColor:'#475569',accentColor:'#6F5428'});
     const home = document.getElementById('view-home');
-    const probe = document.createElement('button');
-    probe.className = 'v59-build-btn';
-    probe.style.backgroundImage = 'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 10 10%27%3E%3Cpath d=%27M1 5h8%27 stroke=%27black%27/%3E%3C/svg%3E")';
-    home?.appendChild(probe);
-    const artwork = getComputedStyle(probe).backgroundImage;
-    probe.remove();
-    const login = Array.from(document.querySelectorAll('#ovyx-topbar button, #ovyx-topbar a, header button, header a'))
-      .find(node => /^log\\s*in$/i.test((node.innerText || node.textContent || '').trim()));
     const realBuildButton = home?.querySelector('.v59-build-btn');
-    const realArtwork = realBuildButton ? getComputedStyle(realBuildButton).backgroundImage : 'not-found';
-    const result = { artwork, realArtwork, loginColor: login ? getComputedStyle(login).color : 'not-found' };
+    const realIcon = realBuildButton?.querySelector('i.fa-arrow-up');
+    const buttonStyle = realBuildButton ? getComputedStyle(realBuildButton) : null;
+    const iconStyle = realIcon ? getComputedStyle(realIcon) : null;
+    const result = {
+      realIconCount: realBuildButton?.querySelectorAll('i.fa-arrow-up').length || 0,
+      realIconDisplay: iconStyle?.display || 'not-found',
+      realIconOpacity: iconStyle?.opacity || '0',
+      realIconColor: iconStyle?.color || 'not-found',
+      realButtonBackground: buttonStyle?.backgroundColor || 'not-found',
+      realButtonVisibility: buttonStyle?.visibility || 'not-found'
+    };
     if (previousTheme && theme?.set) theme.set(previousTheme);
     else if (previousMode == null) root.removeAttribute('data-ovyx-mode');
     else root.setAttribute('data-ovyx-mode', previousMode);
     return result;
   });
-  assert.match(dashboardActionState.artwork, /^url\(/, 'The dashboard Build/send action must retain its existing icon artwork.');
-  assert.match(dashboardActionState.realArtwork, /^url\(/, 'The actual dashboard Build/send button must retain its arrow artwork in Light appearance.');
-  if (dashboardActionState.loginColor !== 'not-found') {
-    assert.equal(dashboardActionState.loginColor, 'rgb(24, 33, 47)', 'The Log In action must remain readable in Light appearance.');
-  }
+  assert.equal(dashboardActionState.realIconCount, 1, 'The dashboard Build/send action must retain its existing Font Awesome arrow icon.');
+  assert.notEqual(dashboardActionState.realIconDisplay, 'none', 'The dashboard Build/send arrow must remain rendered in Light appearance.');
+  assert.ok(Number(dashboardActionState.realIconOpacity) > 0, 'The dashboard Build/send arrow must remain visible in Light appearance.');
+  assert.equal(dashboardActionState.realButtonBackground, 'rgb(111, 84, 40)', 'The dashboard Build/send action must retain the selected contrast-safe gold fill in Light appearance.');
+  assert.equal(dashboardActionState.realButtonVisibility, 'visible', 'The dashboard Build/send action must remain visible in Light appearance.');
+
 
   assert.deepEqual(errors, [], 'Mobile shell must not emit browser errors.');
   console.log('OVYX mobile dock geometry and light-theme browser checks passed.');
