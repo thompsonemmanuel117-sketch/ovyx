@@ -161,28 +161,31 @@ jobs:
             exit "$core_status"
           fi
 
-          # Run independent workspace and safety suites concurrently. Each test
-          # gets its own hard limit and a live, named log; assertions are unchanged.
+          # Keep all browser suites sequential against the single local Pages worker.
+          # The worker and Chromium share the hosted runner's CPU/memory budget;
+          # parallel browser groups previously caused unrelated readiness timeouts.
           run_shard "settings-workspace" /tmp/ovyx-settings-workspace.log \
             ovyx-settings-ai.browser.test.mjs \
             ovyx-settings-workspace.browser.test.mjs \
             ovyx-settings-shortcuts.browser.test.mjs \
-            ovyx-personal-connections.browser.test.mjs &
-          workspace_pid=$!
+            ovyx-personal-connections.browser.test.mjs
+          workspace_status=$?
+
+          if [ "$workspace_status" -ne 0 ]; then
+            echo "Settings workspace browser shard failed."
+            exit "$workspace_status"
+          fi
 
           run_shard "settings-safety" /tmp/ovyx-settings-safety.log \
             ovyx-cancel-safety.browser.test.mjs \
             ovyx-scoped-rollback-performance.browser.test.mjs \
             ovyx-scoped-rollback-graph.browser.test.mjs \
-            ovyx-mobile-back-navigation.browser.test.mjs &
-          safety_pid=$!
+            ovyx-mobile-back-navigation.browser.test.mjs
+          safety_status=$?
 
-          wait "$workspace_pid"; workspace_status=$?
-          wait "$safety_pid"; safety_status=$?
-
-          if [ "$workspace_status" -ne 0 ] || [ "$safety_status" -ne 0 ]; then
-            echo "One or more Settings browser-test shards failed."
-            exit 1
+          if [ "$safety_status" -ne 0 ]; then
+            echo "Settings safety browser shard failed."
+            exit "$safety_status"
           fi
 
       - name: Print browser shard logs on failure
