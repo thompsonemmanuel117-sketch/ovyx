@@ -4,7 +4,7 @@ const BASE_URL = 'https://liveapi.opaycheckout.com/api/v1/international';
 const CREATE_PATH = '/cashier/create';
 const STATUS_PATH = '/cashier/status';
 
-function required(value,name){const v=String(value??'').trim();if(!v)throw new Error(`Missing OPay configuration: ${name}`);return v;}
+function required(value,name){const v=String(value??'').trim();if(!v||/^(?:pending|todo|tbd|fake|dummy|placeholder|changeme|change_me|replace_me|your[_ -].*|<.*>)$/i.test(v))throw Object.assign(new Error(`Missing or placeholder OPay configuration: ${name}`),{status:503,code:'OPAY_NOT_CONFIGURED'});return v;}
 function config(env){
   const merchantId=required(env?.OPAY_MERCHANT_ID,'OPAY_MERCHANT_ID');
   const publicKey=required(env?.OPAY_CASHIER_PUBLIC_KEY,'OPAY_CASHIER_PUBLIC_KEY');
