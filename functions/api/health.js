@@ -386,6 +386,8 @@ export async function onRequestGet(context) {
       universalConnectionsEncryption: connectionEncryption,
       github: groups.GitHub,
       githubTokenEncryption: githubEncryption,
+      payments: groups.Payments,
+      sentinel: groups.Sentinel,
       cloudflare: groups.Cloudflare,
       ai: {
         providers: groups.AI,
