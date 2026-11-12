@@ -58,7 +58,7 @@ try {
     }
 
     // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
-    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
+    await page.evaluate(() => { window.OVYXRouteAuthority.go('settings'); });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
     const layer = page.locator('#ovyx-data-layer-panel');
