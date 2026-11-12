@@ -74,12 +74,27 @@ try {
 
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
-    await page.waitForFunction(() =>
-      typeof window.OVYXAccountNotifications?.open === 'function'
-      && !!window.firebase?.auth?.()?.currentUser,
-      null,
-      { timeout: 60000 },
-    );
+    try {
+      await page.waitForFunction(() =>
+        typeof window.OVYXAccountNotifications?.open === 'function'
+        && !!window.firebase?.auth?.()?.currentUser,
+        null,
+        { timeout: 60000 },
+      );
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        notificationApi: typeof window.OVYXAccountNotifications?.open,
+        firebase: typeof window.firebase,
+        auth: typeof window.firebase?.auth,
+        currentUser: !!window.firebase?.auth?.()?.currentUser,
+        scripts: performance.getEntriesByType('resource').map(entry => entry.name)
+          .filter(src => /account-notifications|firebase|auth/i.test(src)).slice(-30),
+        pageTitle: document.title,
+        bodyText: (document.body?.innerText || '').slice(0, 1200),
+      })).catch(() => ({ diagnostic: 'page unavailable' }));
+      console.error('[' + target.name + '] Notifications bootstrap diagnostic: ' + JSON.stringify(diagnostic));
+      throw error;
+    }
 
     await page.evaluate(() => window.OVYXAccountNotifications.open());
     const root = page.locator('#ovyx-account-notifications-root');
