@@ -544,3 +544,51 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-home .v59-build-btn::be
 html:is(.ovyx-light,[data-ovyx-mode="light"]) body #view-home .v59-build-btn::after {
   pointer-events: none;
 }
+
+
+/* Mobile resume/repaint resilience.
+   Android browser chrome, notification shade and app overlays can resize the
+   visual viewport while the document is backgrounded. Keep every exposed
+   edge painted with the active OVYX canvas and let the route shell follow the
+   dynamic viewport when the browser returns. */
+html,
+body {
+  min-height: 100%;
+  background-color: var(--app-bg, var(--bg, #050607)) !important;
+}
+html {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-image: none;
+}
+#app-container,
+#app-root,
+#main-content,
+#view-router-viewport {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--app-bg, var(--bg, #050607)) !important;
+}
+#view-router-viewport {
+  box-sizing: border-box;
+}
+@supports (height: 100svh) {
+  html,
+  body {
+    min-height: 100dvh;
+  }
+}
+@media (max-width: 767px) {
+  html,
+  body {
+    width: 100%;
+    overflow-x: clip;
+  }
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
