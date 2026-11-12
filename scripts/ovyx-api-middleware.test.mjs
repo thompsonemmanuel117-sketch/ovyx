@@ -77,7 +77,7 @@ async function call(request) {
     assert.match(allowed, /signature/, label + ' CORS helper must allow Signature preflight');
   }
   const staticHeaders = fs.readFileSync('_headers', 'utf8');
-  assert.match(staticHeaders, /Access-Control-Allow-Headers: [^\\n]*Signature-Input[^\\n]*Signature/i,
+  assert.match(staticHeaders, /Access-Control-Allow-Headers: .*Signature-Input.*Signature/i,
     'static Pages API fallback headers must permit HTTP message signature headers too');
 }
 
