@@ -62,6 +62,11 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) body {
   background: var(--ovyx-light-canvas) !important;
   color: var(--ovyx-light-text) !important;
 }
+/* Keep the body as the viewport paint surface after Android visual-viewport changes. */
+html body {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-router-viewport,
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-home,
 html:is(.ovyx-light,[data-ovyx-mode="light"]) #view-projects,
