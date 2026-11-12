@@ -33,7 +33,9 @@ try {
     // reaching DOMContentLoaded before the feature can be exercised.
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, `[${target.name}] app returned an HTTP error`);
-    await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function' && !!document.getElementById('kernel-brain-bot-panel'), null, { timeout: 60000 });
+    // The legacy assistant creates its panel when open() is called. Waiting
+    // for the panel before invoking open() is a circular readiness condition.
+    await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 60000 });
 
     // The shell's asset loader may remove transient script elements after execution.
     // Verify the fetched asset through the browser resource timing buffer instead
