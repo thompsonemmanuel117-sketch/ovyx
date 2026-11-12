@@ -54,3 +54,9 @@ assert.match(css, /#ovyx-topbar :is\(button,a\)[\s\S]*?color:\s*var\(--ovyx-ligh
 assert.match(css, /Settings theme controls remain static[\s\S]*?animation:\s*none\s*!important/, 'Settings theme controls must not run continuous paint animations during theme preview/import.');
 assert.match(css, /#ovyx-topbar :is\(button,a\)[\s\S]*?color:\s*var\(--ovyx-light-text\)\s*!important/, 'Light-theme Log In actions must remain readable without overriding unrelated page headers.');
 assert.doesNotMatch(css, /:is\(#ovyx-topbar,header\) :is\(button,a\)/, 'Light-theme header contrast must not blanket-style unrelated Settings headers.');
+
+
+assert.match(css, /Mobile resume\/repaint resilience/, 'The mobile shell must explicitly protect against Android app-overlay resume repaint gaps.');
+assert.match(css, /html,\s*body\s*\{[\s\S]*?background-color:\s*var\(--app-bg,\s*var\(--bg,\s*#050607\)\)\s*!important/, 'The document canvas must remain painted with the active theme when browser chrome or another app covers and reveals the page.');
+assert.match(css, /min-height:\s*100dvh/, 'The document and application shell must follow the dynamic mobile viewport after returning from an overlay.');
+assert.match(css, /#view-router-viewport\s*\{[\s\S]*?box-sizing:\s*border-box/, 'The route viewport must include its spacing in its mobile viewport geometry.');
