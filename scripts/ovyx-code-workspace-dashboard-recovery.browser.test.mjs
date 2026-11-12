@@ -292,7 +292,7 @@ try{
   // the Home / Build / New / Code / More navigation labels.
   const dockPage=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   try{
-    const response=await dockPage.goto('http://127.0.0.1:8789/',{waitUntil:'domcontentloaded',timeout:30000});
+    const response=await dockPage.goto('http://127.0.0.1:8789/',{waitUntil:'commit',timeout:30000});
     assert.ok(response&&response.ok(),'The real OVYX app shell must load for the mobile dock regression.');
     await dockPage.waitForFunction(()=>!!document.querySelector('.v59-dashboard-shell')&&!!document.getElementById('ovyx-v52-bottom-bar'),
       null,{timeout:30000});
