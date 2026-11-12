@@ -7,8 +7,8 @@ const STATUS_PATH = '/cashier/status';
 function required(value,name){const v=String(value??'').trim();if(!v||/^(?:pending|todo|tbd|fake|dummy|placeholder|changeme|change_me|replace_me|your[_ -].*|<.*>)$/i.test(v))throw Object.assign(new Error(`Missing or placeholder OPay configuration: ${name}`),{status:503,code:'OPAY_NOT_CONFIGURED'});return v;}
 function config(env){
   const merchantId=required(env?.OPAY_MERCHANT_ID,'OPAY_MERCHANT_ID');
-  const publicKey=required(env?.OPAY_CASHIER_PUBLIC_KEY,'OPAY_CASHIER_PUBLIC_KEY');
-  const privateKey=required(env?.OPAY_CASHIER_SECRET_KEY,'OPAY_CASHIER_SECRET_KEY');
+  const publicKey=required(env?.OPAY_CASHIER_PUBLIC_KEY||env?.OPAY_PUBLIC_KEY,'OPAY_CASHIER_PUBLIC_KEY or OPAY_PUBLIC_KEY');
+  const privateKey=required(env?.OPAY_CASHIER_SECRET_KEY||env?.OPAY_SECRET_KEY,'OPAY_CASHIER_SECRET_KEY or OPAY_SECRET_KEY');
   return {merchantId,publicKey,privateKey,baseUrl:String(env?.OPAY_CASHIER_BASE_URL||BASE_URL).replace(/\/$/,'')};
 }
 async function hmacSha512(value,key){
