@@ -98,7 +98,29 @@ try {
 
     await page.evaluate(() => window.OVYXAccountNotifications.open());
     const root = page.locator('#ovyx-account-notifications-root');
-    await root.waitFor({ state: 'visible' });
+    await root.waitFor({ state: 'attached' });
+    try {
+      await root.waitFor({ state: 'visible' });
+    } catch (error) {
+      const diagnostic = await page.locator('#ovyx-account-notifications-root').evaluate(el => {
+        const style = getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return {
+          hidden: el.hidden,
+          hiddenAttribute: el.hasAttribute('hidden'),
+          className: el.className,
+          inlineStyle: el.getAttribute('style') || '',
+          computed: { display: style.display, visibility: style.visibility, opacity: style.opacity, position: style.position },
+          rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          panelHidden: el.querySelector('#ovyx-notification-panel')?.hidden ?? null,
+          authUser: !!window.firebase?.auth?.()?.currentUser,
+          activeUid: window.OVYXAccountNotifications ? 'api-ready' : 'api-missing',
+          stylesInjected: !!document.getElementById('ovyx-account-notification-styles'),
+        };
+      }).catch(e => ({ diagnostic: String(e?.message || e) }));
+      console.error('[' + target.name + '] Notifications visibility diagnostic: ' + JSON.stringify(diagnostic));
+      throw error;
+    }
     const panel = page.locator('#ovyx-notification-panel');
     await panel.waitFor({ state: 'visible' });
     const notification = page.locator('#ovyx-notification-list [data-ovyx-notification-id="broadcast-test-1"]');
