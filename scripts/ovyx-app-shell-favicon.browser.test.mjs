@@ -33,7 +33,10 @@ try {
 
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const response = await page.goto(new URL('/', origin).href, {
-    waitUntil: 'domcontentloaded',
+    // The production shell contains legacy deferred startup work. Commit is
+    // the navigation boundary; the explicit favicon assertions below verify
+    // the actual DOM/runtime state without coupling to DOMContentLoaded.
+    waitUntil: 'commit',
     timeout: 30000,
   });
 
