@@ -1,3 +1,4 @@
+# Trigger note: retain this workflow path in the PR filter so Settings browser regressions rerun with their test changes.
 name: OVYX Settings Regression Browser Tests
 
 on:
