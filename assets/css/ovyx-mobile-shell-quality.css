@@ -597,3 +597,12 @@ body {
 html:is(.ovyx-light,[data-ovyx-mode="light"]) body {
   background-color: var(--ovyx-light-canvas) !important;
 }
+
+
+/* Keep the document edge and body canvas identical after theme changes or app resume. */
+html:is(.ovyx-light,[data-ovyx-mode="light"]) {
+  background-color: var(--ovyx-light-canvas) !important;
+}
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body {
+  background-color: var(--ovyx-light-canvas) !important;
+}
