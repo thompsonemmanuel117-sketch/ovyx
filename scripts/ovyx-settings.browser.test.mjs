@@ -57,6 +57,7 @@ try {
       throw error;
     }
 
+    console.log('[' + target.name + '] Settings stage: Data Layer entry');
     // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
     await page.evaluate(() => { window.OVYXRouteAuthority.go('settings'); });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
@@ -126,6 +127,7 @@ try {
     assert.doesNotMatch(resultText, /backend-reported database|PostgreSQL/i,
       '[' + target.name + '] a health response must not imply the database vendor or CRUD operations were verified.');
 
+    console.log('[' + target.name + '] Settings stage: schema download');
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
     await page.locator('#ovyx-data-schema').click();
     const download = await downloadPromise;
@@ -250,6 +252,7 @@ try {
       delete window.__externalDataSyncOriginal;
     });
 
+    console.log('[' + target.name + '] Settings stage: external sync and reload');
     // Reopening the panel must not duplicate its injected container or lose settings.
     await page.evaluate(() => window.OVYXSettings.show('appearance'));
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
@@ -284,6 +287,7 @@ try {
     const afterReload = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}'));
     assert.equal(afterReload.projectSync, false);
 
+    console.log('[' + target.name + '] Settings stage: Appearance round-trip');
     // Exercise Appearance preview, save, cancel, and reset through the rendered UI.
     // Seed a known persisted baseline and reload so ThemeContext starts from that state.
     await page.evaluate(() => {
@@ -365,6 +369,7 @@ try {
       '[' + target.name + '] Privacy reset must update the legacy appearance mirror too.');
 
 
+    console.log('[' + target.name + '] Settings stage: Notifications');
     // Notifications must show only the current account-backed control set.
     await page.evaluate(() => window.OVYXSettings.show('notifications'));
     const notifications = page.locator('[data-settings-panel="notifications"]');
@@ -400,6 +405,7 @@ try {
         '[' + target.name + '] Cloudflare state labels must never claim connected for unknown/unavailable state.');
     }
 
+    console.log('[' + target.name + '] Settings stage: Usage and quota');
     // Verify that server quota refreshes on Usage panel entry and that failures remain honest/recoverable.
     await page.evaluate(() => {
       const user = {
@@ -461,6 +467,7 @@ try {
     assert.ok(balanceRequests.length > beforeQuotaLoad, '[' + target.name + '] Usage must recover when the server returns a valid quota again.');
     assert.match(await page.locator('#ovyx-usage-server-detail').innerText(), /Remaining: 65 tokens/i);
 
+    console.log('[' + target.name + '] Settings stage: Token Booster');
     await page.evaluate(() => window.OVYXSettings.show('boosters'));
     const boosters = page.locator('[data-settings-panel="boosters"]');
     await page.waitForFunction(() => !!document.querySelector('[data-settings-panel="boosters"] #ovyx-v65-booster-balance')
@@ -542,6 +549,7 @@ try {
       '[' + target.name + '] failed checkout must never claim the tokens were credited.');
     await boosterModal.locator('[data-close]').click();
 
+    console.log('[' + target.name + '] Settings stage: Billing and Security');
     await page.evaluate(() => window.OVYXSettings.show('plan'));
     const planPanel = page.locator('[data-settings-panel="plan"]');
     // The Billing layer replaces the initial Plan shell asynchronously; test its final visible control.
