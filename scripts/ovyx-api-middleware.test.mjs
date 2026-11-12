@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { onRequest, usesRouteLevelOidcAuthentication } from '../functions/api/_middleware.js';
+import { withCors as withWorkerCors } from '../functions/_lib/http.js';
+import { withCors as withApiCors } from '../functions/api/_lib/http.js';
 
 async function call(request) {
   return onRequest({
@@ -56,6 +59,26 @@ async function call(request) {
   const response = await call(request);
   assert.equal(response.status, 401,
     'trailing-slash variants must not bypass standard Firebase authentication');
+}
+
+// Firebase/browser SDK requests can use HTTP Message Signature headers.
+// Both Pages CORS helpers and the static fallback must permit the preflight
+// header names; this does not expose credentials or relax origin checks.
+{
+  const request = new Request('https://ovyx.test/api/health', {
+    method: 'OPTIONS',
+    headers: { Origin: 'https://ovyx.test', 'Access-Control-Request-Headers': 'authorization,content-type,signature-input,signature' },
+  });
+  const workerResponse = withWorkerCors(new Response(null, { status: 204 }), request);
+  const apiResponse = withApiCors(new Response(null, { status: 204 }), request);
+  for (const [label, response] of [['worker', workerResponse], ['api', apiResponse]]) {
+    const allowed = String(response.headers.get('Access-Control-Allow-Headers') || '').toLowerCase();
+    assert.match(allowed, /signature-input/, label + ' CORS helper must allow Signature-Input preflight');
+    assert.match(allowed, /signature/, label + ' CORS helper must allow Signature preflight');
+  }
+  const staticHeaders = fs.readFileSync('_headers', 'utf8');
+  assert.match(staticHeaders, /Access-Control-Allow-Headers: .*Signature-Input.*Signature/i,
+    'static Pages API fallback headers must permit HTTP message signature headers too');
 }
 
 console.log('API middleware HTTP helpers and route-scoped OIDC handoff tests passed.');

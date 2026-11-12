@@ -9,6 +9,8 @@ const AI_PROVIDER_KEYS = new Set([
 
 const PROPERTY_PATTERN = /PROPERTY|LISTING|REALTY|REAL_ESTATE|ZILLOW|ZOOPLA/i;
 const ENQUIRY_PATTERN = /ENQUIR|CONTACT|RESEND|SMTP|EMAIL|SENDGRID|MAILGUN|WHATSAPP|TWILIO|SOCIAL|WEBHOOK|FORM/i;
+const PAYMENT_PATTERN = /OPAY|PAYSTACK|PAYMENT|STRIPE|FLUTTERWAVE/i;
+const GITHUB_INTEGRATION_PATTERN = /^GITHUB_(?:CLIENT_ID|CLIENT_SECRET|REDIRECT_URI|TOKEN_ENCRYPTION_KEY|ALLOWED_REPOS)$/i;
 
 function environmentVariableNames(environmentConfig) {
   const variables = environmentConfig?.env_vars;
@@ -66,6 +68,12 @@ export function summarizeCloudflareRuntimeConfig(project) {
     previewUnrecognizedAiProviderCredentialVariableNames: previewNames.filter(isUnrecognizedAiProviderCredentialName),
     propertyIntegrationVariableNames: all.filter(name => PROPERTY_PATTERN.test(name)),
     enquiryAndSocialVariableNames: all.filter(name => ENQUIRY_PATTERN.test(name)),
+    paymentIntegrationVariableNames: all.filter(name => PAYMENT_PATTERN.test(name)),
+    productionPaymentIntegrationVariableNames: productionNames.filter(name => PAYMENT_PATTERN.test(name)),
+    previewPaymentIntegrationVariableNames: previewNames.filter(name => PAYMENT_PATTERN.test(name)),
+    githubIntegrationVariableNames: all.filter(name => GITHUB_INTEGRATION_PATTERN.test(name)),
+    productionSentinelCronSecretPresent: productionNames.includes('OVYX_SENTINEL_CRON_SECRET'),
+    previewSentinelCronSecretPresent: previewNames.includes('OVYX_SENTINEL_CRON_SECRET'),
   };
 }
 

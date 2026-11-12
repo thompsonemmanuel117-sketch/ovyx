@@ -172,6 +172,39 @@ try {
   assert.equal(dashboardActionState.realButtonVisibility, 'visible', 'The dashboard Build/send action must remain visible in Light appearance.');
 
 
+  // Simulate Android browser chrome/app overlays changing the available viewport,
+  // then returning the page to the foreground. The exposed canvas must stay theme-painted.
+  await page.setViewportSize({ width: 390, height: 690 });
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('pageshow'));
+    window.dispatchEvent(new Event('focus'));
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const resumeCanvas = await page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const body = getComputedStyle(document.body);
+    const viewport = document.getElementById('view-router-viewport');
+    const viewportStyle = viewport ? getComputedStyle(viewport) : null;
+    return {
+      rootBackground: root.backgroundColor,
+      bodyBackground: body.backgroundColor,
+      bodyMinHeight: body.minHeight,
+      bodyHeight: document.body.getBoundingClientRect().height,
+      viewportHeight: window.innerHeight,
+      bodyScrollWidth: document.body.scrollWidth,
+      viewportWidth: document.documentElement.clientWidth
+    };
+  });
+  assert.notEqual(resumeCanvas.bodyBackground, 'rgba(0, 0, 0, 0)',
+    'The document body must retain an opaque theme canvas after returning from a mobile overlay.');
+  assert.ok(resumeCanvas.bodyMinHeight.endsWith('px'),
+    'The mobile document must retain a concrete viewport minimum height after returning from an overlay.');
+  assert.ok(resumeCanvas.bodyHeight >= resumeCanvas.viewportHeight,
+    'The body canvas must cover the complete visible viewport so the root canvas cannot show through at the screen edge.');
+  assert.ok(resumeCanvas.bodyScrollWidth <= resumeCanvas.viewportWidth,
+    'Mobile overlay recovery must not introduce horizontal overflow.');
+
   assert.deepEqual(errors, [], 'Mobile shell must not emit browser errors.');
   console.log('OVYX mobile dock geometry and light-theme browser checks passed.');
   await page.close();
