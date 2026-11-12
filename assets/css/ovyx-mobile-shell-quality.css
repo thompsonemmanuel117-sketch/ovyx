@@ -607,3 +607,11 @@ html:is(.ovyx-light,[data-ovyx-mode="light"]) {
 html:is(.ovyx-light,[data-ovyx-mode="light"]) body {
   background-color: var(--ovyx-light-canvas) !important;
 }
+
+
+/* Final light-mode canvas authority: the browser's exposed document edge and body must share one paint. */
+html:is(.ovyx-light,[data-ovyx-mode="light"]),
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body {
+  background-color: var(--ovyx-light-canvas, #f5f7fa) !important;
+  background-image: none !important;
+}
