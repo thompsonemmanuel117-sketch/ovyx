@@ -592,3 +592,8 @@ body {
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+/* Keep the document edge and body canvas identical after mobile viewport resumes. */
+html:is(.ovyx-light,[data-ovyx-mode="light"]) body {
+  background-color: var(--ovyx-light-canvas) !important;
+}
