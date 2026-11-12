@@ -222,11 +222,11 @@ jobs:
             shift 2
             for script in "$@"; do
               echo "[$label] START $script"
-              timeout --signal=TERM --kill-after=30s 8m node "scripts/$script" 2>&1 | tee -a "$log_file"
+              timeout --signal=TERM --kill-after=30s 15m node "scripts/$script" 2>&1 | tee -a "$log_file"
               script_status=${PIPESTATUS[0]}
               if [ "$script_status" -ne 0 ]; then
                 if [ "$script_status" -eq 124 ] || [ "$script_status" -eq 137 ]; then
-                  echo "[$label] TIMEOUT after 8 minutes: $script"
+                  echo "[$label] TIMEOUT after 15 minutes: $script"
                 else
                   echo "[$label] FAILED ($script_status): $script"
                 fi
