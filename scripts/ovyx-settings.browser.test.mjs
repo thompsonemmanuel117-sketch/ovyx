@@ -126,9 +126,10 @@ try {
     assert.doesNotMatch(resultText, /backend-reported database|PostgreSQL/i,
       '[' + target.name + '] a health response must not imply the database vendor or CRUD operations were verified.');
 
-    const downloadPromise = page.waitForEvent('download');
+    const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
     await page.locator('#ovyx-data-schema').click();
     const download = await downloadPromise;
+    console.log('[' + target.name + '] data-layer schema download completed.');
     assert.equal(download.suggestedFilename(), 'ovyx-postgresql-schema.sql',
       '[' + target.name + '] schema button should download the starter schema file.');
 
