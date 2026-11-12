@@ -1,3 +1,4 @@
+// Regression trigger: changes to this browser suite should rerun its owning GitHub Actions workflow.
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixtures.mjs';
