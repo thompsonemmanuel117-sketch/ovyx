@@ -177,14 +177,14 @@ function row(payload, group, key) {
     OVYX_SENTINEL_CRON_SECRET: 'sentinel-preview-secret-fixture',
   };
   const payload = await health(env);
-  assert.equal(row(payload, 'GitHub', 'GITHUB_CLIENT_ID').state, 'configured');
-  assert.equal(row(payload, 'GitHub', 'GITHUB_CLIENT_SECRET').state, 'configured');
-  assert.equal(row(payload, 'GitHub', 'GITHUB_REDIRECT_URI').state, 'configured');
+  assert.equal(row(payload, 'GitHub', 'GITHUB_CLIENT_ID').state, 'present');
+  assert.equal(row(payload, 'GitHub', 'GITHUB_CLIENT_SECRET').state, 'present');
+  assert.equal(row(payload, 'GitHub', 'GITHUB_REDIRECT_URI').state, 'present');
   assert.equal(row(payload, 'Payments', 'OPAY_MERCHANT_ID').state, 'placeholder');
   assert.equal(row(payload, 'Payments', 'OPAY_CASHIER_PUBLIC_KEY').state, 'placeholder');
   assert.equal(row(payload, 'Payments', 'OPAY_CASHIER_SECRET_KEY').state, 'placeholder');
   assert.equal(row(payload, 'Payments', 'PAYSTACK_SECRET_KEY').state, 'placeholder');
-  assert.equal(row(payload, 'Sentinel', 'OVYX_SENTINEL_CRON_SECRET').state, 'configured');
+  assert.equal(row(payload, 'Sentinel', 'OVYX_SENTINEL_CRON_SECRET').state, 'present');
   const json = JSON.stringify(payload);
   for (const secret of ['configured-client-secret', 'PENDING', 'CHANGE_ME', 'sentinel-preview-secret-fixture']) {
     assert.equal(json.includes(secret), false, 'Health output must never expose environment values.');
