@@ -102,6 +102,9 @@ function inspectBinding(env, key) {
   if (String(value).trim() === '') {
     return { state: 'empty', value };
   }
+  if (typeof value === 'string' && /^(?:pending|todo|tbd|fake|dummy|placeholder|changeme|change_me|replace_me|your[_ -].*|<.*>)$/i.test(value.trim())) {
+    return { state: 'placeholder', value: undefined };
+  }
 
   return { state: 'present', value };
 }
