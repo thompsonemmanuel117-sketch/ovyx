@@ -31,7 +31,7 @@ async function health(env) {
 }
 
 function row(payload, group, key) {
-  const serviceGroup = ({ Firebase: 'firebase', GitHub: 'github', UniversalConnections: 'universalConnections' })[group] || group;
+  const serviceGroup = ({ Firebase: 'firebase', GitHub: 'github', UniversalConnections: 'universalConnections', Payments: 'payments', Sentinel: 'sentinel' })[group] || group;
   return payload.services[serviceGroup].find((entry) => entry.key === key);
 }
 
@@ -160,6 +160,35 @@ function row(payload, group, key) {
   const payload = await health({ ...baseEnv(), AI: { run() {} } });
   assert.equal(payload.services.ai.ready, true);
   assert.equal(payload.services.ai.workersAiBinding.configured, true);
+}
+
+// Cloudflare report follow-up: expose the actual GitHub OAuth, OPay, Paystack,
+// and Sentinel variable names, while marking placeholders as unusable.
+{
+  const env = {
+    ...baseEnv(),
+    GITHUB_CLIENT_ID: 'configured-client-id',
+    GITHUB_CLIENT_SECRET: 'configured-client-secret',
+    GITHUB_REDIRECT_URI: 'https://ovyx.example.invalid/api/github/oauth',
+    OPAY_MERCHANT_ID: 'PENDING',
+    OPAY_CASHIER_PUBLIC_KEY: 'PENDING',
+    OPAY_CASHIER_SECRET_KEY: 'PENDING',
+    PAYSTACK_SECRET_KEY: 'CHANGE_ME',
+    OVYX_SENTINEL_CRON_SECRET: 'sentinel-preview-secret-fixture',
+  };
+  const payload = await health(env);
+  assert.equal(row(payload, 'GitHub', 'GITHUB_CLIENT_ID').state, 'configured');
+  assert.equal(row(payload, 'GitHub', 'GITHUB_CLIENT_SECRET').state, 'configured');
+  assert.equal(row(payload, 'GitHub', 'GITHUB_REDIRECT_URI').state, 'configured');
+  assert.equal(row(payload, 'Payments', 'OPAY_MERCHANT_ID').state, 'placeholder');
+  assert.equal(row(payload, 'Payments', 'OPAY_CASHIER_PUBLIC_KEY').state, 'placeholder');
+  assert.equal(row(payload, 'Payments', 'OPAY_CASHIER_SECRET_KEY').state, 'placeholder');
+  assert.equal(row(payload, 'Payments', 'PAYSTACK_SECRET_KEY').state, 'placeholder');
+  assert.equal(row(payload, 'Sentinel', 'OVYX_SENTINEL_CRON_SECRET').state, 'configured');
+  const json = JSON.stringify(payload);
+  for (const secret of ['configured-client-secret', 'PENDING', 'CHANGE_ME', 'sentinel-preview-secret-fixture']) {
+    assert.equal(json.includes(secret), false, 'Health output must never expose environment values.');
+  }
 }
 
 console.log('OVYX runtime health configuration tests passed: service configuration is validated and AI readiness depends exclusively on Cloudflare Workers AI.');
