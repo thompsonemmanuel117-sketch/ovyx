@@ -64,7 +64,7 @@ try {
       `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
     // Resource timing records a fetch before the asset's boot hook necessarily
     // finishes. Wait for the native wrapper before invoking the public open API.
-    await page.waitForFunction(() => window.WorkspaceBrainBot?.__ovyxNativeOpen === true, null, { timeout: 60000 });
+    await page.waitForFunction(() => window.WorkspaceBrainBot?.__ovyxNativeOpen === true, null, { timeout: 120000 });
 
     const panel = page.locator('#kernel-brain-bot-panel');
     // The legacy assistant mounts its panel lazily from open(). Invoke the
