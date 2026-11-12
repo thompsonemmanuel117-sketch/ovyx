@@ -1,3 +1,4 @@
+# Trigger note: keep this workflow path in the PR filter so focused browser regressions rerun when its coverage changes.
 name: OVYX Assistant Workspace Browser Tests
 
 on:
