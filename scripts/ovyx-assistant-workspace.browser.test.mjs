@@ -36,6 +36,16 @@ try {
     // The legacy assistant creates its panel when open() is called. Waiting
     // for the panel before invoking open() is a circular readiness condition.
     await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 60000 });
+    await page.evaluate(() => {
+      const user = window.__setOVYXBrowserAuthUser?.({
+        uid: 'ovyx-assistant-browser-user',
+        email: 'assistant@example.test',
+        token: 'ovyx-assistant-browser-token',
+      });
+      if (!user || !window.firebase?.auth?.()?.currentUser) {
+        throw new Error('The isolated Firebase browser fixture did not restore its signed-in test user after shell boot.');
+      }
+    });
 
     // The shell's asset loader may remove transient script elements after execution.
     // Verify the fetched asset through the browser resource timing buffer instead
