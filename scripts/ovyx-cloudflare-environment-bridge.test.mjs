@@ -9,6 +9,7 @@ const env = {
   RESEND_API_KEY: 'SENTINEL_RESEND_SECRET_DO_NOT_LEAK',
   STRIPE_SECRET_KEY: 'SENTINEL_STRIPE_SECRET_DO_NOT_LEAK',
   WHATSAPP_ACCESS_TOKEN: 'SENTINEL_WHATSAPP_SECRET_DO_NOT_LEAK',
+  OPAY_MERCHANT_ID: 'SENTINEL_OPAY_MERCHANT_ID_DO_NOT_LEAK',
   OPAY_CASHIER_PUBLIC_KEY: 'SENTINEL_OPAY_PUBLIC_KEY_DO_NOT_LEAK',
   OPAY_CASHIER_SECRET_KEY: 'SENTINEL_OPAY_PRIVATE_KEY_DO_NOT_LEAK',
   PROPERTY_DATA_API_TOKEN: 'SENTINEL_UNKNOWN_SECRET_DO_NOT_LEAK',
@@ -35,6 +36,7 @@ for (const secret of [
   'SENTINEL_RESEND_SECRET_DO_NOT_LEAK',
   'SENTINEL_STRIPE_SECRET_DO_NOT_LEAK',
   'SENTINEL_WHATSAPP_SECRET_DO_NOT_LEAK',
+  'SENTINEL_OPAY_MERCHANT_ID_DO_NOT_LEAK',
   'SENTINEL_OPAY_PUBLIC_KEY_DO_NOT_LEAK',
   'SENTINEL_OPAY_PRIVATE_KEY_DO_NOT_LEAK',
   'SENTINEL_UNKNOWN_SECRET_DO_NOT_LEAK',
@@ -47,7 +49,11 @@ for (const secret of [
 assert.equal(resolveIntegrationCredential(env, 'email', 'resend').key, 'RESEND_API_KEY');
 assert.equal(resolveIntegrationCredential(env, 'payments', 'stripe').key, 'STRIPE_SECRET_KEY');
 assert.equal(resolveIntegrationCredential(env, 'messaging', 'whatsapp').key, 'WHATSAPP_ACCESS_TOKEN');
-assert.deepEqual(resolveIntegrationCredentials(env, 'payments', 'opay').map(item => item.key), ['OPAY_CASHIER_PUBLIC_KEY', 'OPAY_CASHIER_SECRET_KEY']);
+assert.deepEqual(resolveIntegrationCredentials(env, 'payments', 'opay').map(item => item.key), ['OPAY_MERCHANT_ID', 'OPAY_CASHIER_PUBLIC_KEY', 'OPAY_CASHIER_SECRET_KEY']);
+assert.equal(resolveIntegrationCredential({ OPAY_MERCHANT_ID: 'PENDING' }, 'payments', 'opay'), null,
+  'Placeholder credentials must not be reported as configured.');
+assert.equal(resolveIntegrationCredential({ PAYSTACK_SECRET_KEY: 'CHANGE_ME' }, 'payments', 'paystack'), null,
+  'Common placeholder values must not be reported as configured.');
 assert.equal(resolveIntegrationCredential(env, 'email', 'sendgrid'), null);
 assert.throws(() => resolveIntegrationCredential(env, 'unknown', 'provider'), { code: 'INTEGRATION_ADAPTER_NOT_REGISTERED' });
 assert.equal(resolveIntegrationCredential({ RESEND_API_KEY: { secret: true } }, 'email', 'resend'), null,
