@@ -55,27 +55,16 @@ export async function onRequest(context) {
     })
     .transform(response);
 
-  // Prevent an old HTML shell from winning the browser's reload/cache race.
-  // Buffer the rewritten HTML before returning it. The app shell contains a
-  // large inline runtime; streaming the HTMLRewriter body through local Pages
-  // can leave Chromium parsing stalled mid-document, which prevents deferred
-  // shell scripts and DOM-ready boot handlers from ever becoming available.
-  // The shell is bounded to the normal HTML document size and must be complete
-  // before the browser starts its startup/readiness sequence.
-  const html = await rewritten.text();
+  // Keep the HTMLRewriter response streaming. Buffering the full app shell here
+  // delays document parsing until every inline script and asset reference has
+  // been collected, which can stall Chromium's DOMContentLoaded and prevent
+  // deferred shell startup scripts from running in local Pages browser tests.
   const headers = new Headers(rewritten.headers);
   headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
   headers.set('Pragma', 'no-cache');
   headers.set('Expires', '0');
-  // rewritten.text() has already decoded the upstream body. Do not carry
-  // representation metadata for the original compressed response onto the
-  // newly constructed UTF-8 HTML body; Pages may compress it again as needed.
-  headers.delete('content-encoding');
   headers.delete('content-length');
-  headers.delete('content-md5');
-  headers.delete('content-range');
-  headers.delete('etag');
-  return new Response(html, {
+  return new Response(rewritten.body, {
     status: rewritten.status,
     statusText: rewritten.statusText,
     headers,
