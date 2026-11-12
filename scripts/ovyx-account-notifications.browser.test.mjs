@@ -36,7 +36,7 @@ try {
         firstPaintCurtain: !!document.getElementById('ovyx-first-paint-curtain'),
         accountNotifications: typeof window.OVYXAccountNotifications,
         routerGo: typeof window.Router?.go,
-        accountAssetRequested: performance.getEntriesByType('resource').some(entry => /\\/assets\\/ovyx-account-notifications\\.js(?:\\?|$)/.test(entry.name)),
+        accountAssetRequested: performance.getEntriesByType('resource').some(entry => /\/assets\/ovyx-account-notifications\.js(?:\?|$)/.test(entry.name)),
       }));
       console.error('[' + target.name + '] account notifications bootstrap diagnostic: ' + JSON.stringify(diagnostic));
       throw error;
