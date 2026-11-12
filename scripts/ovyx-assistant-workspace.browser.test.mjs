@@ -14,7 +14,7 @@ const expectedActions = [
   'open-assets', 'open-history', 'open-sections', 'open-preview',
 ];
 
-const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage', '--no-zygote'] });
+const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage'] });
 try {
   for (const target of [
     { name: 'desktop', viewport: { width: 1280, height: 900 } },
