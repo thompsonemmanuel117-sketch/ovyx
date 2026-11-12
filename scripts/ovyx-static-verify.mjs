@@ -571,7 +571,7 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !fs.readFileSync(nativeAssistantPath, 'utf8').includes("'workspace_undo'") ||
     !workspaceToolsIntegrationTest.includes("operation: 'read_file'") ||
     !workspaceToolsTest.includes('Recovery must have a distinct preview operation.') ||
-    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261030-1')
+    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261112-1')
   ) {
     errors.push('OVYX native assistant: safe recovery, review-before-write, truthful progress states, tests or cache-busted shell injection is incomplete.');
   }
