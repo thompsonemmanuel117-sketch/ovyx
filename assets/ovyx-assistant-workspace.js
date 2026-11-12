@@ -3153,17 +3153,19 @@
     if (bot && !bot.__ovyxNativeSend) {
       bot.send = send;
       bot.__ovyxNativeSend = true;
-      if (typeof bot.open === 'function' && !bot.__ovyxNativeOpen) {
-        const originalOpen = bot.open.bind(bot);
-        bot.open = function (...args) {
-          const result = originalOpen(...args);
-          renderChrome();
-          bindEvents();
-          resolveWorkspaceContext().catch(() => syncWorkspaceBadge(localWorkspaceSnapshot(), true));
-          return result;
-        };
-        bot.__ovyxNativeOpen = true;
-      }
+    }
+    // Install the open wrapper independently: another shell module may already
+    // have marked send as native before this runtime reaches the routing hook.
+    if (bot && typeof bot.open === 'function' && !bot.__ovyxNativeOpen) {
+      const originalOpen = bot.open.bind(bot);
+      bot.open = function (...args) {
+        const result = originalOpen(...args);
+        renderChrome();
+        bindEvents();
+        resolveWorkspaceContext().catch(() => syncWorkspaceBadge(localWorkspaceSnapshot(), true));
+        return result;
+      };
+      bot.__ovyxNativeOpen = true;
     }
     renderChrome();
     bindMenuTrigger();
