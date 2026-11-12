@@ -27,7 +27,20 @@ try {
 
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
-    await page.waitForFunction(() => !document.documentElement.hasAttribute('data-ovyx-stabilizing') && !document.getElementById('ovyx-first-paint-curtain') && !!window.OVYXAccountNotifications && typeof window.Router?.go === 'function', null, { timeout: 60000 });
+    try {
+      await page.waitForFunction(() => !document.documentElement.hasAttribute('data-ovyx-stabilizing') && !document.getElementById('ovyx-first-paint-curtain') && !!window.OVYXAccountNotifications && typeof window.Router?.go === 'function', null, { timeout: 60000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        readyState: document.readyState,
+        stabilizing: document.documentElement.hasAttribute('data-ovyx-stabilizing'),
+        firstPaintCurtain: !!document.getElementById('ovyx-first-paint-curtain'),
+        accountNotifications: typeof window.OVYXAccountNotifications,
+        routerGo: typeof window.Router?.go,
+        accountAssetRequested: performance.getEntriesByType('resource').some(entry => /\\/assets\\/ovyx-account-notifications\\.js(?:\\?|$)/.test(entry.name)),
+      }));
+      console.error('[' + target.name + '] account notifications bootstrap diagnostic: ' + JSON.stringify(diagnostic));
+      throw error;
+    }
     await page.evaluate(() => {
       const user = window.__setOVYXBrowserAuthUser?.({
         uid: 'ovyx-notification-user',
