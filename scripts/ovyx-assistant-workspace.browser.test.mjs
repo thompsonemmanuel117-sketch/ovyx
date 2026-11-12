@@ -60,7 +60,7 @@ try {
         .filter(src => /\/assets\/ovyx-assistant-workspace\.js(?:\?|$)/.test(src))
     );
     assert.ok(assistantAssetSources.length, `[${target.name}] assistant workspace asset was not fetched`);
-    assert.ok(assistantAssetSources.some(src => /[?&]v=20261030-1(?:&|$)/.test(src)),
+    assert.ok(assistantAssetSources.some(src => /[?&]v=20261112-1(?:&|$)/.test(src)),
       `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
     // Resource timing records a fetch before the asset's boot hook necessarily
     // finishes. Wait for the native wrapper before invoking the public open API.
