@@ -27,8 +27,13 @@ try {
       initialUser: { uid: 'ovyx-assistant-browser-user', email: 'assistant@example.test', token: 'ovyx-assistant-browser-token' }
     });
     const errors = [];
+    const bootstrapErrors = [];
     page.on('pageerror', error => {
+      bootstrapErrors.push(String(error?.stack || error?.message || error));
       if (/ovyx-native|menuAction|workspaceTool|recoverLatestWorkspaceEdit|reviewWorkspaceEditHistory/i.test(error.message)) errors.push(error.message);
+    });
+    page.on('console', message => {
+      if (message.type() === 'error') bootstrapErrors.push('console: ' + message.text());
     });
 
     // Gate on the Assistant runtime below rather than unrelated inline scripts
@@ -37,7 +42,25 @@ try {
     assert.ok(response && response.status() < 400, `[${target.name}] app returned an HTTP error`);
     // The legacy assistant creates its panel when open() is called. Waiting
     // for the panel before invoking open() is a circular readiness condition.
-    await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 60000 });
+    try {
+      await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 60000 });
+    } catch (error) {
+      const diagnostic = await Promise.race([
+        page.evaluate(() => ({
+          readyState: document.readyState,
+          bot: typeof window.WorkspaceBrainBot,
+          open: typeof window.WorkspaceBrainBot?.open,
+          panel: !!document.getElementById('kernel-brain-bot-panel'),
+          panelHidden: document.getElementById('kernel-brain-bot-panel')?.classList.contains('hidden') ?? null,
+          bodyReady: !!document.body,
+          assistantAssetRequested: performance.getEntriesByType('resource').some(entry => entry.name.includes('/assets/ovyx-assistant-workspace.js')),
+          scripts: performance.getEntriesByType('resource').map(entry => entry.name).filter(src => /\.js(?:\?|$)/.test(src)).slice(-35),
+        })),
+        new Promise(resolve => setTimeout(() => resolve({ diagnostic: 'Browser page did not answer the Assistant bootstrap diagnostic within 5 seconds.' }), 5000)),
+      ]).catch(e => ({ diagnostic: 'Browser page unavailable: ' + String(e?.message || e) }));
+      console.error('[' + target.name + '] Legacy Assistant bootstrap diagnostic: ' + JSON.stringify({ ...diagnostic, pageErrors: bootstrapErrors.slice(-30) }));
+      throw error;
+    }
     await page.evaluate(() => {
       const user = window.__setOVYXBrowserAuthUser?.({
         uid: 'ovyx-assistant-browser-user',
