@@ -64,7 +64,23 @@ try {
       `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
     // Resource timing records a fetch before the asset's boot hook necessarily
     // finishes. Wait for the native wrapper before invoking the public open API.
-    await page.waitForFunction(() => window.WorkspaceBrainBot?.__ovyxNativeOpen === true, null, { timeout: 120000 });
+    try {
+      await page.waitForFunction(() => window.WorkspaceBrainBot?.__ovyxNativeOpen === true, null, { timeout: 120000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        bot: typeof window.WorkspaceBrainBot,
+        open: typeof window.WorkspaceBrainBot?.open,
+        nativeOpen: window.WorkspaceBrainBot?.__ovyxNativeOpen === true,
+        nativeSend: window.WorkspaceBrainBot?.__ovyxNativeSend === true,
+        aiService: typeof window.OVYXAIService,
+        generate: typeof window.OVYXAIService?.generate,
+        nativeRoute: window.OVYXAIService?.__ovyxNativeWorkspaceRoute === true,
+        runtimeLoaded: performance.getEntriesByType('resource').some(entry => /\\/assets\\/ovyx-assistant-workspace\\.js(?:\\?|$)/.test(entry.name)),
+        pageErrors: errors,
+      })).catch(() => ({ diagnostic: 'page unavailable' }));
+      console.error('[' + target.name + '] Assistant native-routing diagnostic: ' + JSON.stringify(diagnostic));
+      throw error;
+    }
 
     const panel = page.locator('#kernel-brain-bot-panel');
     // The legacy assistant mounts its panel lazily from open(). Invoke the
