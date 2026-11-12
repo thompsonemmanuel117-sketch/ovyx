@@ -79,6 +79,12 @@ function pemToArrayBuffer(
  * before importing it.
  */
 export function extractSubjectPublicKeyInfo(certificatePem) {
+  // Google Secure Token endpoints return X.509 CERTIFICATE PEM. Trusted
+  // development/test key endpoints may already return a PUBLIC KEY PEM.
+  // In that case its DER payload is already the SPKI sequence.
+  if (/-----BEGIN PUBLIC KEY-----/.test(String(certificatePem || ''))) {
+    return pemToArrayBuffer(certificatePem);
+  }
   const der = new Uint8Array(pemToArrayBuffer(certificatePem));
 
   function readElement(offset) {
