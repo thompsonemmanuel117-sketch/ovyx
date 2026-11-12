@@ -27,7 +27,7 @@ try {
 
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
-    await page.waitForFunction(() => !document.documentElement.hasAttribute('data-ovyx-stabilizing') && !document.getElementById('ovyx-first-paint-curtain') && !!window.OVYXNotifications && typeof window.OVYXRouteAuthority?.go === 'function', null, { timeout: 60000 });
+    await page.waitForFunction(() => !document.documentElement.hasAttribute('data-ovyx-stabilizing') && !document.getElementById('ovyx-first-paint-curtain') && !!window.OVYXAccountNotifications && typeof window.OVYXRouteAuthority?.go === 'function', null, { timeout: 60000 });
     await page.evaluate(() => {
       const user = window.__setOVYXBrowserAuthUser?.({
         uid: 'ovyx-notification-user',
