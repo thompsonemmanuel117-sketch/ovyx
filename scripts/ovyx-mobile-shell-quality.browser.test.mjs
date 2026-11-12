@@ -190,17 +190,18 @@ try {
       rootBackground: root.backgroundColor,
       bodyBackground: body.backgroundColor,
       bodyMinHeight: body.minHeight,
-      routeMinHeight: viewportStyle?.minHeight || 'missing',
+      bodyHeight: document.body.getBoundingClientRect().height,
+      viewportHeight: window.innerHeight,
       bodyScrollWidth: document.body.scrollWidth,
       viewportWidth: document.documentElement.clientWidth
     };
   });
-  assert.equal(resumeCanvas.rootBackground, resumeCanvas.bodyBackground,
-    'Returning from a mobile app/browser overlay must not expose a differently painted document edge.');
+  assert.notEqual(resumeCanvas.bodyBackground, 'rgba(0, 0, 0, 0)',
+    'The document body must retain an opaque theme canvas after returning from a mobile overlay.');
   assert.ok(resumeCanvas.bodyMinHeight.endsWith('px'),
     'The mobile document must retain a concrete viewport minimum height after returning from an overlay.');
-  assert.ok(resumeCanvas.routeMinHeight.endsWith('px'),
-    'The app route viewport must retain its dynamic viewport minimum height after returning from an overlay.');
+  assert.ok(resumeCanvas.bodyHeight >= resumeCanvas.viewportHeight,
+    'The body canvas must cover the complete visible viewport so the root canvas cannot show through at the screen edge.');
   assert.ok(resumeCanvas.bodyScrollWidth <= resumeCanvas.viewportWidth,
     'Mobile overlay recovery must not introduce horizontal overflow.');
 
