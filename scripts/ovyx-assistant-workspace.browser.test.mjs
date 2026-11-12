@@ -75,7 +75,7 @@ try {
         aiService: typeof window.OVYXAIService,
         generate: typeof window.OVYXAIService?.generate,
         nativeRoute: window.OVYXAIService?.__ovyxNativeWorkspaceRoute === true,
-        runtimeLoaded: performance.getEntriesByType('resource').some(entry => /\\/assets\\/ovyx-assistant-workspace\\.js(?:\\?|$)/.test(entry.name)),
+        runtimeLoaded: performance.getEntriesByType('resource').some(entry => entry.name.includes('/assets/ovyx-assistant-workspace.js')),
         pageErrors: errors,
       })).catch(() => ({ diagnostic: 'page unavailable' }));
       console.error('[' + target.name + '] Assistant native-routing diagnostic: ' + JSON.stringify(diagnostic));
