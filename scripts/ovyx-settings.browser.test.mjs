@@ -6,7 +6,7 @@ import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixture
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
 
-const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage'] });
+const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage', '--no-zygote'] });
 try {
   for (const target of [
     { name: 'desktop', viewport: { width: 1280, height: 900 } },
