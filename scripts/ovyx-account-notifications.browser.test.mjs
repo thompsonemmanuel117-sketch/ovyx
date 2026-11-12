@@ -27,7 +27,7 @@ try {
 
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
-    await page.waitForFunction(() => !document.documentElement.hasAttribute('data-ovyx-stabilizing') && !document.getElementById('ovyx-first-paint-curtain') && !!window.OVYXAccountNotifications && typeof window.OVYXRouteAuthority?.go === 'function', null, { timeout: 60000 });
+    await page.waitForFunction(() => !document.documentElement.hasAttribute('data-ovyx-stabilizing') && !document.getElementById('ovyx-first-paint-curtain') && !!window.OVYXAccountNotifications && typeof window.Router?.go === 'function', null, { timeout: 60000 });
     await page.evaluate(() => {
       const user = window.__setOVYXBrowserAuthUser?.({
         uid: 'ovyx-notification-user',
@@ -82,9 +82,9 @@ try {
         return db;
       };
       window.OVYXNotifications.subscribe();
-      // V58 is the final route authority. Earlier legacy wrappers can still be
-      // replaced during shell boot, so route only after that runtime is ready.
-      window.OVYXRouteAuthority.go('inbox');
+      // Use the app's public Router API after its readiness check. The shell's
+      // internal route-authority object is not a public browser contract.
+      window.Router.go('inbox');
     });
 
     const inboxDiagnostic = await page.evaluate(() => ({
