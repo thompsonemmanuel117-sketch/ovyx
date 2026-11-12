@@ -54,11 +54,10 @@ try {
       `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
 
     const panel = page.locator('#kernel-brain-bot-panel');
-    // The assistant panel is created by the shell's deferred UI boot. The
-    // WorkspaceBrainBot API can exist before its DOM target; do not call open
-    // against a not-yet-created panel and mistake that race for a UI regression.
-    await panel.waitFor({ state: 'attached', timeout: 45000 });
+    // The legacy assistant mounts its panel lazily from open(). Invoke the
+    // public API first, then wait for the actual panel and verify it becomes visible.
     await page.evaluate(() => window.WorkspaceBrainBot.open());
+    await panel.waitFor({ state: 'attached', timeout: 45000 });
     const panelState = await panel.evaluate(el => {
       const rect = el.getBoundingClientRect();
       const computed = getComputedStyle(el);
