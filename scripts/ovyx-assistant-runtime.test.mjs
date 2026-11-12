@@ -116,3 +116,5 @@ assert.match(source, /__ovyxNativeRetryAttachments/,
 assert.match(source, /Files over 1 MB are not read|text file is over 1 MB/);
 
 console.log('OVYX assistant reliability, fallback-context, native AI and avatar tests passed.');
+
+assert.match(source, /attempts >= 480/, 'Assistant native routing must keep retrying while the legacy shell finishes delayed startup.');
