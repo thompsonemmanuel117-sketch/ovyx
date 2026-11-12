@@ -3179,7 +3179,7 @@
     const timer = setInterval(() => {
       attempts += 1;
       installNativeRouting();
-      if ((window.WorkspaceBrainBot?.__ovyxNativeSend && window.OVYXAIService?.__ovyxNativeWorkspaceRoute) || attempts >= 80) clearInterval(timer);
+      if ((window.WorkspaceBrainBot?.__ovyxNativeSend && window.WorkspaceBrainBot?.__ovyxNativeOpen && window.OVYXAIService?.__ovyxNativeWorkspaceRoute) || attempts >= 80) clearInterval(timer);
     }, 250);
   }
 
