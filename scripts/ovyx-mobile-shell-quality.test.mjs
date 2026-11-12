@@ -9,7 +9,7 @@ const middleware = fs.readFileSync(path.join(root, 'functions/_middleware.js'), 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
-assert.match(middleware, /ovyx-mobile-shell-quality\.css\?v=20261112-19/, 'The shell quality layer must be delivered with the existing HTML shell.');
+assert.match(middleware, /ovyx-mobile-shell-quality\.css\?v=20261112-20/, 'The shell quality layer must be delivered with the existing HTML shell.');
 assert.match(css, /#ovyx-v52-bottom-bar\s*\{[\s\S]*?height:\s*64px\s*!important/, 'The existing mobile dock must have a compact fixed height.');
 assert.match(css, /\.v52-bottom-create\s*\{[\s\S]*?height:\s*54px\s*!important/, 'The New action must align within the dock, not float above it.');
 assert.match(css, /padding-bottom:\s*calc\(112px\s*\+\s*env\(safe-area-inset-bottom/, 'Home content must reserve at least 100px of dock clearance including the safe area.');
@@ -60,3 +60,5 @@ assert.match(css, /Mobile resume\/repaint resilience/, 'The mobile shell must ex
 assert.match(css, /html,\s*body\s*\{[\s\S]*?background-color:\s*var\(--app-bg,\s*var\(--bg,\s*#050607\)\)\s*!important/, 'The document canvas must remain painted with the active theme when browser chrome or another app covers and reveals the page.');
 assert.match(css, /min-height:\s*100dvh/, 'The document and application shell must follow the dynamic mobile viewport after returning from an overlay.');
 assert.match(css, /#view-router-viewport\s*\{[\s\S]*?box-sizing:\s*border-box/, 'The route viewport must include its spacing in its mobile viewport geometry.');
+
+assert.match(css, /Final light-mode canvas authority[\s\S]*?background-color:\s*var\(--ovyx-light-canvas,\s*#f5f7fa\)\s*!important/, 'The html and body must share the same light canvas after a mobile overlay resume.');
