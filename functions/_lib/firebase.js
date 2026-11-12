@@ -72,6 +72,75 @@ function pemToArrayBuffer(
   return bytes.buffer;
 }
 
+/**
+ * Google publishes Firebase signing keys as X.509 certificates, not raw
+ * SubjectPublicKeyInfo blocks. WebCrypto importKey('spki') cannot consume the
+ * complete certificate DER; extract the SPKI sequence from TBSCertificate
+ * before importing it.
+ */
+export function extractSubjectPublicKeyInfo(certificatePem) {
+  // Google Secure Token endpoints return X.509 CERTIFICATE PEM. Trusted
+  // development/test key endpoints may already return a PUBLIC KEY PEM.
+  // In that case its DER payload is already the SPKI sequence.
+  if (/-----BEGIN PUBLIC KEY-----/.test(String(certificatePem || ''))) {
+    return pemToArrayBuffer(certificatePem);
+  }
+  const der = new Uint8Array(pemToArrayBuffer(certificatePem));
+
+  function readElement(offset) {
+    if (!Number.isInteger(offset) || offset < 0 || offset + 2 > der.length) {
+      throw new Error('Invalid X.509 certificate structure.');
+    }
+    const tag = der[offset];
+    let length = der[offset + 1];
+    let headerLength = 2;
+    if (length & 0x80) {
+      const lengthBytes = length & 0x7f;
+      if (lengthBytes === 0 || lengthBytes > 4 || offset + 2 + lengthBytes > der.length) {
+        throw new Error('Invalid X.509 certificate length.');
+      }
+      length = 0;
+      for (let i = 0; i < lengthBytes; i += 1) {
+        length = (length * 256) + der[offset + 2 + i];
+      }
+      headerLength += lengthBytes;
+    }
+    const contentStart = offset + headerLength;
+    const end = contentStart + length;
+    if (end > der.length || end < contentStart) {
+      throw new Error('Truncated X.509 certificate.');
+    }
+    return { tag, start: offset, contentStart, end };
+  }
+
+  const certificate = readElement(0);
+  if (certificate.tag !== 0x30 || certificate.end !== der.length) {
+    throw new Error('Invalid X.509 certificate sequence.');
+  }
+  const tbs = readElement(certificate.contentStart);
+  if (tbs.tag !== 0x30 || tbs.end > certificate.end) {
+    throw new Error('Invalid X.509 TBSCertificate sequence.');
+  }
+
+  let offset = tbs.contentStart;
+  let field = readElement(offset);
+  if (field.tag === 0xa0) {
+    offset = field.end; // Optional explicit version.
+  }
+
+  // serialNumber, signature, issuer, validity and subject precede SPKI.
+  for (let i = 0; i < 5; i += 1) {
+    field = readElement(offset);
+    offset = field.end;
+  }
+
+  const spki = readElement(offset);
+  if (spki.tag !== 0x30 || spki.end > tbs.end) {
+    throw new Error('X.509 certificate does not contain a valid SPKI sequence.');
+  }
+  return der.slice(spki.start, spki.end).buffer;
+}
+
 function base64UrlToBytes(
   input
 ) {
@@ -222,7 +291,7 @@ async function loadFirebaseKeys() {
     const key =
       await crypto.subtle.importKey(
         'spki',
-        pemToArrayBuffer(
+        extractSubjectPublicKeyInfo(
           pem
         ),
         {

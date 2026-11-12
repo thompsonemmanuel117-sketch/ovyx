@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { isAllowedNewAccountProvider } from '../firebase-auth-blocking/policy.js';
+import { extractSubjectPublicKeyInfo } from '../functions/_lib/firebase.js';
 
 assert.equal(isAllowedNewAccountProvider('password'), true, 'Explicit email/password account creation must remain allowed.');
 assert.equal(isAllowedNewAccountProvider('PASSWORD'), true, 'Provider IDs should be normalized.');
@@ -57,3 +58,37 @@ assert.ok(authRuntime.includes('__OVYX_AUTH_BOOT_COMPLETE__=true'), 'Auth startu
 assert.ok(authRuntime.includes("ovyx:firebase-auth-sdk-ready"), 'Late Auth SDK readiness must retry startup instead of leaving the shell permanently uninitialized.');
 assert.ok(authRuntime.includes('The dashboard remains available'), 'A missing Firebase SDK must not force a full-screen auth overlay.');
 assert.ok(deepRepair.includes("window.__OVYX_FIREBASE_AUTH_READY__===false"), 'Protected-action gates must distinguish an unavailable SDK from an unfinished session restore.');
+
+// Firebase signing certificates are X.509 DER certificates. The verifier must
+// extract the embedded SubjectPublicKeyInfo sequence before WebCrypto import.
+function der(tag, bytes) {
+  const body = Uint8Array.from(bytes);
+  if (body.length >= 128) throw new Error('Test DER helper only supports short lengths.');
+  return Uint8Array.from([tag, body.length, ...body]);
+}
+function join(...parts) {
+  return Uint8Array.from(parts.flatMap(part => Array.from(part)));
+}
+const fakeSpki = der(0x30, join(der(0x30, []), der(0x03, [0])));
+const tbs = der(0x30, join(
+  der(0x02, [1]), // serial
+  der(0x30, []),  // signature algorithm
+  der(0x30, []),  // issuer
+  der(0x30, []),  // validity
+  der(0x30, []),  // subject
+  fakeSpki,
+));
+const fakeCertificate = der(0x30, join(tbs, der(0x30, []), der(0x03, [0])));
+let certificateBinary = '';
+for (const byte of fakeCertificate) certificateBinary += String.fromCharCode(byte);
+const certificatePem = '-----BEGIN CERTIFICATE-----\\n' + btoa(certificateBinary) + '\\n-----END CERTIFICATE-----';
+assert.deepEqual(
+  Array.from(new Uint8Array(extractSubjectPublicKeyInfo(certificatePem))),
+  Array.from(fakeSpki),
+  'Firebase X.509 certificate parsing must pass only the embedded SPKI DER to WebCrypto',
+);
+assert.throws(
+  () => extractSubjectPublicKeyInfo('-----BEGIN CERTIFICATE-----\\nAQID\\n-----END CERTIFICATE-----'),
+  /X\.509|certificate|sequence|Truncated/,
+  'malformed Firebase certificate data must fail closed',
+);
