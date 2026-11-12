@@ -571,7 +571,7 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !fs.readFileSync(nativeAssistantPath, 'utf8').includes("'workspace_undo'") ||
     !workspaceToolsIntegrationTest.includes("operation: 'read_file'") ||
     !workspaceToolsTest.includes('Recovery must have a distinct preview operation.') ||
-    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261112-1')
+    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261030-1')
   ) {
     errors.push('OVYX native assistant: safe recovery, review-before-write, truthful progress states, tests or cache-busted shell injection is incomplete.');
   }
@@ -950,7 +950,7 @@ if (
     !client.includes("credentials: 'same-origin'") ||
     !client.includes("cache: 'no-store'") ||
     !client.includes('activeChecks') ||
-    !shellMiddleware.includes('/assets/ovyx-provider-availability.js?v=20261112-1') ||
+    !shellMiddleware.includes('/assets/ovyx-provider-availability.js?v=20261030-1') ||
     !headers.includes('/assets/ovyx-provider-availability.js') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/provider-availability.test.mjs')
   ) {
