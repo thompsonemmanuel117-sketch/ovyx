@@ -5,7 +5,7 @@ const BASE_URL = 'https://api.paystack.co';
 function text(value){return String(value ?? '').trim();}
 function required(value,name){
   const v=text(value);
-  if(!v)throw Object.assign(new Error(`Missing Paystack configuration: ${name}`),{status:503,code:'PAYSTACK_NOT_CONFIGURED'});
+  if(!v||/^(?:pending|todo|tbd|fake|dummy|placeholder|changeme|change_me|replace_me|your[_ -].*|<.*>)$/i.test(v))throw Object.assign(new Error(`Missing or placeholder Paystack configuration: ${name}`),{status:503,code:'PAYSTACK_NOT_CONFIGURED'});
   return v;
 }
 function config(env){
