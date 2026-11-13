@@ -27,7 +27,7 @@ assert.match(deep, /String\(latestUser\.uid\|\|''\)!==uid\|\|emailOf\(latestUser
   'A late cloud response must not replace projects after an account switch.');
 assert.match(deep, /cloud-sync-local-only/, 'Local-only drafts must be preserved in project recovery before cloud reconciliation.');
 assert.match(deep, /function preserveLocalOnlyProject\(project,uid\)/, 'Recovery preservation must work even if the recovery UI has not loaded yet.');
-assert.match(deep, /ovyx\.deleted-projects\.v1\.user\.\+uid/, 'Fallback recovery snapshots must be account-scoped.');
+assert.match(deep, /ovyx\\.deleted-projects\\.v1\\.user\\.'\\+uid/, 'Fallback recovery snapshots must be account-scoped.');
 assert.match(deep, /ProjectCloudSync\.loadGeneration\+=1/, 'Signing out must invalidate pending cloud loads.');
 
 const recoveryStart = html.indexOf('<script id="ovyx-project-recovery-v1">');
