@@ -193,3 +193,20 @@
   #view-home .v59-home-website-preview img,
   #view-home .v59-home-preview-open { transition: none !important; transform: none !important; }
 }
+
+/* Restore the familiar Home prompt composer proportions while retaining
+   the responsive touch sizing and the existing Build action artwork. */
+#view-home #prompt-home-input {
+  min-height: 104px;
+  max-height: 190px;
+  padding: 17px 18px 12px;
+  font-size: 14px;
+  line-height: 1.62;
+}
+@media (max-width: 760px) {
+  #view-home #prompt-home-input {
+    min-height: 104px;
+    padding: 17px 16px 12px;
+    font-size: 16px;
+  }
+}
