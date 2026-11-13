@@ -285,17 +285,22 @@
     }
     if((event.ctrlKey||event.metaKey)&&String(event.key||'').toLowerCase()==='p'&&codeRoot()){event.preventDefault();if(panel&&!panel.hidden&&panel.classList.contains('is-open'))closePanel(false);else openPanel();}
   });
-  function elementTouchesSidebar(node){
+  function elementIsInsideSidebar(node){
     if(!node||node.nodeType!==1)return false;
-    if(node.matches&&node.matches(SIDEBAR_ROOT_SELECTOR))return true;
-    if(node.closest&&node.closest(SIDEBAR_ROOT_SELECTOR))return true;
-    return !!(node.querySelector&&node.querySelector(SIDEBAR_ROOT_SELECTOR));
+    return !!((node.matches&&node.matches(SIDEBAR_ROOT_SELECTOR))||(node.closest&&node.closest(SIDEBAR_ROOT_SELECTOR)));
+  }
+  function addedSubtreeContainsSidebar(node){
+    if(!node||node.nodeType!==1)return false;
+    return !!((node.matches&&node.matches(SIDEBAR_ROOT_SELECTOR))||(node.querySelector&&node.querySelector(SIDEBAR_ROOT_SELECTOR)));
   }
   function mutationTouchesSidebar(records){
     return records.some(function(record){
-      if(elementTouchesSidebar(record.target))return true;
+      // Mutation targets are ancestors of the changed nodes. Do not treat a
+      // shared container such as document.body as a sidebar mutation merely
+      // because it contains a sidebar elsewhere in the document.
+      if(elementIsInsideSidebar(record.target))return true;
       var nodes=Array.from(record.addedNodes||[]).concat(Array.from(record.removedNodes||[]));
-      return nodes.some(elementTouchesSidebar);
+      return nodes.some(addedSubtreeContainsSidebar);
     });
   }
   var syncScheduled=false,pendingLogoScan=false;
