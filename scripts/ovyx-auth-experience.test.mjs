@@ -13,4 +13,6 @@ assert.match(html, /Sign in to continue to your workspace\./, 'The login subtitl
 assert.match(html, /Legacy redirect-result lookup exceeded its startup deadline/, 'A legacy redirect timeout must be logged internally rather than shown as a raw diagnostic.');
 assert.doesNotMatch(html, /status\(code===.auth\/unauthorized-domain[\s\S]{0,400}error\?\.message\|\|.OAuth sign-in could not be completed\./, 'Raw unknown Firebase redirect errors must not be exposed to users.');
 assert.match(html, /#view-master-auth \.ovyx-auth-intro h1\{font-size:clamp\(/, 'Mobile auth heading must use responsive typography.');
+assert.match(html, /If an OVYX account matches that email, password reset instructions will be sent\./, 'Password recovery must use an account-enumeration-safe confirmation.');
+assert.doesNotMatch(html, /e\?\.message\|\|.Could not send password reset email/, 'Raw Firebase password-recovery errors must not be exposed to users.');
 console.log('OVYX authentication visibility, mobile layout, copy and timeout UX contracts passed.');
