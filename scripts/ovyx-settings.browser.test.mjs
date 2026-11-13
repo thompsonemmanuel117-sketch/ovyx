@@ -35,6 +35,7 @@ try {
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX app did not load.');
     console.log('[' + target.name + '] Settings stage: shell response received; waiting for Settings bootstrap.');
+    console.log('[' + target.name + '] Settings stage: checking route authority, Settings root and data-layer readiness markers.');
     try {
       await page.waitForFunction(
         () => document.readyState !== 'loading'
