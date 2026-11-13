@@ -12,9 +12,6 @@ on:
       - 'assets/ovyx-home-recent-website-gallery.js'
       - 'assets/css/ovyx-home-recent-website-gallery.css'
       - 'scripts/ovyx-home-recent-website-gallery.test.mjs'
-      - 'assets/ovyx-home-recent-website-gallery.js'
-      - 'assets/css/ovyx-home-recent-website-gallery.css'
-      - 'scripts/ovyx-home-recent-website-gallery.test.mjs'
       - 'assets/css/ovyx-home-dashboard-phase3.css'
       - 'scripts/ovyx-home-dashboard-phase3.test.mjs'
       - 'assets/css/ovyx-command-centre.css'
@@ -30,6 +27,9 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'assets/ovyx-home-recent-website-gallery.js'
+      - 'assets/css/ovyx-home-recent-website-gallery.css'
+      - 'scripts/ovyx-home-recent-website-gallery.test.mjs'
       - 'assets/ovyx-home-dashboard-phase3.js'
       - 'assets/css/ovyx-home-dashboard-phase3.css'
       - 'scripts/ovyx-home-dashboard-phase3.test.mjs'
