@@ -11,6 +11,7 @@ assert.match(source, /data-ovyx-recent-open/);
 assert.match(source, /ovyx-account-notifications-root/);
 assert.match(source, /setProperty\('display', isHome\(\) \? 'none' : ''/);
 assert.match(source, /data-nav="recent-projects"/);
+assert.match(source, /node\.textContent !== value/, 'Navigation text updates must be idempotent under the DOM observer.');
 assert.match(source, /Your built websites/);
 assert.match(css, /#view-recent/);
 assert.match(css, /grid-template-columns:repeat\(3/);
