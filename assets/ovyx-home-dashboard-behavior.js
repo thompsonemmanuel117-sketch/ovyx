@@ -29,6 +29,43 @@
       .map(item => item.project);
   }
 
+  function injectStyles() {
+    if (byId('ovyx-home-dashboard-behavior-style')) return;
+    const style = document.createElement('style');
+    style.id = 'ovyx-home-dashboard-behavior-style';
+    style.textContent = `
+      #home-projects-grid .v59-recent-empty {
+        display: flex; align-items: center; gap: 16px; min-height: 132px;
+        padding: 20px; border: 1px dashed var(--app-border, rgba(255,255,255,.14));
+        border-radius: 14px; background: var(--app-card, rgba(255,255,255,.025));
+        color: var(--app-text, #f2f2f0);
+      }
+      #home-projects-grid .v59-recent-empty-mark {
+        display: grid; place-items: center; flex: 0 0 42px; width: 42px; height: 42px;
+        border: 1px solid color-mix(in srgb, var(--app-accent, #c2a36b) 28%, transparent);
+        border-radius: 12px; color: var(--app-accent, #c2a36b); font-size: 25px;
+        background: color-mix(in srgb, var(--app-accent, #c2a36b) 8%, transparent);
+      }
+      #home-projects-grid .v59-recent-empty > div { min-width: 0; flex: 1; }
+      #home-projects-grid .v59-recent-empty strong { display: block; font: 750 12px/1.4 Inter, sans-serif; }
+      #home-projects-grid .v59-recent-empty p { margin: 5px 0 0; color: var(--app-muted, #85858b); font: 500 10px/1.55 Inter, sans-serif; }
+      #home-projects-grid .v59-recent-empty button {
+        min-height: 38px; padding: 0 13px; border: 1px solid var(--app-accent, #c2a36b);
+        border-radius: 9px; background: var(--app-accent, #c2a36b); color: #090909;
+        font: 800 9px Inter, sans-serif; cursor: pointer; white-space: nowrap;
+      }
+      #home-projects-grid .v59-recent-empty button:focus-visible {
+        outline: 2px solid var(--app-text, #fff); outline-offset: 3px;
+      }
+      @media(max-width:560px) {
+        #home-projects-grid .v59-recent-empty { align-items: flex-start; flex-wrap: wrap; gap: 11px; padding: 15px; }
+        #home-projects-grid .v59-recent-empty > div { flex-basis: calc(100% - 56px); }
+        #home-projects-grid .v59-recent-empty button { width: 100%; }
+      }
+    `;
+    document.head?.appendChild(style);
+  }
+
   function installProjectBehavior() {
     const store = window.ProjectStore;
     if (!store || store.__ovyxHomeDashboardBehaviorV1) return;
