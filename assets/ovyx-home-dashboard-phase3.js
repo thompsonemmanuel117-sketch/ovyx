@@ -72,12 +72,6 @@
 
   const boot = () => {
     applyCopy();
-    const home = byId('view-home');
-    if (home && typeof MutationObserver === 'function') {
-      const observer = new MutationObserver(() => applyCopy());
-      observer.observe(home, { childList: true, subtree: true });
-      window.__OVYX_HOME_UX_WRITING_OBSERVER__ = observer;
-    }
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
