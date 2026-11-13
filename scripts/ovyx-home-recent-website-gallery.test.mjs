@@ -64,7 +64,6 @@ assert.equal(prompt.placeholder, 'Describe what you want to build with OVYX…',
 assert.equal(prompt.attributes['aria-label'], 'Describe your project');
 assert.equal(buildLabel.textContent, 'Build', 'The existing Build action label and arrow should remain intact.');
 
-const pinNode = { getAttribute: name => name === 'data-ovyx-website-pin' ? 'site-b' : null };
 assert.match(host.innerHTML, /Coffee House/);
 
 const openNode = { getAttribute: name => name === 'data-ovyx-website-open' ? 'site-a' : null };
@@ -78,7 +77,7 @@ assert.equal(opened, 'site-a', 'Opening a website preview must reuse the existin
 
 state.projects = [appProject];
 api.renderHome();
-assert.match(host.innerHTML, /Your websites will appear here/);
+assert.match(host.innerHTML, /No recent websites/);
 assert.doesNotMatch(host.innerHTML, /data-ovyx-home-create/, 'Home Recent should not show a large Start Building CTA.');
 assert.doesNotMatch(host.innerHTML, /Mobile App/);
 
