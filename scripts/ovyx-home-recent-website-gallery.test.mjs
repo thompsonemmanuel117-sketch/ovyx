@@ -96,7 +96,7 @@ assert.match(css, /#view-home #home-projects-grid/);
 assert.match(css, /aspect-ratio:\s*16\s*\/\s*9/);
 assert.match(css, /min-height:\s*104px/, 'The prompt box should return to its familiar proportions.');
 assert.match(css, /prefers-reduced-motion/);
-assert.match(middleware, /ovyx-home-recent-website-gallery\.js\?v=20261113-1/);
+assert.match(middleware, /ovyx-home-recent-website-gallery\.js\?v=20261114-1/);
 assert.match(middleware, /ovyx-home-recent-website-gallery\.css\?v=20261113-1/);
 assert.match(middleware, /ovyx-home-recent-page\.js\?v=20261114-1/);
 assert.match(middleware, /ovyx-home-recent-page\.css\?v=20261114-1/);
