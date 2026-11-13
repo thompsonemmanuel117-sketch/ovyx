@@ -7,6 +7,7 @@ on:
       - 'assets/ovyx-account-notifications.js'
       - 'docs/OVYX-STAGE-5-COMMAND-CENTRE.md'
       - 'assets/ovyx-command-centre.js'
+      - 'assets/ovyx-home-dashboard-behavior.js'
       - 'assets/css/ovyx-command-centre.css'
       - 'assets/ovyx-admin-controls.js'
       - 'functions/_middleware.js'
@@ -14,6 +15,7 @@ on:
       - 'package.json'
       - 'scripts/ovyx-command-centre.test.mjs'
       - 'scripts/ovyx-command-centre.browser.test.mjs'
+      - 'scripts/ovyx-home-dashboard-behavior.test.mjs'
       - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
       - '.github/workflows/ovyx-command-centre-browser.yml'
   pull_request:
@@ -55,6 +57,7 @@ jobs:
       - name: Run dashboard de-duplication contract and static validation
         run: |
           node scripts/ovyx-command-centre.test.mjs
+          node scripts/ovyx-home-dashboard-behavior.test.mjs
           npm run validate
       - name: Start local Cloudflare Pages app shell
         run: |
