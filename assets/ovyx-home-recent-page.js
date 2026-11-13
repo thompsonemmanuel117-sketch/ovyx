@@ -61,19 +61,19 @@
   function navSetup() {
     document.querySelectorAll('aside nav button[data-nav="recent-projects"]').forEach(button => {
       button.dataset.nav = 'recent';
-      const title = button.querySelector('.ovyx-nav-copy b'); if (title) title.textContent = 'Recent';
-      const subtitle = button.querySelector('.ovyx-nav-copy small'); if (subtitle) subtitle.textContent = 'Your built websites';
-      button.setAttribute('onclick', "Router.go('recent')");
+      const title = button.querySelector('.ovyx-nav-copy b'); setText(title, 'Recent');
+      const subtitle = button.querySelector('.ovyx-nav-copy small'); setText(subtitle, 'Your built websites');
+      if (button.getAttribute('onclick') !== "Router.go('recent')") button.setAttribute('onclick', "Router.go('recent')");
     });
     document.querySelectorAll('#mobile-drawer button[onclick*="home-recent-anchor"]').forEach(button => {
-      button.setAttribute('data-mobile-nav', 'recent');
-      button.setAttribute('onclick', "Router.go('recent'); MobileDrawer.close()");
-      const small = button.querySelector('small'); if (small) small.textContent = 'Your built websites';
-      const span = button.querySelector('span'); if (span && span.firstChild?.nodeType === 3) span.firstChild.textContent = 'Recent';
+      if (button.getAttribute('data-mobile-nav') !== 'recent') button.setAttribute('data-mobile-nav', 'recent');
+      if (button.getAttribute('onclick') !== "Router.go('recent'); MobileDrawer.close()") button.setAttribute('onclick', "Router.go('recent'); MobileDrawer.close()");
+      const small = button.querySelector('small'); setText(small, 'Your built websites');
+      const span = button.querySelector('span'); if (span && span.firstChild?.nodeType === 3 && span.firstChild.textContent !== 'Recent') span.firstChild.textContent = 'Recent';
     });
-    const heading = $('#home-recent-anchor .v59-section-head h2'); if (heading) heading.textContent = 'Recent';
+    const heading = $('#home-recent-anchor .v59-section-head h2'); setText(heading, 'Recent');
     const viewAll = $('#home-recent-anchor .v59-section-head button');
-    if (viewAll) { viewAll.textContent = 'View all →'; viewAll.setAttribute('data-ovyx-open-recent', 'true'); viewAll.removeAttribute('onclick'); }
+    if (viewAll) { setText(viewAll, 'View all →'); if (viewAll.getAttribute('data-ovyx-open-recent') !== 'true') viewAll.setAttribute('data-ovyx-open-recent', 'true'); if (viewAll.hasAttribute('onclick')) viewAll.removeAttribute('onclick'); }
   }
   function onClick(event) {
     const nav = event.target?.closest?.('button[data-nav="recent"],button[data-mobile-nav="recent"],[data-ovyx-open-recent]');
