@@ -75,6 +75,17 @@ for (const handler of listeners.click || []) {
 }
 assert.equal(opened, 'site-a', 'Opening a website preview must reuse the existing ProjectStore.open route.');
 
+const extraSites = Array.from({ length: 6 }, (_, index) => ({
+  id: 'site-' + index, name: 'Recent Website ' + index, type: 'website',
+  updatedAt: '2026-11-' + String(14 - index).padStart(2, '0') + 'T10:00:00.000Z',
+  pages: [{ name: 'Home', sections: [] }]
+}));
+state.projects = [appProject, ...extraSites];
+api.renderHome();
+assert.equal((host.innerHTML.match(/data-ovyx-website-card=/g) || []).length, 5,
+  'Home must show exactly five most recent websites when six are available.');
+assert.match(host.innerHTML, /Recent Website 0/);
+assert.doesNotMatch(host.innerHTML, /Recent Website 5/, 'The sixth website belongs on the full Recent page, not Home.');
 state.projects = [appProject];
 api.renderHome();
 assert.match(host.innerHTML, /No recent websites/);
