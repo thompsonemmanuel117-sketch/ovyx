@@ -15,6 +15,16 @@ try {
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
     await installOwnerBrowserApiFixtures(page);
+    await page.addInitScript(() => {
+      // Pin every persisted route source to Settings before the shell boots.
+      // Late route restoration must not overwrite the route while this suite
+      // is checking the Settings navigation controls.
+      let session = {};
+      try { session = JSON.parse(localStorage.getItem('ovyx.runtime.session.v4') || '{}'); } catch (_) {}
+      localStorage.setItem('ovyx.runtime.route.v18', 'settings');
+      localStorage.setItem('ovyx.settings.last-view.v1', 'settings');
+      localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ ...session, route: 'settings' }));
+    });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
 
@@ -28,17 +38,19 @@ try {
       { timeout: 45000 },
     );
     await page.waitForFunction(
-      () => typeof window.__OVYX_BOOT_ROUTE === 'string'
-        && window.KernelState?.activeView === window.__OVYX_BOOT_ROUTE,
+      () => document.readyState === 'complete'
+        && window.__OVYX_BOOT_ROUTE === 'settings'
+        && window.KernelState?.activeView === 'settings',
       null,
       { timeout: 45000 },
     );
-
-    await page.evaluate(() => (window.OVYXRouteAuthority?.go || window.Router.go)('settings'));
+    // Allow the late V25 pageshow restoration pass to settle before interacting.
+    await page.waitForTimeout(120);
     await page.waitForFunction(
-      () => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings',
+      () => window.__OVYX_BOOT_ROUTE === 'settings'
+        && window.KernelState?.activeView === 'settings',
       null,
-      { timeout: 15000 },
+      { timeout: 10000 },
     );
     const root = page.locator('#view-settings');
     await root.waitFor({ state: 'visible' });

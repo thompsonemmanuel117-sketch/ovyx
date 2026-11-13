@@ -8,6 +8,9 @@ on:
       - 'docs/OVYX-STAGE-5-COMMAND-CENTRE.md'
       - 'assets/ovyx-command-centre.js'
       - 'assets/ovyx-home-dashboard-behavior.js'
+      - 'assets/ovyx-home-dashboard-phase3.js'
+      - 'assets/css/ovyx-home-dashboard-phase3.css'
+      - 'scripts/ovyx-home-dashboard-phase3.test.mjs'
       - 'assets/css/ovyx-command-centre.css'
       - 'assets/ovyx-admin-controls.js'
       - 'functions/_middleware.js'
@@ -21,6 +24,9 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'assets/ovyx-home-dashboard-phase3.js'
+      - 'assets/css/ovyx-home-dashboard-phase3.css'
+      - 'scripts/ovyx-home-dashboard-phase3.test.mjs'
       - 'assets/ovyx-command-centre.js'
       - 'assets/css/ovyx-command-centre.css'
       - 'assets/ovyx-admin-controls.js'
@@ -58,6 +64,7 @@ jobs:
         run: |
           node scripts/ovyx-command-centre.test.mjs
           node scripts/ovyx-home-dashboard-behavior.test.mjs
+          node scripts/ovyx-home-dashboard-phase3.test.mjs
           npm run validate
       - name: Start local Cloudflare Pages app shell
         run: |
