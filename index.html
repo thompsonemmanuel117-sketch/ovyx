@@ -7615,16 +7615,21 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
             const t=labToTheme(x);
             const name=String(x.name||x.title||'Imported OVYX Theme').trim().slice(0,80)||'Imported OVYX Theme';
             const lab=window.OVYXThemeLab;
-            if(!lab?.state||typeof lab.saveCustom!=='function')throw new Error('Custom theme storage is unavailable.');
+            if(!lab?.state)throw new Error('Custom theme storage is unavailable.');
+            const imported=themeToLab(t,name);
+            const stem='custom_'+name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,28)+'_'+Date.now().toString(36);
+            let id=stem,n=2;
+            while(lab.state.customThemes?.[id])id=stem+'_'+n++;
+            const nextState={...lab.state,custom:{...imported,name},customThemes:{...(lab.state.customThemes||{}),[id]:{...imported,name}},active:id};
+            try{localStorage.setItem(LAB_KEY,JSON.stringify(nextState));}
+            catch(error){throw new Error('Custom theme could not be saved on this device.');}
+            lab.state=nextState;
             const nameInput=document.querySelector('[data-theme-name]');
             if(nameInput)nameInput.value=name;
-            lab.state.custom={...themeToLab(t,name),name};
-            lab.saveCustom();
-            const saved=lab.activeTheme?.();
-            if(!String(lab.state.active||'').startsWith('custom_')||!saved)throw new Error('Imported theme was not saved as a custom theme.');
-            paint(labToTheme(saved),'custom-import');
-            saveCanonical();
-            syncUi();
+            lab.renderState?.();
+            window.OVYXSettings?.renderThemeCards?.();
+            paint(labToTheme(nextState.customThemes[id]),'custom-import');
+            if(!saveCanonical())throw new Error('Imported theme was added to Theme Lab, but Appearance could not be saved.');
             const status=document.getElementById('settings-save-status');
             if(status)status.textContent='Imported and saved custom theme: '+name+'.';
           }catch(err){
