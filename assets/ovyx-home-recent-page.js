@@ -5,6 +5,7 @@
   window.__OVYX_RECENT_PAGE_V1__ = true;
   const $ = (selector, root = document) => root.querySelector(selector);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const setText = (node, value) => { if (node && node.textContent !== value) node.textContent = value; };
   let query = '';
   function projects() {
     const store = window.ProjectStore;
