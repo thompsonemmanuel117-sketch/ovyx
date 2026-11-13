@@ -95,8 +95,6 @@
     ensureView(); navSetup(); syncBell();
     document.addEventListener('click', onClick, true);
     window.addEventListener('ovyx:view-changed', () => { navSetup(); syncBell(); if (String(window.KernelState?.activeView) === 'recent') render(); }, { passive: true });
-    const observer = new MutationObserver(() => { navSetup(); syncBell(); });
-    observer.observe(document.body, { childList: true, subtree: true });
     const modeLabel = $('.v59-model-label');
     if (modeLabel) modeLabel.hidden = true;
     const selector = document.getElementById('v59-ai-mode-select');
