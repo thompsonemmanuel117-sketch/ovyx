@@ -31,8 +31,10 @@ try {
       }
     });
 
+    console.log('[' + target.name + '] Settings stage: navigating to OVYX shell.');
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX app did not load.');
+    console.log('[' + target.name + '] Settings stage: shell response received; waiting for Settings bootstrap.');
     try {
       await page.waitForFunction(
         () => document.readyState !== 'loading'
@@ -69,6 +71,7 @@ try {
       throw error;
     }
 
+    console.log('[' + target.name + '] Settings bootstrap passed.');
     console.log('[' + target.name + '] Settings stage: Data Layer entry');
     // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
     await page.evaluate(() => { window.OVYXRouteAuthority.go('settings'); });
