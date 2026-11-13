@@ -16,6 +16,9 @@ try {
     const pageErrors = [];
     const notificationRequests = [];
     page.on('pageerror', error => pageErrors.push(String(error?.stack || error?.message || error)));
+    page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed during Notifications bootstrap.'));
+    page.on('close', () => console.error('[' + target.name + '] Chromium page closed during Notifications bootstrap.'));
+    browser.on('disconnected', () => console.error('[' + target.name + '] Chromium browser disconnected during Notifications test.'));
 
     await installOwnerBrowserApiFixtures(page, {
       initialUser: {
@@ -72,8 +75,10 @@ try {
       body: JSON.stringify({ ok: true, profile: { displayName: 'Maria Doe' } }),
     }));
 
+    console.log('[' + target.name + '] Notifications stage: navigating to OVYX shell.');
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
+    console.log('[' + target.name + '] Notifications stage: shell response received; waiting for auth and inbox API.');
     try {
       await page.waitForFunction(() =>
         typeof window.OVYXAccountNotifications?.open === 'function'
@@ -152,5 +157,17 @@ try {
     await page.close();
   }
 } finally {
-  await browser.close();
+  let closeTimer;
+  try {
+    await Promise.race([
+      browser.close(),
+      new Promise((_, reject) => { closeTimer = setTimeout(() => reject(new Error('Chromium shutdown exceeded 8 seconds.')), 8000); }),
+    ]);
+  } catch (error) {
+    console.error('[notifications-browser] ' + String(error?.message || error));
+    process.exitCode = 1;
+    process.exit(1);
+  } finally {
+    if (closeTimer) clearTimeout(closeTimer);
+  }
 }
