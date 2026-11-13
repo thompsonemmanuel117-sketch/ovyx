@@ -18,11 +18,16 @@ const deepStart = html.indexOf('<script id="ovyx-deep-repair-v1">');
 const deepEnd = html.indexOf('</script>', deepStart);
 assert.ok(deepStart >= 0 && deepEnd > deepStart, 'The primary project-sync runtime must remain present.');
 const deep = html.slice(deepStart, deepEnd);
+assert.match(deep, /activeUid:'',/, 'Cloud sync must track the Firebase UID as well as the email address.');
+assert.match(deep, /String\(user\.uid\|\|''\)!==this\.activeUid/, 'Scheduled saves must not cross accounts that share an email address.');
+assert.match(deep, /uid!==this\.activeUid/, 'Active project writes must be scoped to the current Firebase UID.');
 assert.match(deep, /loadGeneration:0/, 'Cloud loads must have an account/session generation guard.');
 assert.match(deep, /const loadGeneration=\+\+this\.loadGeneration/, 'Each cloud load must invalidate older in-flight loads.');
 assert.match(deep, /String\(latestUser\.uid\|\|''\)!==uid\|\|emailOf\(latestUser\)!==email/,
   'A late cloud response must not replace projects after an account switch.');
 assert.match(deep, /cloud-sync-local-only/, 'Local-only drafts must be preserved in project recovery before cloud reconciliation.');
+assert.match(deep, /function preserveLocalOnlyProject\(project,uid\)/, 'Recovery preservation must work even if the recovery UI has not loaded yet.');
+assert.match(deep, /ovyx\.deleted-projects\.v1\.user\.\+uid/, 'Fallback recovery snapshots must be account-scoped.');
 assert.match(deep, /ProjectCloudSync\.loadGeneration\+=1/, 'Signing out must invalidate pending cloud loads.');
 
 const recoveryStart = html.indexOf('<script id="ovyx-project-recovery-v1">');

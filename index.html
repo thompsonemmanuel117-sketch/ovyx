@@ -13608,7 +13608,19 @@ function installActionGates(){
     },true);
   }
 }
+function preserveLocalOnlyProject(project,uid){
+  if(!project?.id||!uid)return;
+  try{
+    if(window.OVYXProjectRecovery?.stash){window.OVYXProjectRecovery.stash(project,'cloud-sync-local-only');return;}
+    const key='ovyx.deleted-projects.v1.user.'+uid;
+    const items=JSON.parse(localStorage.getItem(key)||'[]');
+    const next=items.filter(item=>String(item?.project?.id||'')!==String(project.id));
+    next.unshift({id:'del_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),deletedAt:Date.now(),reason:'cloud-sync-local-only',project:JSON.parse(JSON.stringify(project))});
+    localStorage.setItem(key,JSON.stringify(next.slice(0,30)));
+  }catch(error){console.warn('[OVYX project recovery] local-only snapshot could not be saved',error?.message||error);}
+}
 const ProjectCloudSync={
+  activeUid:'',
   activeEmail:'',
   lastHash:'',
   lastObservedProjectId:'',
@@ -13624,7 +13636,7 @@ const ProjectCloudSync={
     this.syncTimer=setTimeout(()=>{
       this.syncTimer=0;
       const user=currentUser();
-      if(!user||emailOf(user)!==this.activeEmail)return;
+      if(!user||String(user.uid||'')!==this.activeUid||emailOf(user)!==this.activeEmail)return;
       this.cache(this.activeEmail,window.KernelState?.projects||[]);
       this.syncActive(true).catch(()=>{});
     },Math.max(100,Number(delay)||280));
@@ -13638,8 +13650,13 @@ const ProjectCloudSync={
   async load(){
     const loadGeneration=++this.loadGeneration;
     const user=currentUser(),email=emailOf(user),uid=String(user?.uid||'');
+    if(this.activeUid&&this.activeUid!==uid){
+      if(this.syncTimer)clearTimeout(this.syncTimer);
+      this.syncTimer=0;this.needsSync=false;this.lastHash='';
+    }
+    this.activeUid=uid;
     if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()===false){if(email){this.activeEmail=email;const state=window.KernelState=window.KernelState||{};const cached=this.readCache(email);state.projects=cached.slice();state.activeProject=state.projects[0]||null;window.ProjectStore?.renderHome?.();window.ProjectStore?.renderProjects?.()}return false;}
-    if(!email){this.activeEmail='';this.lastHash='';guestState();return false}
+    if(!email){this.activeUid='';this.activeEmail='';this.lastHash='';guestState();return false}
     this.activeEmail=email;
     const state=window.KernelState=window.KernelState||{};
     const cached=this.readCache(email);
@@ -13658,7 +13675,7 @@ const ProjectCloudSync={
         // when another device/account session has a newer cloud inventory.
         const remoteIds=new Set(remote.map(project=>String(project?.id||'')));
         cached.filter(project=>project?.id&&!remoteIds.has(String(project.id))).forEach(project=>{
-          try{window.OVYXProjectRecovery?.stash?.(project,'cloud-sync-local-only')}catch(_){}
+          preserveLocalOnlyProject(project,uid);
         });
         state.projects=remote;
         state.activeProject=state.activeProject?.id?remote.find(p=>p.id===state.activeProject.id)||remote[0]:remote[0];
@@ -13686,7 +13703,7 @@ const ProjectCloudSync={
     if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()===false)return false;
     const user=currentUser();
     const uid=String(user?.uid||''),email=emailOf(user);
-    if(!user||!uid||email!==this.activeEmail||this.inFlight)return false;
+    if(!user||!uid||uid!==this.activeUid||email!==this.activeEmail||this.inFlight)return false;
     const project=window.KernelState?.activeProject;
     if(!project?.id)return false;
     const projectId=String(project.id),stamp=this.projectStamp(project);
@@ -13743,6 +13760,7 @@ function installProjectSync(){
       ProjectCloudSync.loadGeneration+=1;
       if(ProjectCloudSync.syncTimer)clearTimeout(ProjectCloudSync.syncTimer);
       ProjectCloudSync.syncTimer=0;
+      ProjectCloudSync.activeUid='';
       ProjectCloudSync.activeEmail='';
       ProjectCloudSync.lastHash='';
       ProjectCloudSync.needsSync=false;
