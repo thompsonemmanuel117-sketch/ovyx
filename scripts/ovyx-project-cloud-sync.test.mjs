@@ -25,6 +25,14 @@ assert.match(deep, /String\(latestUser\.uid\|\|''\)!==uid\|\|emailOf\(latestUser
 assert.match(deep, /cloud-sync-local-only/, 'Local-only drafts must be preserved in project recovery before cloud reconciliation.');
 assert.match(deep, /ProjectCloudSync\.loadGeneration\+=1/, 'Signing out must invalidate pending cloud loads.');
 
+const recoveryStart = html.indexOf('<script id="ovyx-project-recovery-v1">');
+const recoveryEnd = html.indexOf('</script>', recoveryStart);
+const recovery = html.slice(recoveryStart, recoveryEnd);
+assert.match(recovery, /function storageKey\(\).*ovyx\.deleted-projects\.v1\.user\.'\+uid/,
+  'Full project recovery snapshots must be isolated by Firebase UID.');
+assert.match(recovery, /localStorage\.getItem\(storageKey\(\)\)/, 'Recovery reads must use the account-scoped key.');
+assert.match(recovery, /localStorage\.setItem\(storageKey\(\)/, 'Recovery writes must use the account-scoped key.');
+
 const projectsApi = await readFile(new URL('../functions/api/projects.js', import.meta.url), 'utf8');
 assert.match(projectsApi, /PROJECT_OWNERSHIP_CONFLICT/, 'The server must continue rejecting cross-account project writes.');
 assert.match(projectsApi, /expectedUpdateTime/, 'Cloud writes must retain Firestore optimistic concurrency protection.');

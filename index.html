@@ -15025,8 +15025,11 @@ function installWebStudioSurface(){
   window.__OVYX_PROJECT_RECOVERY_V1__=true;
   const KEY='ovyx.deleted-projects.v1',MAX=30;
   const clone=v=>{try{return JSON.parse(JSON.stringify(v))}catch(_){return null}};
-  function list(){try{const x=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(x)?x:[]}catch(_){return []}}
-  function save(items){try{localStorage.setItem(KEY,JSON.stringify(items.slice(0,MAX)))}catch(_){}return items.slice(0,MAX)}
+  // Recovery snapshots contain complete project source, so keep them isolated by Firebase UID.
+  // The legacy unscoped key remains available to signed-out/guest recovery only.
+  function storageKey(){const uid=String(window.firebase?.auth?.().currentUser?.uid||'').trim();return uid?'ovyx.deleted-projects.v1.user.'+uid:KEY}
+  function list(){try{const x=JSON.parse(localStorage.getItem(storageKey())||'[]');return Array.isArray(x)?x:[]}catch(_){return []}}
+  function save(items){try{localStorage.setItem(storageKey(),JSON.stringify(items.slice(0,MAX)))}catch(_){}return items.slice(0,MAX)}
   function stash(project,reason){if(!project?.id)return null;const copy=clone(project);if(!copy)return null;const items=list().filter(x=>String(x?.project?.id)!==String(copy.id));const rec={id:'del_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),deletedAt:Date.now(),reason:String(reason||'project-delete'),project:copy};items.unshift(rec);save(items);return rec}
   async function restore(recordId){
     const items=list();const idx=recordId?items.findIndex(x=>String(x.id)===String(recordId)):0;
