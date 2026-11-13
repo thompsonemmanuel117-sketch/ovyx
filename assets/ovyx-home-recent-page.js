@@ -55,8 +55,11 @@
   }
   function syncBell() {
     const root = document.getElementById('ovyx-account-notifications-root');
-    if (!root) return;
-    root.style.setProperty('display', isHome() ? 'none' : '', 'important');
+    const bell = document.getElementById('ovyx-notification-bell');
+    if (!root || !bell) return;
+    // Hide only the floating trigger on Home. Keep the root mounted and visible
+    // so the authenticated Inbox panel can still open from its existing entry point.
+    bell.style.setProperty('display', isHome() ? 'none' : '', 'important');
     root.setAttribute('data-ovyx-home-hidden', isHome() ? 'true' : 'false');
   }
   function navSetup() {
