@@ -59,7 +59,8 @@
     if (!root || !bell) return;
     // Hide only the floating trigger on Home. Keep the root mounted and visible
     // so the authenticated Inbox panel can still open from its existing entry point.
-    bell.style.setProperty('display', isHome() ? 'none' : '', 'important');
+    bell.style.setProperty('visibility', isHome() ? 'hidden' : '', 'important');
+    bell.style.setProperty('pointer-events', isHome() ? 'none' : '', 'important');
     root.setAttribute('data-ovyx-home-hidden', isHome() ? 'true' : 'false');
   }
   function navSetup() {
