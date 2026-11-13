@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -9,8 +10,24 @@ const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({viewport:{width:1440,height:900}});
 const pageErrors=[];page.on('pageerror',error=>pageErrors.push(error.message));
 try{
- await page.setContent(html,{waitUntil:'domcontentloaded'});const originalLogoPaths=await page.locator('#ovyx-logo-fixture path').evaluateAll(nodes=>nodes.map(node=>node.outerHTML));await page.addScriptTag({path:runtimePath});
+ await page.setContent(html,{waitUntil:'domcontentloaded'});const originalLogoPaths=await page.locator('#ovyx-logo-fixture path').evaluateAll(nodes=>nodes.map(node=>node.outerHTML));
+ const runtimeSource=fs.readFileSync(runtimePath,'utf8');
+ const instrumentedRuntime=runtimeSource.replace('function fixSidebarLogos(){','function fixSidebarLogos(){window.__ovyxSidebarLogoScanCount=(window.__ovyxSidebarLogoScanCount||0)+1;');
+ assert.notEqual(instrumentedRuntime,runtimeSource,'The sidebar scan instrumentation point must remain available.');
+ await page.addScriptTag({content:instrumentedRuntime});
  await page.waitForFunction(()=>!!window.OVYXWebStudioCodeSearch&&!!document.querySelector('[data-ovyx-code-search-trigger]'));
+ const initialLogoScanCount=await page.evaluate(()=>window.__ovyxSidebarLogoScanCount||0);
+ await page.evaluate(()=>{
+  const fragment=document.createDocumentFragment();
+  for(let index=0;index<80;index++){const node=document.createElement('div');node.className='unrelated-startup-node';fragment.appendChild(node);}
+  document.body.appendChild(fragment);
+ });
+ await page.waitForTimeout(80);
+ const unrelatedLogoScanCount=await page.evaluate(()=>window.__ovyxSidebarLogoScanCount||0);
+ assert.equal(unrelatedLogoScanCount,initialLogoScanCount,'Unrelated application DOM churn must not rerun the sidebar logo scan.');
+ await page.locator('#app-sidebar').evaluate(node=>{const marker=document.createElement('span');marker.textContent='dynamic sidebar child';node.appendChild(marker);});
+ await page.waitForFunction(initial=>window.__ovyxSidebarLogoScanCount>initial,initialLogoScanCount,{timeout:3000});
+
  const trigger=page.locator('[data-ovyx-code-search-trigger]'),panel=page.locator('#ovyx-code-search-panel');
  assert.equal(await trigger.count(),1);assert.equal(await trigger.evaluate(node=>!!node.parentElement.querySelector('#ovyx-code-download')),true,'Find file must be inserted beside the existing Download control.');assert.equal(await panel.getAttribute('aria-hidden'),'true');assert.equal(await panel.getAttribute('aria-modal'),'true');assert.equal(await page.locator('.ovyx-code-search-backdrop').count(),1);
  assert.equal(await panel.locator('[data-ovyx-search-result-path]').count(),0);
