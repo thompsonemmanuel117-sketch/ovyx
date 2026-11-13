@@ -7835,25 +7835,28 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
   function patch(){if(sync.booted||!window.ProjectStore)return;sync.booted=true;const originalSave=window.ProjectStore.save.bind(window.ProjectStore);window.ProjectStore.save=function(){const result=originalSave();const p=window.KernelState?.activeProject;if(p&&currentUser()&&!window.ProjectCloudSync)queueSave(p);return result};
     if(window.OVYXProjectDeletion&&!window.OVYXProjectDeletion.__v6Cloud){const del=window.OVYXProjectDeletion.confirm.bind(window.OVYXProjectDeletion);window.OVYXProjectDeletion.confirm=function(){const id=this.target;const result=del();if(id&&currentUser())deleteRemote(id).catch(e=>console.warn('[OVYX cloud sync] delete failed:',e.message));return result};window.OVYXProjectDeletion.__v6Cloud=true}
   }
-  async function onAuth(user){
-    sync.user=user||null;
-    sync.pending.clear();
-    sync.deleted.clear();
-    if(!user){
-      window.KernelState.projects=[];
-      window.KernelState.activeProject=null;
-      try{window.ProjectStore?.renderHome?.();window.ProjectStore?.renderProjects?.();}catch{}
-      return;
-    }
-    // A sign-in is an account boundary: never merge prior guest data into this account.
-    window.KernelState.projects=[];
-    window.KernelState.activeProject=null;
-    patch();
-    await syncNow();
+  // Compatibility facade only: the deep ProjectCloudSync runtime owns auth, loading and saves.
+  // Keep these methods because project recovery and legacy deletion still call this public API.
+  async function compatibilitySyncNow(){
+    if(window.ProjectCloudSync?.load)return window.ProjectCloudSync.load();
+    return syncNow();
   }
-  window.OVYXProjectCloudSync={syncNow,save:queueSave,delete:deleteRemote,state:sync};
-  const auth=window.firebase?.auth?.();
-  if(auth?.onAuthStateChanged){auth.onAuthStateChanged(onAuth);setTimeout(()=>{patch();if(currentUser())onAuth(currentUser())},250)}else setTimeout(()=>{patch();if(currentUser())onAuth(currentUser())},500);
+  async function compatibilitySave(project){
+    const active=window.KernelState?.activeProject;
+    if(window.ProjectCloudSync?.scheduleSyncActive&&active?.id&&String(active.id)===String(project?.id)){
+      window.ProjectCloudSync.scheduleSyncActive(100);
+      return true;
+    }
+    return queueSave(project);
+  }
+  async function compatibilityDelete(id){
+    if(window.ProjectCloudSync?.remove)return window.ProjectCloudSync.remove(id);
+    return deleteRemote(id);
+  }
+  window.OVYXProjectCloudSync={syncNow:compatibilitySyncNow,save:compatibilitySave,delete:compatibilityDelete,state:sync};
+  // The legacy layer only installs its deletion compatibility hook; it no longer
+  // subscribes to Firebase auth or performs a second cloud pull.
+  setTimeout(patch,250);
 })();</script>
 
 <style id="ovyx-v63-final-light-surface-reconciliation">/* V63: prevent older hard-coded dark view shells from overriding the canonical light palette. */ html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"]{ background:var(--app-bg)!important; background-color:var(--app-bg)!important; color:var(--app-text)!important; } html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"] .v54-admin-rail, html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"] .v56-admin-rail, html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"] .v0-card, html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"] .v0-panel, html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"] .v56-health-card{ background:var(--app-card)!important; background-color:var(--app-card)!important; color:var(--app-text)!important; border-color:var(--app-border)!important; box-shadow:none!important; } html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"] .v56-admin-rail button:hover, html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"] .v56-admin-rail button.is-active{ background:color-mix(in srgb,var(--app-accent) 8%,var(--app-card))!important; color:var(--app-text)!important; border-color:color-mix(in srgb,var(--app-accent) 28%,var(--app-border))!important; } html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"] .v54-admin-rail button, html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"] .v56-admin-rail button{ background:var(--app-card)!important; color:var(--app-muted)!important; border-color:var(--app-border)!important; }</style>
@@ -13605,7 +13608,19 @@ function installActionGates(){
     },true);
   }
 }
+function preserveLocalOnlyProject(project,uid){
+  if(!project?.id||!uid)return;
+  try{
+    if(window.OVYXProjectRecovery?.stash){window.OVYXProjectRecovery.stash(project,'cloud-sync-local-only');return;}
+    const key='ovyx.deleted-projects.v1.user.'+uid;
+    const items=JSON.parse(localStorage.getItem(key)||'[]');
+    const next=items.filter(item=>String(item?.project?.id||'')!==String(project.id));
+    next.unshift({id:'del_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),deletedAt:Date.now(),reason:'cloud-sync-local-only',project:JSON.parse(JSON.stringify(project))});
+    localStorage.setItem(key,JSON.stringify(next.slice(0,30)));
+  }catch(error){console.warn('[OVYX project recovery] local-only snapshot could not be saved',error?.message||error);}
+}
 const ProjectCloudSync={
+  activeUid:'',
   activeEmail:'',
   lastHash:'',
   lastObservedProjectId:'',
@@ -13613,6 +13628,7 @@ const ProjectCloudSync={
   needsSync:false,
   inFlight:false,
   syncTimer:0,
+  loadGeneration:0,
   scheduleSyncActive(delay=280){
     if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()===false)return;
     this.needsSync=true;
@@ -13620,7 +13636,7 @@ const ProjectCloudSync={
     this.syncTimer=setTimeout(()=>{
       this.syncTimer=0;
       const user=currentUser();
-      if(!user||emailOf(user)!==this.activeEmail)return;
+      if(!user||String(user.uid||'')!==this.activeUid||emailOf(user)!==this.activeEmail)return;
       this.cache(this.activeEmail,window.KernelState?.projects||[]);
       this.syncActive(true).catch(()=>{});
     },Math.max(100,Number(delay)||280));
@@ -13632,9 +13648,15 @@ const ProjectCloudSync={
   projectStamp(project){return String(project?.updatedAt||project?.modifiedAt||project?.updated_at||'')},
   observeProject(project){this.lastObservedProjectId=String(project?.id||'');this.lastObservedProjectStamp=this.projectStamp(project)},
   async load(){
-    const user=currentUser(),email=emailOf(user);
+    const loadGeneration=++this.loadGeneration;
+    const user=currentUser(),email=emailOf(user),uid=String(user?.uid||'');
+    if(this.activeUid&&this.activeUid!==uid){
+      if(this.syncTimer)clearTimeout(this.syncTimer);
+      this.syncTimer=0;this.needsSync=false;this.lastHash='';
+    }
+    this.activeUid=uid;
     if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()===false){if(email){this.activeEmail=email;const state=window.KernelState=window.KernelState||{};const cached=this.readCache(email);state.projects=cached.slice();state.activeProject=state.projects[0]||null;window.ProjectStore?.renderHome?.();window.ProjectStore?.renderProjects?.()}return false;}
-    if(!email){guestState();return false}
+    if(!email){this.activeUid='';this.activeEmail='';this.lastHash='';guestState();return false}
     this.activeEmail=email;
     const state=window.KernelState=window.KernelState||{};
     const cached=this.readCache(email);
@@ -13644,8 +13666,17 @@ const ProjectCloudSync={
     window.ProjectStore?.renderProjects?.();
     try{
       const data=await api('/api/projects');
+      const latestUser=currentUser();
+      if(loadGeneration!==this.loadGeneration||!latestUser||String(latestUser.uid||'')!==uid||emailOf(latestUser)!==email)return false;
       const remote=Array.isArray(data.projects)?data.projects:[];
       if(remote.length){
+        // Preserve local-only projects in the existing recovery area before the cloud
+        // snapshot becomes authoritative. This avoids silently discarding a local draft
+        // when another device/account session has a newer cloud inventory.
+        const remoteIds=new Set(remote.map(project=>String(project?.id||'')));
+        cached.filter(project=>project?.id&&!remoteIds.has(String(project.id))).forEach(project=>{
+          preserveLocalOnlyProject(project,uid);
+        });
         state.projects=remote;
         state.activeProject=state.activeProject?.id?remote.find(p=>p.id===state.activeProject.id)||remote[0]:remote[0];
         this.cache(email,remote);
@@ -13660,6 +13691,8 @@ const ProjectCloudSync={
       window.ProjectStore?.renderProjects?.();
       return true;
     }catch(error){
+      const latestUser=currentUser();
+      if(loadGeneration!==this.loadGeneration||!latestUser||String(latestUser.uid||'')!==uid||emailOf(latestUser)!==email)return false;
       this.lastHash=this.fingerprint(state.activeProject);
       this.observeProject(state.activeProject);this.needsSync=false;
       console.debug('[OVYX project sync]',error?.message||error);
@@ -13669,7 +13702,8 @@ const ProjectCloudSync={
   async syncActive(force=false){
     if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()===false)return false;
     const user=currentUser();
-    if(!user||emailOf(user)!==this.activeEmail||this.inFlight)return false;
+    const uid=String(user?.uid||''),email=emailOf(user);
+    if(!user||!uid||uid!==this.activeUid||email!==this.activeEmail||this.inFlight)return false;
     const project=window.KernelState?.activeProject;
     if(!project?.id)return false;
     const projectId=String(project.id),stamp=this.projectStamp(project);
@@ -13681,6 +13715,8 @@ const ProjectCloudSync={
     try{
       this.cache(this.activeEmail,window.KernelState?.projects||[]);
       await api('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:project.id,project})});
+      const latestUser=currentUser();
+      if(!latestUser||String(latestUser.uid||'')!==uid||emailOf(latestUser)!==email||email!==this.activeEmail)return false;
       this.lastHash=hash;this.observeProject(project);this.needsSync=false;
       return true;
     }catch(error){
@@ -13721,8 +13757,13 @@ function installProjectSync(){
     if(event.detail?.user){
       setTimeout(()=>ProjectCloudSync.load(),40);
     }else{
+      ProjectCloudSync.loadGeneration+=1;
+      if(ProjectCloudSync.syncTimer)clearTimeout(ProjectCloudSync.syncTimer);
+      ProjectCloudSync.syncTimer=0;
+      ProjectCloudSync.activeUid='';
       ProjectCloudSync.activeEmail='';
       ProjectCloudSync.lastHash='';
+      ProjectCloudSync.needsSync=false;
       guestState();
     }
   },{passive:true});
@@ -15002,8 +15043,11 @@ function installWebStudioSurface(){
   window.__OVYX_PROJECT_RECOVERY_V1__=true;
   const KEY='ovyx.deleted-projects.v1',MAX=30;
   const clone=v=>{try{return JSON.parse(JSON.stringify(v))}catch(_){return null}};
-  function list(){try{const x=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(x)?x:[]}catch(_){return []}}
-  function save(items){try{localStorage.setItem(KEY,JSON.stringify(items.slice(0,MAX)))}catch(_){}return items.slice(0,MAX)}
+  // Recovery snapshots contain complete project source, so keep them isolated by Firebase UID.
+  // The legacy unscoped key remains available to signed-out/guest recovery only.
+  function storageKey(){const uid=String(window.firebase?.auth?.().currentUser?.uid||'').trim();return uid?'ovyx.deleted-projects.v1.user.'+uid:KEY}
+  function list(){try{const x=JSON.parse(localStorage.getItem(storageKey())||'[]');return Array.isArray(x)?x:[]}catch(_){return []}}
+  function save(items){try{localStorage.setItem(storageKey(),JSON.stringify(items.slice(0,MAX)))}catch(_){}return items.slice(0,MAX)}
   function stash(project,reason){if(!project?.id)return null;const copy=clone(project);if(!copy)return null;const items=list().filter(x=>String(x?.project?.id)!==String(copy.id));const rec={id:'del_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),deletedAt:Date.now(),reason:String(reason||'project-delete'),project:copy};items.unshift(rec);save(items);return rec}
   async function restore(recordId){
     const items=list();const idx=recordId?items.findIndex(x=>String(x.id)===String(recordId)):0;
