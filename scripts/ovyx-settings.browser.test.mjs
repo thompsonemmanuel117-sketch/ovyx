@@ -1,7 +1,7 @@
 // Regression trigger: changes to this browser suite should rerun its owning GitHub Actions workflow.
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixtures.mjs';
+import { installOwnerBrowserApiFixtures, startBrowserStartupProfiler } from './ovyx-owner-browser-api-fixtures.mjs';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
@@ -24,6 +24,7 @@ try {
     browser.on('disconnected', () => console.error('[' + target.name + '] Chromium browser disconnected.'));
     page.setDefaultTimeout(20000);
     await installOwnerBrowserApiFixtures(page);
+    const stopStartupProfiler = await startBrowserStartupProfiler(page, target.name + ' Settings');
     const settingsErrors = [];
     page.on('pageerror', error => {
       if (/renderDataLayer|OVYXDataLayerSettings|ovyx-data-(?:endpoint|sync|test|save|schema)|dbCfg/i.test(error.message)) {
@@ -72,6 +73,7 @@ try {
       throw error;
     }
 
+    await stopStartupProfiler();
     console.log('[' + target.name + '] Settings bootstrap passed.');
     console.log('[' + target.name + '] Settings stage: Data Layer entry');
     // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
