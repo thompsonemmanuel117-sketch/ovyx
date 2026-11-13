@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixtures.mjs';
+import { installOwnerBrowserApiFixtures, startBrowserStartupProfiler } from './ovyx-owner-browser-api-fixtures.mjs';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
@@ -28,6 +28,7 @@ try {
         token: 'ovyx-notification-token',
       },
     });
+    const stopStartupProfiler = await startBrowserStartupProfiler(page, target.name + ' Notifications');
 
     // The current account inbox is backed by the authenticated Notifications API.
     // Keep its response deterministic without relying on the retired Firestore inbox.
@@ -101,6 +102,7 @@ try {
       throw error;
     }
 
+    await stopStartupProfiler();
     await page.evaluate(() => window.OVYXAccountNotifications.open());
     const root = page.locator('#ovyx-account-notifications-root');
     await root.waitFor({ state: 'attached' });
