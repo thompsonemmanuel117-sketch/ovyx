@@ -29,13 +29,17 @@ assert.ok(runtime.includes('groupAnalyzerDetails(root)'), 'Detailed URL scan evi
 assert.ok(runtime.includes('handlePaletteDisclosure'), 'Using detected source colors must open the actual Brand DNA controls.');
 assert.ok(runtime.includes('prefers-reduced-motion:reduce'), 'Animations must respect reduced-motion preferences.');
 assert.ok(runtime.includes('ovyx-app-studio-project-brain') && runtime.includes('ovyx-app-studio-release'), 'The guided path must target the actual verifier and release controls.');
+assert.ok(runtime.includes('if (index && index.textContent !== stage.number) index.textContent = stage.number;'), 'Stage numbers must only update when their visible value changes.');
+assert.ok(runtime.includes('if (label && label.textContent !== stage.label) label.textContent = stage.label;'), 'Stage labels must not create repeated child-list mutations.');
+assert.ok(runtime.includes('if (title && title.textContent !== stage.title) title.textContent = stage.title;'), 'Stage titles must not create repeated child-list mutations.');
+assert.ok(runtime.includes('if (status && status.textContent !== nextStatus) status.textContent = nextStatus;'), 'Dynamic stage status should update only when its value changes, preventing a MutationObserver feedback loop.');
 assert.ok(runtime.includes('!project') && runtime.includes('!verified'), 'The progress rail must reflect generated and verified state rather than decorative status.');
 assert.ok(runtime.includes('max-width:none!important;width:100%!important') && runtime.includes('max-width:none!important;padding:clamp(15px,2vw,24px)!important'), 'App Studio sections and the existing conversion shell must use the full available width without a narrow max-width cap.');
 assert.ok(runtime.includes('font-size:clamp(12px,.9vw,14px)!important;line-height:1.55!important') && runtime.includes('font-size:clamp(13px,1vw,15px)!important;line-height:1.65!important'), 'Workspace labels and explanatory text must remain comfortably readable.');
 assert.ok(!runtime.includes('window.OVYXAIService') && !runtime.includes('fetch('), 'The polish layer must not duplicate the generation/API logic.');
 assert.ok(functionalRuntime.includes('data-lb-mobile-build') && functionalRuntime.includes('data-lb-export-zip') && functionalRuntime.includes('data-lb-publish'), 'The existing supported release actions must remain in the main release workspace.');
 assert.ok(conversionRuntime.includes('ovyx-appstudio-phrase4-runtime'), 'The existing Web Studio-to-mobile conversion runtime must remain in the app.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-premium-polish.js?v=20261110-3'), 'The real Pages shell must load the polish runtime after the App Studio feature runtimes.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-premium-polish.js?v=20261113-1'), 'The real Pages shell must load the polish runtime after the App Studio feature runtimes.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-premium-polish.js') && headers.includes('Cache-Control: no-store'), 'The premium UI asset must not be held behind stale browser caching.');
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-app-studio-premium-polish.test.mjs'), 'The design-system source test must run under npm test.');
 assert.ok(workflow.includes('scripts/ovyx-app-studio-premium-polish.browser.test.mjs'), 'The responsive progressive-disclosure browser test must run in CI.');

@@ -314,10 +314,11 @@
       const label = $(meta, '.ovyx-as-stage-meta__label');
       const title = $(meta, '.ovyx-as-stage-meta__title');
       const status = $(meta, '.ovyx-as-stage-meta__status');
-      if (index) index.textContent = stage.number;
-      if (label) label.textContent = stage.label;
-      if (title) title.textContent = stage.title;
-      if (status) status.textContent = stage.status();
+      if (index && index.textContent !== stage.number) index.textContent = stage.number;
+      if (label && label.textContent !== stage.label) label.textContent = stage.label;
+      if (title && title.textContent !== stage.title) title.textContent = stage.title;
+      const nextStatus = stage.status();
+      if (status && status.textContent !== nextStatus) status.textContent = nextStatus;
     }
   }
 
