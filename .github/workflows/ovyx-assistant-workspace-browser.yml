@@ -1,12 +1,19 @@
 # Trigger note: keep this workflow path in the PR filter so focused browser regressions rerun when its coverage changes.
 name: OVYX Assistant Workspace Browser Tests
 
+concurrency:
+  group: ovyx-browser-regressions-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   push:
     branches:
       - main
       - feat/app-studio-panel-experience
     paths:
+      - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
+      - 'scripts/ovyx-account-notifications.browser.test.mjs'
+      - 'scripts/ovyx-settings.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-settings-reliability.js'
       - 'assets/ovyx-webstudio-reliability.js'
@@ -224,11 +231,11 @@ jobs:
             shift 2
             for script in "$@"; do
               echo "[$label] START $script"
-              timeout --signal=TERM --kill-after=30s 15m node "scripts/$script" 2>&1 | tee -a "$log_file"
+              timeout --signal=TERM --kill-after=15s 5m node "scripts/$script" 2>&1 | tee -a "$log_file"
               script_status=${PIPESTATUS[0]}
               if [ "$script_status" -ne 0 ]; then
                 if [ "$script_status" -eq 124 ] || [ "$script_status" -eq 137 ]; then
-                  echo "[$label] TIMEOUT after 15 minutes: $script"
+                  echo "[$label] TIMEOUT after 5 minutes: $script"
                 else
                   echo "[$label] FAILED ($script_status): $script"
                 fi
@@ -267,6 +274,17 @@ jobs:
             echo "One or more Assistant Workspace browser-test groups failed."
             exit 1
           fi
+
+      - name: Print browser resource diagnostics on failure
+        if: failure()
+        run: |
+          echo '=== runner memory ==='
+          free -h || true
+          echo '=== cgroup memory events ==='
+          cat /sys/fs/cgroup/memory.events || true
+          cat /sys/fs/cgroup/memory.current || true
+          echo '=== largest processes ==='
+          ps -eo pid,ppid,rss,%mem,%cpu,comm --sort=-rss | head -n 20 || true
 
       - name: Print local Pages logs on failure
         if: failure()
