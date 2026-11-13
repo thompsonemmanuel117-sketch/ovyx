@@ -6,6 +6,25 @@ import { installOwnerBrowserApiFixtures, startBrowserStartupProfiler } from './o
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
 
+async function waitForRouteRestore(page) {
+  // The late V25 controller reapplies the stored route at load/pageshow. Do not
+  // issue a test navigation until that boot restoration has finished.
+  await page.waitForFunction(
+    () => document.readyState === 'complete'
+      && typeof window.__OVYX_BOOT_ROUTE === 'string'
+      && window.KernelState?.activeView === window.__OVYX_BOOT_ROUTE,
+    null,
+    { timeout: 45000 },
+  );
+  await page.waitForTimeout(120);
+  await page.waitForFunction(
+    () => typeof window.__OVYX_BOOT_ROUTE === 'string'
+      && window.KernelState?.activeView === window.__OVYX_BOOT_ROUTE,
+    null,
+    { timeout: 10000 },
+  );
+}
+
 const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage'] });
 try {
   for (const target of [
@@ -74,7 +93,8 @@ try {
     }
 
     await stopStartupProfiler();
-    console.log('[' + target.name + '] Settings bootstrap passed.');
+    await waitForRouteRestore(page);
+    console.log('[' + target.name + '] Settings bootstrap and route restoration passed.');
     console.log('[' + target.name + '] Settings stage: Data Layer entry');
     // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
     await page.evaluate(() => { window.OVYXRouteAuthority.go('settings'); });
@@ -577,6 +597,7 @@ try {
     assert.equal(await upgradeToPro.evaluate(element => element.isConnected), true,
       '[' + target.name + '] a quota refresh must not detach the visible Upgrade to Pro control.');
     await upgradeToPro.click();
+    await page.waitForFunction(() => window.KernelState?.activeView === 'pricing', null, { timeout: 15000 });
     await page.locator('#view-pricing').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#view-pricing').getAttribute('aria-label'), 'OVYX Plans',
       '[' + target.name + '] Upgrade to Pro must navigate to the Plans view.');
