@@ -377,9 +377,28 @@ export async function startBrowserStartupProfiler(page, label, timeoutMs = 30000
       line: Number.isInteger(frame.location?.lineNumber) ? frame.location.lineNumber + 1 : null,
       column: Number.isInteger(frame.location?.columnNumber) ? frame.location.columnNumber + 1 : null,
     }));
+    const sourceSnippets = [];
+    for (const frame of frames.slice(0, 3)) {
+      if (!frame.scriptId) continue;
+      try {
+        const result = await session.send('Debugger.getScriptSource', { scriptId: frame.scriptId });
+        const sourceLines = String(result.scriptSource || '').split('\\n');
+        const lineIndex = Math.max(0, (frame.line || 1) - 1);
+        const sourceLine = sourceLines[lineIndex] || '';
+        const column = Math.max(0, (frame.column || 1) - 1);
+        sourceSnippets.push({
+          function: frame.function,
+          line: frame.line,
+          source: sourceLine.slice(Math.max(0, column - 180), column + 420),
+        });
+      } catch (error) {
+        sourceSnippets.push({ function: frame.function, sourceError: String(error?.message || error) });
+      }
+    }
     console.error('[' + label + '] startup JavaScript debugger stack: ' + JSON.stringify({
       reason: event.reason || 'debugger-pause',
       frames,
+      sourceSnippets,
     }));
     pauseResolver?.(frames);
     try { await session.send('Debugger.resume'); } catch (_) {}
