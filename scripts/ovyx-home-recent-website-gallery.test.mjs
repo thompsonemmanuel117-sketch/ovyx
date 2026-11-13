@@ -9,9 +9,12 @@ assert.doesNotThrow(() => new vm.Script(source), 'Recent website gallery runtime
 
 const listeners = {};
 const host = { innerHTML: '' };
+const prompt = { placeholder: '', attributes: {}, setAttribute(name, value) { this.attributes[name] = value; } };
+const buildLabel = { textContent: 'Start building' };
+const build = { querySelector(selector) { return selector === 'span' ? buildLabel : null; } };
 const document = {
   readyState: 'complete',
-  getElementById(id) { return id === 'home-projects-grid' ? host : null; },
+  getElementById(id) { return id === 'home-projects-grid' ? host : id === 'prompt-home-input' ? prompt : id === 'v59-build' ? build : null; },
   addEventListener(type, listener) { (listeners[type] ||= []).push(listener); }
 };
 const storage = new Map();
@@ -57,6 +60,9 @@ assert.doesNotMatch(host.innerHTML, /Coffee House.*THIS LONG BUILD PROMPT/);
 assert.match(host.innerHTML, /https:\/\/example\.com\/coffee-preview\.webp/);
 assert.match(host.innerHTML, /data-ovyx-website-pin="site-a"/);
 assert.match(host.innerHTML, /data-ovyx-website-open="site-a"/);
+assert.equal(prompt.placeholder, 'Describe what you want to build with OVYX…', 'The familiar dashboard prompt copy must be restored.');
+assert.equal(prompt.attributes['aria-label'], 'Describe your project');
+assert.equal(buildLabel.textContent, 'Build', 'The existing Build action label and arrow should remain intact.');
 
 const pinNode = { getAttribute: name => name === 'data-ovyx-website-pin' ? 'site-b' : null };
 for (const handler of listeners.click || []) {
@@ -88,6 +94,7 @@ assert.doesNotMatch(host.innerHTML, /Mobile App/);
 
 assert.match(css, /#view-home #home-projects-grid/);
 assert.match(css, /aspect-ratio:\s*16\s*\/\s*9/);
+assert.match(css, /min-height:\s*104px/, 'The prompt box should return to its familiar proportions.');
 assert.match(css, /prefers-reduced-motion/);
 assert.match(middleware, /ovyx-home-recent-website-gallery\.js\?v=20261113-1/);
 assert.match(middleware, /ovyx-home-recent-website-gallery\.css\?v=20261113-1/);
