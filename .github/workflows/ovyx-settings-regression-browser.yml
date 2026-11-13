@@ -2,7 +2,7 @@
 name: OVYX Settings Regression Browser Tests
 
 concurrency:
-  group: ovyx-browser-regressions-${{ github.ref }}
+  group: ovyx-settings-browser-${{ github.ref }}
   cancel-in-progress: false
 
 on:
