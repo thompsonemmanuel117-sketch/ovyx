@@ -12,6 +12,7 @@ on:
       - feat/app-studio-panel-experience
     paths:
       - 'scripts/ovyx-settings.browser.test.mjs'
+      - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
       - 'scripts/ovyx-account-notifications.browser.test.mjs'
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
       - 'index.html'
@@ -73,6 +74,7 @@ on:
       - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
       - 'scripts/ovyx-settings-actions.test.mjs'
       - 'scripts/ovyx-settings.browser.test.mjs'
+      - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
       - 'scripts/ovyx-settings-account.browser.test.mjs'
