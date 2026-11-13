@@ -353,49 +353,52 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
  * Capture a short V8 CPU profile during shell startup. This helps identify
  * hot application frames when a browser cannot reach its feature-ready gate.
  */
+/**
+ * Interrupt a stalled shell startup with the Chrome debugger and report the
+ * JavaScript stack that is actually blocking the renderer. V8 Profiler.stop
+ * cannot return a useful profile when the renderer event loop is wedged.
+ */
 export async function startBrowserStartupProfiler(page, label, timeoutMs = 30000) {
   const session = await page.context().newCDPSession(page);
-  await session.send('Profiler.enable');
-  await session.send('Profiler.start');
+  await session.send('Debugger.enable');
+  const scripts = new Map();
+  session.on('Debugger.scriptParsed', event => {
+    scripts.set(event.scriptId, { url: event.url || '', hash: event.hash || '' });
+  });
   let finished = false;
   let timer;
+  let pauseResolver;
+  let pausePromise = new Promise(resolve => { pauseResolver = resolve; });
+  session.on('Debugger.paused', async event => {
+    const frames = (event.callFrames || []).slice(0, 12).map(frame => ({
+      function: frame.functionName || '(anonymous)',
+      url: frame.url || scripts.get(frame.location?.scriptId)?.url || '',
+      scriptId: frame.location?.scriptId || '',
+      line: Number.isInteger(frame.location?.lineNumber) ? frame.location.lineNumber + 1 : null,
+      column: Number.isInteger(frame.location?.columnNumber) ? frame.location.columnNumber + 1 : null,
+    }));
+    console.error('[' + label + '] startup JavaScript debugger stack: ' + JSON.stringify({
+      reason: event.reason || 'debugger-pause',
+      frames,
+    }));
+    pauseResolver?.(frames);
+    try { await session.send('Debugger.resume'); } catch (_) {}
+  });
   const finish = async reason => {
     if (finished) return;
     finished = true;
     if (timer) clearTimeout(timer);
     try {
-      const stopped = await Promise.race([
-        session.send('Profiler.stop'),
-        new Promise(resolve => setTimeout(() => resolve(null), 6000)),
+      const pauseRequest = session.send('Debugger.pause').catch(error => {
+        console.error('[' + label + '] startup debugger pause request failed: ' + String(error?.message || error));
+        return null;
+      });
+      await Promise.race([
+        Promise.all([pauseRequest, pausePromise]),
+        new Promise(resolve => setTimeout(resolve, 5000)),
       ]);
-      const profile = stopped && stopped.profile;
-      if (profile) {
-        const nodes = new Map((profile.nodes || []).map(node => [node.id, node]));
-        const counts = new Map();
-        for (const id of profile.samples || []) counts.set(id, (counts.get(id) || 0) + 1);
-        const hotFrames = [...counts.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 24)
-          .map(([id, samples]) => {
-            const frame = nodes.get(id)?.callFrame || {};
-            return {
-              samples,
-              function: frame.functionName || '(anonymous)',
-              url: frame.url || '',
-              line: frame.lineNumber == null ? null : frame.lineNumber + 1,
-              column: frame.columnNumber == null ? null : frame.columnNumber + 1,
-            };
-          });
-        console.error('[' + label + '] V8 startup CPU profile (' + reason + '): ' + JSON.stringify({
-          sampleCount: (profile.samples || []).length,
-          durationMs: profile.startTime && profile.endTime ? Math.round((profile.endTime - profile.startTime) / 1000) : null,
-          hotFrames,
-        }));
-      } else {
-        console.error('[' + label + '] V8 startup CPU profile unavailable (' + reason + '): Profiler.stop did not respond within 6 seconds.');
-      }
     } catch (error) {
-      console.error('[' + label + '] V8 startup CPU profile failed (' + reason + '): ' + String(error?.message || error));
+      console.error('[' + label + '] startup debugger diagnostic failed (' + reason + '): ' + String(error?.message || error));
     } finally {
       try { await session.detach(); } catch (_) {}
     }
