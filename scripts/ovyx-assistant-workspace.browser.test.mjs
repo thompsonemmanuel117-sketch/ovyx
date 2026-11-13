@@ -2,7 +2,7 @@
 // Keep Settings and Assistant bootstrap regressions aligned on the same tested commit.
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixtures.mjs';
+import { installOwnerBrowserApiFixtures, startBrowserStartupProfiler } from './ovyx-owner-browser-api-fixtures.mjs';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
@@ -26,6 +26,7 @@ try {
     await installOwnerBrowserApiFixtures(page, {
       initialUser: { uid: 'ovyx-assistant-browser-user', email: 'assistant@example.test', token: 'ovyx-assistant-browser-token' }
     });
+    const stopStartupProfiler = await startBrowserStartupProfiler(page, target.name + ' Assistant');
     const errors = [];
     const bootstrapErrors = [];
     page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed during Assistant bootstrap.'));
@@ -66,6 +67,7 @@ try {
       console.error('[' + target.name + '] Legacy Assistant bootstrap diagnostic: ' + JSON.stringify({ ...diagnostic, pageErrors: bootstrapErrors.slice(-30) }));
       throw error;
     }
+    await stopStartupProfiler();
     await page.evaluate(() => {
       const user = window.__setOVYXBrowserAuthUser?.({
         uid: 'ovyx-assistant-browser-user',
