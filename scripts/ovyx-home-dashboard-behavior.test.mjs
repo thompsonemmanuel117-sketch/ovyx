@@ -52,7 +52,7 @@ const localStorage = {
 const window = {
   KernelState: { projects },
   ProjectStore: {
-    list() { return projects.slice(); },
+    list() { return window.KernelState.projects.slice(); },
     card(project) { return '<article>' + project.id + '</article>'; },
     createPromptModal() { created += 1; }
   },
