@@ -58,24 +58,14 @@ assert.match(host.innerHTML, /10:25/);
 assert.doesNotMatch(host.innerHTML, /THIS LONG BUILD PROMPT/);
 assert.doesNotMatch(host.innerHTML, /Coffee House.*THIS LONG BUILD PROMPT/);
 assert.match(host.innerHTML, /https:\/\/example\.com\/coffee-preview\.webp/);
-assert.match(host.innerHTML, /data-ovyx-website-pin="site-a"/);
+assert.doesNotMatch(host.innerHTML, /data-ovyx-website-pin=/, 'Recent cards should not expose pin-management controls.');
 assert.match(host.innerHTML, /data-ovyx-website-open="site-a"/);
 assert.equal(prompt.placeholder, 'Describe what you want to build with OVYX…', 'The familiar dashboard prompt copy must be restored.');
 assert.equal(prompt.attributes['aria-label'], 'Describe your project');
 assert.equal(buildLabel.textContent, 'Build', 'The existing Build action label and arrow should remain intact.');
 
 const pinNode = { getAttribute: name => name === 'data-ovyx-website-pin' ? 'site-b' : null };
-for (const handler of listeners.click || []) {
-  handler({
-    target: { closest(selector) { return selector === '[data-ovyx-website-pin]' ? pinNode : null; } },
-    preventDefault() {}, stopPropagation() {}
-  });
-}
-assert.deepEqual(Array.from(api.sortWebsites(state.projects), p => p.id), ['site-b', 'site-a'],
-  'Pinned websites must appear before newer unpinned websites.');
-assert.equal(storage.get('ovyx.home-pinned-websites.v1.test-user'), '["site-b"]');
 assert.match(host.innerHTML, /Coffee House/);
-assert.match(host.innerHTML, /aria-pressed="true"/);
 
 const openNode = { getAttribute: name => name === 'data-ovyx-website-open' ? 'site-a' : null };
 for (const handler of listeners.click || []) {
@@ -84,12 +74,12 @@ for (const handler of listeners.click || []) {
     preventDefault() {}, stopPropagation() {}
   });
 }
-assert.equal(opened, 'site-a', 'Edit/Open must reuse the existing ProjectStore.open route.');
+assert.equal(opened, 'site-a', 'Opening a website preview must reuse the existing ProjectStore.open route.');
 
 state.projects = [appProject];
 api.renderHome();
 assert.match(host.innerHTML, /Your websites will appear here/);
-assert.match(host.innerHTML, /data-ovyx-home-create/);
+assert.doesNotMatch(host.innerHTML, /data-ovyx-home-create/, 'Home Recent should not show a large Start Building CTA.');
 assert.doesNotMatch(host.innerHTML, /Mobile App/);
 
 assert.match(css, /#view-home #home-projects-grid/);
@@ -98,4 +88,6 @@ assert.match(css, /min-height:\s*104px/, 'The prompt box should return to its fa
 assert.match(css, /prefers-reduced-motion/);
 assert.match(middleware, /ovyx-home-recent-website-gallery\.js\?v=20261113-1/);
 assert.match(middleware, /ovyx-home-recent-website-gallery\.css\?v=20261113-1/);
+assert.match(middleware, /ovyx-home-recent-page\.js\?v=20261114-1/);
+assert.match(middleware, /ovyx-home-recent-page\.css\?v=20261114-1/);
 console.log('OVYX Home recent website gallery, preview, date/time, pin and edit checks passed.');
