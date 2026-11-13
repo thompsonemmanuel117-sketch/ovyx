@@ -347,3 +347,59 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
     });
   });
 }
+
+
+/**
+ * Capture a short V8 CPU profile during shell startup. This helps identify
+ * hot application frames when a browser cannot reach its feature-ready gate.
+ */
+export async function startBrowserStartupProfiler(page, label, timeoutMs = 30000) {
+  const session = await page.context().newCDPSession(page);
+  await session.send('Profiler.enable');
+  await session.send('Profiler.start');
+  let finished = false;
+  let timer;
+  const finish = async reason => {
+    if (finished) return;
+    finished = true;
+    if (timer) clearTimeout(timer);
+    try {
+      const stopped = await Promise.race([
+        session.send('Profiler.stop'),
+        new Promise(resolve => setTimeout(() => resolve(null), 6000)),
+      ]);
+      const profile = stopped && stopped.profile;
+      if (profile) {
+        const nodes = new Map((profile.nodes || []).map(node => [node.id, node]));
+        const counts = new Map();
+        for (const id of profile.samples || []) counts.set(id, (counts.get(id) || 0) + 1);
+        const hotFrames = [...counts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 24)
+          .map(([id, samples]) => {
+            const frame = nodes.get(id)?.callFrame || {};
+            return {
+              samples,
+              function: frame.functionName || '(anonymous)',
+              url: frame.url || '',
+              line: frame.lineNumber == null ? null : frame.lineNumber + 1,
+              column: frame.columnNumber == null ? null : frame.columnNumber + 1,
+            };
+          });
+        console.error('[' + label + '] V8 startup CPU profile (' + reason + '): ' + JSON.stringify({
+          sampleCount: (profile.samples || []).length,
+          durationMs: profile.startTime && profile.endTime ? Math.round((profile.endTime - profile.startTime) / 1000) : null,
+          hotFrames,
+        }));
+      } else {
+        console.error('[' + label + '] V8 startup CPU profile unavailable (' + reason + '): Profiler.stop did not respond within 6 seconds.');
+      }
+    } catch (error) {
+      console.error('[' + label + '] V8 startup CPU profile failed (' + reason + '): ' + String(error?.message || error));
+    } finally {
+      try { await session.detach(); } catch (_) {}
+    }
+  };
+  timer = setTimeout(() => { void finish('shell startup still has not reached readiness after ' + timeoutMs + 'ms'); }, timeoutMs);
+  return () => finish('shell startup reached readiness');
+}
