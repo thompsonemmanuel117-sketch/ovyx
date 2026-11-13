@@ -15,4 +15,9 @@ assert.doesNotMatch(html, /status\(code===.auth\/unauthorized-domain[\s\S]{0,400
 assert.match(html, /#view-master-auth \.ovyx-auth-intro h1\{font-size:clamp\(/, 'Mobile auth heading must use responsive typography.');
 assert.match(html, /If an OVYX account matches that email, password reset instructions will be sent\./, 'Password recovery must use an account-enumeration-safe confirmation.');
 assert.doesNotMatch(html, /e\?\.message\|\|.Could not send password reset email/, 'Raw Firebase password-recovery errors must not be exposed to users.');
+assert.match(html, /google\.addEventListener\('click',[\s\S]*?popupSignIn\('google'\)/, 'The Google button must remain connected to the existing Firebase popup sign-in handler.');
+assert.match(html, /github\.addEventListener\('click',[\s\S]*?popupSignIn\('github'\)/, 'The GitHub button must remain connected to the existing Firebase popup sign-in handler.');
+assert.match(html, /await a\.sendPasswordResetEmail\(email\)/, 'Forgot password must remain connected to Firebase password-reset email delivery.');
+assert.match(html, /window\.openLegal\(kind\)/, 'Terms and Privacy controls must remain connected to the OVYX legal modal.');
+assert.match(html, /input\.type=wasVisible\?'password':'text'/, 'Password visibility controls must continue to toggle the associated input.');
 console.log('OVYX authentication visibility, mobile layout, copy and timeout UX contracts passed.');
