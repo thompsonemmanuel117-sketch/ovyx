@@ -28,6 +28,9 @@ try {
     });
     const errors = [];
     const bootstrapErrors = [];
+    page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed during Assistant bootstrap.'));
+    page.on('close', () => console.error('[' + target.name + '] Chromium page closed during Assistant bootstrap.'));
+    browser.on('disconnected', () => console.error('[' + target.name + '] Chromium browser disconnected during Assistant test.'));
     page.on('pageerror', error => {
       bootstrapErrors.push(String(error?.stack || error?.message || error));
       if (/ovyx-native|menuAction|workspaceTool|recoverLatestWorkspaceEdit|reviewWorkspaceEditHistory/i.test(error.message)) errors.push(error.message);
@@ -38,8 +41,10 @@ try {
 
     // Gate on the Assistant runtime below rather than unrelated inline scripts
     // reaching DOMContentLoaded before the feature can be exercised.
+    console.log(`[${target.name}] Assistant stage: navigating to OVYX shell.`);
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, `[${target.name}] app returned an HTTP error`);
+    console.log(`[${target.name}] Assistant stage: shell response received; waiting for legacy runtime.`);
     // The legacy assistant creates its panel when open() is called. Waiting
     // for the panel before invoking open() is a circular readiness condition.
     try {
@@ -741,6 +746,18 @@ try {
     await page.close();
   }
 } finally {
-  await browser.close();
+  let closeTimer;
+  try {
+    await Promise.race([
+      browser.close(),
+      new Promise((_, reject) => { closeTimer = setTimeout(() => reject(new Error('Chromium shutdown exceeded 8 seconds.')), 8000); }),
+    ]);
+  } catch (error) {
+    console.error('[assistant-browser] ' + String(error?.message || error));
+    process.exitCode = 1;
+    process.exit(1);
+  } finally {
+    if (closeTimer) clearTimeout(closeTimer);
+  }
 }
 console.log('OVYX assistant workspace browser interaction tests passed.');
