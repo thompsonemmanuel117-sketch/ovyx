@@ -67,9 +67,27 @@
       ancestor=ancestor.parentElement;
     }
   }
+  // Only scan outer sidebar containers. The logo-safety classes below contain
+  // the word "sidebar", so treating every matching descendant as a new root
+  // makes each MutationObserver pass recursively rescan the same subtree.
+  var SIDEBAR_ROOT_SELECTOR='#app-sidebar,#mobile-drawer,#ovyx-desktop-sidebar,#ws-sidebar,#webstudio-sidebar,[id*="sidebar" i],[class*="sidebar" i]';
+  function isGeneratedSidebarSafetyNode(node){
+    return !!(node&&node.classList&&(node.classList.contains('ovyx-sidebar-logo-clip-safe')||node.classList.contains('ovyx-sidebar-logo-ancestor-safe')));
+  }
+  function isNestedSidebarRoot(node){
+    var ancestor=node&&node.parentElement;
+    while(ancestor&&ancestor!==document.body&&ancestor!==document.documentElement){
+      if(!isGeneratedSidebarSafetyNode(ancestor)&&ancestor.matches&&ancestor.matches(SIDEBAR_ROOT_SELECTOR))return true;
+      ancestor=ancestor.parentElement;
+    }
+    return false;
+  }
   function fixSidebarLogos(){
     var roots=[];
-    document.querySelectorAll('#app-sidebar,#mobile-drawer,#ovyx-desktop-sidebar,#ws-sidebar,#webstudio-sidebar,[id*="sidebar" i],[class*="sidebar" i]').forEach(function(node){if(!roots.includes(node))roots.push(node);});
+    document.querySelectorAll(SIDEBAR_ROOT_SELECTOR).forEach(function(node){
+      if(isGeneratedSidebarSafetyNode(node)||isNestedSidebarRoot(node))return;
+      roots.push(node);
+    });
     roots.forEach(function(sidebar){
       sidebar.querySelectorAll('img,svg,[class*="logo" i],[class*="brand" i],[id*="logo" i],[id*="brand" i]').forEach(function(node){
         if(isLogo(node))markLogo(node,sidebar);
