@@ -189,6 +189,13 @@
     const store = window.ProjectStore;
     if (!store || store.__ovyxHomeRecentWebsiteGalleryV1) return false;
     store.renderHome = renderHome;
+    const prompt = byId('prompt-home-input');
+    if (prompt) {
+      prompt.placeholder = 'Describe what you want to build with OVYX…';
+      prompt.setAttribute('aria-label', 'Describe your project');
+    }
+    const buildLabel = byId('v59-build')?.querySelector?.('span');
+    if (buildLabel) buildLabel.textContent = 'Build';
     store.__ovyxHomeRecentWebsiteGalleryV1 = true;
     document.addEventListener('click', handleClick);
     renderHome();
