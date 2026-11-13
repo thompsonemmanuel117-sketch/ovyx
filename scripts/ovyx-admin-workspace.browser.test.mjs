@@ -87,7 +87,9 @@ try {
       await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify(body) });
     });
 
-    const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // The shell contains long-running legacy inline boot scripts. Wait for
+    // navigation commit, then gate on the actual admin/auth runtime below.
+    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error');
     await page.waitForFunction(() => !!window.OVYXAdminWorkspace, null, { timeout: 45000 });
     // The local Firebase facade is installed before app scripts run, so the

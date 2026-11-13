@@ -67,9 +67,27 @@
       ancestor=ancestor.parentElement;
     }
   }
+  // Only scan outer sidebar containers. The logo-safety classes below contain
+  // the word "sidebar", so treating every matching descendant as a new root
+  // makes each MutationObserver pass recursively rescan the same subtree.
+  var SIDEBAR_ROOT_SELECTOR='#app-sidebar,#mobile-drawer,#ovyx-desktop-sidebar,#ws-sidebar,#webstudio-sidebar,.ovyx-shell-sidebar,.ovyx-mobile-drawer';
+  function isGeneratedSidebarSafetyNode(node){
+    return !!(node&&node.classList&&(node.classList.contains('ovyx-sidebar-logo-clip-safe')||node.classList.contains('ovyx-sidebar-logo-ancestor-safe')));
+  }
+  function isNestedSidebarRoot(node){
+    var ancestor=node&&node.parentElement;
+    while(ancestor&&ancestor!==document.body&&ancestor!==document.documentElement){
+      if(!isGeneratedSidebarSafetyNode(ancestor)&&ancestor.matches&&ancestor.matches(SIDEBAR_ROOT_SELECTOR))return true;
+      ancestor=ancestor.parentElement;
+    }
+    return false;
+  }
   function fixSidebarLogos(){
     var roots=[];
-    document.querySelectorAll('#app-sidebar,#mobile-drawer,#ovyx-desktop-sidebar,#ws-sidebar,#webstudio-sidebar,[id*="sidebar" i],[class*="sidebar" i]').forEach(function(node){if(!roots.includes(node))roots.push(node);});
+    document.querySelectorAll(SIDEBAR_ROOT_SELECTOR).forEach(function(node){
+      if(isGeneratedSidebarSafetyNode(node)||isNestedSidebarRoot(node))return;
+      roots.push(node);
+    });
     roots.forEach(function(sidebar){
       sidebar.querySelectorAll('img,svg,[class*="logo" i],[class*="brand" i],[id*="logo" i],[id*="brand" i]').forEach(function(node){
         if(isLogo(node))markLogo(node,sidebar);
@@ -244,8 +262,8 @@
     if(input)input.value='';renderResults('');closeTimer=window.setTimeout(function(){if(panel){panel.hidden=true;if(backdrop)backdrop.hidden=true;closeTimer=null;}},210);
     if(returnFocus&&trigger&&document.contains(trigger))window.setTimeout(function(){try{trigger.focus();}catch(_){}},0);
   }
-  function sync(){
-    addStyles();fixSidebarLogos();var root=codeRoot();
+  function sync(scanLogos){
+    addStyles();if(scanLogos!==false)fixSidebarLogos();var root=codeRoot();
     if(!root){if(panel&&!panel.hidden&&panel.classList.contains('is-open'))closePanel(false);return;}
     var header=codeHeader(root);
     if(!header){if(panel&&!panel.hidden&&panel.classList.contains('is-open'))closePanel(false);return;}
@@ -267,8 +285,45 @@
     }
     if((event.ctrlKey||event.metaKey)&&String(event.key||'').toLowerCase()==='p'&&codeRoot()){event.preventDefault();if(panel&&!panel.hidden&&panel.classList.contains('is-open'))closePanel(false);else openPanel();}
   });
-  window.addEventListener('resize',positionPanel);window.addEventListener('scroll',positionPanel,true);window.addEventListener('ovyx:view-changed',sync);window.addEventListener('firebase-auth-state-ready',sync);
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',sync,{once:true});else sync();
-  if(document.body&&typeof MutationObserver==='function'){var observer=new MutationObserver(sync);observer.observe(document.body,{childList:true,subtree:true});}
-  window.OVYXWebStudioCodeSearch=Object.freeze({version:'1.5.0',refresh:sync,open:openPanel,close:closePanel,search:function(query){var q=String(query||'').trim().toLowerCase();if(!q)return[];return graphFiles().filter(function(file){return file.path.toLowerCase().indexOf(q)>=0;}).slice(0,MAX_RESULTS).map(function(file){return file.path;});}});
+  function elementIsInsideSidebar(node){
+    if(!node||node.nodeType!==1)return false;
+    return !!((node.matches&&node.matches(SIDEBAR_ROOT_SELECTOR))||(node.closest&&node.closest(SIDEBAR_ROOT_SELECTOR)));
+  }
+  function addedSubtreeContainsSidebar(node){
+    if(!node||node.nodeType!==1)return false;
+    return !!((node.matches&&node.matches(SIDEBAR_ROOT_SELECTOR))||(node.querySelector&&node.querySelector(SIDEBAR_ROOT_SELECTOR)));
+  }
+  function mutationTouchesSidebar(records){
+    return records.some(function(record){
+      // Mutation targets are ancestors of the changed nodes. Do not treat a
+      // shared container such as document.body as a sidebar mutation merely
+      // because it contains a sidebar elsewhere in the document.
+      if(elementIsInsideSidebar(record.target))return true;
+      var nodes=Array.from(record.addedNodes||[]).concat(Array.from(record.removedNodes||[]));
+      return nodes.some(addedSubtreeContainsSidebar);
+    });
+  }
+  var syncScheduled=false,pendingLogoScan=false;
+  function scheduleSync(scanLogos){
+    if(scanLogos)pendingLogoScan=true;
+    if(syncScheduled)return;
+    syncScheduled=true;
+    var run=function(){
+      syncScheduled=false;
+      var shouldScan=pendingLogoScan;
+      pendingLogoScan=false;
+      sync(shouldScan);
+    };
+    if(typeof window.requestAnimationFrame==='function')window.requestAnimationFrame(run);
+    else window.setTimeout(run,16);
+  }
+  window.addEventListener('resize',positionPanel);window.addEventListener('scroll',positionPanel,true);
+  window.addEventListener('ovyx:view-changed',function(){scheduleSync(true);});
+  window.addEventListener('firebase-auth-state-ready',function(){scheduleSync(false);});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){scheduleSync(true);},{once:true});else scheduleSync(true);
+  if(document.body&&typeof MutationObserver==='function'){
+    var observer=new MutationObserver(function(records){scheduleSync(mutationTouchesSidebar(records));});
+    observer.observe(document.body,{childList:true,subtree:true});
+  }
+  window.OVYXWebStudioCodeSearch=Object.freeze({version:'1.5.0',refresh:function(){sync(true);},open:openPanel,close:closePanel,search:function(query){var q=String(query||'').trim().toLowerCase();if(!q)return[];return graphFiles().filter(function(file){return file.path.toLowerCase().indexOf(q)>=0;}).slice(0,MAX_RESULTS).map(function(file){return file.path;});}});
 })();

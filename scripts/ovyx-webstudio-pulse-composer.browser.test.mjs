@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixtures.mjs';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || 'http://127.0.0.1:8789').trim();
 const browser = await chromium.launch({ headless: true });
@@ -22,35 +23,77 @@ try {
   ]) {
     lastCheckpoint = target.name + ': viewport started';
     console.log('[' + target.name + '] checkpoint: viewport started');
-    const page = await browser.newPage({ viewport: target.viewport });
+    const context = await bounded(browser.newContext({ viewport: target.viewport }), target.name + ': create browser context', 20000);
+    lastCheckpoint = target.name + ': browser context ready';
+    console.log('[' + target.name + '] checkpoint: browser context ready');
+    const page = await bounded(context.newPage(), target.name + ': create browser page', 20000);
+    lastCheckpoint = target.name + ': page ready';
+    console.log('[' + target.name + '] checkpoint: page ready');
     page.on('console', message => console.log('[' + target.name + '] browser console: ' + message.type() + ' ' + message.text()));
     page.on('pageerror', error => console.error('[' + target.name + '] page JavaScript error: ' + String(error?.stack || error)));
+    page.on('requestfailed', request => console.error('[' + target.name + '] request failed: ' + request.url() + ' ' + (request.failure()?.errorText || '')));
+    page.on('response', response => {
+      if (response.status() >= 400) console.error('[' + target.name + '] HTTP ' + response.status() + ' ' + response.url());
+    });
     page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed'));
     page.on('close', () => console.error('[' + target.name + '] Chromium page closed unexpectedly'));
     page.setDefaultTimeout(20000);
-    const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await bounded(installOwnerBrowserApiFixtures(page, {
+      initialUser: { uid: 'ovyx-webstudio-browser-user', email: 'webstudio@example.test', token: 'ovyx-webstudio-browser-token' }
+    }), target.name + ': install browser API fixtures', 20000);
+    lastCheckpoint = target.name + ': browser fixtures ready';
+    console.log('[' + target.name + '] checkpoint: browser fixtures ready');
+    // The production shell executes large inline boot scripts before
+    // DOMContentLoaded. Assert the Web Studio controls directly after commit.
+    lastCheckpoint = target.name + ': navigating to local Pages shell';
+    console.log('[' + target.name + '] checkpoint: navigating to local Pages shell');
+    const response = await bounded(page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 }), target.name + ': load local Pages shell', 65000);
+    lastCheckpoint = target.name + ': Pages shell response received';
+    console.log('[' + target.name + '] checkpoint: Pages shell response received');
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
-    await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached' });
-    await page.waitForSelector('#ws-pulse-trigger', { state: 'attached' });
-    await page.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
+    console.log('[' + target.name + '] Pages response headers: ' + JSON.stringify(response.headers()));
+    // Capture the renderer state before waiting. If the page stops servicing
+    // evaluations, the Node-side fallback still records that distinction.
+    const bootstrapDiagnostic = await Promise.race([
+      page.evaluate(() => ({
+        readyState: document.readyState,
+        pulseMarker: window.__OVYX_WEBSTUDIO_PULSE_COMPOSER_V1__ === true,
+        routeAuthority: typeof window.OVYXRouteAuthority?.go,
+        composerPresent: !!document.querySelector('#ws-chat-composer'),
+        bodyChildren: document.body?.children?.length || 0,
+        bodyTextLength: document.body?.innerText?.length || 0,
+        scripts: Array.from(document.scripts).filter(script => script.src).map(script => ({
+          src: script.src,
+          readyState: script.readyState || null,
+        })),
+      })),
+      new Promise(resolve => setTimeout(() => resolve({ diagnostic: 'Browser page did not answer the bootstrap probe within 5 seconds.' }), 5000)),
+    ]).catch(error => ({ diagnosticError: String(error?.stack || error) }));
+    console.log('[' + target.name + '] bootstrap diagnostic: ' + JSON.stringify(bootstrapDiagnostic));
+    // Poll on a timer rather than requestAnimationFrame so the readiness gate
+    // still progresses if the shell has a paused animation frame queue.
+    await page.waitForFunction(
+      () => document.readyState !== 'loading'
+        && typeof window.OVYXRouteAuthority?.go === 'function'
+        && window.__OVYX_WEBSTUDIO_PULSE_COMPOSER_V1__ === true,
+      null,
+      { timeout: 45000, polling: 250 },
+    );
+    await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached', timeout: 45000 });
     await page.evaluate(() => {
-      // Use the real router; forcing CSS classes alone lets the shell route
-      // synchronizer hide the view again during a longer browser interaction.
-      if (typeof window.switchView === 'function') {
-        window.switchView('webstudio', { silent: true });
-      } else {
-        if (window.KernelState) window.KernelState.activeView = 'webstudio';
-        window.__OVYX_BOOT_ROUTE = 'webstudio';
-        document.body.classList.add('ovyx-webstudio-active');
-        const view = document.getElementById('view-webstudio');
-        if (view) {
-          view.classList.remove('hidden');
-          view.setAttribute('aria-hidden', 'false');
-        }
-        window.dispatchEvent(new CustomEvent('ovyx:view-changed', { detail: { view: 'webstudio' } }));
-      }
+      const route = window.OVYXRouteAuthority?.go;
+      if (typeof route !== 'function') throw new Error('Final OVYX route authority is unavailable.');
+      route('webstudio', { force: true });
       document.body.classList.add('ovyx-webstudio-active');
-    });;
+    });
+    await page.waitForFunction(
+      () => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'webstudio'
+        && !document.getElementById('view-webstudio')?.classList.contains('hidden')
+        && document.getElementById('ws-chat-composer')?.dataset.ovyxPulseComposer === '1',
+      null,
+      { timeout: 45000 },
+    );
+    await page.waitForSelector('#ws-pulse-trigger', { state: 'attached', timeout: 15000 });
 
     const pulse = page.locator('#ws-pulse-trigger');
     const mic = page.locator('#ws-composer-mic');

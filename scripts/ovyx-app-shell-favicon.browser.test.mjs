@@ -6,9 +6,37 @@ const origin = new URL(baseUrl).origin;
 const browser = await chromium.launch({ headless: true });
 
 try {
+  // First separate HTML delivery/parsing from JavaScript startup. If this
+  // succeeds while the normal navigation stalls, the response is complete
+  // and a client-side script is blocking the document lifecycle.
+  const parserOnlyContext = await browser.newContext({ javaScriptEnabled: false });
+  const parserOnlyPage = await parserOnlyContext.newPage();
+  const parserOnlyResponse = await parserOnlyPage.goto(new URL('/', origin).href, {
+    waitUntil: 'domcontentloaded',
+    timeout: 15000,
+  });
+  assert.ok(parserOnlyResponse && parserOnlyResponse.status() === 200,
+    'The complete HTML shell must parse even with JavaScript disabled.');
+  const parserOnlyHtml = await parserOnlyResponse.text();
+  const parserOnlyComplete = /<\/html>\s*$/i.test(parserOnlyHtml);
+  assert.ok(parserOnlyComplete, 'The buffered Pages response must deliver the complete HTML document, not a truncated or mis-encoded body.');
+  assert.ok(parserOnlyHtml.includes('id="app-container"'), 'The complete HTML response must include the existing OVYX application shell.');
+  assert.ok(parserOnlyHtml.includes('ovyx-webstudio-pulse-composer-runtime-v1'), 'The complete HTML response must retain the final Web Studio runtime marker.');
+  console.log('OVYX parser-only diagnostic: ' + JSON.stringify({
+    status: parserOnlyResponse.status(),
+    bytes: Buffer.byteLength(parserOnlyHtml),
+    closesDocument: parserOnlyComplete,
+    hasAppContainer: parserOnlyHtml.includes('id="app-container"'),
+    hasLateShellMarker: parserOnlyHtml.includes('ovyx-webstudio-pulse-composer-runtime-v1'),
+  }));
+  await parserOnlyContext.close();
+
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   const response = await page.goto(new URL('/', origin).href, {
-    waitUntil: 'domcontentloaded',
+    // The production shell contains legacy deferred startup work. Commit is
+    // the navigation boundary; the explicit favicon assertions below verify
+    // the actual DOM/runtime state without coupling to DOMContentLoaded.
+    waitUntil: 'commit',
     timeout: 30000,
   });
 
@@ -101,6 +129,8 @@ try {
   );
 
   assert.equal(await page.locator('script[src*="ovyx-shell-favicon-lock.js?v=20261021-3"]').count(), 1, 'The authoritative shell favicon lock must load exactly once.');
+  assert.equal(await page.locator('script[src*="ovyx-shell-favicon-lock.js?v=20261021-3"]').evaluate(node => node.defer), true,
+    'The middleware-injected favicon lock must be deferred so it cannot block parsing the OVYX document body.');
   assert.ok(
     /no-store|no-cache/.test(response.headers()['cache-control'] || ''),
     'The HTML shell response must not reuse a cached page containing an old favicon reference.'

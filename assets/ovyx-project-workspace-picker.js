@@ -222,6 +222,15 @@
         }
         #ovyx-project-workspace-picker .ovx-picker-head {
           padding: 16px 15px 12px;
+          flex: 0 1 auto;
+          min-height: 0;
+          max-height: 52%;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+        }
+        #ovyx-project-workspace-picker .ovx-picker-list {
+          flex: 1 1 0;
+          min-height: 0;
         }
         #ovyx-project-workspace-picker .ovx-picker-foot {
           align-items: flex-start;

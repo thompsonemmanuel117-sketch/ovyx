@@ -8,6 +8,32 @@ import assert from 'node:assert/strict';
  * Keep the response bodies shaped like the corresponding public/admin APIs.
  */
 export async function installOwnerBrowserApiFixtures(page, options = {}) {
+  // The production shell references Google Fonts and Font Awesome stylesheets.
+  // CI has no need to test those vendors, and a slow external CSS response can
+  // block the HTML parser before OVYX's inline runtimes and DOM-ready handlers
+  // execute. Fulfil only these presentation styles locally; app/API requests
+  // and all product behavior remain under the normal browser test.
+  for (const stylesheet of [
+    'https://fonts.googleapis.com/**',
+    'https://cdnjs.cloudflare.com/**',
+  ]) {
+    await page.route(stylesheet, route => route.fulfill({
+      status: 200,
+      contentType: 'text/css; charset=utf-8',
+      headers: { 'cache-control': 'no-store' },
+      body: '',
+    }));
+  }
+  // The test installs its own Firebase facade before page scripts execute.
+  // Do not also fetch the production SDK from the network: a slow parser-
+  // blocking Firebase script can prevent DOMContentLoaded and stall every
+  // otherwise isolated browser regression.
+  await page.route('https://www.gstatic.com/firebasejs/**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript; charset=utf-8',
+    headers: { 'cache-control': 'no-store' },
+    body: '',
+  }));
   // Avoid depending on outbound Firebase CDN availability in a local browser
   // test. This facade only exists inside the Playwright page; API authority is
   // represented by route fixtures and is independently verified server-side.
@@ -133,7 +159,27 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
   let integrationLive = true;
 
   const responseFor = (path, method, request) => {
-    if (path === '/api/entitlements') return null; // explicit identity fixture is registered after this catch-all
+    if (path === '/api/entitlements') {
+      // Keep authenticated UI regressions isolated from Firestore. Tests that
+      // verify owner authority register a later, explicit route and override
+      // this least-privilege browser-only response.
+      const user = options && options.initialUser && typeof options.initialUser === 'object' ? options.initialUser : null;
+      if (!user) return null;
+      const capabilities = {
+        webStudio: true, advancedWebStudio: false, appStudio: false,
+        gameStudio: false, aiGeneration: true, github: false,
+        cloudflareDeploy: true, teamWorkspace: false, templates: true
+      };
+      const email = String(user.email || 'builder@example.test').trim().toLowerCase();
+      return {
+        ok: true, uid: String(user.uid || 'ovyx-browser-test-user'), email,
+        role: 'FREE_USER', owner: false, admin: false, bypass: false, isRoot: false,
+        planTier: 'free', planTierState: 'free', accessActive: false,
+        capabilities, featureRules: [], gating: {}, planFeatures: {},
+        planFeaturesManaged: false,
+        entitlements: { role: 'FREE_USER', owner: false, admin: false, bypass: false, capabilities }
+      };
+    }
     if (path === '/api/health') return {
       ok: true, status: 'READY', healthy: true, groups: {}, summary: { ok: true }, routes: [],
       missingRequiredEnvironment: [], invalidRequiredEnvironment: [], checkedAt: new Date().toISOString()
@@ -300,4 +346,82 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
       body: JSON.stringify(body)
     });
   });
+}
+
+
+/**
+ * Capture a short V8 CPU profile during shell startup. This helps identify
+ * hot application frames when a browser cannot reach its feature-ready gate.
+ */
+/**
+ * Interrupt a stalled shell startup with the Chrome debugger and report the
+ * JavaScript stack that is actually blocking the renderer. V8 Profiler.stop
+ * cannot return a useful profile when the renderer event loop is wedged.
+ */
+export async function startBrowserStartupProfiler(page, label, timeoutMs = 30000) {
+  const session = await page.context().newCDPSession(page);
+  await session.send('Debugger.enable');
+  const scripts = new Map();
+  session.on('Debugger.scriptParsed', event => {
+    scripts.set(event.scriptId, { url: event.url || '', hash: event.hash || '' });
+  });
+  let finished = false;
+  let timer;
+  let pauseResolver;
+  let pausePromise = new Promise(resolve => { pauseResolver = resolve; });
+  session.on('Debugger.paused', async event => {
+    const frames = (event.callFrames || []).slice(0, 12).map(frame => ({
+      function: frame.functionName || '(anonymous)',
+      url: frame.url || scripts.get(frame.location?.scriptId)?.url || '',
+      scriptId: frame.location?.scriptId || '',
+      line: Number.isInteger(frame.location?.lineNumber) ? frame.location.lineNumber + 1 : null,
+      column: Number.isInteger(frame.location?.columnNumber) ? frame.location.columnNumber + 1 : null,
+    }));
+    const sourceSnippets = [];
+    for (const frame of frames.slice(0, 3)) {
+      if (!frame.scriptId) continue;
+      try {
+        const result = await session.send('Debugger.getScriptSource', { scriptId: frame.scriptId });
+        const sourceLines = String(result.scriptSource || '').split('\\n');
+        const lineIndex = Math.max(0, (frame.line || 1) - 1);
+        const sourceLine = sourceLines[lineIndex] || '';
+        const column = Math.max(0, (frame.column || 1) - 1);
+        sourceSnippets.push({
+          function: frame.function,
+          line: frame.line,
+          source: sourceLine.slice(Math.max(0, column - 180), column + 420),
+        });
+      } catch (error) {
+        sourceSnippets.push({ function: frame.function, sourceError: String(error?.message || error) });
+      }
+    }
+    console.error('[' + label + '] startup JavaScript debugger stack: ' + JSON.stringify({
+      reason: event.reason || 'debugger-pause',
+      frames,
+      sourceSnippets,
+    }));
+    pauseResolver?.(frames);
+    try { await session.send('Debugger.resume'); } catch (_) {}
+  });
+  const finish = async reason => {
+    if (finished) return;
+    finished = true;
+    if (timer) clearTimeout(timer);
+    try {
+      const pauseRequest = session.send('Debugger.pause').catch(error => {
+        console.error('[' + label + '] startup debugger pause request failed: ' + String(error?.message || error));
+        return null;
+      });
+      await Promise.race([
+        Promise.all([pauseRequest, pausePromise]),
+        new Promise(resolve => setTimeout(resolve, 5000)),
+      ]);
+    } catch (error) {
+      console.error('[' + label + '] startup debugger diagnostic failed (' + reason + '): ' + String(error?.message || error));
+    } finally {
+      try { await session.detach(); } catch (_) {}
+    }
+  };
+  timer = setTimeout(() => { void finish('shell startup still has not reached readiness after ' + timeoutMs + 'ms'); }, timeoutMs);
+  return () => finish('shell startup reached readiness');
 }

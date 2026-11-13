@@ -1,6 +1,8 @@
+// Regression trigger: changes to this browser suite should rerun its owning GitHub Actions workflow.
+// Keep Settings and Assistant bootstrap regressions aligned on the same tested commit.
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixtures.mjs';
+import { installOwnerBrowserApiFixtures, startBrowserStartupProfiler } from './ovyx-owner-browser-api-fixtures.mjs';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
@@ -13,7 +15,7 @@ const expectedActions = [
   'open-assets', 'open-history', 'open-sections', 'open-preview',
 ];
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage'] });
 try {
   for (const target of [
     { name: 'desktop', viewport: { width: 1280, height: 900 } },
@@ -21,24 +23,141 @@ try {
   ]) {
     const page = await browser.newPage({ viewport: target.viewport, acceptDownloads: true });
     page.setDefaultTimeout(20000);
-    await installOwnerBrowserApiFixtures(page);
+    await installOwnerBrowserApiFixtures(page, {
+      initialUser: { uid: 'ovyx-assistant-browser-user', email: 'assistant@example.test', token: 'ovyx-assistant-browser-token' }
+    });
+    const stopStartupProfiler = await startBrowserStartupProfiler(page, target.name + ' Assistant');
     const errors = [];
+    const bootstrapErrors = [];
+    page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed during Assistant bootstrap.'));
+    page.on('close', () => console.error('[' + target.name + '] Chromium page closed during Assistant bootstrap.'));
+    browser.on('disconnected', () => console.error('[' + target.name + '] Chromium browser disconnected during Assistant test.'));
     page.on('pageerror', error => {
+      bootstrapErrors.push(String(error?.stack || error?.message || error));
       if (/ovyx-native|menuAction|workspaceTool|recoverLatestWorkspaceEdit|reviewWorkspaceEditHistory/i.test(error.message)) errors.push(error.message);
     });
+    page.on('console', message => {
+      if (message.type() === 'error') bootstrapErrors.push('console: ' + message.text());
+    });
 
-    const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    // Gate on the Assistant runtime below rather than unrelated inline scripts
+    // reaching DOMContentLoaded before the feature can be exercised.
+    console.log(`[${target.name}] Assistant stage: navigating to OVYX shell.`);
+    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, `[${target.name}] app returned an HTTP error`);
-    await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 45000 });
+    console.log(`[${target.name}] Assistant stage: shell response received; waiting for legacy runtime.`);
+    // The legacy assistant creates its panel when open() is called. Waiting
+    // for the panel before invoking open() is a circular readiness condition.
+    try {
+      await page.waitForFunction(() => typeof window.WorkspaceBrainBot?.open === 'function', null, { timeout: 60000 });
+    } catch (error) {
+      const diagnostic = await Promise.race([
+        page.evaluate(() => ({
+          readyState: document.readyState,
+          bot: typeof window.WorkspaceBrainBot,
+          open: typeof window.WorkspaceBrainBot?.open,
+          panel: !!document.getElementById('kernel-brain-bot-panel'),
+          panelHidden: document.getElementById('kernel-brain-bot-panel')?.classList.contains('hidden') ?? null,
+          bodyReady: !!document.body,
+          assistantAssetRequested: performance.getEntriesByType('resource').some(entry => entry.name.includes('/assets/ovyx-assistant-workspace.js')),
+          scripts: performance.getEntriesByType('resource').map(entry => entry.name).filter(src => /\.js(?:\?|$)/.test(src)).slice(-35),
+        })),
+        new Promise(resolve => setTimeout(() => resolve({ diagnostic: 'Browser page did not answer the Assistant bootstrap diagnostic within 5 seconds.' }), 5000)),
+      ]).catch(e => ({ diagnostic: 'Browser page unavailable: ' + String(e?.message || e) }));
+      console.error('[' + target.name + '] Legacy Assistant bootstrap diagnostic: ' + JSON.stringify({ ...diagnostic, pageErrors: bootstrapErrors.slice(-30) }));
+      throw error;
+    }
+    await stopStartupProfiler();
+    await page.evaluate(() => {
+      const user = window.__setOVYXBrowserAuthUser?.({
+        uid: 'ovyx-assistant-browser-user',
+        email: 'assistant@example.test',
+        token: 'ovyx-assistant-browser-token',
+      });
+      if (!user || !window.firebase?.auth?.()?.currentUser) {
+        throw new Error('The isolated Firebase browser fixture did not restore its signed-in test user after shell boot.');
+      }
+    });
 
-    const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
-    assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
-    const scriptSources = await assistantScript.evaluateAll(nodes => nodes.map(node => node.src));
-    assert.ok(scriptSources.some(src => /[?&]v=20261030-1(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
+    // The shell's asset loader may remove transient script elements after execution.
+    // Verify the fetched asset through the browser resource timing buffer instead
+    // of requiring its temporary <script> node to remain in the DOM.
+    await page.waitForFunction(() => {
+      const resources = performance.getEntriesByType('resource').map(entry => entry.name);
+      return resources.some(src => /\/assets\/ovyx-assistant-workspace\.js(?:\?|$)/.test(src));
+    }, null, { timeout: 15000 });
+    const assistantAssetSources = await page.evaluate(() =>
+      performance.getEntriesByType('resource')
+        .map(entry => entry.name)
+        .filter(src => /\/assets\/ovyx-assistant-workspace\.js(?:\?|$)/.test(src))
+    );
+    assert.ok(assistantAssetSources.length, `[${target.name}] assistant workspace asset was not fetched`);
+    assert.ok(assistantAssetSources.some(src => /[?&]v=20261112-1(?:&|$)/.test(src)),
+      `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
+    // Resource timing records a fetch before the asset's boot hook necessarily
+    // finishes. Wait for the native wrapper before invoking the public open API.
+    try {
+      await page.waitForFunction(() => window.WorkspaceBrainBot?.__ovyxNativeOpen === true, null, { timeout: 120000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        bot: typeof window.WorkspaceBrainBot,
+        open: typeof window.WorkspaceBrainBot?.open,
+        nativeOpen: window.WorkspaceBrainBot?.__ovyxNativeOpen === true,
+        nativeSend: window.WorkspaceBrainBot?.__ovyxNativeSend === true,
+        aiService: typeof window.OVYXAIService,
+        generate: typeof window.OVYXAIService?.generate,
+        nativeRoute: window.OVYXAIService?.__ovyxNativeWorkspaceRoute === true,
+        runtimeLoaded: performance.getEntriesByType('resource').some(entry => entry.name.includes('/assets/ovyx-assistant-workspace.js')),
+        pageErrors: errors,
+      })).catch(() => ({ diagnostic: 'page unavailable' }));
+      console.error('[' + target.name + '] Assistant native-routing diagnostic: ' + JSON.stringify(diagnostic));
+      throw error;
+    }
 
-    await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
-    await panel.waitFor({ state: 'visible' });
+    // The legacy assistant mounts its panel lazily from open(). Invoke the
+    // public API first, then wait for the actual panel and verify it becomes visible.
+    await page.evaluate(() => window.WorkspaceBrainBot.open());
+    await panel.waitFor({ state: 'attached', timeout: 45000 });
+    const panelState = await panel.evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      const computed = getComputedStyle(el);
+      const ancestors = [];
+      for (let node = el; node && node !== document.documentElement && ancestors.length < 6; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        const box = node.getBoundingClientRect();
+        ancestors.push({
+          tag: node.tagName,
+          id: node.id || '',
+          className: typeof node.className === 'string' ? node.className : '',
+          display: style.display,
+          visibility: style.visibility,
+          opacity: style.opacity,
+          width: Math.round(box.width),
+          height: Math.round(box.height),
+        });
+      }
+      return {
+        hidden: el.hidden,
+        ariaHidden: el.getAttribute('aria-hidden'),
+        className: el.className,
+        inlineStyle: el.getAttribute('style') || '',
+        computed: {
+          display: computed.display,
+          visibility: computed.visibility,
+          opacity: computed.opacity,
+          position: computed.position,
+          width: computed.width,
+          height: computed.height,
+          pointerEvents: computed.pointerEvents,
+          transform: computed.transform,
+        },
+        rect: { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) },
+        ancestors,
+      };
+    });
+    console.log('[' + target.name + '] assistant panel state after open: ' + JSON.stringify(panelState));
+    await panel.waitFor({ state: 'visible', timeout: 15000 });
 
     // The real Home dock has inline !important styles and multiple shell
     // controllers. Verify the actual production element is hidden when the
@@ -629,6 +748,18 @@ try {
     await page.close();
   }
 } finally {
-  await browser.close();
+  let closeTimer;
+  try {
+    await Promise.race([
+      browser.close(),
+      new Promise((_, reject) => { closeTimer = setTimeout(() => reject(new Error('Chromium shutdown exceeded 8 seconds.')), 8000); }),
+    ]);
+  } catch (error) {
+    console.error('[assistant-browser] ' + String(error?.message || error));
+    process.exitCode = 1;
+    process.exit(1);
+  } finally {
+    if (closeTimer) clearTimeout(closeTimer);
+  }
 }
 console.log('OVYX assistant workspace browser interaction tests passed.');

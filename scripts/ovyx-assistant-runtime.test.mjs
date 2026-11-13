@@ -6,6 +6,8 @@ const native = fs.readFileSync('functions/_lib/ovyx-native-ai.js', 'utf8');
 
 assert.match(source, /data-ovyx-native-more/);
 assert.match(source, /function bindMenuTrigger\(\)/);
+assert.match(source, /window\.WorkspaceBrainBot\?\.__ovyxNativeOpen && window\.OVYXAIService\?\.__ovyxNativeWorkspaceRoute/,
+  'Assistant boot polling must not stop before the public open wrapper is installed.');
 assert.match(source, /trigger\.addEventListener\('click'/);
 assert.match(source, /menu\.hidden = !opening/);
 assert.match(source, /function localWorkspaceSnapshot\(\)/);
@@ -114,3 +116,5 @@ assert.match(source, /__ovyxNativeRetryAttachments/,
 assert.match(source, /Files over 1 MB are not read|text file is over 1 MB/);
 
 console.log('OVYX assistant reliability, fallback-context, native AI and avatar tests passed.');
+
+assert.match(source, /attempts >= 480/, 'Assistant native routing must keep retrying while the legacy shell finishes delayed startup.');

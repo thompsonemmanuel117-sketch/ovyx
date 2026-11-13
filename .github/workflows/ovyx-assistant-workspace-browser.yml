@@ -1,10 +1,19 @@
+# Trigger note: keep this workflow path in the PR filter so focused browser regressions rerun when its coverage changes.
 name: OVYX Assistant Workspace Browser Tests
+
+concurrency:
+  group: ovyx-assistant-browser-${{ github.ref }}
+  cancel-in-progress: false
 
 on:
   push:
     branches:
       - main
+      - feat/app-studio-panel-experience
     paths:
+      - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
+      - 'scripts/ovyx-account-notifications.browser.test.mjs'
+      - 'scripts/ovyx-settings.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-settings-reliability.js'
       - 'assets/ovyx-webstudio-reliability.js'
@@ -12,6 +21,11 @@ on:
       - 'functions/api/account/delete.js'
       - 'functions/api/api/auth/revoke-sessions.js'
       - 'functions/api/ai/gateway.js'
+      - 'functions/_middleware.js'
+      - 'assets/ovyx-webstudio-code-search.js'
+      - 'scripts/ovyx-webstudio-code-search.test.mjs'
+      - 'assets/ovyx-webstudio-code-search.js'
+      - 'scripts/ovyx-webstudio-code-search.test.mjs'
       - 'functions/_lib/brand-dna.js'
       - 'functions/api/app-studio/brand-profile.js'
       - 'assets/ovyx-app-studio-brand-dna.js'
@@ -203,7 +217,7 @@ jobs:
         run: npx wrangler deploy --config sentinel-worker/wrangler.toml --dry-run
 
       - name: Install Chromium
-        run: npx playwright install chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Start local Cloudflare Pages app
         run: |
@@ -211,7 +225,7 @@ jobs:
           echo $! > /tmp/ovyx-pages.pid
           curl --retry 30 --retry-connrefused --retry-delay 2 --fail http://127.0.0.1:8788/ -o /dev/null
 
-      - name: Run desktop and mobile browser regression suites in parallel shards
+      - name: Run desktop and mobile browser regression suites with isolated browser load
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
         run: |
@@ -222,11 +236,11 @@ jobs:
             shift 2
             for script in "$@"; do
               echo "[$label] START $script"
-              timeout --signal=TERM --kill-after=30s 8m node "scripts/$script" 2>&1 | tee -a "$log_file"
+              timeout --signal=TERM --kill-after=15s 5m node "scripts/$script" 2>&1 | tee -a "$log_file"
               script_status=${PIPESTATUS[0]}
               if [ "$script_status" -ne 0 ]; then
                 if [ "$script_status" -eq 124 ] || [ "$script_status" -eq 137 ]; then
-                  echo "[$label] TIMEOUT after 8 minutes: $script"
+                  echo "[$label] TIMEOUT after 5 minutes: $script"
                 else
                   echo "[$label] FAILED ($script_status): $script"
                 fi
@@ -236,9 +250,9 @@ jobs:
             done
           }
 
-          # Preserve every desktop/mobile assertion while streaming each suite's
-          # output. A single stuck browser suite now identifies itself within 8m
-          # instead of hiding in a long, silent shard.
+          # Each browser suite covers desktop and mobile. Run the two groups
+          # sequentially against the single local Pages worker: parallel Chromium
+          # processes were starving navigation and causing unrelated goto timeouts.
           run_shard "app-studio-and-admin" /tmp/ovyx-assistant-shard-a.log \
             ovyx-account-notifications.browser.test.mjs \
             ovyx-brand-dna.browser.test.mjs \
@@ -249,25 +263,33 @@ jobs:
             ovyx-app-studio-workspace.browser.test.mjs \
             ovyx-app-studio-release-health.test.mjs \
             ovyx-admin-workspace.browser.test.mjs \
-            ovyx-admin-hub.browser.test.mjs &
-          shard_a_pid=$!
+            ovyx-admin-hub.browser.test.mjs
+          shard_a_status=$?
 
           # Settings coverage runs once in the dedicated Settings Regression workflow.
-          # Keep this shard focused on Assistant, Sentinel, provider and Web Studio flows.
+          # Keep this group focused on Assistant, Sentinel, provider and Web Studio flows.
           run_shard "assistant-and-runtime" /tmp/ovyx-assistant-shard-b.log \
             ovyx-assistant-workspace.browser.test.mjs \
             ovyx-sentinel.browser.test.mjs \
             ovyx-provider-availability.browser.test.mjs \
-            ovyx-webstudio-reliability.browser.test.mjs &
-          shard_b_pid=$!
-
-          wait "$shard_a_pid"; shard_a_status=$?
-          wait "$shard_b_pid"; shard_b_status=$?
+            ovyx-webstudio-reliability.browser.test.mjs
+          shard_b_status=$?
 
           if [ "$shard_a_status" -ne 0 ] || [ "$shard_b_status" -ne 0 ]; then
-            echo "One or more Assistant Workspace browser-test shards failed."
+            echo "One or more Assistant Workspace browser-test groups failed."
             exit 1
           fi
+
+      - name: Print browser resource diagnostics on failure
+        if: failure()
+        run: |
+          echo '=== runner memory ==='
+          free -h || true
+          echo '=== cgroup memory events ==='
+          cat /sys/fs/cgroup/memory.events || true
+          cat /sys/fs/cgroup/memory.current || true
+          echo '=== largest processes ==='
+          ps -eo pid,ppid,rss,%mem,%cpu,comm --sort=-rss | head -n 20 || true
 
       - name: Print local Pages logs on failure
         if: failure()

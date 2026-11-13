@@ -1,5 +1,7 @@
+// Regression trigger: changes to this browser suite should rerun its owning GitHub Actions workflow.
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { installOwnerBrowserApiFixtures, startBrowserStartupProfiler } from './ovyx-owner-browser-api-fixtures.mjs';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
@@ -23,8 +25,7 @@ async function waitForRouteRestore(page) {
   );
 }
 
-
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage'] });
 try {
   for (const target of [
     { name: 'desktop', viewport: { width: 1280, height: 900 } },
@@ -32,7 +33,17 @@ try {
   ]) {
     const context = await browser.newContext({ viewport: target.viewport, acceptDownloads: true });
     const page = await context.newPage();
+    page.on('console', message => {
+      if (message.type() === 'error') console.error('[' + target.name + '] browser console error: ' + message.text());
+    });
+    page.on('pageerror', error => console.error('[' + target.name + '] browser page error: ' + String(error?.stack || error)));
+    page.on('requestfailed', request => console.error('[' + target.name + '] request failed: ' + request.url() + ' ' + (request.failure()?.errorText || '')));
+    page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed during Settings bootstrap.'));
+    page.on('close', () => console.error('[' + target.name + '] Chromium page closed during Settings bootstrap.'));
+    browser.on('disconnected', () => console.error('[' + target.name + '] Chromium browser disconnected.'));
     page.setDefaultTimeout(20000);
+    await installOwnerBrowserApiFixtures(page);
+    const stopStartupProfiler = await startBrowserStartupProfiler(page, target.name + ' Settings');
     const settingsErrors = [];
     page.on('pageerror', error => {
       if (/renderDataLayer|OVYXDataLayerSettings|ovyx-data-(?:endpoint|sync|test|save|schema)|dbCfg/i.test(error.message)) {
@@ -40,20 +51,53 @@ try {
       }
     });
 
-    const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    console.log('[' + target.name + '] Settings stage: navigating to OVYX shell.');
+    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX app did not load.');
-    await page.waitForFunction(
-      () => typeof window.Router?.go === 'function'
-        && typeof window.OVYXSettings?.show === 'function'
-        && !!window.OVYXDataLayerSettings,
-      null,
-      { timeout: 45000 },
-    );
+    console.log('[' + target.name + '] Settings stage: shell response received; waiting for Settings bootstrap.');
+    console.log('[' + target.name + '] Settings stage: checking route authority, Settings root and data-layer readiness markers.');
+    try {
+      await page.waitForFunction(
+        () => document.readyState !== 'loading'
+          && typeof window.OVYXRouteAuthority?.go === 'function'
+          && typeof window.OVYXSettings?.show === 'function'
+          && !!window.OVYXDataLayerSettings
+          && !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main')
+          && window.OVYXSettings.__n1415 === true,
+        null,
+        { timeout: 45000, polling: 250 },
+      );
+    } catch (error) {
+      const diagnostic = await Promise.race([
+        page.evaluate(() => ({
+          readyState: document.readyState,
+          routeAuthority: typeof window.OVYXRouteAuthority?.go,
+          settingsShow: typeof window.OVYXSettings?.show,
+          settingsRoot: !!window.OVYXSettings?.root,
+          settingsMain: !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main'),
+          dataLayerSettings: !!window.OVYXDataLayerSettings,
+          dataLayerMarker: window.OVYXSettings?.__n1415 === true,
+          settingsCurrent: window.OVYXSettings?.current || null,
+          scripts: Array.from(document.scripts).filter(script => script.src).map(script => ({
+            src: script.src, readyState: script.readyState || null
+          })),
+          bodyChildren: document.body?.children?.length || 0,
+        })),
+        new Promise(resolve => setTimeout(() => resolve({ diagnostic: 'Browser page did not answer the bootstrap diagnostic within 5 seconds.' }), 5000)),
+      ]).catch(error => ({
+        diagnostic: 'Browser page or context closed before the bootstrap diagnostic completed.',
+        error: String(error?.message || error),
+      }));
+      console.error('[' + target.name + '] OVYX bootstrap diagnostic: ' + JSON.stringify(diagnostic));
+      throw error;
+    }
 
+    await stopStartupProfiler();
     await waitForRouteRestore(page);
+    console.log('[' + target.name + '] Settings bootstrap and route restoration passed.');
+    console.log('[' + target.name + '] Settings stage: Data Layer entry');
     // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
-    await page.evaluate(() => { (window.OVYXRouteAuthority?.go || window.Router.go)('settings'); });
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
+    await page.evaluate(() => { window.OVYXRouteAuthority.go('settings'); });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
     const layer = page.locator('#ovyx-data-layer-panel');
@@ -121,9 +165,11 @@ try {
     assert.doesNotMatch(resultText, /backend-reported database|PostgreSQL/i,
       '[' + target.name + '] a health response must not imply the database vendor or CRUD operations were verified.');
 
-    const downloadPromise = page.waitForEvent('download');
+    console.log('[' + target.name + '] Settings stage: schema download');
+    const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
     await page.locator('#ovyx-data-schema').click();
     const download = await downloadPromise;
+    console.log('[' + target.name + '] data-layer schema download completed.');
     assert.equal(download.suggestedFilename(), 'ovyx-postgresql-schema.sql',
       '[' + target.name + '] schema button should download the starter schema file.');
 
@@ -244,6 +290,7 @@ try {
       delete window.__externalDataSyncOriginal;
     });
 
+    console.log('[' + target.name + '] Settings stage: external sync and reload');
     // Reopening the panel must not duplicate its injected container or lose settings.
     await page.evaluate(() => window.OVYXSettings.show('appearance'));
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
@@ -254,12 +301,15 @@ try {
     assert.equal(await page.locator('#ovyx-data-sync').getAttribute('aria-checked'), 'false');
 
     // Verify local persistence across an actual page reload as well.
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.reload({ waitUntil: 'commit', timeout: 60000 });
     await page.waitForFunction(
-      () => document.readyState === 'complete'
-        && typeof window.Router?.go === 'function'
+      () => document.readyState !== 'loading'
+        && typeof window.OVYXRouteAuthority?.go === 'function'
         && typeof window.OVYXSettings?.show === 'function'
-        && !!window.OVYXDataLayerSettings,
+        && !!window.OVYXDataLayerSettings
+        && document.readyState !== 'loading'
+        && !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main')
+        && window.OVYXSettings.__n1415 === true,
       null,
       { timeout: 45000 },
     );
@@ -267,7 +317,7 @@ try {
     // not need the unrelated app-wide last-view restoration to equal Settings.
     // Wait for pageshow/late route guards to settle, then explicitly open Settings.
     await page.waitForTimeout(400);
-    await page.evaluate(() => window.Router.go('settings'));
+    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
     await page.locator('#ovyx-data-endpoint').waitFor({ state: 'visible' });
@@ -275,6 +325,7 @@ try {
     const afterReload = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}'));
     assert.equal(afterReload.projectSync, false);
 
+    console.log('[' + target.name + '] Settings stage: Appearance round-trip');
     // Exercise Appearance preview, save, cancel, and reset through the rendered UI.
     // Seed a known persisted baseline and reload so ThemeContext starts from that state.
     await page.evaluate(() => {
@@ -302,7 +353,7 @@ try {
       const session = JSON.parse(localStorage.getItem('ovyx.runtime.session.v4') || '{}');
       localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ ...session, route: 'settings' }));
     });
-    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.reload({ waitUntil: 'commit', timeout: 60000 });
     await page.waitForFunction(
       () => typeof window.Router?.go === 'function' && typeof window.OVYXSettings?.show === 'function',
       null,
@@ -312,7 +363,7 @@ try {
     // the test's assertions concern Settings persistence, not that global hint.
     // Wait for its late restoration pass to settle, then navigate directly.
     await page.waitForTimeout(400);
-    await page.evaluate(() => window.Router.go('settings'));
+    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('appearance'));
     const appearance = page.locator('[data-settings-panel="appearance"]');
@@ -356,6 +407,7 @@ try {
       '[' + target.name + '] Privacy reset must update the legacy appearance mirror too.');
 
 
+    console.log('[' + target.name + '] Settings stage: Notifications');
     // Notifications must show only the current account-backed control set.
     await page.evaluate(() => window.OVYXSettings.show('notifications'));
     const notifications = page.locator('[data-settings-panel="notifications"]');
@@ -391,6 +443,7 @@ try {
         '[' + target.name + '] Cloudflare state labels must never claim connected for unknown/unavailable state.');
     }
 
+    console.log('[' + target.name + '] Settings stage: Usage and quota');
     // Verify that server quota refreshes on Usage panel entry and that failures remain honest/recoverable.
     await page.evaluate(() => {
       const user = {
@@ -452,6 +505,7 @@ try {
     assert.ok(balanceRequests.length > beforeQuotaLoad, '[' + target.name + '] Usage must recover when the server returns a valid quota again.');
     assert.match(await page.locator('#ovyx-usage-server-detail').innerText(), /Remaining: 65 tokens/i);
 
+    console.log('[' + target.name + '] Settings stage: Token Booster');
     await page.evaluate(() => window.OVYXSettings.show('boosters'));
     const boosters = page.locator('[data-settings-panel="boosters"]');
     await page.waitForFunction(() => !!document.querySelector('[data-settings-panel="boosters"] #ovyx-v65-booster-balance')
@@ -533,6 +587,7 @@ try {
       '[' + target.name + '] failed checkout must never claim the tokens were credited.');
     await boosterModal.locator('[data-close]').click();
 
+    console.log('[' + target.name + '] Settings stage: Billing and Security');
     await page.evaluate(() => window.OVYXSettings.show('plan'));
     const planPanel = page.locator('[data-settings-panel="plan"]');
     // The Billing layer replaces the initial Plan shell asynchronously; test its final visible control.
@@ -546,8 +601,7 @@ try {
     await page.locator('#view-pricing').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#view-pricing').getAttribute('aria-label'), 'OVYX Plans',
       '[' + target.name + '] Upgrade to Pro must navigate to the Plans view.');
-    await page.evaluate(() => window.Router.go('settings'));
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
+    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
     // Clear the payment-only identity fixture before verifying signed-out Security state.
@@ -569,5 +623,17 @@ try {
   }
   console.log('OVYX Settings browser tests passed on desktop and mobile: Data Layer, Appearance, Notifications, connection/security statuses, and mocked Token Booster failure handling.');
 } finally {
-  await browser.close();
+  let closeTimer;
+  try {
+    await Promise.race([
+      browser.close(),
+      new Promise((_, reject) => { closeTimer = setTimeout(() => reject(new Error('Chromium shutdown exceeded 8 seconds.')), 8000); }),
+    ]);
+  } catch (error) {
+    console.error('[settings-browser] ' + String(error?.message || error));
+    process.exitCode = 1;
+    process.exit(1);
+  } finally {
+    if (closeTimer) clearTimeout(closeTimer);
+  }
 }

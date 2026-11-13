@@ -4,7 +4,12 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-const runtime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-premium-polish.js', import.meta.url)), 'utf8');
+const runtimeSource = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-premium-polish.js', import.meta.url)), 'utf8');
+const runtime = runtimeSource.replace(
+  'function enhanceStages(root) {',
+  'function enhanceStages(root) { window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ = (window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ || 0) + 1;'
+);
+assert.notEqual(runtime, runtimeSource, 'The stage-enhancement instrumentation point must remain available.');
 const appShellRuntime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-shell-polish.js', import.meta.url)), 'utf8');
 const requests = [];
 const report = {
@@ -83,6 +88,13 @@ try {
   desktop.on('pageerror', error => errors.push(error.message));
   await desktop.goto(base, { waitUntil: 'load' });
   await desktop.locator('#ovyx-as-title').waitFor();
+  await desktop.waitForTimeout(120);
+  const stagePassesBeforeIdle = await desktop.evaluate(() => window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ || 0);
+  await desktop.waitForTimeout(200);
+  const stagePassesAfterIdle = await desktop.evaluate(() => window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ || 0);
+  assert.ok(stagePassesAfterIdle - stagePassesBeforeIdle <= 1,
+    'App Studio stage metadata must settle after initial rendering instead of repeatedly triggering the whole-body MutationObserver. ' +
+    'Enhancement runs grew from ' + stagePassesBeforeIdle + ' to ' + stagePassesAfterIdle + '.');
   const wideLayout = await desktop.evaluate(() => {
     const root = document.getElementById('view-appstudio');
     const hero = document.getElementById('ovyx-app-studio-experience');

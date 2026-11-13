@@ -297,5 +297,9 @@
       }))
     });
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
+  // This asset is loaded after the page body is available. Boot immediately so
+  // the account widget does not depend on unrelated deferred scripts reaching
+  // DOMContentLoaded; fall back to the event only when there is no body yet.
+  if (document.body) boot();
+  else document.addEventListener('DOMContentLoaded', boot, { once: true });
 })();

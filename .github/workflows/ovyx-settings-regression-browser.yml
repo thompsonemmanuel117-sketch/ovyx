@@ -1,12 +1,23 @@
+# Trigger note: retain this workflow path in the PR filter so Settings browser regressions rerun with their test changes.
 name: OVYX Settings Regression Browser Tests
+
+concurrency:
+  group: ovyx-settings-browser-${{ github.ref }}
+  cancel-in-progress: false
 
 on:
   push:
     branches:
       - main
+      - feat/app-studio-panel-experience
     paths:
+      - 'scripts/ovyx-settings.browser.test.mjs'
+      - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
+      - 'scripts/ovyx-account-notifications.browser.test.mjs'
+      - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-settings-reliability.js'
+      - 'assets/ovyx-app-studio-premium-polish.js'
       - 'scripts/ovyx-settings-navigation.browser.test.mjs'
       - 'assets/ovyx-settings-billing-live.js'
       - 'assets/ovyx-account-notifications.js'
@@ -16,6 +27,8 @@ on:
       - '_routes.json'
       - '_headers'
       - 'functions/_middleware.js'
+      - 'assets/ovyx-webstudio-code-search.js'
+      - 'scripts/ovyx-webstudio-code-search.test.mjs'
       - 'functions/api/settings/**'
       - 'functions/api/payments/**'
       - 'functions/api/tokens/**'
@@ -26,6 +39,7 @@ on:
       - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
       - 'scripts/ovyx-settings-actions.test.mjs'
       - 'scripts/ovyx-settings.browser.test.mjs'
+      - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
       - 'scripts/ovyx-settings-account.browser.test.mjs'
       - 'scripts/ovyx-settings-security.browser.test.mjs'
@@ -44,6 +58,7 @@ on:
     paths:
       - 'index.html'
       - 'assets/ovyx-settings-reliability.js'
+      - 'assets/ovyx-app-studio-premium-polish.js'
       - 'scripts/ovyx-settings-navigation.browser.test.mjs'
       - 'assets/ovyx-settings-billing-live.js'
       - 'assets/ovyx-account-notifications.js'
@@ -53,6 +68,8 @@ on:
       - '_routes.json'
       - '_headers'
       - 'functions/_middleware.js'
+      - 'assets/ovyx-webstudio-code-search.js'
+      - 'scripts/ovyx-webstudio-code-search.test.mjs'
       - 'functions/api/settings/**'
       - 'functions/api/payments/**'
       - 'functions/api/tokens/**'
@@ -63,6 +80,8 @@ on:
       - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
       - 'scripts/ovyx-settings-actions.test.mjs'
       - 'scripts/ovyx-settings.browser.test.mjs'
+      - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
+      - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
       - 'scripts/ovyx-settings-account.browser.test.mjs'
       - 'scripts/ovyx-settings-security.browser.test.mjs'
@@ -131,11 +150,11 @@ jobs:
             shift 2
             for script in "$@"; do
               echo "[$label] START $script"
-              timeout --signal=TERM --kill-after=30s 12m node "scripts/$script" 2>&1 | tee -a "$log_file"
+              timeout --signal=TERM --kill-after=15s 5m node "scripts/$script" 2>&1 | tee -a "$log_file"
               script_status=${PIPESTATUS[0]}
               if [ "$script_status" -ne 0 ]; then
                 if [ "$script_status" -eq 124 ] || [ "$script_status" -eq 137 ]; then
-                  echo "[$label] TIMEOUT after 12 minutes: $script"
+                  echo "[$label] TIMEOUT after 5 minutes: $script"
                 else
                   echo "[$label] FAILED ($script_status): $script"
                 fi
@@ -160,29 +179,43 @@ jobs:
             exit "$core_status"
           fi
 
-          # Run independent workspace and safety suites concurrently. Each test
-          # gets its own hard limit and a live, named log; assertions are unchanged.
+          # Keep all browser suites sequential against the single local Pages worker.
+          # The worker and Chromium share the hosted runner's CPU/memory budget;
+          # parallel browser groups previously caused unrelated readiness timeouts.
           run_shard "settings-workspace" /tmp/ovyx-settings-workspace.log \
             ovyx-settings-ai.browser.test.mjs \
             ovyx-settings-workspace.browser.test.mjs \
             ovyx-settings-shortcuts.browser.test.mjs \
-            ovyx-personal-connections.browser.test.mjs &
-          workspace_pid=$!
+            ovyx-personal-connections.browser.test.mjs
+          workspace_status=$?
+
+          if [ "$workspace_status" -ne 0 ]; then
+            echo "Settings workspace browser shard failed."
+            exit "$workspace_status"
+          fi
 
           run_shard "settings-safety" /tmp/ovyx-settings-safety.log \
             ovyx-cancel-safety.browser.test.mjs \
             ovyx-scoped-rollback-performance.browser.test.mjs \
             ovyx-scoped-rollback-graph.browser.test.mjs \
-            ovyx-mobile-back-navigation.browser.test.mjs &
-          safety_pid=$!
+            ovyx-mobile-back-navigation.browser.test.mjs
+          safety_status=$?
 
-          wait "$workspace_pid"; workspace_status=$?
-          wait "$safety_pid"; safety_status=$?
-
-          if [ "$workspace_status" -ne 0 ] || [ "$safety_status" -ne 0 ]; then
-            echo "One or more Settings browser-test shards failed."
-            exit 1
+          if [ "$safety_status" -ne 0 ]; then
+            echo "Settings safety browser shard failed."
+            exit "$safety_status"
           fi
+
+      - name: Print browser resource diagnostics on failure
+        if: failure()
+        run: |
+          echo '=== runner memory ==='
+          free -h || true
+          echo '=== cgroup memory events ==='
+          cat /sys/fs/cgroup/memory.events || true
+          cat /sys/fs/cgroup/memory.current || true
+          echo '=== largest processes ==='
+          ps -eo pid,ppid,rss,%mem,%cpu,comm --sort=-rss | head -n 20 || true
 
       - name: Print browser shard logs on failure
         if: failure()

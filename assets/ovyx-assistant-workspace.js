@@ -72,6 +72,9 @@
   }
 
   const suppressedDockStyles = new WeakMap();
+  // Keep the small set of docks we actually changed so closing the assistant
+  // never needs to walk the entire application DOM just to restore them.
+  const suppressedDockNodes = new Set();
   const DOCK_HIDE_PROPERTIES = ['display', 'visibility', 'opacity', 'pointer-events', 'transform'];
 
   function readInlineProperty(style, property) {
@@ -107,6 +110,27 @@
     const shouldHide = forceHidden === true || composerFocused || assistantOpen;
     document.body?.classList.toggle('ovyx-native-composer-focus-mode', shouldHide);
 
+    // When the assistant is closed, restore only the docks this runtime
+    // previously changed. The old unconditional querySelectorAll('*') scan
+    // forced computed-style/layout work across the whole 2 MB app shell on
+    // every observed class/style mutation, even when there was nothing to hide.
+    if (!shouldHide) {
+      for (const node of suppressedDockNodes) {
+        if (!(node instanceof HTMLElement)) {
+          suppressedDockNodes.delete(node);
+          continue;
+        }
+        node.classList.remove(UNDERLYING_BOTTOM_NAV_CLASS);
+        const saved = suppressedDockStyles.get(node);
+        if (saved) {
+          for (const property of DOCK_HIDE_PROPERTIES) restoreInlineProperty(node.style, property, saved[property]);
+          suppressedDockStyles.delete(node);
+        }
+        suppressedDockNodes.delete(node);
+      }
+      return;
+    }
+
     // The dashboard shell has several controllers that write inline
     // !important display values. A class-only hide loses to those inline
     // declarations, so temporarily take ownership of the actual dock styles.
@@ -122,6 +146,7 @@
             DOCK_HIDE_PROPERTIES.map(property => [property, readInlineProperty(node.style, property)])
           ));
         }
+        suppressedDockNodes.add(node);
         const saved = suppressedDockStyles.get(node);
         // If another OVYX controller tries to reveal the dock while the
         // assistant is open, remember its latest requested values before
@@ -151,6 +176,7 @@
           for (const property of DOCK_HIDE_PROPERTIES) restoreInlineProperty(node.style, property, saved[property]);
           suppressedDockStyles.delete(node);
         }
+        suppressedDockNodes.delete(node);
       }
     });
   }
@@ -3127,17 +3153,19 @@
     if (bot && !bot.__ovyxNativeSend) {
       bot.send = send;
       bot.__ovyxNativeSend = true;
-      if (typeof bot.open === 'function' && !bot.__ovyxNativeOpen) {
-        const originalOpen = bot.open.bind(bot);
-        bot.open = function (...args) {
-          const result = originalOpen(...args);
-          renderChrome();
-          bindEvents();
-          resolveWorkspaceContext().catch(() => syncWorkspaceBadge(localWorkspaceSnapshot(), true));
-          return result;
-        };
-        bot.__ovyxNativeOpen = true;
-      }
+    }
+    // Install the open wrapper independently: another shell module may already
+    // have marked send as native before this runtime reaches the routing hook.
+    if (bot && typeof bot.open === 'function' && !bot.__ovyxNativeOpen) {
+      const originalOpen = bot.open.bind(bot);
+      bot.open = function (...args) {
+        const result = originalOpen(...args);
+        renderChrome();
+        bindEvents();
+        resolveWorkspaceContext().catch(() => syncWorkspaceBadge(localWorkspaceSnapshot(), true));
+        return result;
+      };
+      bot.__ovyxNativeOpen = true;
     }
     renderChrome();
     bindMenuTrigger();
@@ -3151,12 +3179,14 @@
     const timer = setInterval(() => {
       attempts += 1;
       installNativeRouting();
-      if ((window.WorkspaceBrainBot?.__ovyxNativeSend && window.OVYXAIService?.__ovyxNativeWorkspaceRoute) || attempts >= 80) clearInterval(timer);
+      if ((window.WorkspaceBrainBot?.__ovyxNativeSend && window.WorkspaceBrainBot?.__ovyxNativeOpen && window.OVYXAIService?.__ovyxNativeWorkspaceRoute) || attempts >= 480) clearInterval(timer);
     }, 250);
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
-  else boot();
+  // Start the idempotent runtime immediately. The legacy shell can delay DOMContentLoaded
+  // behind long-running inline startup work; boot() already polls safely until its
+  // dependencies exist, so waiting for that event can leave the assistant unpatched.
+  boot();
   window.addEventListener('ovyx:view-changed', () => setTimeout(installNativeRouting, 80), { passive: true });
   window.addEventListener('firebase-auth-state-ready', () => setTimeout(installNativeRouting, 100), { passive: true });
   window.addEventListener('pageshow', () => setTimeout(installNativeRouting, 100), { passive: true });
