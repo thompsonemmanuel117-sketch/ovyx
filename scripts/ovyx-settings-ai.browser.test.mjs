@@ -382,11 +382,22 @@ try {
     // the last server-confirmed local preferences.
     await panel.locator('[data-ai-pref="contextPage"]').setChecked(false);
     failNextPreferencePut = true;
+    const failedPreferenceResponse = page.waitForResponse(response =>
+      response.url().includes('/api/settings/ai')
+      && response.request().method() === 'PUT'
+      && response.status() === 503,
+      { timeout: 15000 },
+    );
     await panel.locator('#set-ai-save').click();
+    await failedPreferenceResponse;
     await page.waitForFunction(
-      () => document.getElementById('ovyx-ai-preference-status')?.textContent?.includes('not confirmed as saved'),
+      () => {
+        const status = document.getElementById('ovyx-ai-preference-status');
+        return status?.dataset.state === 'warning'
+          && status.textContent?.includes('not confirmed as saved');
+      },
       null,
-      { timeout: 10000 },
+      { timeout: 15000 },
     );
     const afterFailedSave = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), key);
     assert.equal(afterFailedSave.provider, 'automatic', '[' + target.name + '] A failed account save must keep the last confirmed OVYX-managed routing.');

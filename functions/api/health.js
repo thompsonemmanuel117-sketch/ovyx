@@ -6,11 +6,20 @@ const ENV_GROUPS = {
     'FIREBASE_SERVICE_ACCOUNT',
   ],
   GitHub: [
-    'GITHUB_APP_ID',
-    'GITHUB_APP_INSTALLATION_ID',
-    'GITHUB_APP_PRIVATE_KEY',
+    'GITHUB_CLIENT_ID',
+    'GITHUB_CLIENT_SECRET',
+    'GITHUB_REDIRECT_URI',
     'GITHUB_TOKEN_ENCRYPTION_KEY',
     'GITHUB_ALLOWED_REPOS',
+  ],
+  Payments: [
+    'OPAY_MERCHANT_ID',
+    'OPAY_CASHIER_PUBLIC_KEY',
+    'OPAY_CASHIER_SECRET_KEY',
+    'PAYSTACK_SECRET_KEY',
+  ],
+  Sentinel: [
+    'OVYX_SENTINEL_CRON_SECRET',
   ],
   Cloudflare: [
     'CLOUDFLARE_ACCOUNT_ID',
@@ -92,6 +101,9 @@ function inspectBinding(env, key) {
   }
   if (String(value).trim() === '') {
     return { state: 'empty', value };
+  }
+  if (typeof value === 'string' && /^(?:pending|todo|tbd|fake|dummy|placeholder|changeme|change_me|replace_me|your[_ -].*|<.*>)$/i.test(value.trim())) {
+    return { state: 'placeholder', value: undefined };
   }
 
   return { state: 'present', value };
@@ -377,6 +389,8 @@ export async function onRequestGet(context) {
       universalConnectionsEncryption: connectionEncryption,
       github: groups.GitHub,
       githubTokenEncryption: githubEncryption,
+      payments: groups.Payments,
+      sentinel: groups.Sentinel,
       cloudflare: groups.Cloudflare,
       ai: {
         providers: groups.AI,

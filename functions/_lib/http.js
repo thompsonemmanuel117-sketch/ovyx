@@ -258,7 +258,7 @@ export function withCors(
 
   headers.set(
     'Access-Control-Allow-Headers',
-    'Authorization, Content-Type, X-OVYX-Signature, X-OVYX-Request-ID'
+    'Authorization, Content-Type, Signature-Input, Signature, X-OVYX-Signature, X-OVYX-Request-ID'
   );
 
   headers.set(

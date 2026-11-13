@@ -35,7 +35,7 @@ export const INTEGRATION_ADAPTERS = Object.freeze({
       stripe: Object.freeze(['STRIPE_SECRET_KEY', 'STRIPE_API_KEY']),
       paystack: Object.freeze(['PAYSTACK_SECRET_KEY', 'PAYSTACK_SECRET']),
       flutterwave: Object.freeze(['FLUTTERWAVE_SECRET_KEY', 'FLW_SECRET_KEY']),
-      opay: Object.freeze(['OPAY_CASHIER_PUBLIC_KEY', 'OPAY_CASHIER_SECRET_KEY', 'OPAY_PUBLIC_KEY', 'OPAY_SECRET_KEY']),
+      opay: Object.freeze(['OPAY_MERCHANT_ID', 'OPAY_CASHIER_PUBLIC_KEY', 'OPAY_CASHIER_SECRET_KEY', 'OPAY_PUBLIC_KEY', 'OPAY_SECRET_KEY']),
     }),
   }),
   messaging: Object.freeze({
@@ -62,8 +62,12 @@ function getBindingNames(env) {
 
 function isConfiguredSecret(value) {
   // Do not stringify objects: Cloudflare service bindings (D1, KV, R2, AI)
-  // are capabilities, not credential strings.
-  return typeof value === 'string' && value.trim().length > 0;
+  // are capabilities, not credential strings. Common setup placeholders are
+  // deliberately not treated as live credentials.
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim();
+  if (!normalized) return false;
+  return !/^(?:pending|todo|tbd|fake|dummy|placeholder|changeme|change_me|replace_me|your[_ -].*|<.*>)$/i.test(normalized);
 }
 
 export function resolveIntegrationCredentials(env, integrationId, providerId) {
