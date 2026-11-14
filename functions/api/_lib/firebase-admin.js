@@ -886,6 +886,28 @@ export async function revokeFirebaseRefreshTokens(
 }
 
 
+/** Resolve a Firebase Auth account by exact email using server credentials.
+ * Callers must keep responses generic to prevent account enumeration. */
+export async function lookupFirebaseAccountByEmail(env, email) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) return null;
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleIdentityToolkitAccessToken(env);
+  const url = 'https://identitytoolkit.googleapis.com/v1/projects/' + encodeURIComponent(serviceAccount.project_id) + '/accounts:lookup';
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + accessToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ email: [normalizedEmail], targetProjectId: serviceAccount.project_id })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error('[OVYX MEMBER LOOKUP]', response.status);
+    throw Object.assign(new Error('OVYX account lookup is temporarily unavailable.'), { status: 503, code: 'MEMBER_LOOKUP_UNAVAILABLE' });
+  }
+  return (Array.isArray(payload.users) ? payload.users : []).find(item => String(item.email || '').trim().toLowerCase() === normalizedEmail) || null;
+}
+
+
 /** List a nested Firestore subcollection below any validated document path. */
 export async function listFirestoreSubcollectionDocumentsAtPath(env, parentSegments, subcollection, pageSize = 100) {
   const serviceAccount = parseServiceAccount(env);

@@ -52,3 +52,17 @@ console.log('OVYX project sharing security and UI contract checks passed.');
 
 assert.match(api, /const validEmail = value => \/\^\[\^@\\s\]\+@\[\^@\\s\]\+\\\.\[\^@\\s\]\+\$\//, 'Email validation must accept normal email addresses.');
 assert.match(api, /btoa\(binary\)\.replace\(\/\\\+\/g/, 'Share tokens must be base64url normalized.');
+
+assert.match(api, /action === 'send-member-request'/, 'Owners must be able to send direct member requests.');
+assert.match(api, /action === 'accept-member-request'/, 'Direct member access must require recipient acceptance.');
+assert.match(api, /action === 'decline-member-request'/, 'Recipients must be able to decline direct requests.');
+assert.match(api, /share_requests/, 'Direct requests must be stored in a recipient-specific inbox.');
+assert.match(api, /targetUid, targetEmail, role, status: 'pending'/, 'A direct request must remain pending before acceptance.');
+assert.match(api, /lookupFirebaseAccountByEmail/, 'Target UIDs must be resolved by the server.');
+assert.match(helper, /export async function lookupFirebaseAccountByEmail/, 'Firebase Admin must resolve target accounts by email.');
+assert.match(helper, /accounts:lookup/, 'Target lookup must use the Firebase Admin Identity Toolkit endpoint.');
+assert.match(asset, /data-share-member-form/, 'Owners need a direct member request form.');
+assert.match(asset, /data-member-inbox/, 'Recipients need an in-app request inbox.');
+assert.match(asset, /data-member-accept/, 'Recipients must be able to accept a direct request.');
+assert.match(asset, /data-member-decline/, 'Recipients must be able to decline a direct request.');
+assert.match(asset, /send-member-request/, 'The Sharing page must submit direct member requests.');
