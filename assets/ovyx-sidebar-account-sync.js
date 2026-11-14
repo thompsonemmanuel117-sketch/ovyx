@@ -119,8 +119,10 @@
     if (desktopName && !desktopName.dataset.ovyxAccountSyncObserved) {
       desktopName.dataset.ovyxAccountSyncObserved = '1';
       new MutationObserver(() => {
-        const user = currentUser();
-        if (user) setText('v52-account-name', String(savedProfile(user).name || user.displayName || user.email?.split('@')[0] || 'OVYX User'));
+        // Older shell/account routines may write their guest placeholder after
+        // Firebase has already emitted its initial state. Re-apply the canonical
+        // authenticated identity when that legacy DOM update lands.
+        sync(currentUser());
       }).observe(desktopName, { childList: true, characterData: true, subtree: true });
     }
   }
