@@ -438,6 +438,7 @@
 </nav>
 <div class="px-3 py-3 border-t border-white/[0.07] space-y-1.5 ovyx-sidebar-bottom">
 <button class="ovyx-account-link sidebar-action-card spring-btn" data-nav="projects" onclick="Router.go('projects')"><span><i class="fa-regular fa-folder-open"></i> Projects</span><i class="fa-solid fa-chevron-right"></i></button>
+<button class="ovyx-account-link sidebar-action-card spring-btn" data-nav="sharing" onclick="window.OVYXProjectSharing?.open?.()"><span><i class="fa-solid fa-share-nodes"></i> Sharing</span><i class="fa-solid fa-chevron-right"></i></button>
 
 <div class="ovyx-usage-mini"><div><span>AI usage</span><strong id="sidebar-token-ratio">0 / 50,000</strong></div><div class="ovyx-usage-track"><span id="sidebar-token-bar"></span></div></div>
 <button class="ovyx-account-link sidebar-action-card spring-btn" onclick="Router.go('inbox')"><span><i class="fa-regular fa-bell"></i> Inbox <em class="v34-unread-badge" hidden="" id="desktop-inbox-badge">0</em></span><i class="fa-solid fa-chevron-right"></i></button>
@@ -635,6 +636,8 @@
 <div class="ovyx-projects-feed" id="projects-grid-feed"></div>
 </div>
 </section>
+<!-- PROJECT SHARING · OWNER-CONTROLLED ACCESS -->
+<section aria-label="Project sharing and collaboration" class="hidden ovyx-share-page" id="view-sharing"></section>
 <!-- VIEW 2: WEB STUDIO · ENGINEERING WORKSPACE -->
 <section aria-hidden="true" aria-label="OVYX Web Studio" class="ovyx-ws-app hidden" data-ws-layout="desktop" id="view-webstudio">
 <div class="ovyx-ws-shell">

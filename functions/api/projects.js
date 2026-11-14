@@ -31,6 +31,11 @@ async function assertWorkspaceAccess(env, uid, email, workspaceId, { allowArchiv
   }
 }
 
+async function sharedProjectMembership(env, uid, pid) {
+  const rows = await listFirestoreSubcollectionDocuments(env, 'users', uid, 'shared_projects', 1000);
+  return rows.find(row => row.data?.projectId === pid && row.data?.status === 'active')?.data || null;
+}
+
 const MAX_PROJECT_BYTES = 950_000;
 
 function clean(value,max=320){return String(value??'').trim().slice(0,max);}
@@ -64,15 +69,36 @@ export async function onRequest(context){
       if(workspaceFilter!==null)await assertWorkspaceAccess(context.env,uid,email,workspaceFilter);
       if(requestedProject){
         const pid=projectId(requestedProject);
-        const project=await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]);
-        if(!project||clean(project.ownerUid)!==uid||clean(project.ownerEmail).toLowerCase()!==email)throw Object.assign(new Error('Project not found.'),{status:404,code:'PROJECT_NOT_FOUND'});
-        const normalized={...project,id:pid,workspaceId:projectWorkspaceId(project)};
-        if(requestedWorkspace!==null&&normalized.workspaceId!==workspaceFilter)throw Object.assign(new Error('Project not found in this workspace.'),{status:404,code:'PROJECT_NOT_FOUND'});
-        return jsonResponse({ok:true,project:normalized,owner:{uid,email}},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
+        let project=await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]);
+        let accessRole='owner';
+        if(!project||clean(project.ownerUid)!==uid||clean(project.ownerEmail).toLowerCase()!==email){
+          const membership=await sharedProjectMembership(context.env,uid,pid);
+          if(!membership||!['viewer','editor'].includes(membership.role))throw Object.assign(new Error('Project not found.'),{status:404,code:'PROJECT_NOT_FOUND'});
+          project=await getFirestoreDataAtPath(context.env,['users',clean(membership.ownerEmail,320).toLowerCase(),'projects',pid]);
+          if(!project||clean(project.ownerUid)!==clean(membership.ownerUid)||clean(project.ownerEmail).toLowerCase()!==clean(membership.ownerEmail).toLowerCase())throw Object.assign(new Error('Shared project is no longer available.'),{status:404,code:'PROJECT_NOT_FOUND'});
+          accessRole=membership.role;
+        }
+        const normalized={...project,id:pid,workspaceId:projectWorkspaceId(project),sharingAccess:{role:accessRole,owner:accessRole==='owner'}};
+        if(requestedWorkspace!==null&&accessRole==='owner'&&normalized.workspaceId!==workspaceFilter)throw Object.assign(new Error('Project not found in this workspace.'),{status:404,code:'PROJECT_NOT_FOUND'});
+        if(requestedWorkspace!==null&&accessRole!=='owner'&&workspaceFilter!=='personal')throw Object.assign(new Error('Project not found in this workspace.'),{status:404,code:'PROJECT_NOT_FOUND'});
+        return jsonResponse({ok:true,project:normalized,owner:{uid:clean(project.ownerUid),email:clean(project.ownerEmail).toLowerCase()},access:{role:accessRole}},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
       }
       const rows=await listFirestoreSubcollectionDocuments(context.env,'users',email,'projects',100);
-      let projects=rows.map(item=>{const p=item.data||{};return {...p,id:item.id,workspaceId:projectWorkspaceId(p)};}).filter(p=>clean(p.ownerUid)===uid&&clean(p.ownerEmail).toLowerCase()===email);
+      let projects=rows.map(item=>{const p=item.data||{};return {...p,id:item.id,workspaceId:projectWorkspaceId(p),sharingAccess:{role:'owner',owner:true}};}).filter(p=>clean(p.ownerUid)===uid&&clean(p.ownerEmail).toLowerCase()===email);
       if(workspaceFilter!==null)projects=projects.filter(project=>project.workspaceId===workspaceFilter);
+      if(workspaceFilter===null||workspaceFilter===DEFAULT_WORKSPACE_ID){
+        const memberships=await listFirestoreSubcollectionDocuments(context.env,'users',uid,'shared_projects',1000);
+        for(const membershipRow of memberships){
+          const membership=membershipRow.data||{};
+          if(membership.status!=='active'||!['viewer','editor'].includes(membership.role))continue;
+          const ownerEmail=clean(membership.ownerEmail,320).toLowerCase();
+          const sharedId=projectId(membership.projectId);
+          const shared=await getFirestoreDataAtPath(context.env,['users',ownerEmail,'projects',sharedId]);
+          if(!shared||clean(shared.ownerUid)!==clean(membership.ownerUid)||clean(shared.ownerEmail).toLowerCase()!==ownerEmail)continue;
+          if(projects.some(project=>project.id===sharedId&&clean(project.ownerEmail).toLowerCase()===ownerEmail))continue;
+          projects.push({...shared,id:sharedId,workspaceId:DEFAULT_WORKSPACE_ID,sharingAccess:{role:membership.role,owner:false,ownerEmail}});
+        }
+      }
       return jsonResponse({ok:true,projects,owner:{uid,email},workspaceId:workspaceFilter},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
     }
     if(method==='DELETE'){
@@ -87,25 +113,38 @@ export async function onRequest(context){
       const body=await readJson(context.request,MAX_PROJECT_BYTES);
       const pid=projectId(body.projectId||body.project?.id||crypto.randomUUID().replace(/-/g,'').slice(0,24));
       const project=payload(body.project||body.data);
-      const existingDoc=await getFirestoreDocumentAtPath(context.env,['users',email,'projects',pid]);
-      const existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]):null;
-      if(existing && (clean(existing.ownerUid)!==uid||clean(existing.ownerEmail).toLowerCase()!==email))throw Object.assign(new Error('This app cannot be saved under the current account.'),{status:409,code:'PROJECT_OWNERSHIP_CONFLICT'});
-      const workspaceId=cleanWorkspaceId(body.workspaceId||project.workspaceId||existing?.workspaceId||DEFAULT_WORKSPACE_ID);
-      await assertWorkspaceAccess(context.env,uid,email,workspaceId,{allowArchived:false});
+      let targetEmail=email;
+      let existingDoc=await getFirestoreDocumentAtPath(context.env,['users',email,'projects',pid]);
+      let existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]):null;
+      let writeUid=uid;
+      let sharedMembership=null;
+      if(!existing){
+        sharedMembership=await sharedProjectMembership(context.env,uid,pid);
+        if(sharedMembership){
+          if(sharedMembership.role!=='editor')throw Object.assign(new Error('You need editor access to change this shared project.'),{status:403,code:'PROJECT_EDIT_FORBIDDEN'});
+          targetEmail=clean(sharedMembership.ownerEmail,320).toLowerCase();
+          writeUid=clean(sharedMembership.ownerUid,256);
+          existingDoc=await getFirestoreDocumentAtPath(context.env,['users',targetEmail,'projects',pid]);
+          existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',targetEmail,'projects',pid]):null;
+        }
+      }
+      if(existing && (clean(existing.ownerUid)!==writeUid||clean(existing.ownerEmail).toLowerCase()!==targetEmail))throw Object.assign(new Error('This app cannot be saved under the current account.'),{status:409,code:'PROJECT_OWNERSHIP_CONFLICT'});
+      const workspaceId=sharedMembership?projectWorkspaceId(existing):cleanWorkspaceId(body.workspaceId||project.workspaceId||existing?.workspaceId||DEFAULT_WORKSPACE_ID);
+      if(!sharedMembership)await assertWorkspaceAccess(context.env,uid,email,workspaceId,{allowArchived:false});
       const now=new Date().toISOString();
-      const brandProfile=await getFirestoreDataAtPath(context.env,['users',email,'brand_profile','config']).catch(()=>null);
+      const brandProfile=await getFirestoreDataAtPath(context.env,['users',targetEmail,'brand_profile','config']).catch(()=>null);
       const stored={
         ...project,
         id:pid,
         workspaceId,
-        ownerUid:uid,
-        ownerEmail:email,
+        ownerUid:writeUid,
+        ownerEmail:targetEmail,
         brandProfileVersion:Number(brandProfile?.version||0)||0,
         brandProfileUpdatedAt:brandProfile?.updatedAt||null,
         createdAt:existing?.createdAt||now,
         updatedAt:now
       };
-      await setFirestoreDocumentAtPath(context.env,['users',email,'projects',pid],stored,{merge:false,expectedUpdateTime:existingDoc?.updateTime||null});
+      await setFirestoreDocumentAtPath(context.env,['users',targetEmail,'projects',pid],stored,{merge:false,expectedUpdateTime:existingDoc?.updateTime||null});
       return jsonResponse({ok:true,project:{...stored}},200,{'X-OVYX-Request-ID':id});
     }
     return jsonResponse({ok:false,error:'GET, POST or DELETE is required.',code:'METHOD_NOT_ALLOWED'},405,{'X-OVYX-Request-ID':id});
