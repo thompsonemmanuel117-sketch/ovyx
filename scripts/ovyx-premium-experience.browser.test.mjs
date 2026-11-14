@@ -65,4 +65,30 @@ try{
     console.log('OVYX premium platform experience passed on '+target.name+'.');
     await page.close();
   }
+
+  const authRoutesPage=await browser.newPage({viewport:{width:1280,height:900}});
+  const authRouteErrors=[];
+  authRoutesPage.on('pageerror',error=>authRouteErrors.push(String(error?.stack||error?.message||error)));
+  await authRoutesPage.goto(baseURL+'/login',{waitUntil:'domcontentloaded',timeout:60000});
+  await authRoutesPage.waitForFunction(()=>window.OVYXAuthRoutes?.current()==='login'&&document.body?.getAttribute('data-ovyx-auth-intent')==='1'&&!document.getElementById('view-master-auth')?.classList.contains('hidden'),{timeout:30000});
+  assert.equal(await authRoutesPage.locator('#ovyx-master-auth-form').getAttribute('data-mode'),'signin','/login must render the existing sign-in mode.');
+  await authRoutesPage.locator('#ovyx-auth-create').click();
+  await authRoutesPage.waitForFunction(()=>location.pathname==='/signup'&&document.getElementById('ovyx-master-auth-form')?.dataset.mode==='signup');
+  assert.equal(await authRoutesPage.locator('.ovyx-auth-provider-grid').isHidden(),true,'/signup must not present OAuth providers that are existing-account-only.');
+  await authRoutesPage.locator('#ovyx-auth-create').click();
+  await authRoutesPage.waitForFunction(()=>location.pathname==='/login'&&document.getElementById('ovyx-master-auth-form')?.dataset.mode==='signin');
+  await authRoutesPage.locator('#ovyx-auth-forgot').click();
+  await authRoutesPage.waitForFunction(()=>location.pathname==='/forgot-password'&&window.OVYXAuthRoutes?.current()==='forgot');
+  assert.equal(await authRoutesPage.locator('#ovyx-master-auth-password').isVisible(),false,'/forgot-password must not request a password.');
+  await authRoutesPage.goto(baseURL+'/verify-email',{waitUntil:'domcontentloaded',timeout:60000});
+  await authRoutesPage.waitForFunction(()=>window.OVYXAuthRoutes?.current()==='verify'&&!!document.getElementById('ovyx-auth-verify-panel')&&!document.getElementById('ovyx-auth-verify-panel').hidden,{timeout:30000});
+  const verifyRouteDiagnostics=await authRoutesPage.evaluate(()=>{const overlay=document.getElementById('view-master-auth'),panel=document.getElementById('ovyx-auth-verify-panel'),button=document.getElementById('ovyx-auth-resend-verification');const describe=node=>node?{hidden:node.hidden,display:getComputedStyle(node).display,visibility:getComputedStyle(node).visibility,opacity:getComputedStyle(node).opacity,rect:node.getBoundingClientRect().toJSON()}:null;return {authIntent:document.body?.getAttribute('data-ovyx-auth-intent'),overlay:describe(overlay),panel:describe(panel),button:describe(button),parent:describe(panel?.parentElement)}});
+  console.log('OVYX_VERIFY_ROUTE_DIAGNOSTICS '+JSON.stringify(verifyRouteDiagnostics));
+  assert.equal(verifyRouteDiagnostics.overlay.visibility,'visible','/verify-email must display the auth overlay.');
+  assert.equal(verifyRouteDiagnostics.button.visibility,'visible','/verify-email resend action must be visibly rendered.');
+  await authRoutesPage.goto(baseURL+'/auth/callback',{waitUntil:'domcontentloaded',timeout:60000});
+  await authRoutesPage.waitForFunction(()=>location.pathname==='/login'&&window.OVYXAuthRoutes?.current()==='login',{timeout:30000});
+  assert.deepEqual(authRouteErrors,[],'Authentication route transitions must not emit browser errors.');
+  console.log('OVYX standalone login, signup, password recovery, verification and callback routes passed.');
+  await authRoutesPage.close();
 }finally{await browser.close();}

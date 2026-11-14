@@ -1,0 +1,38 @@
+name: OVYX Authentication Routes
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'assets/ovyx-auth-routes.js'
+      - 'scripts/ovyx-auth-routes.test.mjs'
+      - 'package.json'
+      - '.github/workflows/ovyx-auth-routes.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'assets/ovyx-auth-routes.js'
+      - 'scripts/ovyx-auth-routes.test.mjs'
+      - 'package.json'
+      - '.github/workflows/ovyx-auth-routes.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  auth-routes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check authentication route JavaScript syntax
+        run: node --check assets/ovyx-auth-routes.js
+      - name: Verify authentication route and Firebase contracts
+        run: node scripts/ovyx-auth-routes.test.mjs
+      - name: Verify existing authentication experience
+        run: node scripts/ovyx-auth-experience.test.mjs && node scripts/ovyx-auth-blocking.test.mjs && node scripts/ovyx-oauth-registration-policy.test.mjs
+      - name: Install project dependencies for integration regressions
+        run: npm install --no-audit --no-fund
+      - name: Run the complete OVYX regression suite
+        run: npm test
