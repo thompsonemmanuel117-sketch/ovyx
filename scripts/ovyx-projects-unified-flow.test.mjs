@@ -16,7 +16,7 @@ assert.match(asset, /Creating…/, 'Creation must provide immediate feedback.');
 assert.match(asset, /ovyx-project-create-modal/, 'The existing project modal must be enhanced rather than replaced.');
 assert.match(asset, /#ovyx-project-create-modal\[hidden\]\{display:none!important\}/, 'A closed project modal must not intercept clicks after its opening animation frame.');
 assert.match(asset, /new MutationObserver/, 'Late-mounted project views and the create modal must be handled.');
-assert.match(middleware, /ovyx-projects-unified-flow\.js\?v=20261114-5/, 'The updated runtime must be cache-busted in the Pages shell.');
+assert.match(middleware, /ovyx-projects-unified-flow\.js\?v=20261114-6/, 'The updated runtime must be cache-busted in the Pages shell.');
 assert.match(browserTest, /ovyx-projects-continue-panel/, 'Browser coverage must verify the duplicate panel is absent.');
 assert.match(browserTest, /data-picker-create/, 'Browser coverage must retain the existing project creation flow.');
 

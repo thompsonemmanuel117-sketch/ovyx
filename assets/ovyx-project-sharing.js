@@ -10,13 +10,37 @@
   const user = () => window.firebase?.auth?.().currentUser || window.auth?.currentUser || null;
   async function request(path, options = {}) {
     const current = user();
-    const token = current?.getIdToken ? await current.getIdToken() : '';
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-    if (token) headers.Authorization = 'Bearer ' + token;
-    const response = await fetch(path, { ...options, headers, cache: 'no-store' });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok || body.ok === false) throw new Error(body.error || 'The sharing request could not be completed.');
-    return body;
+    const send = async token => {
+      const requestHeaders = { ...headers };
+      if (token) requestHeaders.Authorization = 'Bearer ' + token;
+      const response = await fetch(path, { ...options, headers: requestHeaders, cache: 'no-store' });
+      const body = await response.json().catch(() => ({}));
+      return { response, body };
+    };
+    let token = current?.getIdToken ? await current.getIdToken() : '';
+    let result = await send(token);
+    // A token can retain email_verified=false after verification in another tab.
+    // Reload Firebase account state and retry once; never bypass server checks.
+    if (result.response.status === 403 && result.body.code === 'EMAIL_NOT_VERIFIED' &&
+        current?.reload && current?.getIdToken) {
+      try {
+        await current.reload();
+        if (current.emailVerified === true) {
+          token = await current.getIdToken(true);
+          result = await send(token);
+        }
+      } catch (refreshError) {
+        console.warn('[OVYX SHARING] Could not refresh the verified account session.', refreshError);
+      }
+    }
+    if (!result.response.ok || result.body.ok === false) {
+      const message = result.body.code === 'EMAIL_NOT_VERIFIED'
+        ? 'Your email is not verified yet. Verify it, then refresh this page and try again.'
+        : result.body.error || 'The sharing request could not be completed.';
+      throw new Error(message);
+    }
+    return result.body;
   }
   function page() { return document.getElementById(rootId); }
   function ensurePage() {

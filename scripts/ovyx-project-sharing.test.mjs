@@ -37,6 +37,9 @@ assert.match(asset, /data-activity-list/, 'The Sharing page must render recent p
 assert.match(asset, /data-presence-list/, 'The Sharing page must show collaborator presence.');
 assert.match(asset, /LIVE WEBSITE PREVIEW/, 'Public links must show a read-only preview for published sites.');
 assert.match(asset, /data-share-create/, 'Owners must be able to create view-only links.');
+assert.match(asset, /current\.reload\(\)/, 'Sharing must reload Firebase account verification state when a token is stale.');
+assert.match(asset, /current\.getIdToken\(true\)/, 'Sharing must retry once with a refreshed Firebase ID token after email verification.');
+assert.match(asset, /result\.body\.code === 'EMAIL_NOT_VERIFIED'/, 'Sharing must keep the server-side verified-email requirement and show a clear message.');
 assert.match(asset, /data-share-invite-form/, 'Owners must be able to invite by email.');
 assert.match(asset, /data-revoke/, 'Owners must be able to revoke access.');
 assert.match(asset, /data-role/, 'Owners must be able to change invitation permissions.');
@@ -44,8 +47,8 @@ assert.match(asset, /accept-invite/, 'Invitees need an authenticated acceptance 
 assert.match(html, /id="view-sharing"/, 'Sharing must be a dedicated routed page.');
 assert.match(html, /data-nav="sharing"/, 'Sharing must have its own sidebar navigation item.');
 assert.match(html, /data-mobile-nav="sharing"/, 'Sharing must also appear in the dedicated mobile drawer navigation.');
-assert.match(middleware, /ovyx-project-sharing\.js\?v=20261114-5/, 'The sharing runtime must load from the app shell.');
-assert.match(middleware, /ovyx-project-sharing\.css\?v=20261114-5/, 'The sharing page stylesheet must load from the app shell.');
+assert.match(middleware, /ovyx-project-sharing\.js\?v=20261114-6/, 'The sharing runtime must load from the app shell.');
+assert.match(middleware, /ovyx-project-sharing\.css\?v=20261114-6/, 'The sharing page stylesheet must load from the app shell.');
 assert.match(css, /prefers-reduced-motion/, 'The sharing page must respect reduced-motion preferences.');
 
 console.log('OVYX project sharing security and UI contract checks passed.');
