@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixtures.mjs';
 const baseURL=String(process.env.OVYX_E2E_BASE_URL||'').trim();
 if(!baseURL)throw new Error('OVYX_E2E_BASE_URL must point to the local OVYX Pages app.');
 const browser=await chromium.launch({headless:true});
@@ -9,11 +10,22 @@ try{
     {name:'mobile',viewport:{width:390,height:844},isMobile:true,hasTouch:true}
   ]){
     const page=await browser.newPage({viewport:target.viewport,isMobile:!!target.isMobile,hasTouch:!!target.hasTouch});
+    await installOwnerBrowserApiFixtures(page);
     page.setDefaultTimeout(15000);
     const pageErrors=[];
     page.on('pageerror',error=>pageErrors.push(String(error?.stack||error?.message||error)));
     await page.goto(baseURL,{waitUntil:'domcontentloaded',timeout:60000});
-    await page.waitForFunction(()=>{const link=document.querySelector('link[href*="ovyx-platform-design-system.css"]');if(!link?.sheet)return false;try{return Array.from(link.sheet.cssRules).some(rule=>String(rule.href||rule.cssText||'').includes('ovyx-premium-experience.css'))}catch{return false}});
+    await page.waitForFunction(()=> {
+      const direct = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+        .find(link => String(link.href || '').includes('ovyx-premium-experience.css'));
+      if (direct?.sheet) return true;
+      const design = document.querySelector('link[href*="ovyx-platform-design-system.css"]');
+      if (!design?.sheet) return false;
+      try {
+        return Array.from(design.sheet.cssRules).some(rule =>
+          String(rule.href || rule.cssText || '').includes('ovyx-premium-experience.css'));
+      } catch { return false; }
+    });
     await page.waitForFunction(()=>!!document.getElementById('view-master-auth')&&!!document.getElementById('view-home'));
     const platform=await page.evaluate(()=>{
       const home=document.getElementById('view-home');

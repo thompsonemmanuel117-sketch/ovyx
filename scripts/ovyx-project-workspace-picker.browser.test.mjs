@@ -52,6 +52,43 @@ try {
       && window.OVYXWorkspacePicker?.version === 1
       && window.OVYXProjectsUnifiedFlow?.version === 2, null, { timeout: 45000 });
 
+    if (target.isMobile) {
+      await page.evaluate(() => window.MobileDrawer?.open?.());
+      await page.waitForFunction(() => !!document.getElementById('v52-account-name'), null, { timeout: 10000 });
+    }
+    await page.waitForFunction(() =>
+      document.getElementById('sidebar-user-display-name')?.textContent === 'Project Picker User'
+      && (!window.matchMedia('(max-width: 767px)').matches
+        || document.getElementById('v52-account-name')?.textContent === 'Project Picker User')
+      && document.getElementById('sidebar-workspace-label')?.textContent === 'Personal workspace',
+      null, { timeout: 15000 });
+    await page.evaluate(() => {
+      localStorage.setItem('ovyx.profile.v2.user.ovyx-project-picker-second', JSON.stringify({ name: 'Second Account Profile' }));
+      window.__setOVYXBrowserAuthUser({
+        uid: 'ovyx-project-picker-second',
+        email: 'second-account@example.test',
+        displayName: 'Second Firebase User',
+        token: 'ovyx-project-picker-second-token'
+      });
+    });
+    await page.waitForFunction(() =>
+      document.getElementById('sidebar-user-display-name')?.textContent === 'Second Account Profile'
+      && (!window.matchMedia('(max-width: 767px)').matches
+        || (document.getElementById('v52-account-name')?.textContent === 'Second Account Profile'
+          && document.getElementById('v52-account-email')?.textContent === 'second-account@example.test')),
+      null, { timeout: 10000 });
+    await page.evaluate(() => window.__setOVYXBrowserAuthUser({
+      uid: 'ovyx-project-picker-user',
+      email: 'project-picker@example.test',
+      displayName: 'Project Picker User',
+      token: 'ovyx-project-picker-token'
+    }));
+    await page.waitForFunction(() =>
+      document.getElementById('sidebar-user-display-name')?.textContent === 'Project Picker User'
+      && (!window.matchMedia('(max-width: 767px)').matches
+        || document.getElementById('v52-account-name')?.textContent === 'Project Picker User'),
+      null, { timeout: 10000 });
+
     await page.evaluate(() => {
       const now = Date.now();
       const first = { id: 'picker-project-aurora', name: 'Aurora Commerce', description: 'Commerce project', status: 'draft', workspaceId: 'personal', updatedAt: now, pages: [{ name: 'Home' }, { name: 'Products' }] };
@@ -119,6 +156,7 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('#ovx-picker-workspace-select option').length === 2);
     await dialog.locator('#ovx-picker-workspace-select').selectOption('ws-studio');
     await page.waitForFunction(() => window.__workspaceRenderCalls?.some(ids => ids.length === 1 && ids[0] === 'picker-project-northstar'));
+    await page.waitForFunction(() => document.getElementById('sidebar-workspace-label')?.textContent === 'Studio workspace');
     assert.equal(await dialog.locator('[data-project-id]').count(), 1, '[' + target.name + '] switching workspaces must filter the project inventory.');
     assert.equal(await page.evaluate(() => window.__workspaceRenderCalls.some(ids => ids.length === 1 && ids[0] === 'picker-project-northstar')), true,
       '[' + target.name + '] the existing Projects page renderer must receive only projects from the selected workspace.');
@@ -129,8 +167,10 @@ try {
     await dialog.locator('[data-workspace-rename-form] [name="name"]').fill('Studio HQ');
     await dialog.locator('[data-workspace-rename-form] [type="submit"]').click();
     await page.waitForFunction(() => Array.from(document.querySelectorAll('#ovx-picker-workspace-select option')).some(option => option.textContent === 'Studio HQ'));
+    await page.waitForFunction(() => document.getElementById('sidebar-workspace-label')?.textContent === 'Studio HQ');
     await dialog.locator('[data-workspace-archive]').click();
     await page.waitForFunction(() => document.querySelector('#ovx-picker-workspace-select')?.value === 'personal');
+    await page.waitForFunction(() => document.getElementById('sidebar-workspace-label')?.textContent === 'Personal workspace');
     await dialog.locator('#ovx-picker-workspace-select').selectOption('ws-studio');
     assert.equal(await dialog.locator('[data-project-id="picker-project-northstar"]').isDisabled(), true,
       '[' + target.name + '] archived workspace projects must remain visible but cannot be opened before restore.');
