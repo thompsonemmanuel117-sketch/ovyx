@@ -31,7 +31,8 @@
     const overlay = $('view-master-auth');
     if (!overlay) return;
     document.body?.setAttribute('data-ovyx-auth-intent', '1');
-    document.body?.classList.add('ovyx-auth-lock');
+    document.body?.classList.add('ovyx-auth-lock', 'ovyx-auth-open');
+    document.documentElement?.classList.add('ovyx-auth-open');
     overlay.classList.remove('hidden', 'ovyx-auth-exit');
     overlay.setAttribute('aria-hidden', 'false');
     overlay.style.setProperty('display', 'flex', 'important');
@@ -43,7 +44,8 @@
       const currentOverlay = $('view-master-auth');
       if (!currentOverlay) return;
       document.body?.setAttribute('data-ovyx-auth-intent', '1');
-      document.body?.classList.add('ovyx-auth-lock');
+      document.body?.classList.add('ovyx-auth-lock', 'ovyx-auth-open');
+      document.documentElement?.classList.add('ovyx-auth-open');
       currentOverlay.classList.remove('hidden', 'ovyx-auth-exit');
       currentOverlay.setAttribute('aria-hidden', 'false');
       currentOverlay.style.setProperty('display', 'flex', 'important');
