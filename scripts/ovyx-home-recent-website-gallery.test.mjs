@@ -98,6 +98,6 @@ assert.match(css, /min-height:\s*104px/, 'The prompt box should return to its fa
 assert.match(css, /prefers-reduced-motion/);
 assert.match(middleware, /ovyx-home-recent-website-gallery\.js\?v=20261114-1/);
 assert.match(middleware, /ovyx-home-recent-website-gallery\.css\?v=20261113-1/);
-assert.match(middleware, /ovyx-home-recent-page\.js\?v=20261114-1/);
+assert.match(middleware, /ovyx-home-recent-page\.js\?v=20261114-2/);
 assert.match(middleware, /ovyx-home-recent-page\.css\?v=20261114-1/);
 console.log('OVYX Home recent website gallery, preview, date/time, pin and edit checks passed.');
