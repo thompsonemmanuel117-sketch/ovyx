@@ -18,7 +18,8 @@
       #ovyx-projects-continue-panel .ovx-projects-continue-action:hover{filter:brightness(1.08);transform:translateY(-1px)}
       #ovyx-projects-continue-panel .ovx-projects-continue-action:disabled{opacity:.65;cursor:wait;transform:none}
       #ovyx-projects-continue-panel .ovx-projects-continue-action:focus-visible{outline:2px solid #e8c783;outline-offset:3px}
-      #ovyx-project-create-modal[hidden]{display:none!important}\n      #ovyx-project-create-modal .ovx-create-status{margin:11px 0 0;color:#8b8b91;font:500 9px/1.5 Inter,ui-sans-serif,sans-serif}
+      #ovyx-project-create-modal[hidden]{display:none!important}
+      #ovyx-project-create-modal .ovx-create-status{margin:11px 0 0;color:#8b8b91;font:500 9px/1.5 Inter,ui-sans-serif,sans-serif}
       #ovyx-project-create-modal [data-modal-create][aria-busy="true"]{opacity:.72;cursor:wait}
       @media(max-width:767px){#ovyx-projects-continue-panel{align-items:stretch;flex-direction:column;gap:13px;margin-bottom:16px;padding:15px}#ovyx-projects-continue-panel strong{font-size:15px}#ovyx-projects-continue-panel .ovx-projects-continue-action{width:100%}}
       @media(prefers-reduced-motion:reduce){#ovyx-projects-continue-panel *{transition-duration:.01ms!important;animation-duration:.01ms!important}}
