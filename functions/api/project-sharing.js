@@ -269,7 +269,7 @@ export async function onRequest(context) {
       const role = safeRole(body.role);
       if (!validEmail(targetEmail) || targetEmail === email) fail('Enter a valid OVYX member email address.', 400, 'MEMBER_EMAIL_INVALID');
       const account = await lookupFirebaseAccountByEmail(context.env, targetEmail);
-      if (!account || !account.localId || account.disabled === true || account.emailVerified !== true || String(account.email || '').trim().toLowerCase() !== targetEmail || String(account.localId) === uid) return jsonResponse({ ok: true, requestQueued: false, message: 'If this is an eligible verified OVYX account, an access request will appear in its inbox.' }, 202, { 'X-OVYX-Request-ID': rid, 'Cache-Control': 'no-store' });
+      if (!account || !account.localId || account.disabled === true || account.emailVerified !== true || String(account.email || '').trim().toLowerCase() !== targetEmail || String(account.localId) === uid) return jsonResponse({ ok: true, message: 'If this is an eligible verified OVYX account, an access request will appear in its inbox.' }, 202, { 'X-OVYX-Request-ID': rid, 'Cache-Control': 'no-store' });
       const targetUid = clean(account.localId, 256);
       const shareId = 'mem_' + (await digest(email + ':' + pid + ':' + targetUid)).slice(0, 24);
       const memberPath = [...path, 'shares', shareId];
@@ -294,7 +294,7 @@ export async function onRequest(context) {
         throw error;
       }
       await recordActivity(context.env, email, pid, 'member_request_sent', { uid, email, name: user.name || user.displayName });
-      return jsonResponse({ ok: true, requestQueued: true, message: 'If this is an eligible verified OVYX account, an access request will appear in its inbox.' }, 202, { 'X-OVYX-Request-ID': rid, 'Cache-Control': 'no-store' });
+      return jsonResponse({ ok: true, message: 'If this is an eligible verified OVYX account, an access request will appear in its inbox.' }, 202, { 'X-OVYX-Request-ID': rid, 'Cache-Control': 'no-store' });
     }
 
     if (action === 'create-link' || action === 'invite') {
