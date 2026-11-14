@@ -171,14 +171,18 @@
     }, true);
     new MutationObserver(() => {
       if (modal.hidden || modal.getAttribute('aria-hidden') === 'true') {
+        modal.style.setProperty('display', 'none', 'important');
         modal.dataset.ovyxCreating = '0';
         button.disabled = false;
         button.removeAttribute('aria-busy');
         button.textContent = 'Create Project';
-      } else if (modal.dataset.ovyxCreating !== '1') {
-        button.disabled = false;
+      } else {
+        modal.style.removeProperty('display');
+        if (modal.dataset.ovyxCreating !== '1') {
+          button.disabled = false;
         button.removeAttribute('aria-busy');
-        button.textContent = 'Create Project';
+          button.textContent = 'Create Project';
+        }
       }
     }).observe(modal, { attributes: true, attributeFilter: ['hidden', 'aria-hidden'] });
   }
