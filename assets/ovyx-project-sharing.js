@@ -82,7 +82,7 @@
     select.innerHTML = projects.length
       ? projects.map(project => '<option value="' + escapeHtml(project.id) + '">' + escapeHtml(project.name || project.title || 'Untitled project') + '</option>').join('')
       : '<option value="">No projects found</option>';
-    if (selected && projects.some(item => String(item.id) === selected)) select.value = selected;
+    if (selected && projects.some(item => String(item.id) === selected)) { state.projectId = selected; select.value = selected; }
     else if (projects[0]) { state.projectId = String(projects[0].id); select.value = state.projectId; }
     else { state.projectId = ''; select.value = ''; }
   }

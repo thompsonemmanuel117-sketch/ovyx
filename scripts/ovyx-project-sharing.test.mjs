@@ -44,8 +44,8 @@ assert.match(asset, /accept-invite/, 'Invitees need an authenticated acceptance 
 assert.match(html, /id="view-sharing"/, 'Sharing must be a dedicated routed page.');
 assert.match(html, /data-nav="sharing"/, 'Sharing must have its own sidebar navigation item.');
 assert.match(html, /data-mobile-nav="sharing"/, 'Sharing must also appear in the dedicated mobile drawer navigation.');
-assert.match(middleware, /ovyx-project-sharing\.js\?v=20261114-4/, 'The sharing runtime must load from the app shell.');
-assert.match(middleware, /ovyx-project-sharing\.css\?v=20261114-4/, 'The sharing page stylesheet must load from the app shell.');
+assert.match(middleware, /ovyx-project-sharing\.js\?v=20261114-5/, 'The sharing runtime must load from the app shell.');
+assert.match(middleware, /ovyx-project-sharing\.css\?v=20261114-5/, 'The sharing page stylesheet must load from the app shell.');
 assert.match(css, /prefers-reduced-motion/, 'The sharing page must respect reduced-motion preferences.');
 
 console.log('OVYX project sharing security and UI contract checks passed.');
@@ -69,4 +69,5 @@ assert.match(asset, /send-member-request/, 'The Sharing page must submit direct 
 
 assert.match(asset, /window\.ProjectStore\?\.list\?\.\(\)/, 'Sharing must read projects from the canonical ProjectStore inventory.');
 assert.match(asset, /function requireProject\(\)/, 'Sharing actions must explain when no project is selected instead of silently doing nothing.');
+assert.match(asset, /if \(selected && projects\.some\(item => String\(item\.id\) === selected\)\) \{ state\.projectId = selected; select\.value = selected; \}/, 'A project already selected in the dropdown must also populate the action state.');
 assert.match(asset, /if \(!requireProject\(\)\) return;/, 'Link, email and direct-member actions must require a selected project with visible feedback.');
