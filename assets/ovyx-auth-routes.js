@@ -202,7 +202,7 @@
     window.addEventListener('popstate', () => {
       const mode = modeFromPath();
       if (mode) renderRoute(mode);
-      else { document.documentElement.removeAttribute('data-ovyx-auth-page'); window.Router?.go?.('home', { force: true }); }
+      else { document.documentElement.removeAttribute('data-ovyx-auth-page'); document.body.classList.remove('ovyx-auth-open'); document.documentElement.classList.remove('ovyx-auth-open'); window.Router?.go?.('home', { force: true }); }
     });
     window.addEventListener('ovyx:view-changed', event => {
       const route = String(event.detail?.view || '').replace(/^view-/, '');
