@@ -201,6 +201,17 @@
         window.Router?.go?.('home', { force: true });
       }
     }, true);
+    window.addEventListener('pageshow', () => {
+      const mode = modeFromPath();
+      if (mode) setTimeout(() => renderRoute(mode), 0);
+    }, { passive: true });
+    window.addEventListener('firebase-auth-state-ready', () => {
+      const mode = modeFromPath();
+      if (!mode || mode === 'verify') return;
+      const current = window.firebase?.auth?.()?.currentUser;
+      if (current) { setPath('', true); document.documentElement.removeAttribute('data-ovyx-auth-page'); }
+      else setTimeout(() => renderRoute(mode), 0);
+    }, { passive: true });
     window.addEventListener('popstate', () => {
       const mode = modeFromPath();
       if (mode) renderRoute(mode);
@@ -208,7 +219,11 @@
     });
     window.addEventListener('ovyx:view-changed', event => {
       const route = String(event.detail?.view || '').replace(/^view-/, '');
-      if (route === 'home' && modeFromPath() && modeFromPath() !== 'verify') { setPath('', true); document.documentElement.removeAttribute('data-ovyx-auth-page'); document.body.classList.remove('ovyx-auth-open'); document.documentElement.classList.remove('ovyx-auth-open'); }
+      if (route === 'home' && modeFromPath() && modeFromPath() !== 'verify') {
+        const current = window.firebase?.auth?.()?.currentUser;
+        if (current) { setPath('', true); document.documentElement.removeAttribute('data-ovyx-auth-page'); document.body.classList.remove('ovyx-auth-open'); document.documentElement.classList.remove('ovyx-auth-open'); }
+        else setTimeout(showAuthSurface, 0);
+      }
     });
   }
   function start() {
