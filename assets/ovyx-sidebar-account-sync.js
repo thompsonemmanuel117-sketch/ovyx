@@ -129,8 +129,8 @@
     try {
       const candidate = window.firebase?.auth?.();
       if (!candidate || typeof candidate.onAuthStateChanged !== 'function' || candidate.__ovyxSidebarAccountSyncV1) return;
-      candidate.__ovyxSidebarAccountSyncV1 = true;
       candidate.onAuthStateChanged(user => sync(user));
+      candidate.__ovyxSidebarAccountSyncV1 = true;
       auth = candidate;
     } catch (error) {
       console.warn('[OVYX sidebar] account state could not be observed', error);
@@ -141,8 +141,10 @@
     sync();
     installAuthListener();
     observeAccountSurfaces();
-    window.addEventListener('firebase-auth-state-ready', () => sync(), { passive: true });
-    window.addEventListener('ovyx:auth-ready', () => sync(), { passive: true });
+    const refreshAuth = () => { installAuthListener(); sync(); };
+    window.addEventListener('ovyx:firebase-auth-sdk-ready', refreshAuth, { passive: true });
+    window.addEventListener('firebase-auth-state-ready', refreshAuth, { passive: true });
+    window.addEventListener('ovyx:auth-ready', refreshAuth, { passive: true });
     window.addEventListener('ovyx:view-changed', () => { sync(); observeAccountSurfaces(); }, { passive: true });
     window.addEventListener('ovyx:profile-updated', () => sync(), { passive: true });
     window.addEventListener('ovyx:workspace-changed', () => sync(), { passive: true });
