@@ -70,7 +70,7 @@
           const url = new URL(endpoint.value);
           if (url.protocol !== 'https:') throw new Error('The API endpoint must use HTTPS.');
           if (!model.value.trim()) throw new Error('Enter the exact model ID supported by your provider.');
-          if (!key.value.trim()) throw new Error('Paste your API key to continue.');
+          if (!key.value.trim()) throw new Error('Paste your provider API key to continue.');
           const saved = await api('/api/settings/connections', jsonOptions({ name: name.value.trim() || p.label, type: 'ai', protocol: p.protocol, endpoint: url.toString(), authMode: 'bearer', model: model.value.trim(), secret: key.value, active: true }));
           id = saved.connection && saved.connection.id;
           key.value = '';
@@ -150,7 +150,10 @@
         row = row.parentElement;
         if (row.querySelector('[data-v91-test], [data-v91-delete], [data-conn-test], [data-conn-delete]')) break;
       }
-      if (row.querySelector(':scope > [data-ovyx-project-grant]')) return;
+      // Search descendants rather than relying on :scope. The grant button is
+      // appended to this row; this guard must find it on the observer's next
+      // pass or the mutation observer will keep inserting duplicate buttons.
+      if (row.querySelector('[data-ovyx-project-grant]')) return;
       const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Grant to project'; button.setAttribute('data-ovyx-project-grant', id);
       button.style.cssText = 'margin:6px 4px 4px 0;padding:7px 10px;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.05);color:#ddd;font-size:12px;cursor:pointer;';
       button.addEventListener('click', () => openProjectGrant(id)); row.appendChild(button);
