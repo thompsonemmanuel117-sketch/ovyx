@@ -37,8 +37,9 @@
     if (!result.response.ok || result.body.ok === false) {
       const message = result.body.code === 'EMAIL_NOT_VERIFIED'
         ? 'Your email is not verified yet. Verify it, then refresh this page and try again.'
-        : result.body.error || 'The sharing request could not be completed.';
-      throw new Error(message);
+        : result.body.message || result.body.error || 'The sharing request could not be completed.';
+      const code = String(result.body.code || '').trim();
+      throw new Error(code && code !== 'EMAIL_NOT_VERIFIED' ? message + ' (' + code + ')' : message);
     }
     return result.body;
   }
