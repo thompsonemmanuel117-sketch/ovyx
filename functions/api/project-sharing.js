@@ -8,8 +8,8 @@ import {
 } from './_lib/firebase-admin.js';
 import { readJson, jsonResponse, requestId } from './_lib/http.js';
 
-const clean = (value, max = 320) => String(value ?? '').replace(/[\\u0000-\\u001F\\u007F]/g, '').trim().slice(0, max);
-const validEmail = value => /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(value);
+const clean = (value, max = 320) => String(value ?? '').replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, max);
+const validEmail = value => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);
 const safeRole = value => value === 'editor' ? 'editor' : 'viewer';
 const projectPath = (email, id) => ['users', email, 'projects', id];
 const sharePath = (email, id, shareId) => [...projectPath(email, id), 'shares', shareId];
@@ -30,7 +30,7 @@ function makeToken() {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   let binary = '';
   bytes.forEach(byte => { binary += String.fromCharCode(byte); });
-  return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 function publicProject(project) {
   const publishedUrl = clean(project?.publishedUrl || project?.liveUrl || '', 1000);
