@@ -18,7 +18,7 @@
     return ROUTES[(location.pathname || '/').replace(/\/+$/, '') || '/'] || '';
   }
   function setPath(mode, replace) {
-    const path = PATHS[mode] || '/login';
+    const path = PATHS[mode] || '/';
     if (location.pathname !== path) {
       try { history[replace ? 'replaceState' : 'pushState']({ ...(history.state || {}), ovyxAuthRoute: mode }, '', path + location.search + location.hash); } catch (_) {}
     }
@@ -189,7 +189,10 @@
       } else if (target.id === 'ovyx-auth-back') {
         event.preventDefault();
         event.stopImmediatePropagation();
-        setPath('login', true);
+        setPath('', true);
+        document.documentElement.removeAttribute('data-ovyx-auth-page');
+        document.body.classList.remove('ovyx-auth-open');
+        document.documentElement.classList.remove('ovyx-auth-open');
         window.Router?.go?.('home', { force: true });
       }
     }, true);
@@ -200,11 +203,27 @@
     });
     window.addEventListener('ovyx:view-changed', event => {
       const route = String(event.detail?.view || '').replace(/^view-/, '');
-      if (route === 'home' && modeFromPath()) setPath('login', true);
+      if (route === 'home' && modeFromPath() && modeFromPath() !== 'verify') { setPath('', true); document.documentElement.removeAttribute('data-ovyx-auth-page'); document.body.classList.remove('ovyx-auth-open'); document.documentElement.classList.remove('ovyx-auth-open'); }
     });
   }
   function start() {
     bind();
+    const authApi = window.OVYXMasterAuth;
+    if (authApi && typeof authApi.createAccount === 'function' && !authApi.createAccount.__OVYX_VERIFY_AFTER_CREATE__) {
+      const originalCreate = authApi.createAccount;
+      const wrappedCreate = async function () {
+        const beforeUid = window.firebase?.auth?.()?.currentUser?.uid || '';
+        const result = await originalCreate.apply(this, arguments);
+        const current = window.firebase?.auth?.()?.currentUser;
+        if (activeMode === 'signup' && current && current.uid !== beforeUid) {
+          try { await current.sendEmailVerification(); } catch (_) {}
+          navigate('verify', false);
+        }
+        return result;
+      };
+      wrappedCreate.__OVYX_VERIFY_AFTER_CREATE__ = true;
+      authApi.createAccount = wrappedCreate;
+    }
     const mode = modeFromPath();
     if (mode) renderRoute(mode);
   }
