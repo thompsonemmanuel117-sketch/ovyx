@@ -203,7 +203,7 @@
       loadPublicShare();
     }
     heartbeat();
-    window.setInterval(heartbeat, 30000);
+    window.setInterval(() => { heartbeat(); if (state.projectId && page() && !page().classList.contains('hidden')) load(); }, 30000);
     window.addEventListener('ovyx:view-changed', event => {
       heartbeat();
       if (event.detail?.view === 'sharing') {
