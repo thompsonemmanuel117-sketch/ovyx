@@ -145,6 +145,14 @@ export async function onRequest(context){
         updatedAt:now
       };
       await setFirestoreDocumentAtPath(context.env,['users',targetEmail,'projects',pid],stored,{merge:false,expectedUpdateTime:existingDoc?.updateTime||null});
+      const activityId='update_'+uid.replace(/[^A-Za-z0-9_-]/g,'_').slice(0,80);
+      const activityPath=['users',targetEmail,'projects',pid,'activity',activityId];
+      const activityDoc=await getFirestoreDocumentAtPath(context.env,activityPath);
+      await setFirestoreDocumentAtPath(context.env,activityPath,{
+        event:'project_updated',actorUid:uid,actorEmail:email,
+        actorName:clean(user.name||user.displayName||email,100),
+        createdAt:now
+      },{merge:false,expectedUpdateTime:activityDoc?.updateTime||null});
       return jsonResponse({ok:true,project:{...stored}},200,{'X-OVYX-Request-ID':id});
     }
     return jsonResponse({ok:false,error:'GET, POST or DELETE is required.',code:'METHOD_NOT_ALLOWED'},405,{'X-OVYX-Request-ID':id});

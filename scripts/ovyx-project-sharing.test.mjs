@@ -29,6 +29,13 @@ assert.match(projects, /sharedProjectMembership/, 'Project reads and writes must
 assert.match(projects, /sharedMembership\.role!=='editor'/, 'Viewer access must not authorize project writes.');
 assert.match(projects, /sharingAccess:\{role:membership\.role,owner:false/, 'Shared projects must carry server-authorized role metadata.');
 assert.match(api, /publicProject\(project\)/, 'Public share links must return a safe project summary rather than raw project data.');
+assert.match(api, /recordActivity/, 'Sharing actions must be recorded in the project activity timeline.');
+assert.match(api, /action === 'presence'/, 'Collaborators must be able to send an authenticated presence heartbeat.');
+assert.match(api, /lastSeenAt/, 'Presence must expose a last-seen timestamp.');
+assert.match(projects, /event:'project_updated'/, 'Project saves must appear in the activity timeline.');
+assert.match(asset, /data-activity-list/, 'The Sharing page must render recent project activity.');
+assert.match(asset, /data-presence-list/, 'The Sharing page must show collaborator presence.');
+assert.match(asset, /LIVE WEBSITE PREVIEW/, 'Public links must show a read-only preview for published sites.');
 assert.match(asset, /data-share-create/, 'Owners must be able to create view-only links.');
 assert.match(asset, /data-share-invite-form/, 'Owners must be able to invite by email.');
 assert.match(asset, /data-revoke/, 'Owners must be able to revoke access.');
@@ -36,8 +43,8 @@ assert.match(asset, /data-role/, 'Owners must be able to change invitation permi
 assert.match(asset, /accept-invite/, 'Invitees need an authenticated acceptance flow.');
 assert.match(html, /id="view-sharing"/, 'Sharing must be a dedicated routed page.');
 assert.match(html, /data-nav="sharing"/, 'Sharing must have its own sidebar navigation item.');
-assert.match(middleware, /ovyx-project-sharing\.js\?v=20261114-1/, 'The sharing runtime must load from the app shell.');
-assert.match(middleware, /ovyx-project-sharing\.css\?v=20261114-1/, 'The sharing page stylesheet must load from the app shell.');
+assert.match(middleware, /ovyx-project-sharing\.js\?v=20261114-2/, 'The sharing runtime must load from the app shell.');
+assert.match(middleware, /ovyx-project-sharing\.css\?v=20261114-2/, 'The sharing page stylesheet must load from the app shell.');
 assert.match(css, /prefers-reduced-motion/, 'The sharing page must respect reduced-motion preferences.');
 
 console.log('OVYX project sharing security and UI contract checks passed.');
