@@ -188,6 +188,7 @@
   }
 
   function install() {
+    installStyles();
     removeLegacyContinueLinks();
     renderContinuePanel();
     document.addEventListener('click', handleContinueAction);
