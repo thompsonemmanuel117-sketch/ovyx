@@ -16,10 +16,6 @@ try {
     const pageErrors = [];
     const notificationRequests = [];
     page.on('pageerror', error => pageErrors.push(String(error?.stack || error?.message || error)));
-    page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed during Notifications bootstrap.'));
-    page.on('close', () => console.error('[' + target.name + '] Chromium page closed during Notifications bootstrap.'));
-    browser.on('disconnected', () => console.error('[' + target.name + '] Chromium browser disconnected during Notifications test.'));
-
     await installOwnerBrowserApiFixtures(page, {
       initialUser: {
         uid: 'ovyx-notification-user',
@@ -29,21 +25,8 @@ try {
       },
     });
     const stopStartupProfiler = await startBrowserStartupProfiler(page, target.name + ' Notifications');
-
-    // The current account inbox is backed by the authenticated Notifications API.
-    // Keep its response deterministic without relying on the retired Firestore inbox.
     await page.route('**/api/notifications', async route => {
-      const request = route.request();
-      notificationRequests.push({ method: request.method(), body: request.postDataJSON() });
-      if (request.method() === 'POST') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          headers: { 'cache-control': 'no-store' },
-          body: JSON.stringify({ ok: true }),
-        });
-        return;
-      }
+      notificationRequests.push(route.request().method());
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -63,12 +46,6 @@ try {
         }),
       });
     });
-    await page.route('**/api/notifications/push', route => route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      headers: { 'cache-control': 'no-store' },
-      body: JSON.stringify({ ok: true, pushConfigured: false, reason: 'Phone alerts are not configured for this test.' }),
-    }));
     await page.route('**/api/settings/profile', route => route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -76,100 +53,47 @@ try {
       body: JSON.stringify({ ok: true, profile: { displayName: 'Maria Doe' } }),
     }));
 
-    console.log('[' + target.name + '] Notifications stage: navigating to OVYX shell.');
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
-    console.log('[' + target.name + '] Notifications stage: shell response received; waiting for auth and inbox API.');
-    try {
-      await page.waitForFunction(() =>
-        typeof window.OVYXAccountNotifications?.open === 'function'
-        && !!window.firebase?.auth?.()?.currentUser,
-        null,
-        { timeout: 60000 },
-      );
-    } catch (error) {
-      const diagnostic = await page.evaluate(() => ({
-        notificationApi: typeof window.OVYXAccountNotifications?.open,
-        firebase: typeof window.firebase,
-        auth: typeof window.firebase?.auth,
-        currentUser: !!window.firebase?.auth?.()?.currentUser,
-        scripts: performance.getEntriesByType('resource').map(entry => entry.name)
-          .filter(src => /account-notifications|firebase|auth/i.test(src)).slice(-30),
-        pageTitle: document.title,
-        bodyText: (document.body?.innerText || '').slice(0, 1200),
-      })).catch(() => ({ diagnostic: 'page unavailable' }));
-      console.error('[' + target.name + '] Notifications bootstrap diagnostic: ' + JSON.stringify(diagnostic));
-      throw error;
-    }
-
-    await stopStartupProfiler();
-    await page.evaluate(() => window.OVYXAccountNotifications.open());
-    const root = page.locator('#ovyx-account-notifications-root');
-    await root.waitFor({ state: 'attached' });
-    try {
-      await root.waitFor({ state: 'visible' });
-    } catch (error) {
-      const diagnostic = await page.locator('#ovyx-account-notifications-root').evaluate(el => {
-        const style = getComputedStyle(el);
-        const rect = el.getBoundingClientRect();
-        return {
-          hidden: el.hidden,
-          hiddenAttribute: el.hasAttribute('hidden'),
-          className: el.className,
-          inlineStyle: el.getAttribute('style') || '',
-          computed: { display: style.display, visibility: style.visibility, opacity: style.opacity, position: style.position },
-          rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-          panelHidden: el.querySelector('#ovyx-notification-panel')?.hidden ?? null,
-          authUser: !!window.firebase?.auth?.()?.currentUser,
-          activeUid: window.OVYXAccountNotifications ? 'api-ready' : 'api-missing',
-          stylesInjected: !!document.getElementById('ovyx-account-notification-styles'),
-        };
-      }).catch(e => ({ diagnostic: String(e?.message || e) }));
-      console.error('[' + target.name + '] Notifications visibility diagnostic: ' + JSON.stringify(diagnostic));
-      throw error;
-    }
-    const panel = page.locator('#ovyx-notification-panel');
-    await panel.waitFor({ state: 'visible' });
-    const notification = page.locator('#ovyx-notification-list [data-ovyx-notification-id="broadcast-test-1"]');
-    await notification.waitFor({ state: 'visible' });
-
-    assert.equal((await notification.locator('.ovyx-notice-item-title').textContent()).trim(), 'A message from OVYX',
-      '[' + target.name + '] the published broadcast title must be rendered.');
-    assert.match((await notification.textContent()) || '', /Your account is ready for the next update/,
-      '[' + target.name + '] the published broadcast body must be rendered.');
-    assert.equal((await page.locator('#ovyx-notification-badge').textContent()).trim(), '1',
-      '[' + target.name + '] one unread broadcast must show an unread count.');
-    assert.equal(await notification.evaluate(node => node.classList.contains('is-unread')), true,
-      '[' + target.name + '] unread broadcasts must retain their unread styling.');
-
-    const readResponse = page.waitForResponse(response =>
-      response.url().endsWith('/api/notifications')
-      && response.request().method() === 'POST'
-      && response.status() === 200,
-      { timeout: 15000 },
+    await page.waitForFunction(() =>
+      typeof window.OVYXAccountNotifications?.refresh === 'function'
+      && typeof window.OVYXAccountNotifications?.unreadCount === 'function'
+      && !!window.firebase?.auth?.()?.currentUser
+      && window.OVYXAccountNotifications.unreadCount() === 1
+      && !!document.getElementById('ovyx-welcome-overlay'),
+      null,
+      { timeout: 60000 },
     );
-    await notification.click();
-    await readResponse;
-    assert.ok(notificationRequests.some(item =>
-      item.method === 'POST' && item.body?.action === 'read' && item.body?.notificationId === 'broadcast-test-1'
-    ), '[' + target.name + '] opening an unread broadcast must send the authenticated read action.');
+    await stopStartupProfiler();
 
-    assert.deepEqual(pageErrors, [], '[' + target.name + '] account notifications must not throw browser errors.');
-    console.log('OVYX authenticated account notification inbox passed on ' + target.name + '.');
+    const ui = await page.evaluate(() => ({
+      root: !!document.getElementById('ovyx-account-notifications-root'),
+      bell: !!document.getElementById('ovyx-notification-bell'),
+      panel: !!document.getElementById('ovyx-notification-panel'),
+      badge: !!document.getElementById('ovyx-notification-badge'),
+      welcome: !!document.getElementById('ovyx-welcome-overlay'),
+      unreadCount: window.OVYXAccountNotifications.unreadCount(),
+      recent: window.OVYXAccountNotifications.recent(),
+    }));
+    assert.deepEqual(
+      { root: ui.root, bell: ui.bell, panel: ui.panel, badge: ui.badge },
+      { root: false, bell: false, panel: false, badge: false },
+      '[' + target.name + '] the retired floating notification UI must not be mounted anywhere in the application.',
+    );
+    assert.equal(ui.welcome, true, '[' + target.name + '] the existing account welcome experience must remain available.');
+    assert.equal(ui.unreadCount, 1, '[' + target.name + '] authenticated notification data must continue syncing.');
+    assert.equal(ui.recent[0]?.title, 'A message from OVYX',
+      '[' + target.name + '] the notification data API must remain available for the future inbox.');
+    assert.ok(notificationRequests.includes('GET'),
+      '[' + target.name + '] the authenticated notifications endpoint must still be queried.');
+
+    await page.evaluate(() => window.OVYXAccountNotifications.open());
+    assert.equal(await page.locator('#ovyx-notification-bell, #ovyx-notification-panel').count(), 0,
+      '[' + target.name + '] legacy open calls must not recreate the retired floating UI.');
+    assert.deepEqual(pageErrors, [], '[' + target.name + '] notification bootstrap must not throw browser errors.');
+    console.log('OVYX notification UI retirement and retained data sync passed on ' + target.name + '.');
     await page.close();
   }
 } finally {
-  let closeTimer;
-  try {
-    await Promise.race([
-      browser.close(),
-      new Promise((_, reject) => { closeTimer = setTimeout(() => reject(new Error('Chromium shutdown exceeded 8 seconds.')), 8000); }),
-    ]);
-  } catch (error) {
-    console.error('[notifications-browser] ' + String(error?.message || error));
-    process.exitCode = 1;
-    process.exit(1);
-  } finally {
-    if (closeTimer) clearTimeout(closeTimer);
-  }
+  await browser.close();
 }

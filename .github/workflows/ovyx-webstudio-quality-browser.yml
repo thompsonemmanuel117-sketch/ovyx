@@ -57,6 +57,9 @@ on:
       - 'manifest.json'
       - '_routes.json'
       - 'functions/_middleware.js'
+      - 'assets/ovyx-account-notifications.js'
+      - 'scripts/ovyx-account-notifications.browser.test.mjs'
+      - 'scripts/ovyx-broadcast-notifications.test.mjs'
       - 'assets/css/ovyx-platform-motion.css'
       - 'assets/ovyx-platform-motion.js'
       - 'scripts/ovyx-platform-motion.browser.test.mjs'
@@ -115,6 +118,9 @@ on:
       - 'manifest.json'
       - '_routes.json'
       - 'functions/_middleware.js'
+      - 'assets/ovyx-account-notifications.js'
+      - 'scripts/ovyx-account-notifications.browser.test.mjs'
+      - 'scripts/ovyx-broadcast-notifications.test.mjs'
       - 'assets/css/ovyx-platform-motion.css'
       - 'assets/ovyx-platform-motion.js'
       - 'scripts/ovyx-platform-motion.browser.test.mjs'
@@ -198,6 +204,12 @@ jobs:
       # Collect evidence from every independent browser regression, even when
       # one suite fails or stalls. The final summary step keeps the workflow red
       # if any required test did not pass.
+      - name: Verify global notification bell removal and retained account sync
+        id: account-notifications
+        continue-on-error: true
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8789
+        run: node scripts/ovyx-account-notifications.browser.test.mjs
       - name: Test OVYX platform motion and reduced-motion behavior in Chromium
         id: platform-motion
         continue-on-error: true
@@ -252,6 +264,7 @@ jobs:
           OUTCOME_WEBSITE_ENGINE: ${{ steps.website-engine-tests.outcome }}
           OUTCOME_STATIC_VALIDATION: ${{ steps.static-validation.outcome }}
           OUTCOME_PRODUCTION_BUILD: ${{ steps.production-build.outcome }}
+          OUTCOME_ACCOUNT_NOTIFICATIONS: ${{ steps.account-notifications.outcome }}
           OUTCOME_PLATFORM_MOTION: ${{ steps.platform-motion.outcome }}
           OUTCOME_QUALITY_CONTRACT: ${{ steps.quality-contract.outcome }}
           OUTCOME_PULSE_COMPOSER: ${{ steps.pulse-composer.outcome }}
@@ -281,6 +294,7 @@ jobs:
           report "Website engine" "$OUTCOME_WEBSITE_ENGINE"
           report "Static validation" "$OUTCOME_STATIC_VALIDATION"
           report "Production build" "$OUTCOME_PRODUCTION_BUILD"
+          report "Global notification bell removal browser" "$OUTCOME_ACCOUNT_NOTIFICATIONS"
           report "Platform motion browser" "$OUTCOME_PLATFORM_MOTION"
           report "Web Studio quality contract" "$OUTCOME_QUALITY_CONTRACT"
           report "Pulse Composer browser" "$OUTCOME_PULSE_COMPOSER"

@@ -49,7 +49,8 @@ assert.match(client, /emailDisplayName/);
 assert.match(client, /preferredDisplayName/);
 assert.match(client, /\/api\/settings\/profile/);
 assert.match(client, /ovyx-welcome-title/);
-assert.match(client, /ovyx-notification-badge/);
+assert.match(client, /function createWidget\(\) \{ return null; \}/, 'The retired floating notification widget must not mount on any route.');
+assert.match(client, /OVYXAccountNotifications = Object\.freeze/, 'Authenticated notification data remains available for a future inbox.');
 assert.match(client, /unreadCount/);
 assert.match(client, /Notification\.requestPermission/);
 assert.match(client, /pushManager\.subscribe/);
@@ -66,7 +67,7 @@ assert.ok(manifest.icons.some(icon => icon.src === '/assets/ovyx-brand-mark.png'
 assert.ok(manifest.icons.some(icon => icon.src === '/assets/ovyx-brand-mark.svg' && icon.type === 'image/svg+xml'));
 assert.match(worker, /badge: OVYX_NOTIFICATION_ICON/);
 assert.match(worker, /notificationclick/);
-assert.match(middleware, /ovyx-account-notifications\.js\?v=20261106-2/);
+assert.match(middleware, /ovyx-account-notifications\.js\?v=20261114-1/);
 assert.match(middleware, /apple-touch-icon[^>]*ovyx-brand-mark\.png/);
 assert.ok(brandMark.includes('M32 5L55 18.5V45.5L32 59L9 45.5V18.5L32 5Z'));
 assert.ok(brandMark.includes('M32 18L44 25V39L32 46L20 39V25L32 18Z'));

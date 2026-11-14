@@ -73,34 +73,10 @@
       '@media(prefers-reduced-motion:reduce){.ovyx-welcome-overlay,.ovyx-welcome-card,.ovyx-welcome-spark,.ovyx-notice-badge.is-visible{animation:none!important;transition:none!important}}';
     document.head.appendChild(style);
   }
-  function createWidget() {
-    let root = $('#ovyx-account-notifications-root');
-    if (root) return root;
-    injectStyles();
-    root = make('div');
-    root.id = 'ovyx-account-notifications-root';
-    root.hidden = true;
-    const bell = make('button', 'ovyx-bell-button');
-    bell.type = 'button'; bell.id = 'ovyx-notification-bell'; bell.setAttribute('aria-label', 'Open notifications'); bell.setAttribute('aria-haspopup', 'dialog'); bell.setAttribute('aria-expanded', 'false');
-    bell.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>';
-    const badge = make('span', 'ovyx-notice-badge', '0'); badge.id = 'ovyx-notification-badge'; badge.setAttribute('aria-label', 'Unread notifications'); bell.appendChild(badge);
-    const panel = make('section', 'ovyx-notice-panel'); panel.id = 'ovyx-notification-panel'; panel.hidden = true; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'OVYX account notifications');
-    const head = make('div', 'ovyx-notice-head');
-    const logo = make('img'); logo.src = BRAND_ICON; logo.alt = ''; logo.width = 35; logo.height = 35;
-    const heading = make('div', 'ovyx-notice-heading'); heading.append(make('strong', '', 'Your notifications'), make('span', '', 'Important updates from OVYX'));
-    const close = make('button', 'ovyx-notice-close', '×'); close.id = 'ovyx-notification-close'; close.type = 'button'; close.setAttribute('aria-label', 'Close notifications'); head.append(logo, heading, close);
-    const status = make('div', 'ovyx-notice-status', 'Loading your account updates…'); status.id = 'ovyx-notification-status'; status.setAttribute('role', 'status');
-    const list = make('div', 'ovyx-notice-list'); list.id = 'ovyx-notification-list';
-    const footer = make('div', 'ovyx-notice-footer');
-    const pushButton = make('button', 'ovyx-notice-action', 'Enable phone alerts'); pushButton.id = 'ovyx-notification-push-button'; pushButton.type = 'button';
-    const pushStatus = make('div', 'ovyx-notice-push-status', 'Phone alerts appear when you allow notifications on this device.'); pushStatus.id = 'ovyx-notification-push-status';
-    footer.append(pushButton, pushStatus); panel.append(head, status, list, footer); root.append(bell, panel); document.body.appendChild(root);
-    bell.addEventListener('click', () => { panel.hidden = !panel.hidden; bell.setAttribute('aria-expanded', String(!panel.hidden)); if (!panel.hidden) { void refreshNotifications(true); void refreshPushButton(); } });
-    close.addEventListener('click', () => closePanel(root));
-    pushButton.addEventListener('click', () => { if (pushBusy) return; if (browserSubscription) void disablePhonePush(root); else void enablePhonePush(root); });
-    list.addEventListener('click', event => { const button = event.target instanceof Element ? event.target.closest('[data-ovyx-notification-id]') : null; if (!button) return; const item = currentNotifications.find(entry => String(entry.id) === String(button.dataset.ovyxNotificationId)); if (item) void openNotification(item); });
-    return root;
-  }
+  // The floating inbox UI is intentionally retired platform-wide. Keep the
+  // authenticated notification data sync and welcome experience available so
+  // a dedicated inbox can be introduced later without rebuilding the backend.
+  function createWidget() { return null; }
   function closePanel(root = $('#ovyx-account-notifications-root')) {
     if (!root) return; const panel = $('#ovyx-notification-panel', root); if (panel) panel.hidden = true; $('#ovyx-notification-bell', root)?.setAttribute('aria-expanded', 'false');
   }
@@ -255,14 +231,14 @@
     window.setTimeout(() => dismissWelcome(overlay), 7200);
   }
   function syncAuth() {
-    const user = getUser(); const root = createWidget();
+    const user = getUser();
     if (!user || !user.uid) {
-      activeUid = ''; currentNotifications = []; setUnreadCount(0); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: 0 } })); root.hidden = true; closePanel(root); $('#ovyx-welcome-overlay')?.remove();
+      activeUid = ''; currentNotifications = []; setUnreadCount(0); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: 0 } })); closePanel(); $('#ovyx-welcome-overlay')?.remove();
       if (refreshTimer) { window.clearInterval(refreshTimer); refreshTimer = null; } return;
     }
-    root.hidden = false; const uid = String(user.uid);
+    const uid = String(user.uid);
     if (uid !== activeUid) {
-      activeUid = uid; currentNotifications = []; setUnreadCount(0); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: 0 } })); closePanel(root); void refreshNotifications(true); void showWelcome(user);
+      activeUid = uid; currentNotifications = []; setUnreadCount(0); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: 0 } })); closePanel(); void refreshNotifications(true); void showWelcome(user);
       if (refreshTimer) window.clearInterval(refreshTimer);
       refreshTimer = window.setInterval(() => { if (getUser()?.uid === uid) void refreshNotifications(false); }, 60000);
     }
@@ -273,7 +249,7 @@
     syncAuth();
   }
   function boot() {
-    createWidget(); bindAuth();
+    injectStyles(); bindAuth();
     window.addEventListener('firebase-auth-state-ready', bindAuth, { passive: true });
     document.addEventListener('visibilitychange', () => { if (!document.hidden && getUser()) void refreshNotifications(false); });
     window.addEventListener('focus', () => { if (getUser()) void refreshNotifications(false); }, { passive: true });
@@ -285,7 +261,7 @@
     }, true);
     window.OVYXAccountNotifications = Object.freeze({
       refresh: () => refreshNotifications(true),
-      open: () => { const root = createWidget(); root.hidden = false; const panel = $('#ovyx-notification-panel', root); panel.hidden = false; void refreshNotifications(true); void refreshPushButton(); },
+      open: () => { void refreshNotifications(true); },
       unreadCount: () => currentNotifications.filter(item => item.unread).length,
       recent: () => currentNotifications.slice(0, 3).map(item => ({
         id: String(item.id || ''),
