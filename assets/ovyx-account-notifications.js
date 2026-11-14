@@ -238,7 +238,7 @@
     }
     const uid = String(user.uid);
     if (uid !== activeUid) {
-      activeUid = uid; currentNotifications = []; setUnreadCount(0); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: 0 } })); closePanel(root); void refreshNotifications(true); void showWelcome(user);
+      activeUid = uid; currentNotifications = []; setUnreadCount(0); window.dispatchEvent(new CustomEvent('ovyx:notifications-updated', { detail: { unreadCount: 0 } })); closePanel(); void refreshNotifications(true); void showWelcome(user);
       if (refreshTimer) window.clearInterval(refreshTimer);
       refreshTimer = window.setInterval(() => { if (getUser()?.uid === uid) void refreshNotifications(false); }, 60000);
     }
