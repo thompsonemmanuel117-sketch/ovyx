@@ -106,7 +106,7 @@ assert.equal(elements['v59-ai-mode-select'].value, 'balanced',
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-home-dashboard-behavior.test.mjs'),
   'The new dashboard behavior regression test must run in npm test.');
-assert.match(middleware, /ovyx-home-dashboard-behavior\.js\?v=20261113-1/,
+assert.match(middleware, /ovyx-home-dashboard-behavior\.js\?v=20261114-1/,
   'The dashboard behavior runtime must be injected into the Pages shell.');
 assert.match(html, /id="home-projects-grid"/);
 assert.match(html, /id="v59-ai-mode-select"/);
