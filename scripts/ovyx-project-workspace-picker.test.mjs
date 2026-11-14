@@ -33,5 +33,10 @@ assert.match(asset, /const targetWorkspaceId = selectedWorkspaceId/, 'Workspace 
 assert.match(asset, /ovyx\.active-workspace\.v1\./, 'Workspace selection must be scoped to the signed-in account.');
 assert.doesNotMatch(asset, /window\.prompt\s*\(/, 'The new project picker must not use a browser prompt.');
 assert.match(middleware, /ovyx-project-workspace-picker\.js\?v=20261110-20/, 'The project picker runtime must be injected into the production app shell.');
+const pickerLaunchIndex = middleware.indexOf('ovyx-project-workspace-picker.js?v=20261110-20');
+const accountLaunchIndex = middleware.indexOf('ovyx-sidebar-account-sync.js?v=20261114-4');
+const projectsFlowLaunchIndex = middleware.indexOf('ovyx-projects-unified-flow.js?v=20261114-6');
+assert.ok(pickerLaunchIndex >= 0 && accountLaunchIndex > pickerLaunchIndex && projectsFlowLaunchIndex > accountLaunchIndex,
+  'Workspace and account modules must launch before optional enhancements so their readiness hooks are not starved by unrelated startup scripts.');
 
 console.log('OVYX project workspace picker contract tests passed.');
