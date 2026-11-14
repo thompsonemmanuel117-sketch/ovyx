@@ -75,6 +75,15 @@ try {
       window.ProjectStore.renderProjects();
     });
 
+    assert.equal(await page.locator('[data-nav="continue-project"], button[onclick*="continueOvyxProject"]').count(), 0,
+      '[' + target.name + '] the separate Continue Project shortcuts must be removed from desktop and mobile navigation.');
+    const continuePanel = page.locator('#ovyx-projects-continue-panel');
+    await continuePanel.waitFor({ state: 'attached' });
+    assert.equal(await continuePanel.locator('[data-continue-project="picker-project-aurora"]').count(), 1,
+      '[' + target.name + '] the active saved project must be presented inside Projects.');
+    assert.match(await continuePanel.innerText(), /Aurora Commerce.*Continue working/s,
+      '[' + target.name + '] the Projects continue panel must identify the active project and its action.');
+
     // Open through a trusted browser click. Mobile browsers may suppress
     // programmatic focus/keyboard activation when a modal is opened from
     // page.evaluate(), which does not model the real Projects-page button.
@@ -175,6 +184,14 @@ try {
     assert.equal(await createDialog.getAttribute('aria-hidden'), 'false',
       '[' + target.name + '] Create project must hand off to the existing project creation flow.');
     await page.keyboard.press('Escape');
+
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => window.Router.go('projects'));
+    await page.locator('#ovyx-projects-continue-panel [data-continue-project="picker-created-project"]').waitFor({ state: 'visible' });
+    await page.locator('#ovyx-projects-continue-panel [data-continue-project="picker-created-project"]').click();
+    await page.waitForFunction(() => window.KernelState?.activeProject?.id === 'picker-created-project'
+      && String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'webstudio',
+      null, { timeout: 10000 });
 
     const layout = await dialog.evaluate(node => ({ width: node.getBoundingClientRect().width, viewport: window.innerWidth, scrollWidth: node.scrollWidth }));
     assert.ok(layout.width <= layout.viewport, '[' + target.name + '] picker must fit inside the viewport.');
