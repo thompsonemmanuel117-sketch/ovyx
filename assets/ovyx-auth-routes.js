@@ -36,6 +36,9 @@
     overlay.classList.remove('hidden', 'ovyx-auth-exit');
     overlay.setAttribute('aria-hidden', 'false');
     overlay.style.setProperty('display', 'flex', 'important');
+    overlay.style.setProperty('visibility', 'visible', 'important');
+    overlay.style.setProperty('opacity', '1', 'important');
+    overlay.style.setProperty('pointer-events', 'auto', 'important');
     // The legacy shell has delayed guest-surface cleanup repairs. Reassert the
     // explicit URL intent after those one-time boot repairs, but never resurrect
     // the screen after the user has authenticated or left the auth URL.
@@ -49,6 +52,9 @@
       currentOverlay.classList.remove('hidden', 'ovyx-auth-exit');
       currentOverlay.setAttribute('aria-hidden', 'false');
       currentOverlay.style.setProperty('display', 'flex', 'important');
+      currentOverlay.style.setProperty('visibility', 'visible', 'important');
+      currentOverlay.style.setProperty('opacity', '1', 'important');
+      currentOverlay.style.setProperty('pointer-events', 'auto', 'important');
     }, delay));
   }
   function closeAuthSurface() {
