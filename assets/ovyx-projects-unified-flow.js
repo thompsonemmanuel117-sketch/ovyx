@@ -72,19 +72,48 @@
     }).observe(modal, { attributes: true, attributeFilter: ['hidden', 'aria-hidden'] });
   }
 
+  let modalObserver = null;
+
+  function modalFromAddedNode(node) {
+    if (!(node instanceof Element)) return null;
+    if (node.id === 'ovyx-project-create-modal') return node;
+    return node.querySelector('#ovyx-project-create-modal');
+  }
+
+  function watchForCreateModal() {
+    if (modalObserver || !document.body) return;
+    modalObserver = new MutationObserver(records => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          const modal = modalFromAddedNode(node);
+          if (!modal) continue;
+          modalObserver.disconnect();
+          modalObserver = null;
+          enhanceCreateModal(modal);
+          return;
+        }
+      }
+    });
+    // Observe only until the modal is inserted. Do not rescan the full app DOM
+    // for every child mutation while the large shell is still parsing.
+    modalObserver.observe(document.body, { childList: true, subtree: true });
+  }
+
   function install() {
     installCreateModalStyles();
     removeLegacyContinueLinks();
     const modal = document.getElementById('ovyx-project-create-modal');
-    if (modal) enhanceCreateModal(modal);
+    if (modal) {
+      if (modalObserver) {
+        modalObserver.disconnect();
+        modalObserver = null;
+      }
+      enhanceCreateModal(modal);
+    } else {
+      watchForCreateModal();
+    }
   }
 
-  const observer = new MutationObserver(() => {
-    removeLegacyContinueLinks();
-    const modal = document.getElementById('ovyx-project-create-modal');
-    if (modal) enhanceCreateModal(modal);
-  });
-  if (document.body) observer.observe(document.body, { childList: true, subtree: true });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
   else install();
 
