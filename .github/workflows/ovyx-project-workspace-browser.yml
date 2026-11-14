@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - 'assets/ovyx-project-workspace-picker.js'
+      - 'assets/ovyx-projects-unified-flow.js'
       - 'functions/api/workspaces.js'
       - 'functions/api/projects.js'
       - 'scripts/ovyx-workspaces-api.test.mjs'
       - 'functions/_middleware.js'
       - 'scripts/ovyx-project-workspace-picker.test.mjs'
+      - 'scripts/ovyx-projects-unified-flow.test.mjs'
       - 'scripts/ovyx-project-workspace-picker.browser.test.mjs'
       - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
       - 'package.json'
@@ -18,8 +20,10 @@ on:
     branches: [main]
     paths:
       - 'assets/ovyx-project-workspace-picker.js'
+      - 'assets/ovyx-projects-unified-flow.js'
       - 'functions/_middleware.js'
       - 'scripts/ovyx-project-workspace-picker.test.mjs'
+      - 'scripts/ovyx-projects-unified-flow.test.mjs'
       - 'scripts/ovyx-project-workspace-picker.browser.test.mjs'
       - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
       - 'package.json'
@@ -49,6 +53,7 @@ jobs:
       - name: Run project workspace contract and static validation
         run: |
           node scripts/ovyx-project-workspace-picker.test.mjs
+          node scripts/ovyx-projects-unified-flow.test.mjs
           node scripts/ovyx-workspaces-api.test.mjs
           npm run validate
       - name: Start local Cloudflare Pages app shell
