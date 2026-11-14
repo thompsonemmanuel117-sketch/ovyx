@@ -64,22 +64,34 @@
   }
 
   const MODE_LABELS = Object.freeze({
-    balanced: 'OVYX Everyday',
-    fast: 'OVYX Quick',
-    quality: 'OVYX Deep'
+    balanced: 'Standard',
+    fast: 'Fast',
+    quality: 'Detailed'
+  });
+  const MODE_DESCRIPTIONS = Object.freeze({
+    balanced: 'A balanced response for everyday tasks.',
+    fast: 'Get results quickly for simple requests and small changes.',
+    quality: 'More careful, thorough responses for complex projects.'
   });
 
   function syncModeSelector(modeOverride) {
     const mode = safeMode(modeOverride || loadPreferences().mode);
     const selector = document.getElementById('v59-ai-mode-select');
-    if (selector && selector.value !== mode) selector.value = mode;
+    if (selector) {
+      if (selector.value !== mode) selector.value = mode;
+      Array.from(selector.options || []).forEach(option => {
+        if (Object.prototype.hasOwnProperty.call(MODE_LABELS, option.value)) option.textContent = MODE_LABELS[option.value];
+      });
+      selector.setAttribute?.('aria-label', 'Response detail');
+      selector.title = MODE_DESCRIPTIONS[mode] || MODE_DESCRIPTIONS.balanced;
+    }
     const note = document.getElementById('v59-routing-note');
     if (note) {
       const icon = document.createElement('i');
       icon.className = 'fa-solid fa-route';
       icon.setAttribute('aria-hidden', 'true');
       const detail = document.createElement('span');
-      detail.textContent = MODE_LABELS[mode] + ' selected · OVYX manages AI routing. Usage and safety limits remain active.';
+      detail.textContent = MODE_LABELS[mode] + ' · ' + MODE_DESCRIPTIONS[mode];
       note.replaceChildren(icon, detail);
     }
     return mode;

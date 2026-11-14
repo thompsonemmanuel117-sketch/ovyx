@@ -17,7 +17,7 @@ assert.ok(!middleware.includes('ovyx-home-dashboard-phase3.css?v=20261113-1'),
 // Keep the requested Home prompt/gallery enhancements and existing behavior.
 assert.ok(middleware.includes('ovyx-home-recent-website-gallery.js?v=20261114-1'));
 assert.ok(middleware.includes('ovyx-home-recent-website-gallery.css?v=20261113-1'));
-assert.ok(middleware.includes('ovyx-home-dashboard-behavior.js?v=20261113-1'));
+assert.ok(middleware.includes('ovyx-home-dashboard-behavior.js?v=20261114-1'));
 assert.ok(gallery.includes('Describe what you want to build with OVYX'));
 assert.ok(gallery.includes("buildLabel.textContent = 'Build'"));
 assert.ok(galleryCss.includes('#view-home #home-projects-grid'));
