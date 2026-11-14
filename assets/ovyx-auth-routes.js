@@ -24,10 +24,30 @@
     }
   }
   function showAuthSurface() {
-    // Keep the application route on Home: the existing guest-session observer
-    // intentionally redirects away from the internal master-auth route.
-    // The auth surface is an overlay and must not mutate the workspace route.
+    // Keep the application route on Home: the guest-session observer intentionally
+    // redirects away from the internal master-auth route. Open the existing auth
+    // API first, then assert its documented visible-intent state for direct URLs.
     try { window.OVYXMasterAuth?.openAuth?.(); } catch (_) {}
+    const overlay = $('view-master-auth');
+    if (!overlay) return;
+    document.body?.setAttribute('data-ovyx-auth-intent', '1');
+    document.body?.classList.add('ovyx-auth-lock');
+    overlay.classList.remove('hidden', 'ovyx-auth-exit');
+    overlay.setAttribute('aria-hidden', 'false');
+    overlay.style.setProperty('display', 'flex', 'important');
+  }
+  function closeAuthSurface() {
+    try { window.OVYXAuthAuthority?.close?.(); } catch (_) {}
+    try { window.OVYXMasterAuth?.closeAuth?.(); } catch (_) {}
+    document.body?.setAttribute('data-ovyx-auth-intent', '0');
+    document.body?.classList.remove('ovyx-auth-lock', 'ovyx-auth-open');
+    document.documentElement?.classList.remove('ovyx-auth-open');
+    const overlay = $('view-master-auth');
+    if (overlay) {
+      overlay.classList.add('hidden');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.style.setProperty('display', 'none', 'important');
+    }
   }
   function setLoginMode(signup) {
     if (!!window.isSignUpMode !== !!signup) {
@@ -104,7 +124,7 @@
   function renderVerify() {
     const user = window.firebase?.auth?.()?.currentUser;
     try { window.Router?.go?.('home', { force: true }); } catch (_) {}
-    try { window.OVYXMasterAuth?.openAuth?.(); } catch (_) {}
+    showAuthSurface();
     restoreForm();
     const form = $('ovyx-master-auth-form');
     if (form) form.dataset.authPage = 'verify';
@@ -196,8 +216,7 @@
         event.stopImmediatePropagation();
         setPath('', true);
         document.documentElement.removeAttribute('data-ovyx-auth-page');
-        document.body.classList.remove('ovyx-auth-open');
-        document.documentElement.classList.remove('ovyx-auth-open');
+        closeAuthSurface();
         window.Router?.go?.('home', { force: true });
       }
     }, true);
@@ -215,13 +234,13 @@
     window.addEventListener('popstate', () => {
       const mode = modeFromPath();
       if (mode) renderRoute(mode);
-      else { document.documentElement.removeAttribute('data-ovyx-auth-page'); document.body.classList.remove('ovyx-auth-open'); document.documentElement.classList.remove('ovyx-auth-open'); window.Router?.go?.('home', { force: true }); }
+      else { document.documentElement.removeAttribute('data-ovyx-auth-page'); closeAuthSurface(); window.Router?.go?.('home', { force: true }); }
     });
     window.addEventListener('ovyx:view-changed', event => {
       const route = String(event.detail?.view || '').replace(/^view-/, '');
       if (route === 'home' && modeFromPath() && modeFromPath() !== 'verify') {
         const current = window.firebase?.auth?.()?.currentUser;
-        if (current) { setPath('', true); document.documentElement.removeAttribute('data-ovyx-auth-page'); document.body.classList.remove('ovyx-auth-open'); document.documentElement.classList.remove('ovyx-auth-open'); }
+        if (current) { setPath('', true); document.documentElement.removeAttribute('data-ovyx-auth-page'); closeAuthSurface(); }
         else setTimeout(showAuthSurface, 0);
       }
     });
