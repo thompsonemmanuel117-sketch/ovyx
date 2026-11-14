@@ -249,8 +249,17 @@
     }, { passive: true });
     window.addEventListener('popstate', () => {
       const mode = modeFromPath();
-      if (mode) renderRoute(mode);
-      else { document.documentElement.removeAttribute('data-ovyx-auth-page'); closeAuthSurface(); window.Router?.go?.('home', { force: true }); }
+      if (mode) {
+        renderRoute(mode);
+        return;
+      }
+      // This controller is loaded on every application page. Only clean up
+      // after leaving an authentication URL; ordinary SPA route history must
+      // remain owned by the application router.
+      if (!activeMode) return;
+      activeMode = '';
+      document.documentElement.removeAttribute('data-ovyx-auth-page');
+      closeAuthSurface();
     });
     window.addEventListener('ovyx:view-changed', event => {
       const route = String(event.detail?.view || '').replace(/^view-/, '');
