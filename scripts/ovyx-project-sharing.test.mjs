@@ -26,7 +26,7 @@ assert.match(api, /RESEND_API_KEY/, 'Email delivery must use server-side provide
 assert.match(api, /listFirestoreSubcollectionDocumentsAtPath/, 'Sharing records must be stored in the project-owned Firestore subcollection.');
 assert.match(helper, /export async function listFirestoreSubcollectionDocumentsAtPath/, 'Nested share records need a server-side Firestore list helper.');
 assert.match(projects, /sharedProjectMembership/, 'Project reads and writes must resolve accepted collaborators.');
-assert.match(projects, /membership\.role!=='editor'/, 'Viewer access must not authorize project writes.');
+assert.match(projects, /sharedMembership\.role!=='editor'/, 'Viewer access must not authorize project writes.');
 assert.match(projects, /sharingAccess:\{role:membership\.role,owner:false/, 'Shared projects must carry server-authorized role metadata.');
 assert.match(api, /publicProject\(project\)/, 'Public share links must return a safe project summary rather than raw project data.');
 assert.match(asset, /data-share-create/, 'Owners must be able to create view-only links.');
