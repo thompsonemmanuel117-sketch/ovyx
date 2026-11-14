@@ -22,6 +22,8 @@ export async function onRequestPost(context){
     const mobileBuildReady=Boolean(String(context.env.EXPO_TOKEN||'').trim()&&String(context.env.EXPO_PROJECT_ID||'').trim()&&String(context.env.OVYX_MOBILE_PAYLOAD_SECRET||'').trim());
     const activatedAt=new Date().toISOString();
     const existing=(await getFirestoreData(context.env,'users',uid))||{};
+    const requestedPlanTier=String(existing.planTier||existing.tier||existing.plan||'free').trim().toLowerCase();
+    const planTier=['free','pro','max'].includes(requestedPlanTier)?requestedPlanTier:'free';
     await setFirestoreDocument(
       context.env,
       'users',
@@ -30,6 +32,7 @@ export async function onRequestPost(context){
         email: email || String(existing.email || '').trim().toLowerCase() || null,
         displayName: String(user.displayName || existing.displayName || '').trim() || null,
         photoUrl: String(user.photoUrl || existing.photoUrl || '').trim() || null,
+        planTier,
         workspaceActive: true,
         workspaceActivatedAt: activatedAt,
         workspaceActivationVersion: 2,
@@ -58,7 +61,7 @@ export async function onRequestPost(context){
       universalConnections:{enabled:true,route:'/api/settings/connections',serverAuthoritative:true,secretEncryptionConfigured:String(context.env.OVYX_CONNECTION_ENCRYPTION_KEY||'').trim().length>=32},
       github:{provider:'github-app-installation',connected:githubReady},
       mobileBuild:{provider:'expo-eas',configured:mobileBuildReady,status:mobileBuildReady?'READY':'NOT_CONFIGURED'}
-    },planTier:String(existing.planTier||'free').toLowerCase(),quotaProfile:{initialized:quotaProfileInitialized,status:quotaProfileInitialized?'READY':'DEFERRED'}},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
+    },planTier,quotaProfile:{initialized:quotaProfileInitialized,status:quotaProfileInitialized?'READY':'DEFERRED'}},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
   }catch(error){
     return jsonResponse({ok:false,error:error?.message||'Workspace activation failed.',code:error?.code||'WORKSPACE_ACTIVATION_FAILED'},error?.status||500,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
   }
