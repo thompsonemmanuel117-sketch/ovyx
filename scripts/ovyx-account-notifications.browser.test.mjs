@@ -59,7 +59,8 @@ try {
       typeof window.OVYXAccountNotifications?.refresh === 'function'
       && typeof window.OVYXAccountNotifications?.unreadCount === 'function'
       && !!window.firebase?.auth?.()?.currentUser
-      && window.OVYXAccountNotifications.unreadCount() === 1,
+      && window.OVYXAccountNotifications.unreadCount() === 1
+      && !!document.getElementById('ovyx-welcome-overlay'),
       null,
       { timeout: 60000 },
     );
