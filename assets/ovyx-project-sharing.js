@@ -47,10 +47,10 @@
     host.dataset.error = error ? 'true' : 'false';
   }
   function projectOptions() {
-    const projects = Array.isArray(window.KernelState?.projects) ? window.KernelState.projects : [];
+    const projects = Array.isArray(window.KernelState?.projects) ? window.KernelState.projects.filter(item => item?.sharingAccess?.owner !== false) : [];
     const active = activeProject();
     const selected = state.projectId || String(active?.id || '');
-    if (active?.id && !projects.some(item => String(item.id) === String(active.id))) projects.unshift(active);
+    if (active?.id && active?.sharingAccess?.owner !== false && !projects.some(item => String(item.id) === String(active.id))) projects.unshift(active);
     return { projects, selected };
   }
   function renderProjects() {
@@ -62,6 +62,7 @@
       : '<option value="">No projects found</option>';
     if (selected && projects.some(item => String(item.id) === selected)) select.value = selected;
     else if (projects[0]) { state.projectId = String(projects[0].id); select.value = state.projectId; }
+    else { state.projectId = ''; select.value = ''; }
   }
   function renderInbox() {
     const host = page();
