@@ -249,7 +249,7 @@
     syncAuth();
   }
   function boot() {
-    createWidget(); bindAuth();
+    injectStyles(); bindAuth();
     window.addEventListener('firebase-auth-state-ready', bindAuth, { passive: true });
     document.addEventListener('visibilitychange', () => { if (!document.hidden && getUser()) void refreshNotifications(false); });
     window.addEventListener('focus', () => { if (getUser()) void refreshNotifications(false); }, { passive: true });
