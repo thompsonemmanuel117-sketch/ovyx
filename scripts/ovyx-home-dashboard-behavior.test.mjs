@@ -16,6 +16,9 @@ const makeElement = (id, initial = {}) => ({
   textContent: '',
   style: {},
   ...initial,
+  options: [{ value: 'balanced', textContent: 'OVYX Everyday' }, { value: 'fast', textContent: 'OVYX Quick' }, { value: 'quality', textContent: 'OVYX Deep' }],
+  attributes: {},
+  setAttribute(name, value) { this.attributes[name] = value; },
   querySelector(selector) {
     if (selector === 'span') return this.noteCopy || null;
     return null;
@@ -84,12 +87,16 @@ elements['v59-ai-mode-select'].value = 'fast';
 for (const handler of changeHandlers) handler({ target: elements['v59-ai-mode-select'] });
 assert.equal(window.WebStudio.responseDepth, 1, 'Quick mode must map to the existing concise response depth.');
 assert.equal(localStorage.getItem('ovyx.ws.responseDepth.v1'), '1');
-assert.match(elements['v59-routing-note'].noteCopy.textContent, /OVYX Quick.*Concise responses/);
+assert.equal(elements['v59-ai-mode-select'].options[1].textContent, 'Fast');
+assert.equal(elements['v59-ai-mode-select'].attributes['aria-label'], 'Response detail');
+assert.match(elements['v59-routing-note'].noteCopy.textContent, /Fast.*Get results quickly for simple requests/);
 
 elements['v59-ai-mode-select'].value = 'quality';
 for (const handler of changeHandlers) handler({ target: elements['v59-ai-mode-select'] });
 assert.equal(window.WebStudio.responseDepth, 3, 'Deep mode must map to the existing detailed response depth.');
 assert.equal(localStorage.getItem('ovyx.ws.responseDepth.v1'), '3');
+assert.equal(elements['v59-ai-mode-select'].options[2].textContent, 'Detailed');
+assert.equal(elements['v59-ai-mode-select'].title, 'More careful, thorough responses for complex projects.');
 
 elements['ws-brain-depth'].value = '2';
 for (const handler of listeners.input || []) handler({ target: elements['ws-brain-depth'] });
