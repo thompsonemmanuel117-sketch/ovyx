@@ -15,8 +15,10 @@ try {
     const page = await context.newPage();
     page.setDefaultTimeout(15000);
     const errors = [];
-    page.on('pageerror', error => {
-      if (/OVYXWorkspacePicker|project-workspace-picker/i.test(String(error?.stack || error?.message || error))) errors.push(String(error));
+    const consoleErrors = [];
+    page.on('pageerror', error => errors.push(String(error?.stack || error?.message || error)));
+    page.on('console', message => {
+      if (message.type() === 'error') consoleErrors.push(message.text());
     });
     await installOwnerBrowserApiFixtures(page, {
       initialUser: { uid: 'ovyx-project-picker-user', email: 'project-picker@example.test', displayName: 'Project Picker User', token: 'ovyx-project-picker-token' },
@@ -48,9 +50,22 @@ try {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, workspace }) });
     });
     await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForFunction(() => typeof window.ProjectStore?.showWorkspacePicker === 'function'
-      && window.OVYXWorkspacePicker?.version === 1
-      && window.OVYXProjectsUnifiedFlow?.version === 2, null, { timeout: 45000 });
+    try {
+      await page.waitForFunction(() => typeof window.ProjectStore?.showWorkspacePicker === 'function'
+        && window.OVYXWorkspacePicker?.version === 1
+        && window.OVYXProjectsUnifiedFlow?.version === 2, null, { timeout: 45000 });
+    } catch (error) {
+      const runtime = await page.evaluate(() => ({
+        readyState: document.readyState,
+        projectStoreType: typeof window.ProjectStore,
+        projectStoreOpen: typeof window.ProjectStore?.open,
+        pickerVersion: window.OVYXWorkspacePicker?.version ?? null,
+        unifiedFlowVersion: window.OVYXProjectsUnifiedFlow?.version ?? null,
+        pickerScript: Array.from(document.scripts).filter(script => /project-workspace-picker|projects-unified-flow/.test(script.src))
+          .map(script => ({ src: script.src, readyState: script.readyState || null })),
+      })).catch(() => ({ pageClosed: true }));
+      throw new Error('Workspace startup diagnostics: ' + JSON.stringify({ runtime, errors, consoleErrors: consoleErrors.slice(-20), cause: String(error) }));
+    }
 
     if (target.isMobile) {
       await page.evaluate(() => window.MobileDrawer?.open?.());
