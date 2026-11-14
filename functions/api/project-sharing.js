@@ -1,10 +1,12 @@
 import { authenticateRequest } from '../_lib/firebase.js';
 import {
   getFirestoreDocumentAtPath,
+  createFirestoreDocumentAtPath,
   getFirestoreDataAtPath,
   setFirestoreDocumentAtPath,
   deleteFirestoreDocumentAtPath,
   listFirestoreSubcollectionDocumentsAtPath,
+  lookupFirebaseAccountByEmail,
 } from './_lib/firebase-admin.js';
 import { readJson, jsonResponse, requestId } from './_lib/http.js';
 
@@ -139,6 +141,24 @@ export async function onRequest(context) {
     const email = clean(user?.email, 320).toLowerCase();
     if (!uid || !validEmail(email)) fail('Please sign in with a verified email address.', 401, 'AUTH_REQUIRED');
 
+    if (method === 'GET' && url.searchParams.get('inbox') === '1') {
+      const rows = await listFirestoreSubcollectionDocumentsAtPath(context.env, ['users', uid], 'share_requests', 100);
+      const requests = [];
+      for (const row of rows) {
+        const item = row.data || {};
+        if (item.status !== 'pending' || clean(item.targetUid, 256) !== uid || clean(item.targetEmail, 320).toLowerCase() !== email) continue;
+        const pid = projectId(item.projectId);
+        const ownerEmail = clean(item.ownerEmail, 320).toLowerCase();
+        if (!validEmail(ownerEmail)) continue;
+        const share = await getFirestoreDataAtPath(context.env, sharePath(ownerEmail, pid, clean(item.shareId, 120)));
+        const project = await getFirestoreDataAtPath(context.env, projectPath(ownerEmail, pid));
+        if (!share || share.type !== 'member' || share.status !== 'pending' || share.targetUid !== uid || !project || clean(project.ownerUid, 256) !== clean(item.ownerUid, 256) || clean(project.ownerEmail, 320).toLowerCase() !== ownerEmail) continue;
+        requests.push({ id: row.id, shareId: clean(item.shareId, 120), projectId: pid, projectName: clean(project.name || project.title, 120) || 'Shared project', ownerEmail, ownerName: clean(project.ownerName || project.ownerDisplayName, 100) || ownerEmail, role: safeRole(share.role), createdAt: clean(share.createdAt, 40) || null });
+      }
+      requests.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      return jsonResponse({ ok: true, requests }, 200, { 'X-OVYX-Request-ID': rid, 'Cache-Control': 'no-store' });
+    }
+
     if (method === 'GET') {
       const pid = projectId(url.searchParams.get('projectId'));
       const { project } = await ownerProject(context.env, uid, email, pid);
@@ -151,8 +171,8 @@ export async function onRequest(context) {
 
       const items = rows.map(row => ({
         id: row.id,
-        type: row.data?.type === 'invite' ? 'invite' : 'link',
-        email: clean(row.data?.email, 320) || null,
+        type: row.data?.type === 'invite' ? 'invite' : row.data?.type === 'member' ? 'member' : 'link',
+        email: clean(row.data?.email || row.data?.targetEmail, 320) || null,
         role: safeRole(row.data?.role),
         status: clean(row.data?.status, 24) || 'revoked',
         createdAt: clean(row.data?.createdAt, 40) || null,
@@ -196,6 +216,42 @@ export async function onRequest(context) {
       return jsonResponse({ ok: true, accepted: true, role: safeRole(match.data.role), project: publicProject(sharedProject) }, 200, { 'X-OVYX-Request-ID': rid });
     }
 
+    if (action === 'accept-member-request' || action === 'decline-member-request') {
+      const pid = projectId(body.projectId);
+      const shareId = clean(body.shareId, 120);
+      if (!/^mem_[A-Za-z0-9_-]{20,32}$/.test(shareId)) fail('This member request is invalid or unavailable.', 404, 'MEMBER_REQUEST_NOT_FOUND');
+      const requestPath = ['users', uid, 'share_requests', shareId];
+      const requestDocument = await getFirestoreDocumentAtPath(context.env, requestPath);
+      const requestData = requestDocument ? await getFirestoreDataAtPath(context.env, requestPath) : null;
+      if (!requestData || !['pending', 'accepted'].includes(requestData.status) || clean(requestData.targetUid, 256) !== uid || clean(requestData.targetEmail, 320).toLowerCase() !== email || clean(requestData.projectId, 120) !== pid || clean(requestData.shareId, 120) !== shareId) fail('This member request is no longer available.', 404, 'MEMBER_REQUEST_NOT_FOUND');
+      const ownerEmail = clean(requestData.ownerEmail, 320).toLowerCase();
+      if (!validEmail(ownerEmail)) fail('This member request is no longer available.', 404, 'MEMBER_REQUEST_NOT_FOUND');
+      const ownerPath = projectPath(ownerEmail, pid);
+      const ownerDocument = await getFirestoreDocumentAtPath(context.env, ownerPath);
+      const owner = ownerDocument ? await getFirestoreDataAtPath(context.env, ownerPath) : null;
+      if (!owner || clean(owner.ownerUid, 256) !== clean(requestData.ownerUid, 256) || clean(owner.ownerEmail, 320).toLowerCase() !== ownerEmail) fail('This project is no longer available.', 404, 'PROJECT_NOT_FOUND');
+      const memberPath = sharePath(ownerEmail, pid, shareId);
+      const memberDocument = await getFirestoreDocumentAtPath(context.env, memberPath);
+      const member = memberDocument ? await getFirestoreDataAtPath(context.env, memberPath) : null;
+      if (!member || member.type !== 'member' || clean(member.targetUid, 256) !== uid || clean(member.targetEmail, 320).toLowerCase() !== email || !['pending', 'accepted'].includes(member.status)) fail('This member request is no longer available.', 404, 'MEMBER_REQUEST_NOT_FOUND');
+      const now = new Date().toISOString();
+      if (action === 'decline-member-request') {
+        if (member.status !== 'pending') fail('This member request has already been answered.', 409, 'MEMBER_REQUEST_ALREADY_ANSWERED');
+        await setFirestoreDocumentAtPath(context.env, memberPath, { status: 'declined', declinedAt: now, declinedByUid: uid }, { merge: true, expectedUpdateTime: memberDocument.updateTime });
+        await setFirestoreDocumentAtPath(context.env, requestPath, { status: 'declined', respondedAt: now }, { merge: true, expectedUpdateTime: requestDocument.updateTime });
+        await recordActivity(context.env, ownerEmail, pid, 'member_request_declined', { uid, email, name: user.name || user.displayName });
+        return jsonResponse({ ok: true, declined: true }, 200, { 'X-OVYX-Request-ID': rid });
+      }
+      if (member.status === 'pending') {
+        await setFirestoreDocumentAtPath(context.env, memberPath, { status: 'accepted', acceptedAt: now, acceptedUid: uid }, { merge: true, expectedUpdateTime: memberDocument.updateTime });
+        await setFirestoreDocumentAtPath(context.env, requestPath, { status: 'accepted', respondedAt: now }, { merge: true, expectedUpdateTime: requestDocument.updateTime });
+        await recordActivity(context.env, ownerEmail, pid, 'member_request_accepted', { uid, email, name: user.name || user.displayName });
+      } else if (clean(member.acceptedUid, 256) !== uid) fail('This member request cannot be accepted by this account.', 403, 'MEMBER_REQUEST_FORBIDDEN');
+      const membershipId = 'sp_' + (await digest(ownerEmail + ':' + pid)).slice(0, 24);
+      await setFirestoreDocumentAtPath(context.env, ['users', uid, 'shared_projects', membershipId], { projectId: pid, projectName: clean(owner.name || owner.title, 120) || 'Shared project', ownerUid: clean(owner.ownerUid, 256), ownerEmail, role: safeRole(member.role), status: 'active', invitationId: shareId, acceptedAt: clean(member.acceptedAt, 40) || now, updatedAt: now }, { merge: false });
+      return jsonResponse({ ok: true, accepted: true, role: safeRole(member.role), project: publicProject(owner) }, 200, { 'X-OVYX-Request-ID': rid });
+    }
+
     const pid = projectId(body.projectId);
     if (action === 'presence') {
       const access = await projectAccess(context.env, uid, email, pid);
@@ -207,6 +263,39 @@ export async function onRequest(context) {
     }
     const { path, document, project } = await ownerProject(context.env, uid, email, pid);
     const now = new Date().toISOString();
+
+    if (action === 'send-member-request') {
+      const targetEmail = clean(body.email, 320).toLowerCase();
+      const role = safeRole(body.role);
+      if (!validEmail(targetEmail) || targetEmail === email) fail('Enter a valid OVYX member email address.', 400, 'MEMBER_EMAIL_INVALID');
+      const account = await lookupFirebaseAccountByEmail(context.env, targetEmail);
+      if (!account || !account.localId || account.disabled === true || account.emailVerified !== true || String(account.email || '').trim().toLowerCase() !== targetEmail || String(account.localId) === uid) return jsonResponse({ ok: true, message: 'If this is an eligible verified OVYX account, an access request will appear in its inbox.' }, 202, { 'X-OVYX-Request-ID': rid, 'Cache-Control': 'no-store' });
+      const targetUid = clean(account.localId, 256);
+      const shareId = 'mem_' + (await digest(email + ':' + pid + ':' + targetUid)).slice(0, 24);
+      const memberPath = [...path, 'shares', shareId];
+      const existingMemberDocument = await getFirestoreDocumentAtPath(context.env, memberPath);
+      const existingMember = existingMemberDocument ? await getFirestoreDataAtPath(context.env, memberPath) : null;
+      if (existingMember && ['pending', 'accepted'].includes(existingMember.status)) return jsonResponse({ ok: true, requestQueued: false, message: 'If this is an eligible verified OVYX account, an access request will appear in its inbox.' }, 202, { 'X-OVYX-Request-ID': rid, 'Cache-Control': 'no-store' });
+      const now = new Date().toISOString();
+      const memberRecord = { id: shareId, type: 'member', targetUid, targetEmail, role, status: 'pending', createdByUid: uid, createdByEmail: email, createdAt: now };
+      let savedMemberDocument = null;
+      if (existingMemberDocument) savedMemberDocument = await setFirestoreDocumentAtPath(context.env, memberPath, memberRecord, { merge: false, expectedUpdateTime: existingMemberDocument.updateTime });
+      else {
+        try { savedMemberDocument = await createFirestoreDocumentAtPath(context.env, memberPath, memberRecord); }
+        catch (error) { if (error?.code === 'FIRESTORE_CREATE_CONFLICT') return jsonResponse({ ok: true, requestQueued: false, message: 'If this is an eligible verified OVYX account, an access request will appear in its inbox.' }, 202, { 'X-OVYX-Request-ID': rid, 'Cache-Control': 'no-store' }); throw error; }
+      }
+      const requestPath = ['users', targetUid, 'share_requests', shareId];
+      const existingRequestDocument = await getFirestoreDocumentAtPath(context.env, requestPath);
+      try {
+        await setFirestoreDocumentAtPath(context.env, requestPath, { shareId, projectId: pid, projectName: clean(project.name || project.title, 120) || 'Shared project', ownerUid: uid, ownerEmail: email, targetUid, targetEmail, role, status: 'pending', createdAt: now }, { merge: false, expectedUpdateTime: existingRequestDocument?.updateTime || null });
+      } catch (error) {
+        if (existingMemberDocument) await setFirestoreDocumentAtPath(context.env, memberPath, existingMember, { merge: false, expectedUpdateTime: savedMemberDocument?.updateTime || null }).catch(() => {});
+        else await deleteFirestoreDocumentAtPath(context.env, memberPath).catch(() => {});
+        throw error;
+      }
+      await recordActivity(context.env, email, pid, 'member_request_sent', { uid, email, name: user.name || user.displayName });
+      return jsonResponse({ ok: true, message: 'If this is an eligible verified OVYX account, an access request will appear in its inbox.' }, 202, { 'X-OVYX-Request-ID': rid, 'Cache-Control': 'no-store' });
+    }
 
     if (action === 'create-link' || action === 'invite') {
       const role = action === 'create-link' ? 'viewer' : safeRole(body.role);
@@ -245,7 +334,7 @@ export async function onRequest(context) {
     }
 
     const shareId = clean(body.shareId, 120);
-    if (!/^sh_[A-Za-z0-9_-]{12,40}$/.test(shareId)) fail('Choose a valid sharing record.', 400, 'INVALID_SHARE_ID');
+    if (!/^(?:sh_[A-Za-z0-9_-]{12,40}|mem_[A-Za-z0-9_-]{20,32})$/.test(shareId)) fail('Choose a valid sharing record.', 400, 'INVALID_SHARE_ID');
     const sharePathValue = [...path, 'shares', shareId];
     const shareDocument = await getFirestoreDocumentAtPath(context.env, sharePathValue);
     const share = shareDocument ? await getFirestoreDataAtPath(context.env, sharePathValue) : null;
@@ -253,25 +342,29 @@ export async function onRequest(context) {
 
     if (action === 'revoke') {
       await setFirestoreDocumentAtPath(context.env, sharePathValue, { status: 'revoked', revokedAt: now, revokedByUid: uid }, { merge: true, expectedUpdateTime: shareDocument.updateTime });
-      if (share.type === 'invite' && share.acceptedUid) {
+      if ((share.type === 'invite' && share.acceptedUid) || (share.type === 'member' && share.targetUid)) {
         const membershipId = 'sp_' + (await digest(email + ':' + pid)).slice(0, 24);
-        await setFirestoreDocumentAtPath(context.env, ['users', clean(share.acceptedUid, 256), 'shared_projects', membershipId], { status: 'revoked', revokedAt: now }, { merge: true });
+        const memberUid = share.type === 'member' ? share.targetUid : share.acceptedUid;
+        await setFirestoreDocumentAtPath(context.env, ['users', clean(memberUid, 256), 'shared_projects', membershipId], { status: 'revoked', revokedAt: now }, { merge: true });
+        if (share.type === 'member') await setFirestoreDocumentAtPath(context.env, ['users', clean(share.targetUid, 256), 'share_requests', shareId], { status: 'revoked', respondedAt: now }, { merge: true }).catch(() => {});
       }
       await recordActivity(context.env, email, pid, 'access_revoked', { uid, email, name: user.name || user.displayName });
       return jsonResponse({ ok: true, revoked: true, shareId }, 200, { 'X-OVYX-Request-ID': rid });
     }
     if (action === 'change-role') {
-      if (share.type !== 'invite') fail('Only email invitations have editable roles.', 400, 'SHARE_ROLE_NOT_EDITABLE');
+      if (!['invite', 'member'].includes(share.type)) fail('This sharing record does not support editable roles.', 400, 'SHARE_ROLE_NOT_EDITABLE');
       const role = safeRole(body.role);
       await setFirestoreDocumentAtPath(context.env, sharePathValue, { role, updatedAt: now }, { merge: true, expectedUpdateTime: shareDocument.updateTime });
-      if (share.acceptedUid) {
+      const acceptedUid = share.type === 'member' ? share.targetUid : share.acceptedUid;
+      if (acceptedUid && share.status === 'accepted') {
         const membershipId = 'sp_' + (await digest(email + ':' + pid)).slice(0, 24);
-        await setFirestoreDocumentAtPath(context.env, ['users', clean(share.acceptedUid, 256), 'shared_projects', membershipId], { role, updatedAt: now }, { merge: true });
+        await setFirestoreDocumentAtPath(context.env, ['users', clean(acceptedUid, 256), 'shared_projects', membershipId], { role, updatedAt: now }, { merge: true });
       }
+      if (share.type === 'member') await setFirestoreDocumentAtPath(context.env, ['users', clean(share.targetUid, 256), 'share_requests', shareId], { role, updatedAt: now }, { merge: true }).catch(() => {});
       await recordActivity(context.env, email, pid, 'permission_changed', { uid, email, name: user.name || user.displayName });
       return jsonResponse({ ok: true, updated: true, role, shareId }, 200, { 'X-OVYX-Request-ID': rid });
     }
-    fail('Use create-link, invite, accept-invite, change-role or revoke.', 400, 'INVALID_SHARING_ACTION');
+    fail('Use create-link, invite, send-member-request, accept-invite, accept-member-request, decline-member-request, change-role or revoke.', 400, 'INVALID_SHARING_ACTION');
   } catch (error) {
     return jsonResponse({ ok: false, error: error?.message || 'Project sharing could not be completed.', code: error?.code || 'PROJECT_SHARING_FAILED' }, error?.status || 500, { 'X-OVYX-Request-ID': rid });
   }
