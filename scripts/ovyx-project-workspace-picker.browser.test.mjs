@@ -52,6 +52,36 @@ try {
       && window.OVYXWorkspacePicker?.version === 1
       && window.OVYXProjectsUnifiedFlow?.version === 2, null, { timeout: 45000 });
 
+    await page.waitForFunction(() =>
+      document.getElementById('sidebar-user-display-name')?.textContent === 'Project Picker User'
+      && document.getElementById('v52-account-name')?.textContent === 'Project Picker User'
+      && document.getElementById('sidebar-workspace-label')?.textContent === 'Personal workspace',
+      null, { timeout: 15000 });
+    await page.evaluate(() => {
+      localStorage.setItem('ovyx.profile.v2.user.ovyx-project-picker-second', JSON.stringify({ name: 'Second Account Profile' }));
+      window.__setOVYXBrowserAuthUser({
+        uid: 'ovyx-project-picker-second',
+        email: 'second-account@example.test',
+        displayName: 'Second Firebase User',
+        token: 'ovyx-project-picker-second-token'
+      });
+    });
+    await page.waitForFunction(() =>
+      document.getElementById('sidebar-user-display-name')?.textContent === 'Second Account Profile'
+      && document.getElementById('v52-account-name')?.textContent === 'Second Account Profile'
+      && document.getElementById('v52-account-email')?.textContent === 'second-account@example.test',
+      null, { timeout: 10000 });
+    await page.evaluate(() => window.__setOVYXBrowserAuthUser({
+      uid: 'ovyx-project-picker-user',
+      email: 'project-picker@example.test',
+      displayName: 'Project Picker User',
+      token: 'ovyx-project-picker-token'
+    }));
+    await page.waitForFunction(() =>
+      document.getElementById('sidebar-user-display-name')?.textContent === 'Project Picker User'
+      && document.getElementById('v52-account-name')?.textContent === 'Project Picker User',
+      null, { timeout: 10000 });
+
     await page.evaluate(() => {
       const now = Date.now();
       const first = { id: 'picker-project-aurora', name: 'Aurora Commerce', description: 'Commerce project', status: 'draft', workspaceId: 'personal', updatedAt: now, pages: [{ name: 'Home' }, { name: 'Products' }] };
