@@ -5,7 +5,7 @@
 
   const rootId = 'view-sharing';
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
-  const state = { projectId: '', project: null, shares: [], busy: false, notice: '', publicShare: null, publicProject: null, token: '' };
+  const state = { projectId: '', project: null, shares: [], activity: [], collaborators: [], busy: false, notice: '', publicShare: null, publicProject: null, token: '' };
   const activeProject = () => window.KernelState?.activeProject || window.ProjectStore?.activeProject || null;
   const user = () => window.firebase?.auth?.().currentUser || window.auth?.currentUser || null;
   async function request(path, options = {}) {
@@ -28,7 +28,7 @@
     host.id = rootId;
     host.className = 'hidden ovyx-share-page';
     host.setAttribute('aria-label', 'Project sharing and collaboration');
-    host.innerHTML = '<div class="ovx-share-shell"><div class="ovx-share-header"><div><div class="ovx-share-eyebrow">OVYX / PROJECT SHARING</div><h1>Sharing &amp; collaboration</h1><p>Control who can view or edit your project. Your work stays private until you choose to share it.</p></div><span class="ovx-share-private"><i></i> PRIVATE BY DEFAULT</span></div><div class="ovx-share-projectbar"><label for="ovx-share-project">PROJECT</label><select id="ovx-share-project" data-share-project aria-label="Choose project"></select><button type="button" data-share-refresh>Refresh</button></div><div class="ovx-share-notice" aria-live="polite" data-share-notice></div><div class="ovx-share-grid"><section class="ovx-share-panel ovx-share-create"><div class="ovx-share-panel-head"><div><span>01 / VIEW ACCESS</span><h2>Create a view-only link</h2><p>Anyone with the link can view the shared project summary and open its published website. Links expire after 30 days.</p></div><i class="fa-solid fa-link"></i></div><button class="ovx-share-primary" type="button" data-share-create> <i class="fa-solid fa-plus"></i> Create share link</button><div class="ovx-share-created" data-share-created hidden></div></section><section class="ovx-share-panel ovx-share-invite"><div class="ovx-share-panel-head"><div><span>02 / TEAM ACCESS</span><h2>Invite by email</h2><p>Invite someone using the email address they use for OVYX.</p></div><i class="fa-regular fa-envelope"></i></div><form data-share-invite-form><label>Email address<input type="email" name="email" autocomplete="email" placeholder="teammate@example.com" required maxlength="320"></label><label>Permission<select name="role"><option value="viewer">Viewer · Can view</option><option value="editor">Editor · Can edit</option></select></label><button class="ovx-share-primary" type="submit"><i class="fa-solid fa-paper-plane"></i> Send invitation</button></form></section></div><section class="ovx-share-panel ovx-share-access"><div class="ovx-share-access-head"><div><span>ACCESS CONTROL</span><h2>People and links</h2><p>Review active links, pending invitations and accepted collaborators.</p></div><strong data-share-count>0 SHARES</strong></div><div class="ovx-share-list" data-share-list><div class="ovx-share-empty">Choose a project to manage its sharing settings.</div></div></section><div class="ovx-share-footnote"><i class="fa-solid fa-shield-halved"></i><span>Only the project owner can create links, invite collaborators, change permissions or revoke access. Private project data is never exposed by the share link.</span></div></div>';
+    host.innerHTML = '<div class="ovx-share-shell"><div class="ovx-share-header"><div><div class="ovx-share-eyebrow">OVYX / PROJECT SHARING</div><h1>Sharing &amp; collaboration</h1><p>Control who can view or edit your project. Your work stays private until you choose to share it.</p></div><span class="ovx-share-private"><i></i> PRIVATE BY DEFAULT</span></div><div class="ovx-share-projectbar"><label for="ovx-share-project">PROJECT</label><select id="ovx-share-project" data-share-project aria-label="Choose project"></select><button type="button" data-share-refresh>Refresh</button></div><div class="ovx-share-notice" aria-live="polite" data-share-notice></div><div class="ovx-share-grid"><section class="ovx-share-panel ovx-share-create"><div class="ovx-share-panel-head"><div><span>01 / VIEW ACCESS</span><h2>Create a view-only link</h2><p>Anyone with the link can view the shared project summary and open its published website. Links expire after 30 days.</p></div><i class="fa-solid fa-link"></i></div><button class="ovx-share-primary" type="button" data-share-create> <i class="fa-solid fa-plus"></i> Create share link</button><div class="ovx-share-created" data-share-created hidden></div></section><section class="ovx-share-panel ovx-share-invite"><div class="ovx-share-panel-head"><div><span>02 / TEAM ACCESS</span><h2>Invite by email</h2><p>Invite someone using the email address they use for OVYX.</p></div><i class="fa-regular fa-envelope"></i></div><form data-share-invite-form><label>Email address<input type="email" name="email" autocomplete="email" placeholder="teammate@example.com" required maxlength="320"></label><label>Permission<select name="role"><option value="viewer">Viewer · Can view</option><option value="editor">Editor · Can edit</option></select></label><button class="ovx-share-primary" type="submit"><i class="fa-solid fa-paper-plane"></i> Send invitation</button></form></section></div><section class="ovx-share-panel ovx-share-access"><div class="ovx-share-access-head"><div><span>ACCESS CONTROL</span><h2>People and links</h2><p>Review active links, pending invitations and accepted collaborators.</p></div><strong data-share-count>0 SHARES</strong></div><div class="ovx-share-list" data-share-list><div class="ovx-share-empty">Choose a project to manage its sharing settings.</div></div></section><section class="ovx-share-panel ovx-share-team"><div class="ovx-share-access-head"><div><span>TEAM PRESENCE</span><h2>Recently active</h2><p>People who have opened this project in OVYX recently.</p></div><strong data-presence-count>0 ACTIVE</strong></div><div class="ovx-share-presence-list" data-presence-list><div class="ovx-share-empty">No collaborator activity yet.</div></div></section><section class="ovx-share-panel ovx-share-activity"><div class="ovx-share-access-head"><div><span>PROJECT HISTORY</span><h2>Recent activity</h2><p>A simple record of what has changed in this project.</p></div><strong>ACTIVITY</strong></div><div class="ovx-share-activity-list" data-activity-list><div class="ovx-share-empty">Activity will appear here.</div></div></section><div class="ovx-share-footnote"><i class="fa-solid fa-shield-halved"></i><span>Only the project owner can create links, invite collaborators, change permissions or revoke access. Private project data is never exposed by the share link.</span></div></div>';
     viewport.appendChild(host);
     host.querySelector('[data-share-refresh]').addEventListener('click', load);
     host.querySelector('[data-share-project]').addEventListener('change', event => { state.projectId = event.target.value; load(); });
@@ -77,6 +77,14 @@
       const label = item.type === 'invite' ? (item.email || 'Email invitation') : 'View-only share link';
       return '<article class="ovx-share-row" data-share-row="' + escapeHtml(item.id) + '"><span class="ovx-share-row-icon"><i class="fa-' + (item.type === 'invite' ? 'regular fa-envelope' : 'solid fa-link') + '"></i></span><div class="ovx-share-row-main"><strong>' + escapeHtml(label) + '</strong><small>' + escapeHtml(status) + ' · Created ' + escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'recently') + '</small></div>' + (item.type === 'invite' && item.status !== 'revoked' ? '<select data-role="' + escapeHtml(item.id) + '" aria-label="Change permission"><option value="viewer"' + (item.role === 'viewer' ? ' selected' : '') + '>Viewer</option><option value="editor"' + (item.role === 'editor' ? ' selected' : '') + '>Editor</option></select>' : '<span class="ovx-share-role">VIEWER</span>') + (item.status !== 'revoked' ? '<button type="button" class="ovx-share-revoke" data-revoke="' + escapeHtml(item.id) + '">Revoke</button>' : '<span class="ovx-share-revoked">Revoked</span>') + '</article>';
     }).join('');
+    const presence = host.querySelector('[data-presence-list]');
+    const people = Array.isArray(state.collaborators) ? state.collaborators : [];
+    host.querySelector('[data-presence-count]').textContent = people.filter(person => person.active).length + ' ACTIVE';
+    presence.innerHTML = people.length ? people.map(person => '<div class="ovx-share-presence-row"><span class="ovx-share-presence-dot' + (person.active ? ' is-active' : '') + '"></span><div><strong>' + escapeHtml(person.name) + '</strong><small>' + escapeHtml(person.email) + ' · ' + (person.active ? 'Active now' : 'Last seen ' + escapeHtml(person.lastSeenAt ? new Date(person.lastSeenAt).toLocaleString() : 'recently')) + '</small></div><em>' + escapeHtml(person.role) + '</em></div>').join('') : '<div class="ovx-share-empty">No collaborator activity yet.</div>';
+    const activity = host.querySelector('[data-activity-list]');
+    const events = Array.isArray(state.activity) ? state.activity : [];
+    const labels = { invitation_accepted:'Accepted an invitation', invitation_sent:'Sent an invitation', share_link_created:'Created a view-only link', access_revoked:'Revoked project access', permission_changed:'Changed a collaborator permission', project_updated:'Updated the project' };
+    activity.innerHTML = events.length ? events.map(item => '<div class="ovx-share-activity-row"><span class="ovx-share-activity-mark"></span><div><strong>' + escapeHtml(labels[item.event] || 'Project activity') + '</strong><small>' + escapeHtml(item.actorName) + ' · ' + escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : 'Recently') + '</small></div></div>').join('') : '<div class="ovx-share-empty">No activity recorded yet.</div>';
   }
   async function load() {
     const host = ensurePage();
@@ -90,6 +98,8 @@
       const data = await request('/api/project-sharing?projectId=' + encodeURIComponent(state.projectId));
       state.project = data.project;
       state.shares = Array.isArray(data.shares) ? data.shares : [];
+      state.activity = Array.isArray(data.activity) ? data.activity : [];
+      state.collaborators = Array.isArray(data.collaborators) ? data.collaborators : [];
       render();
       notice('');
     } catch (error) {
@@ -156,7 +166,7 @@
       state.publicProject = data.project;
       const host = page();
       const project = data.project;
-      host.innerHTML = '<div class="ovx-share-public"><div class="ovx-share-eyebrow">OVYX / SHARED PROJECT</div><span class="ovx-share-private"><i></i> VIEW-ONLY ACCESS</span><h1>' + escapeHtml(project.name) + '</h1><p>' + escapeHtml(project.description || 'A project shared with you through OVYX.') + '</p><div class="ovx-share-public-meta">' + escapeHtml(project.pageCount) + ' pages · ' + escapeHtml(project.status) + '</div>' + (project.publishedUrl ? '<a class="ovx-share-primary" href="' + escapeHtml(project.publishedUrl) + '" target="_blank" rel="noopener noreferrer">Open published website <i class="fa-solid fa-arrow-up-right-from-square"></i></a>' : '<p class="ovx-share-public-note">This project has not published a website yet. The owner can share a live preview when one is available.</p>') + (data.share.type === 'invite' ? '<button type="button" class="ovx-share-primary" data-accept-invite>Accept invitation as ' + escapeHtml(data.share.role) + '</button>' : '') + '</div>';
+      host.innerHTML = '<div class="ovx-share-public"><div class="ovx-share-eyebrow">OVYX / SHARED PROJECT</div><span class="ovx-share-private"><i></i> VIEW-ONLY ACCESS</span><h1>' + escapeHtml(project.name) + '</h1><p>' + escapeHtml(project.description || 'A project shared with you through OVYX.') + '</p><div class="ovx-share-public-meta">' + escapeHtml(project.pageCount) + ' pages · ' + escapeHtml(project.status) + '</div>' + (project.publishedUrl ? '<div class="ovx-share-preview"><div class="ovx-share-preview-head"><span>LIVE WEBSITE PREVIEW</span><a href="' + escapeHtml(project.publishedUrl) + '" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a></div><iframe title="Read-only preview of ' + escapeHtml(project.name) + '" src="' + escapeHtml(project.publishedUrl) + '" loading="lazy" referrerpolicy="no-referrer" sandbox="allow-scripts allow-forms allow-popups"></iframe></div>' : '<p class="ovx-share-public-note">This project has not been published yet, so a live website preview is not available. This link only shows the safe project summary.</p>') + (data.share.type === 'invite' ? '<button type="button" class="ovx-share-primary" data-accept-invite>Accept invitation as ' + escapeHtml(data.share.role) + '</button>' : '') + '</div>';
       const accept = host.querySelector('[data-accept-invite]');
       if (accept) accept.addEventListener('click', async () => {
         if (!user()) { notice('Sign in with the email address that received this invitation, then return here to accept it.', true); return; }
@@ -170,6 +180,13 @@
     } catch (error) {
       page().innerHTML = '<div class="ovx-share-public"><div class="ovx-share-eyebrow">OVYX / SHARED PROJECT</div><h1>This link is unavailable</h1><p>' + escapeHtml(error.message) + '</p><a href="/" class="ovx-share-primary">Return to OVYX</a></div>';
     }
+  }
+  async function heartbeat() {
+    const project = activeProject();
+    const current = user();
+    if (!project?.id || !current) return;
+    try { await request('/api/project-sharing', { method: 'POST', body: JSON.stringify({ action: 'presence', projectId: String(project.id) }) }); }
+    catch { /* Presence must never interrupt editing. */ }
   }
   function open() {
     const host = ensurePage();
@@ -185,7 +202,10 @@
       window.Router?.go?.('sharing');
       loadPublicShare();
     }
+    heartbeat();
+    window.setInterval(heartbeat, 30000);
     window.addEventListener('ovyx:view-changed', event => {
+      heartbeat();
       if (event.detail?.view === 'sharing') {
         if (state.token) loadPublicShare();
         else load();
