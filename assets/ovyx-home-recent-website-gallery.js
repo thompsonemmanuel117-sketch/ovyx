@@ -70,7 +70,26 @@
     }
     return '';
   }
-  function previewImage(project) { return suppliedPreview(project); }
+  function isBuiltProject(project) {
+    if (!project || typeof project !== 'object') return false;
+    const status = String(project.status || project.buildStatus || project.build?.status || '').trim().toLowerCase();
+    if (['built', 'published', 'ready', 'complete', 'completed', 'success'].includes(status)) return true;
+    if (project.publishedUrl || project.deploymentUrl || project.generatedAt || project.lastBuiltAt
+      || project.buildCompletedAt || project.lastBuildAt || project.preview?.generatedAt) return true;
+    const pages = Array.isArray(project.pages) ? project.pages : [];
+    if (pages.length > 1) return true;
+    return pages.some(page => {
+      const pageName = String(page?.name || 'Home').trim();
+      const sections = Array.isArray(page?.sections) ? page.sections : [];
+      if (sections.length > 1) return true;
+      return sections.some(section => {
+        const content = section?.content && typeof section.content === 'object' ? section.content : {};
+        const defaults = new Set([pageName, 'A polished ' + pageName + ' experience generated in OVYX.', 'Get Started']);
+        return Object.values(content).some(value => typeof value === 'string' && value.trim() && !defaults.has(value.trim()));
+      });
+    });
+  }
+  function previewImage(project) { return isBuiltProject(project) ? suppliedPreview(project) : ''; }
   function formatDate(project) {
     const value = timestamp(project);
     if (!value) return { iso: '', label: 'Date not available' };
@@ -224,5 +243,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
-  window.OVYXHomeRecentWebsiteGallery = { isWebsite, isPinned, sortPinned, sortWebsites, previewImage, formatDate, renderHome, togglePin };
+  window.OVYXHomeRecentWebsiteGallery = { isWebsite, isBuiltProject, isPinned, sortPinned, sortWebsites, previewImage, formatDate, renderHome, togglePin };
 })();

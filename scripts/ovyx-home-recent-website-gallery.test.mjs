@@ -28,7 +28,7 @@ const websiteA = {
   pages: [{ name: 'Home', sections: [{ content: { heading: 'Studio Portfolio', subheading: 'A clean creative portfolio', cta: 'View work' }, styles: { background: '#111827', color: '#ffffff' } }] }]
 };
 const websiteB = {
-  id: 'site-b', name: 'Coffee House', projectType: 'website', updatedAt: 1794300000000,
+  id: 'site-b', name: 'Coffee House', projectType: 'website', status: 'built', updatedAt: 1794300000000,
   previewUrl: 'https://example.com/coffee-preview.webp',
   pages: [{ name: 'Home', sections: [] }]
 };
@@ -52,6 +52,10 @@ vm.runInNewContext(source, { window, document, localStorage, Intl, Date, encodeU
 
 const api = window.OVYXHomeRecentWebsiteGallery;
 assert.equal(api.previewImage(websiteA), '', 'No preview image should be invented when a project has no screenshot.');
+const unbuiltWithImage = { id: 'unbuilt', status: 'draft', previewImage: 'https://example.com/cover.webp', pages: [{ name: 'Home', sections: [{ content: { heading: 'Home', subheading: 'A polished Home experience generated in OVYX.', cta: 'Get Started' } }] }] };
+assert.equal(api.isBuiltProject(unbuiltWithImage), false, 'The seeded starter page must not count as a completed build.');
+assert.equal(api.previewImage(unbuiltWithImage), '', 'Even an attached image must not appear as a project preview before the site is built.');
+assert.equal(api.isBuiltProject(websiteB), true, 'A completed project can display its real preview image.');
 assert.match(window.ProjectStore.card(websiteA, false), /Preview appears after build/);
 assert.match(window.ProjectStore.card(websiteA, false), /data-ovyx-project-pin="site-a"/, 'The Projects page card must have a pin control.');
 api.togglePin('site-b');
