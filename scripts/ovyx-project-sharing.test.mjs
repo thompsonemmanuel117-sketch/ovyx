@@ -74,3 +74,8 @@ assert.match(asset, /window\.ProjectStore\?\.list\?\.\(\)/, 'Sharing must read p
 assert.match(asset, /function requireProject\(\)/, 'Sharing actions must explain when no project is selected instead of silently doing nothing.');
 assert.match(asset, /if \(selected && projects\.some\(item => String\(item\.id\) === selected\)\) \{ state\.projectId = selected; select\.value = selected; \}/, 'A project already selected in the dropdown must also populate the action state.');
 assert.match(asset, /if \(!requireProject\(\)\) return;/, 'Link, email and direct-member actions must require a selected project with visible feedback.');
+
+assert.match(api, /OWNER_EMAIL_INVALID/, 'A malformed signed-in owner email must be distinguished from a missing session.');
+assert.match(api, /error: code, message, code/, 'Sharing API errors must expose a stable code and a separate human-readable message.');
+assert.match(asset, /result\.body\.message \|\| result\.body\.error/, 'Sharing UI must display the API explanation instead of an opaque error code.');
+assert.match(asset, /message \+ ' \(' \+ code \+ '\)'/, 'Sharing UI must include a safe diagnostic code for support.');

@@ -139,7 +139,8 @@ export async function onRequest(context) {
     const user = context.data?.user || await authenticateRequest(context.request, context.env);
     const uid = clean(user?.uid || user?.sub, 256);
     const email = clean(user?.email, 320).toLowerCase();
-    if (!uid || !validEmail(email)) fail('Please sign in with a verified email address.', 401, 'AUTH_REQUIRED');
+    if (!uid) fail('Sign in to OVYX before managing project sharing.', 401, 'AUTH_REQUIRED');
+    if (!validEmail(email)) fail('OVYX could not read a valid email address from your verified Firebase account. Refresh your sign-in session and try again.', 401, 'OWNER_EMAIL_INVALID');
 
     if (method === 'GET' && url.searchParams.get('inbox') === '1') {
       const rows = await listFirestoreSubcollectionDocumentsAtPath(context.env, ['users', uid], 'share_requests', 100);
@@ -366,6 +367,8 @@ export async function onRequest(context) {
     }
     fail('Use create-link, invite, send-member-request, accept-invite, accept-member-request, decline-member-request, change-role or revoke.', 400, 'INVALID_SHARING_ACTION');
   } catch (error) {
-    return jsonResponse({ ok: false, error: error?.message || 'Project sharing could not be completed.', code: error?.code || 'PROJECT_SHARING_FAILED' }, error?.status || 500, { 'X-OVYX-Request-ID': rid });
+    const code = error?.code || 'PROJECT_SHARING_FAILED';
+    const message = error?.message || 'Project sharing could not be completed.';
+    return jsonResponse({ ok: false, error: code, message, code }, error?.status || 500, { 'X-OVYX-Request-ID': rid });
   }
 }
