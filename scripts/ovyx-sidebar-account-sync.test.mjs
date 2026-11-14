@@ -18,5 +18,5 @@ assert.match(asset, /Sign in to your account/, 'Guest state must use a clear sig
 assert.match(asset, /OVYXAuthRoutes|OVYXMasterAuth/, 'Guest profile navigation must open the existing authentication flow.');
 assert.match(picker, /function syncSidebarWorkspaceLabel/, 'The existing sidebar workspace label must be synchronized.');
 assert.match(picker, /syncSidebarWorkspaceLabel\(\);/, 'Workspace selection, rename and account reload must refresh the sidebar label.');
-assert.match(middleware, /ovyx-sidebar-account-sync\.js\?v=20261114-3/, 'The account synchronizer must load in the production Pages shell.');
+assert.match(middleware, /ovyx-sidebar-account-sync\.js\?v=20261114-4/, 'The account synchronizer must load in the production Pages shell.');
 console.log('OVYX sidebar account and workspace synchronization contracts passed.');
