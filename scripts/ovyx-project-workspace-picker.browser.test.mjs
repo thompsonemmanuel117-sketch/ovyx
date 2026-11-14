@@ -99,6 +99,10 @@ try {
     const dialog = page.locator('#ovyx-project-workspace-picker');
     await dialog.waitFor({ state: 'visible' });
     assert.equal(await dialog.getAttribute('open') !== null, true, '[' + target.name + '] picker must use a real modal dialog.');
+    // Workspace inventory loads asynchronously from the authenticated API. Wait
+    // for that response and the resulting project render before asserting rows.
+    await page.waitForFunction(() => document.querySelectorAll('#ovx-picker-workspace-select option').length === 2
+      && document.querySelectorAll('#ovyx-project-workspace-picker [data-project-id]').length === 2, null, { timeout: 10000 });
     assert.equal(await dialog.locator('[data-project-id]').count(), 2, '[' + target.name + '] picker must initially show every project in the personal workspace.');
     assert.equal(await dialog.locator('[data-project-id="picker-project-aurora"]').getAttribute('aria-current'), 'true');
     assert.equal(await dialog.locator('[data-project-id]').first().getAttribute('data-project-id'), 'picker-project-aurora',

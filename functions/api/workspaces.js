@@ -56,7 +56,7 @@ function workspacePath(uid, id) {
   return ['users', uid, 'workspaces', id];
 }
 
-async function ensurePersonalWorkspace(env, user, uid, email) {
+export async function ensurePersonalWorkspace(env, user, uid, email) {
   const path = workspacePath(uid, DEFAULT_WORKSPACE_ID);
   const existing = await getFirestoreDocumentAtPath(env, path);
   if (existing) {
