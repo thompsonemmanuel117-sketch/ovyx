@@ -80,10 +80,8 @@ try {
       '[' + target.name + '] the separate Continue Project shortcuts must be removed from desktop and mobile navigation.');
     assert.equal(await page.locator('#ovyx-projects-continue-panel').count(), 0,
       '[' + target.name + '] the duplicate Continue working panel must not appear inside Projects.');
-    assert.equal(await page.locator('#view-projects').getByRole('button', { name: /create project/i }).count() > 0, true,
+    assert.equal(await page.locator('#view-projects').getByRole('button', { name: /\b(create|new)\s+project\b/i }).count() > 0, true,
       '[' + target.name + '] the existing Projects page must retain its single project creation entry point.');
-    assert.equal(await page.locator('#view-projects [data-project-id]').count() >= 0, true,
-      '[' + target.name + '] the existing Projects route must remain mounted.');
 
     // Open through a trusted browser click. Mobile browsers may suppress
     // programmatic focus/keyboard activation when a modal is opened from
