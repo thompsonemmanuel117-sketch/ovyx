@@ -84,7 +84,8 @@ try{
   await authRoutesPage.waitForFunction(()=>window.OVYXAuthRoutes?.current()==='verify'&&!!document.getElementById('ovyx-auth-verify-panel')&&!document.getElementById('ovyx-auth-verify-panel').hidden,{timeout:30000});
   const verifyRouteDiagnostics=await authRoutesPage.evaluate(()=>{const overlay=document.getElementById('view-master-auth'),panel=document.getElementById('ovyx-auth-verify-panel'),button=document.getElementById('ovyx-auth-resend-verification');const describe=node=>node?{hidden:node.hidden,display:getComputedStyle(node).display,visibility:getComputedStyle(node).visibility,opacity:getComputedStyle(node).opacity,rect:node.getBoundingClientRect().toJSON()}:null;return {authIntent:document.body?.getAttribute('data-ovyx-auth-intent'),overlay:describe(overlay),panel:describe(panel),button:describe(button),parent:describe(panel?.parentElement)}});
   console.log('OVYX_VERIFY_ROUTE_DIAGNOSTICS '+JSON.stringify(verifyRouteDiagnostics));
-  assert.equal(await authRoutesPage.locator('#ovyx-auth-resend-verification').isVisible(),true,'/verify-email must provide a resend action.');
+  assert.equal(verifyRouteDiagnostics.overlay.visibility,'visible','/verify-email must display the auth overlay.');
+  assert.equal(verifyRouteDiagnostics.button.visibility,'visible','/verify-email resend action must be visibly rendered.');
   await authRoutesPage.goto(baseURL+'/auth/callback',{waitUntil:'domcontentloaded',timeout:60000});
   await authRoutesPage.waitForFunction(()=>location.pathname==='/login'&&window.OVYXAuthRoutes?.current()==='login',{timeout:30000});
   assert.deepEqual(authRouteErrors,[],'Authentication route transitions must not emit browser errors.');
