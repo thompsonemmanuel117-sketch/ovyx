@@ -1,0 +1,240 @@
+import { authenticateRequest } from '../_lib/firebase.js';
+import {
+  getFirestoreDocumentAtPath,
+  getFirestoreDataAtPath,
+  setFirestoreDocumentAtPath,
+  deleteFirestoreDocumentAtPath,
+  listFirestoreSubcollectionDocumentsAtPath,
+} from './_lib/firebase-admin.js';
+import { readJson, jsonResponse, requestId } from './_lib/http.js';
+
+const clean = (value, max = 320) => String(value ?? '').replace(/[\\u0000-\\u001F\\u007F]/g, '').trim().slice(0, max);
+const validEmail = value => /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(value);
+const safeRole = value => value === 'editor' ? 'editor' : 'viewer';
+const projectPath = (email, id) => ['users', email, 'projects', id];
+const sharePath = (email, id, shareId) => [...projectPath(email, id), 'shares', shareId];
+
+function fail(message, status = 400, code = 'PROJECT_SHARING_INVALID') {
+  throw Object.assign(new Error(message), { status, code });
+}
+function projectId(value) {
+  const id = clean(value, 120);
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(id)) fail('Choose a valid project.', 400, 'INVALID_PROJECT_ID');
+  return id;
+}
+async function digest(value) {
+  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+function makeToken() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  let binary = '';
+  bytes.forEach(byte => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+}
+function publicProject(project) {
+  const publishedUrl = clean(project?.publishedUrl || project?.liveUrl || '', 1000);
+  let safeUrl = null;
+  try {
+    const parsed = new URL(publishedUrl);
+    if (parsed.protocol === 'https:') safeUrl = parsed.href;
+  } catch {}
+  const pages = Array.isArray(project?.pages) ? project.pages : [];
+  return {
+    id: clean(project?.id, 120),
+    name: clean(project?.name || project?.title, 120) || 'Untitled project',
+    description: clean(project?.description, 280),
+    status: clean(project?.status, 40) || 'draft',
+    pageCount: pages.length,
+    pageNames: pages.slice(0, 30).map(page => clean(page?.name || page?.title, 80)).filter(Boolean),
+    publishedUrl: safeUrl,
+  };
+}
+async function ownerProject(env, uid, email, pid) {
+  const path = projectPath(email, pid);
+  const document = await getFirestoreDocumentAtPath(env, path);
+  const project = document ? await getFirestoreDataAtPath(env, path) : null;
+  if (!project || clean(project.ownerUid) !== uid || clean(project.ownerEmail).toLowerCase() !== email) {
+    fail('Project not found.', 404, 'PROJECT_NOT_FOUND');
+  }
+  return { path, document, project };
+}
+async function sendInvite(env, email, project, role, token, origin, ownerEmail, pid) {
+  const apiKey = clean(env?.RESEND_API_KEY, 500);
+  const from = clean(env?.RESEND_FROM_EMAIL || env?.RESEND_BROADCAST_FROM_EMAIL, 320);
+  if (!apiKey || !from) fail('Email invitations are not configured yet. Add RESEND_API_KEY and RESEND_FROM_EMAIL in Cloudflare Pages.', 503, 'SHARING_EMAIL_NOT_CONFIGURED');
+  const url = new URL('/', origin);
+  url.searchParams.set('ovyx-share', token);
+  url.searchParams.set('owner', ownerEmail);
+  url.searchParams.set('projectId', pid);
+  const safeName = clean(project.name || project.title, 120) || 'a project';
+  const safeRole = role === 'editor' ? 'editor' : 'viewer';
+  const escape = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from,
+      to: [email],
+      subject: 'You are invited to collaborate on an OVYX project',
+      html: '<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:28px;color:#171717"><p style="letter-spacing:2px;color:#9b762f;font-weight:bold">OVYX / PROJECT INVITATION</p><h1>You have been invited</h1><p>You have been invited to access <strong>' + escape(safeName) + '</strong> as a ' + safeRole + '.</p><p><a href="' + escape(url.href) + '" style="display:inline-block;padding:12px 18px;background:#171717;color:#fff;text-decoration:none;border-radius:8px">Review invitation</a></p><p style="color:#777;font-size:12px">Sign in with this invited email address to accept access.</p></div>',
+      text: 'You have been invited to access ' + safeName + ' as a ' + safeRole + '. Sign in with this email address and open: ' + url.href,
+      tags: [{ name: 'source', value: 'ovyx-project-sharing' }]
+    })
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error('[OVYX PROJECT INVITE]', response.status, clean(body?.message || body?.error, 180));
+    fail('The invitation email could not be sent. Please try again.', 502, 'SHARING_EMAIL_FAILED');
+  }
+  return clean(body?.id, 200) || null;
+}
+
+export async function onRequest(context) {
+  const rid = requestId(context.request);
+  try {
+    const url = new URL(context.request.url);
+    const method = context.request.method.toUpperCase();
+
+    // A share token is a capability: only its SHA-256 digest is stored.
+    if (method === 'GET' && url.searchParams.has('token')) {
+      const token = clean(url.searchParams.get('token'), 128);
+      if (!/^[A-Za-z0-9_-]{40,80}$/.test(token)) fail('This share link is invalid or has expired.', 404, 'SHARE_NOT_FOUND');
+      const tokenHash = await digest(token);
+      const ownerEmail = clean(url.searchParams.get('owner'), 320).toLowerCase();
+      const pid = projectId(url.searchParams.get('projectId'));
+      if (!validEmail(ownerEmail)) fail('This share link is invalid or has expired.', 404, 'SHARE_NOT_FOUND');
+      const rows = await listFirestoreSubcollectionDocumentsAtPath(context.env, projectPath(ownerEmail, pid), 'shares', 200);
+      const match = rows.find(row => row.data?.tokenHash === tokenHash);
+      if (!match || match.data?.status !== 'active' || (match.data?.expiresAt && Date.parse(match.data.expiresAt) <= Date.now())) {
+        fail('This share link is no longer available.', 404, 'SHARE_REVOKED');
+      }
+      const project = await getFirestoreDataAtPath(context.env, projectPath(ownerEmail, pid));
+      if (!project || clean(project.ownerEmail).toLowerCase() !== ownerEmail) fail('This share link is no longer available.', 404, 'SHARE_REVOKED');
+      return jsonResponse({ ok: true, share: { id: match.id, type: match.data.type, role: match.data.role, status: match.data.status, inviteEmail: match.data.type === 'invite' ? match.data.email : null }, project: publicProject(project) }, 200, { 'X-OVYX-Request-ID': rid });
+    }
+
+    const user = context.data?.user || await authenticateRequest(context.request, context.env);
+    const uid = clean(user?.uid || user?.sub, 256);
+    const email = clean(user?.email, 320).toLowerCase();
+    if (!uid || !validEmail(email)) fail('Please sign in with a verified email address.', 401, 'AUTH_REQUIRED');
+
+    if (method === 'GET') {
+      const pid = projectId(url.searchParams.get('projectId'));
+      const { project } = await ownerProject(context.env, uid, email, pid);
+      const rows = await listFirestoreSubcollectionDocumentsAtPath(context.env, projectPath(email, pid), 'shares', 200);
+      const items = rows.map(row => ({
+        id: row.id,
+        type: row.data?.type === 'invite' ? 'invite' : 'link',
+        email: clean(row.data?.email, 320) || null,
+        role: safeRole(row.data?.role),
+        status: clean(row.data?.status, 24) || 'revoked',
+        createdAt: clean(row.data?.createdAt, 40) || null,
+        expiresAt: clean(row.data?.expiresAt, 40) || null,
+        acceptedAt: clean(row.data?.acceptedAt, 40) || null,
+      })).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+      return jsonResponse({ ok: true, project: publicProject(project), shares: items }, 200, { 'X-OVYX-Request-ID': rid });
+    }
+
+    if (method !== 'POST') fail('GET or POST is required.', 405, 'METHOD_NOT_ALLOWED');
+    const body = await readJson(context.request, 12000);
+    const action = clean(body.action, 32).toLowerCase();
+
+    if (action === 'accept-invite') {
+      const token = clean(body.token, 128);
+      if (!/^[A-Za-z0-9_-]{40,80}$/.test(token)) fail('This invitation is invalid or has expired.', 404, 'INVITE_NOT_FOUND');
+      const tokenHash = await digest(token);
+      const pid = projectId(body.projectId);
+      const ownerEmail = clean(body.ownerEmail, 320).toLowerCase();
+      if (!validEmail(ownerEmail)) fail('This invitation is invalid or has expired.', 404, 'INVITE_NOT_FOUND');
+      const rows = await listFirestoreSubcollectionDocumentsAtPath(context.env, projectPath(ownerEmail, pid), 'shares', 200);
+      const match = rows.find(row => row.data?.tokenHash === tokenHash && row.data?.type === 'invite');
+      if (!match || match.data.status !== 'active' || clean(match.data.email).toLowerCase() !== email) fail('This invitation is not valid for the signed-in email address.', 403, 'INVITE_EMAIL_MISMATCH');
+      const path = sharePath(ownerEmail, pid, match.id);
+      const acceptedAt = new Date().toISOString();
+      await setFirestoreDocumentAtPath(context.env, path, { acceptedAt, acceptedUid: uid, status: 'accepted' }, { merge: true });
+      const sharedProject = await getFirestoreDataAtPath(context.env, projectPath(ownerEmail, pid));
+      const membershipId = 'sp_' + (await digest(ownerEmail + ':' + pid)).slice(0, 24);
+      await setFirestoreDocumentAtPath(context.env, ['users', uid, 'shared_projects', membershipId], {
+        projectId: pid,
+        projectName: clean(sharedProject?.name || sharedProject?.title, 120) || 'Shared project',
+        ownerUid: clean(sharedProject?.ownerUid, 256),
+        ownerEmail,
+        role: safeRole(match.data.role),
+        status: 'active',
+        invitationId: match.id,
+        acceptedAt,
+        updatedAt: acceptedAt,
+      }, { merge: false });
+      return jsonResponse({ ok: true, accepted: true, role: safeRole(match.data.role), project: publicProject(sharedProject) }, 200, { 'X-OVYX-Request-ID': rid });
+    }
+
+    const pid = projectId(body.projectId);
+    const { path, document, project } = await ownerProject(context.env, uid, email, pid);
+    const now = new Date().toISOString();
+
+    if (action === 'create-link' || action === 'invite') {
+      const role = action === 'create-link' ? 'viewer' : safeRole(body.role);
+      const inviteEmail = clean(body.email, 320).toLowerCase();
+      if (action === 'invite' && (!validEmail(inviteEmail) || inviteEmail === email)) fail('Enter a valid email address different from your own.', 400, 'INVITE_EMAIL_INVALID');
+      const token = makeToken();
+      const tokenHash = await digest(token);
+      const shareId = 'sh_' + crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+      const share = {
+        id: shareId,
+        type: action === 'invite' ? 'invite' : 'link',
+        tokenHash,
+        email: action === 'invite' ? inviteEmail : null,
+        role,
+        status: 'active',
+        createdByUid: uid,
+        createdByEmail: email,
+        createdAt: now,
+        expiresAt: action === 'create-link' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null,
+      };
+      await setFirestoreDocumentAtPath(context.env, [...path, 'shares', shareId], share, { merge: false });
+      let emailMessageId = null;
+      if (action === 'invite') {
+        try { emailMessageId = await sendInvite(context.env, inviteEmail, project, role, token, url.origin, email, pid); }
+        catch (error) {
+          await deleteFirestoreDocumentAtPath(context.env, [...path, 'shares', shareId]);
+          throw error;
+        }
+      }
+      const shareUrl = new URL('/', url.origin);
+      shareUrl.searchParams.set('ovyx-share', token);
+      shareUrl.searchParams.set('owner', email);
+      shareUrl.searchParams.set('projectId', pid);
+      return jsonResponse({ ok: true, share: { id: shareId, type: share.type, email: share.email, role, status: share.status, createdAt: now, expiresAt: share.expiresAt }, shareUrl: shareUrl.href, emailMessageId }, 201, { 'X-OVYX-Request-ID': rid });
+    }
+
+    const shareId = clean(body.shareId, 120);
+    if (!/^sh_[A-Za-z0-9_-]{12,40}$/.test(shareId)) fail('Choose a valid sharing record.', 400, 'INVALID_SHARE_ID');
+    const sharePathValue = [...path, 'shares', shareId];
+    const shareDocument = await getFirestoreDocumentAtPath(context.env, sharePathValue);
+    const share = shareDocument ? await getFirestoreDataAtPath(context.env, sharePathValue) : null;
+    if (!share) fail('Sharing record not found.', 404, 'SHARE_NOT_FOUND');
+
+    if (action === 'revoke') {
+      await setFirestoreDocumentAtPath(context.env, sharePathValue, { status: 'revoked', revokedAt: now, revokedByUid: uid }, { merge: true, expectedUpdateTime: shareDocument.updateTime });
+      if (share.type === 'invite' && share.acceptedUid) {
+        const membershipId = 'sp_' + (await digest(email + ':' + pid)).slice(0, 24);
+        await setFirestoreDocumentAtPath(context.env, ['users', clean(share.acceptedUid, 256), 'shared_projects', membershipId], { status: 'revoked', revokedAt: now }, { merge: true });
+      }
+      return jsonResponse({ ok: true, revoked: true, shareId }, 200, { 'X-OVYX-Request-ID': rid });
+    }
+    if (action === 'change-role') {
+      if (share.type !== 'invite') fail('Only email invitations have editable roles.', 400, 'SHARE_ROLE_NOT_EDITABLE');
+      const role = safeRole(body.role);
+      await setFirestoreDocumentAtPath(context.env, sharePathValue, { role, updatedAt: now }, { merge: true, expectedUpdateTime: shareDocument.updateTime });
+      if (share.acceptedUid) {
+        const membershipId = 'sp_' + (await digest(email + ':' + pid)).slice(0, 24);
+        await setFirestoreDocumentAtPath(context.env, ['users', clean(share.acceptedUid, 256), 'shared_projects', membershipId], { role, updatedAt: now }, { merge: true });
+      }
+      return jsonResponse({ ok: true, updated: true, role, shareId }, 200, { 'X-OVYX-Request-ID': rid });
+    }
+    fail('Use create-link, invite, accept-invite, change-role or revoke.', 400, 'INVALID_SHARING_ACTION');
+  } catch (error) {
+    return jsonResponse({ ok: false, error: error?.message || 'Project sharing could not be completed.', code: error?.code || 'PROJECT_SHARING_FAILED' }, error?.status || 500, { 'X-OVYX-Request-ID': rid });
+  }
+}

@@ -884,3 +884,25 @@ export async function revokeFirebaseRefreshTokens(
       Math.floor(timestamp)
   };
 }
+
+
+/** List a nested Firestore subcollection below any validated document path. */
+export async function listFirestoreSubcollectionDocumentsAtPath(env, parentSegments, subcollection, pageSize = 100) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+  const parent = firestoreDocumentPath(serviceAccount.project_id, parentSegments);
+  const safeCollection = String(subcollection || '').trim();
+  if (!/^[A-Za-z][A-Za-z0-9_-]{0,99}$/.test(safeCollection)) {
+    throw Object.assign(new Error('Firestore collection name is invalid.'), { status: 400, code: 'INVALID_COLLECTION' });
+  }
+  const params = new URLSearchParams({ pageSize: String(Math.min(Math.max(Number(pageSize) || 100, 1), 1000)) });
+  const response = await fetch(`${parent}/${encodeURIComponent(safeCollection)}?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  if (!response.ok) throw new Error(`Firestore nested subcollection list failed (${response.status}).`);
+  const data = await response.json();
+  return (data.documents || []).map(document => ({
+    id: String(document?.name || '').split('/').pop() || '',
+    data: firestoreDocumentToJs(document)
+  }));
+}
