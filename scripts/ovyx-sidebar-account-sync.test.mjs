@@ -7,6 +7,8 @@ const middleware = await readFile(new URL('../functions/_middleware.js', import.
 
 assert.doesNotThrow(() => new Function(asset), 'Sidebar account synchronizer must parse.');
 assert.match(asset, /onAuthStateChanged/, 'Firebase auth changes must refresh the sidebar account.');
+assert.match(asset, /ovyx:firebase-auth-sdk-ready/, 'Firebase SDK readiness must install the listener even when the SDK loads after the shell.');
+assert.match(asset, /const refreshAuth = \(\) => \{ installAuthListener\(\); sync\(\); \}/, 'Auth-ready events must retry listener installation before syncing the account.');
 assert.match(asset, /firebase-auth-state-ready|ovyx:auth-ready/, 'The account synchronizer must handle the app auth-ready lifecycle.');
 assert.match(asset, /ovyx\.profile\.v2\.user\./, 'Profile preferences must be read from the current Firebase UID namespace.');
 assert.match(asset, /sidebar-user-display-name/, 'Desktop account name must be synchronized.');
