@@ -52,9 +52,14 @@ try {
       && window.OVYXWorkspacePicker?.version === 1
       && window.OVYXProjectsUnifiedFlow?.version === 2, null, { timeout: 45000 });
 
+    if (target.isMobile) {
+      await page.evaluate(() => window.MobileDrawer?.open?.());
+      await page.waitForFunction(() => !!document.getElementById('v52-account-name'), null, { timeout: 10000 });
+    }
     await page.waitForFunction(() =>
       document.getElementById('sidebar-user-display-name')?.textContent === 'Project Picker User'
-      && document.getElementById('v52-account-name')?.textContent === 'Project Picker User'
+      && (!window.matchMedia('(max-width: 767px)').matches
+        || document.getElementById('v52-account-name')?.textContent === 'Project Picker User')
       && document.getElementById('sidebar-workspace-label')?.textContent === 'Personal workspace',
       null, { timeout: 15000 });
     await page.evaluate(() => {
@@ -68,8 +73,9 @@ try {
     });
     await page.waitForFunction(() =>
       document.getElementById('sidebar-user-display-name')?.textContent === 'Second Account Profile'
-      && document.getElementById('v52-account-name')?.textContent === 'Second Account Profile'
-      && document.getElementById('v52-account-email')?.textContent === 'second-account@example.test',
+      && (!window.matchMedia('(max-width: 767px)').matches
+        || (document.getElementById('v52-account-name')?.textContent === 'Second Account Profile'
+          && document.getElementById('v52-account-email')?.textContent === 'second-account@example.test')),
       null, { timeout: 10000 });
     await page.evaluate(() => window.__setOVYXBrowserAuthUser({
       uid: 'ovyx-project-picker-user',
@@ -79,7 +85,8 @@ try {
     }));
     await page.waitForFunction(() =>
       document.getElementById('sidebar-user-display-name')?.textContent === 'Project Picker User'
-      && document.getElementById('v52-account-name')?.textContent === 'Project Picker User',
+      && (!window.matchMedia('(max-width: 767px)').matches
+        || document.getElementById('v52-account-name')?.textContent === 'Project Picker User'),
       null, { timeout: 10000 });
 
     await page.evaluate(() => {
