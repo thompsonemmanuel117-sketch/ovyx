@@ -127,10 +127,10 @@
 
   function installAuthListener() {
     try {
+      if (auth) return;
       const candidate = window.firebase?.auth?.();
-      if (!candidate || typeof candidate.onAuthStateChanged !== 'function' || candidate.__ovyxSidebarAccountSyncV1) return;
+      if (!candidate || typeof candidate.onAuthStateChanged !== 'function') return;
       candidate.onAuthStateChanged(user => sync(user));
-      candidate.__ovyxSidebarAccountSyncV1 = true;
       auth = candidate;
     } catch (error) {
       console.warn('[OVYX sidebar] account state could not be observed', error);
@@ -159,3 +159,4 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
 })();
+
