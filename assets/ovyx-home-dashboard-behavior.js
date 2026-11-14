@@ -7,6 +7,12 @@
   const RESPONSE_DEPTH_KEY = 'ovyx.ws.responseDepth.v1';
   const MODE_TO_DEPTH = { fast: 1, balanced: 2, quality: 3 };
   const DEPTH_TO_MODE = { 1: 'fast', 2: 'balanced', 3: 'quality' };
+  const MODE_LABELS = { fast: 'Fast', balanced: 'Standard', quality: 'Detailed' };
+  const MODE_DESCRIPTIONS = {
+    fast: 'Get results quickly for simple requests and small changes.',
+    balanced: 'A balanced response for everyday tasks.',
+    quality: 'More careful, thorough responses for complex projects.'
+  };
 
   function activityTimestamp(project) {
     const value = project?.updatedAt ?? project?.modifiedAt ?? project?.updated_at
@@ -102,16 +108,23 @@
     const note = byId('v59-routing-note');
     const copy = note?.querySelector?.('span');
     if (!copy) return;
-    const label = mode === 'fast' ? 'OVYX Quick' : mode === 'quality' ? 'OVYX Deep' : 'OVYX Everyday';
-    const detail = mode === 'fast' ? 'Concise responses' : mode === 'quality' ? 'Detailed responses' : 'Balanced responses';
-    copy.textContent = label + ' selected · ' + detail + '. OVYX manages AI routing. Usage and safety limits remain active.';
+    const label = MODE_LABELS[mode] || MODE_LABELS.balanced;
+    const detail = MODE_DESCRIPTIONS[mode] || MODE_DESCRIPTIONS.balanced;
+    copy.textContent = label + ' · ' + detail;
   }
 
   function applyMode(mode, persist = true) {
     const selected = Object.prototype.hasOwnProperty.call(MODE_TO_DEPTH, mode) ? mode : 'balanced';
     const depth = MODE_TO_DEPTH[selected];
     const selector = byId('v59-ai-mode-select');
-    if (selector && selector.value !== selected) selector.value = selected;
+    if (selector) {
+      if (selector.value !== selected) selector.value = selected;
+      Array.from(selector.options || []).forEach(option => {
+        if (Object.prototype.hasOwnProperty.call(MODE_LABELS, option.value)) option.textContent = MODE_LABELS[option.value];
+      });
+      selector.setAttribute?.('aria-label', 'Response detail');
+      selector.title = MODE_DESCRIPTIONS[selected] || MODE_DESCRIPTIONS.balanced;
+    }
     if (window.WebStudio) window.WebStudio.responseDepth = depth;
     const depthControl = byId('ws-brain-depth');
     if (depthControl && String(depthControl.value) !== String(depth)) {
