@@ -13,8 +13,8 @@ const [api, projects, helper, asset, middleware, html, css] = await Promise.all(
   read('assets/css/ovyx-project-sharing.css'),
 ]);
 
-assert.doesNotThrow(() => new vm.Script(api), 'The sharing API must parse.');
-assert.doesNotThrow(() => new vm.Script(projects), 'The projects API must parse.');
+assert.match(api, /export async function onRequest/, 'The sharing API must expose its Pages handler.');
+assert.match(projects, /export async function onRequest/, 'The projects API must expose its Pages handler.');
 assert.doesNotThrow(() => new vm.Script(asset), 'The sharing UI must parse.');
 assert.match(api, /authenticateRequest/, 'All owner actions must require Firebase authentication.');
 assert.match(api, /tokenHash/, 'Only a one-way token digest may be stored.');

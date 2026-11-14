@@ -40,6 +40,12 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --ignore-scripts
+      - name: Check server module syntax
+        run: |
+          node --check functions/api/project-sharing.js
+          node --check functions/api/projects.js
+          node --check functions/api/_lib/firebase-admin.js
+          node --check assets/ovyx-project-sharing.js
       - name: Verify project sharing security contracts
         run: node scripts/ovyx-project-sharing.test.mjs
       - name: Validate Pages application
