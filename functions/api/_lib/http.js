@@ -1,0 +1,140 @@
+export const SECURITY_HEADERS = Object.freeze({
+  'Content-Type': 'application/json; charset=utf-8',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'X-Robots-Tag': 'noindex, nofollow, noarchive'
+});
+
+export function jsonResponse(payload, status = 200, extraHeaders = {}) {
+  const headers = new Headers(SECURITY_HEADERS);
+
+  Object.entries(extraHeaders).forEach(([key, value]) => {
+    headers.set(key, String(value));
+  });
+
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers
+  });
+}
+
+export async function readJson(request, maxBytes = 512_000) {
+  const contentLength = Number(request?.headers?.get('content-length') || 0);
+
+  if (contentLength && contentLength > maxBytes) {
+    throw Object.assign(
+      new Error(`Request body exceeds ${maxBytes} bytes.`),
+      { status: 413, code: 'BODY_TOO_LARGE' }
+    );
+  }
+
+  const text = await request.text();
+
+  if (new TextEncoder().encode(text).byteLength > maxBytes) {
+    throw Object.assign(
+      new Error(`Request body exceeds ${maxBytes} bytes.`),
+      { status: 413, code: 'BODY_TOO_LARGE' }
+    );
+  }
+
+  if (!text.trim()) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw Object.assign(
+      new Error('Request body must be valid JSON.'),
+      { status: 400, code: 'INVALID_JSON' }
+    );
+  }
+}
+
+export function errorResponse(status, code, message, requestId) {
+  return jsonResponse(
+    {
+      ok: false,
+      error: code,
+      message,
+      requestId: requestId || null
+    },
+    status
+  );
+}
+
+export function getRequestId(request) {
+  const incoming = request.headers.get('CF-Ray');
+
+  if (incoming && /^[A-Za-z0-9._:-]{1,160}$/.test(incoming)) {
+    return incoming;
+  }
+
+  return crypto.randomUUID();
+}
+
+export const requestId = getRequestId;
+
+export function withCors(response, request) {
+  const origin = request.headers.get('Origin');
+  if (origin) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Signature-Input, Signature');
+    response.headers.set('Access-Control-Max-Age', '86400');
+  }
+  return response;
+}
+
+export function getBearerToken(request) {
+  const value = request.headers.get('Authorization') || '';
+
+  if (!value.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = value.slice(7).trim();
+
+  if (!token || token.length > 8192) {
+    return null;
+  }
+
+  return token;
+}
+
+export function enforceSameOrigin(request) {
+  const origin = request.headers.get('Origin');
+
+  if (!origin) {
+    return true;
+  }
+
+  try {
+    const requestOrigin = new URL(request.url).origin;
+    return origin === requestOrigin;
+  } catch {
+    return false;
+  }
+}
+
+export function methodAllowed(request, methods) {
+  return methods.includes(request.method.toUpperCase());
+}
+
+export function isValidCapabilityName(value) {
+  return [
+    'webStudio',
+    'advancedWebStudio',
+    'appStudio',
+    'gameStudio',
+    'aiGeneration',
+    'github',
+    'cloudflareDeploy',
+    'teamWorkspace'
+  ].includes(String(value || ''));
+}

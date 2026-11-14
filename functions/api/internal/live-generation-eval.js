@@ -1,0 +1,896 @@
+import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
+import { callModel } from '../../_lib/providers.js';
+import { buildExperienceBrief } from '../../_lib/experience.js';
+import { WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
+import { getProductionIntegrationState } from '../../_lib/integration-state.js';
+import { isCloudflareFreeAllowanceExhausted } from '../../_lib/cloudflare-free-ai.js';
+import { buildAutonomousRepairPrompt, selectAutonomousRepairTargets, validateAutonomousRepairCandidate } from '../../_lib/autonomous-qa.js';
+
+const EXPECTED_ISSUER = 'https://token.actions.githubusercontent.com';
+const EXPECTED_AUDIENCE = 'ovyx-live-site-evaluation';
+const EXPECTED_REPOSITORY = 'thompsonemmanuel117-sketch/ovyx';
+const EXPECTED_REPOSITORY_ID = '1333698814';
+const EXPECTED_OWNER = 'thompsonemmanuel117-sketch';
+const EXPECTED_WORKFLOW = EXPECTED_REPOSITORY + '/.github/workflows/ovyx-webstudio-live-generation.yml@refs/heads/main';
+const JWKS_URL = 'https://token.actions.githubusercontent.com/.well-known/jwks';
+const MAX_BODY_BYTES = 220_000;
+const MAX_TOKEN_LENGTH = 12_000;
+const MAX_TOKEN_LIFETIME_SECONDS = 15 * 60;
+const QA_ENDPOINT = '/.well-known/ovyx-qa-enquiry';
+const REPO_ALLOWED_EVENTS = new Set(['push', 'workflow_dispatch']);
+let jwksCache = null;
+let jwksCacheExpiresAt = 0;
+
+const CASES = Object.freeze({
+  'nigeria-lagos-real-estate': {
+    id: 'nigeria-lagos-real-estate',
+    industry: 'real-estate',
+    market: { country: 'Nigeria', locale: 'en-NG', currency: 'NGN', language: 'en', timeZone: 'Africa/Lagos' },
+    title: 'Lagos property advisory',
+    prompt: 'Create a four-page multi-page website for a thoughtful, design-led Lagos property advisory: Home, Property Listings, About, Contact. Audience: home buyers and renters in Lagos, Nigeria. Market rules: English (Nigeria), NGN / ₦, Africa/Lagos. Art direction: calm architectural editorial, strong serif/sans contrast, warm stone and dark ink, asymmetrical composition, refined real-estate photography treatment and a clear one-thumb mobile enquiry journey. No real property inventory feed or client contact details are supplied. Do not invent real property addresses, listing prices, availability, agents, testimonials, coordinates or verification badges. Show a clear honest live-inventory-not-connected empty state, or only visibly labelled illustrative sample cards.',
+  },
+  'nigeria-baby-products': {
+    id: 'nigeria-baby-products',
+    industry: 'baby-products',
+    market: { country: 'Nigeria', locale: 'en-NG', currency: 'NGN', language: 'en', timeZone: 'Africa/Lagos' },
+    title: 'Baby products and parenting essentials',
+    prompt: 'Create a four-page multi-page website for a baby-products and parenting essentials shop serving families in Nigeria: Home, Shop, Helpful Guides, Contact. Market: English (Nigeria), NGN / ₦, Africa/Lagos. Art direction: warm, reassuring, contemporary family retail; clear product categories, calm spacing, accessible mobile shopping and helpful guide navigation. No real product feed, live stock, verified safety certifications, product prices, delivery promises, testimonials, checkout, business address or client contact details are supplied. Use only visibly labelled illustrative sample products and demo prices if needed for layout; never claim that sample items are available to buy or that checkout is connected. Do not make medical, safety, or developmental claims about baby products. Use honest setup/empty states for missing inventory and contact details.',
+  },
+  'uk-independent-restaurant': {
+    id: 'uk-independent-restaurant',
+    industry: 'restaurant',
+    market: { country: 'United Kingdom', locale: 'en-GB', currency: 'GBP', language: 'en', timeZone: 'Europe/London' },
+    title: 'Independent neighbourhood restaurant',
+    prompt: 'Create a four-page multi-page website for an independent neighbourhood restaurant in the United Kingdom: Home, Menu, Our Story, Contact. Market: English (UK), GBP / £, Europe/London. Art direction: tactile food-editorial, oversized culinary typography, warm natural-light visual language, a strong menu hierarchy and quick mobile visit/enquiry path; avoid generic three-card template styling. No actual restaurant address, opening hours, menu, booking system, social profile or client contact is supplied. Do not invent these as business facts; clearly label illustrative menu content and use honest setup states where details are missing.',
+  },
+  'us-independent-fashion': {
+    id: 'us-independent-fashion',
+    industry: 'fashion',
+    market: { country: 'United States', locale: 'en-US', currency: 'USD', language: 'en', timeZone: 'America/New_York' },
+    title: 'Independent fashion label',
+    prompt: 'Create a four-page multi-page website for an independent contemporary fashion label: Home, Collection, Materials & Fit, Contact. Market: United States, English (US), USD / $, America/New_York. Art direction: confident fashion-editorial, deliberately art-directed campaign composition, generous whitespace, distinctive type scale, image-led collection discovery, accessible size/fit information and subtle purposeful transitions. No actual product feed, inventory, prices, shipping policy, social accounts or business contact is supplied. Do not invent live stock or claim checkout is connected; clearly label any illustrative products.',
+  },
+  'japan-product-software': {
+    id: 'japan-product-software',
+    industry: 'saas',
+    market: { country: 'Japan', locale: 'ja-JP', currency: 'JPY', language: 'ja', timeZone: 'Asia/Tokyo' },
+    title: 'Japanese workflow software',
+    prompt: 'Create a four-page multi-page website for a new workflow software product serving teams in Japan: Home, Product, How It Works, Contact. Market: Japanese language (ja-JP), JPY / ¥, Asia/Tokyo. Art direction: precise editorial technology, disciplined grid, high typographic craft, purposeful product-interface illustrations made locally in HTML/CSS/SVG, calm interaction design and a clear product story. No verified customer logos, testimonials, integrations, pricing, business contact or product metrics are supplied. Do not invent these as facts; mark any illustrative product UI as a demonstration. All user-facing copy should be natural Japanese, not a machine-translated English shell.',
+  },
+});
+
+const QA_CONTRACT = [
+  'QA-ONLY EVALUATION CONTRACT (this generated artifact will be tested on a local isolated server and is NOT a publishable client site):',
+  '1. Include one clearly labelled QA-only enquiry form on the Contact page, with properly associated labels and required-field validation.',
+  '2. Use method="post" and action="/.well-known/ovyx-qa-enquiry". Prevent default navigation and submit with fetch to that exact relative path. Disable submit while pending. Parse the response and show success only for response.ok; keep values and show an error state otherwise. This isolated form does not send email, WhatsApp, social messages, or real customer leads.',
+  '3. Clearly mark this as an isolated QA artifact, not for publication. Never treat the .well-known endpoint as a real integration.',
+  '4. Do not load remote images, fonts, stylesheets, scripts, analytics or icon libraries. Use authored local CSS/SVG or self-contained HTML.',
+  '5. Every visible navigation link and CTA needs a meaningful destination or visible behavior. No href="#", javascript: links, dead buttons, placeholders, or fabricated live business data.',
+  '6. Provide semantic HTML, market-matched language metadata, title, meta description, viewport, accessible contrast, visible keyboard focus, responsive design and prefers-reduced-motion support.',
+  '7. Browser JavaScript must run directly in a real browser: use window.document, never import or instantiate jsdom/JSDOM, Node modules, require, process, or server-only APIs. A shared script must guard optional page-specific elements before attaching event listeners.',
+  '8. Each requested HTML file must contain exactly one complete document, use unescaped valid HTML attributes, and match its requested page title and route. Never append another document or a model/JSON wrapper to the file.',
+  '9. Include a root ovyx-qa-plan.json with strict JSON {version:1,backendRequired:boolean,journeys:[],apiChecks:[],backendChecks:[]}. Include at least one route-specific user journey for every requested page, using stable data-testid selectors and expected text/visibility assertions. Limit to 12 journeys, 4 per route, 30 steps each.',
+  '10. Set backendRequired:false and backendChecks:[] for a genuinely static site. If the brief requires APIs, authentication, persistent data, bookings, commerce or subscriptions, set backendRequired:true and provide safe backendChecks. Each backend check must include id, name, method, /api/ route, sourceFile (exact functions/ file implementing that route), expectedStatus, and optional expect assertions. Mutating checks must set sideEffect:"disposable-local-only" and use synthetic data only.',
+  '11. Never include credentials, personal data, external provider actions, payment settlement, live email delivery or real bookings in backendChecks. The acceptance runner executes supported Cloudflare Pages Functions with fresh local D1 and local KV/R2 inside an outbound-network-disabled container; unsupported bindings/frameworks must remain blocked, not marked passed.',
+
+].join('\n');
+
+function decodeBase64Url(value) {
+  const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+function decodeJsonPart(value) {
+  return JSON.parse(new TextDecoder().decode(decodeBase64Url(value)));
+}
+function jwksFailure(code) {
+  return Object.assign(new Error('GitHub OIDC signing keys are unavailable.'), { code });
+}
+
+function trustedJwksResponseUrl(rawUrl) {
+  let url;
+  try { url = new URL(String(rawUrl || JWKS_URL)); } catch { return false; }
+  return url.protocol === 'https:' &&
+    url.hostname.toLowerCase().replace(/\.$/, '') === 'token.actions.githubusercontent.com' &&
+    !url.username && !url.password && !url.port;
+}
+
+function safeJwksFailureDetail(error) {
+  const code = String(error?.code || '');
+  if (/^jwks-http-[1-5]\d\d$/.test(code)) return code;
+  if (['jwks-fetch-failed', 'jwks-final-url-untrusted', 'jwks-invalid-json', 'jwks-empty-key-set'].includes(code)) return code;
+  return 'jwks-fetch-failed';
+}
+
+async function getGithubJwks(fetchImpl, nowSeconds) {
+  if (jwksCache && jwksCacheExpiresAt > nowSeconds) return jwksCache;
+  let response;
+  try {
+    // Some network edges redirect this public metadata request. Follow HTTPS
+    // redirects, but accept keys only if the final response still comes from
+    // GitHub's exact OIDC issuer host. No bearer token is sent to this endpoint.
+    response = await fetchImpl(JWKS_URL, {
+      headers: { Accept: 'application/json' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(8_000),
+    });
+  } catch {
+    throw jwksFailure('jwks-fetch-failed');
+  }
+  if (!trustedJwksResponseUrl(response.url || JWKS_URL)) throw jwksFailure('jwks-final-url-untrusted');
+  if (!response.ok) throw jwksFailure('jwks-http-' + String(response.status));
+  let data;
+  try { data = await response.json(); }
+  catch { throw jwksFailure('jwks-invalid-json'); }
+  if (!Array.isArray(data?.keys) || !data.keys.length) throw jwksFailure('jwks-empty-key-set');
+  jwksCache = data.keys;
+  jwksCacheExpiresAt = nowSeconds + 10 * 60;
+  return jwksCache;
+}
+
+export async function verifyGithubOidcToken(token, options = {}) {
+  const fetchImpl = options.fetchImpl || fetch;
+  const nowSeconds = Number.isFinite(options.nowSeconds) ? options.nowSeconds : Math.floor(Date.now() / 1000);
+  const raw = String(token || '').trim();
+  if (!raw || raw.length > MAX_TOKEN_LENGTH) return { ok: false, reason: 'token-size-invalid' };
+  const parts = raw.split('.');
+  if (parts.length !== 3) return { ok: false, reason: 'token-shape-invalid' };
+
+  let header, claims;
+  try {
+    header = decodeJsonPart(parts[0]);
+    claims = decodeJsonPart(parts[1]);
+  } catch {
+    return { ok: false, reason: 'token-encoding-invalid' };
+  }
+  if (header?.alg !== 'RS256' || typeof header?.kid !== 'string' || !header.kid) {
+    return { ok: false, reason: 'token-algorithm-invalid' };
+  }
+  const audienceMatches = claims?.aud === EXPECTED_AUDIENCE ||
+    (Array.isArray(claims?.aud) && claims.aud.length === 1 && claims.aud[0] === EXPECTED_AUDIENCE);
+  if (claims?.iss !== EXPECTED_ISSUER || !audienceMatches) return { ok: false, reason: 'issuer-or-audience-invalid' };
+
+  const issued = Number(claims.iat), expires = Number(claims.exp);
+  const hasNotBefore = claims.nbf !== undefined && claims.nbf !== null;
+  const notBefore = hasNotBefore ? Number(claims.nbf) : null;
+  if (!Number.isFinite(issued) || !Number.isFinite(expires) ||
+      issued > nowSeconds + 60 || expires <= nowSeconds ||
+      expires <= issued || expires - issued > MAX_TOKEN_LIFETIME_SECONDS ||
+      (hasNotBefore && (!Number.isFinite(notBefore) || notBefore > nowSeconds + 60))) {
+    return { ok: false, reason: 'token-time-invalid' };
+  }
+  if (
+    String(claims.repository || '') !== EXPECTED_REPOSITORY ||
+    String(claims.repository_id || '') !== EXPECTED_REPOSITORY_ID ||
+    String(claims.repository_owner || '') !== EXPECTED_OWNER ||
+    String(claims.ref || '') !== 'refs/heads/main' ||
+    String(claims.workflow_ref || '') !== EXPECTED_WORKFLOW ||
+    !REPO_ALLOWED_EVENTS.has(String(claims.event_name || '')) ||
+    !String(claims.jti || '')
+  ) {
+    return { ok: false, reason: 'workflow-identity-not-authorized' };
+  }
+
+  let jwks;
+  try {
+    jwks = await getGithubJwks(fetchImpl, nowSeconds);
+  } catch (error) {
+    return { ok: false, reason: 'jwks-unavailable', detail: safeJwksFailureDetail(error) };
+  }
+  let jwk = jwks.find(item => item?.kid === header.kid && item?.kty === 'RSA' && item?.use !== 'enc');
+  if (!jwk) {
+    // GitHub may rotate signing keys while this isolate still has a cached JWKS.
+    jwksCache = null;
+    jwksCacheExpiresAt = 0;
+    try {
+      jwks = await getGithubJwks(fetchImpl, nowSeconds);
+      jwk = jwks.find(item => item?.kid === header.kid && item?.kty === 'RSA' && item?.use !== 'enc');
+    } catch (error) { return { ok: false, reason: 'jwks-unavailable', detail: safeJwksFailureDetail(error) }; }
+  }
+  if (!jwk) return { ok: false, reason: 'signing-key-not-found' };
+
+  try {
+    const key = await crypto.subtle.importKey(
+      'jwk',
+      jwk,
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    );
+    const signedData = new TextEncoder().encode(parts[0] + '.' + parts[1]);
+    const signature = decodeBase64Url(parts[2]);
+    const valid = await crypto.subtle.verify(
+      { name: 'RSASSA-PKCS1-v1_5' },
+      key,
+      signature,
+      signedData,
+    );
+    if (!valid) return { ok: false, reason: 'signature-invalid' };
+  } catch {
+    return { ok: false, reason: 'signature-invalid' };
+  }
+  return {
+    ok: true,
+    claims: {
+      repository: EXPECTED_REPOSITORY,
+      ref: 'refs/heads/main',
+      workflow: EXPECTED_WORKFLOW,
+      eventName: String(claims.event_name),
+      runId: String(claims.run_id || '').slice(0, 40),
+    },
+  };
+}
+
+function safePublicHttpsUrl(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    if (url.protocol !== 'https:' || url.username || url.password) return null;
+    if ([...url.searchParams.keys()].some(key => /(?:api[-_]?key|access[-_]?key|token|secret|auth|signature|credential|password)/i.test(key))) return null;
+    if (/(?:^|\.)localhost$/i.test(url.hostname) || /\.(?:local|internal)$/i.test(url.hostname)) return null;
+    return url;
+  } catch { return null; }
+}
+function settingsFromRequest(raw) {
+  const settings = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const listed = safePublicHttpsUrl(settings.listingsUrl);
+  const enquiry = safePublicHttpsUrl(settings.enquiryUrl);
+  return {
+    listingsUrl: settings.listingsAuthoritative === true ? listed : null,
+    enquiryUrl: settings.externalEnquiryAuthorized === true ? enquiry : null,
+  };
+}
+export function chooseProvider(env, requested) {
+  const aliases = { anthropic: 'claude', claude: 'claude', chatgpt: 'openai', gpt: 'openai', cloudflare: 'cloudflare-workers-ai', 'workers-ai': 'cloudflare-workers-ai' };
+  const canonical = value => aliases[String(value || '').trim().toLowerCase()] || String(value || '').trim().toLowerCase();
+  const configured = provider => {
+    switch (provider) {
+      case 'gemini': return Boolean(String(env.GEMINI_API_KEY || '').trim());
+      case 'deepseek': return Boolean(String(env.DEEPSEEK_API_KEY || '').trim());
+      case 'claude': return Boolean(String(env.ANTHROPIC_API_KEY || '').trim());
+      case 'openai': return Boolean(String(env.OPENAI_API_KEY || '').trim());
+      case 'groq': return Boolean(String(env.GROQ_API_KEY || '').trim());
+      case 'openrouter': return Boolean(String(env.OPENROUTER_API_KEY || '').trim());
+      case 'cloudflare-workers-ai': return Boolean(env.AI && typeof env.AI.run === 'function');
+      default: return false;
+    }
+  };
+  const provider = canonical(requested || 'automatic');
+  if (provider !== 'automatic') return configured(provider) ? provider : null;
+  // Let OVYX's established provider router choose and fall back among configured
+  // Cloudflare runtime providers, instead of pinning the request to the first
+  // non-empty secret and failing when that provider is temporarily unavailable.
+  return ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai'].some(configured)
+    ? 'automatic'
+    : null;
+}
+function safeBackendRepairPath(value) {
+  const filePath = String(value || '').trim().replace(/\\/g, '/');
+  if (!filePath.startsWith('functions/') || filePath.length > 240 ||
+      filePath.split('/').some(part => !part || part === '.' || part === '..') ||
+      /(?:^|\/)(?:secrets?|credentials?|private[-_]?keys?)(?:\/|\.|$)/i.test(filePath) ||
+      !/\.(?:m?js|ts)$/i.test(filePath)) return '';
+  return filePath;
+}
+function safePath(value) {
+  const path = String(value || '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
+  if (!path || path.length > 400 || path.split('/').some(part => !part || part === '.' || part === '..') ||
+      path.startsWith('functions/') || /^(?:node_modules|dist|build|coverage|\.git|\.env)(?:\/|$)/i.test(path)) {
+    throw new Error('Generated file path was rejected by the live-evaluation safety check.');
+  }
+  return path;
+}
+function inventoryHonesty(caseItem, files, listingsConfigured) {
+  if (caseItem.industry !== 'real-estate') return { status: 'not-applicable', passesHonestyGate: true, realListingsConfirmed: false };
+  const source = Object.values(files).map(String).join('\n');
+  const emptyState = /(?:live inventory|listing feed|property feed|inventory feed).{0,100}(?:not connected|not configured|connect|unavailable|not yet)|(?:connect|configure).{0,100}(?:listing|property|inventory).{0,100}(?:feed|source|api)|no live (?:property )?listings/i.test(source);
+  const examples = /(?:illustrative sample|sample propert|sample listing|demo listing|example listing|not live inventory|sample data|demo data)/i.test(source);
+  const listingLanguage = /\b(?:property listings?|real estate|bedrooms?|rental properties|properties for sale)\b/i.test(source);
+  const fabricated = !listingsConfigured && /\b(?:verified listing|live listings?|available now|real-time listings?|current inventory)\b/i.test(source) && !/\b(?:not connected|not configured|sample|demo|illustrative)\b/i.test(source);
+  return {
+    status: fabricated ? 'fail-unverified-live-inventory-claim'
+      : listingLanguage && !listingsConfigured && !(emptyState || examples) ? 'fail-inventory-provenance-missing'
+      : listingsConfigured && listingLanguage ? 'public-feed-configured-inventory-awaiting-live-integration-proof'
+      : emptyState ? 'honest-empty-state-live-feed-not-configured'
+      : examples ? 'illustrative-data-labelled'
+      : 'no-live-inventory-evidence',
+    passesHonestyGate: !fabricated && (listingsConfigured || !listingLanguage || emptyState || examples),
+    realListingsConfirmed: false,
+  };
+}
+async function readBoundedJson(request) {
+  const reader = request.body?.getReader();
+  if (!reader) return {};
+  const chunks = [];
+  let bytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > MAX_BODY_BYTES) {
+        await reader.cancel();
+        throw new Error('Request body is too large.');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const merged = new Uint8Array(bytes);
+  let offset = 0;
+  for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.byteLength; }
+  return JSON.parse(new TextDecoder().decode(merged));
+}
+
+const SAFE_PROVIDER_FAILURE_KINDS = new Set([
+  'not-configured',
+  'plan-required',
+  'payment-or-billing-required',
+  'authentication-rejected',
+  'permission-denied',
+  'model-or-endpoint-not-found',
+  'request-rejected',
+  'rate-limited-or-quota',
+  'provider-server-error',
+  'timeout',
+  'network-error',
+  'empty-response',
+  'invalid-response',
+  'provider-error',
+]);
+
+export function safeLiveGenerationProviderAttempts(error) {
+  const allowedProviders = new Set(['gemini', 'claude', 'deepseek', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai']);
+  const input = Array.isArray(error?.providerAttempts) ? error.providerAttempts : [];
+  const result = [];
+  for (const item of input.slice(0, 7)) {
+    const provider = String(item?.provider || '');
+    const kind = String(item?.kind || '');
+    const status = Number(item?.status);
+    if (!allowedProviders.has(provider) || !SAFE_PROVIDER_FAILURE_KINDS.has(kind)) continue;
+    result.push({
+      provider,
+      kind,
+      ...(Number.isInteger(status) && status >= 400 && status <= 599 ? { status } : {}),
+    });
+  }
+  return result;
+}
+
+export function safeLiveGenerationFailureDetail(error) {
+  const code = String(error?.code || '').toUpperCase();
+  const status = Number(error?.status);
+  const hasHttpStatus = Number.isInteger(status) && status >= 400 && status <= 599;
+  if (code === 'AI_PROVIDER_REQUEST_FAILED') {
+    return 'ai-provider-request-failed' + (hasHttpStatus ? '-http-' + status : '');
+  }
+  if (code === 'AI_PROVIDER_NOT_CONFIGURED') return 'ai-provider-not-configured';
+  if (code === 'AI_PROVIDER_UNSUPPORTED') return 'ai-provider-unsupported';
+  if (code === 'AI_PROVIDER_UNAVAILABLE') return 'ai-provider-unavailable';
+  const ledgerHttpFailure = code.match(/^OVYX_AI_BUDGET_LEDGER_(READ|MIGRATION|INITIALIZE|STOP|RESERVATION|UNKNOWN)_HTTP_([1-5][0-9][0-9])$/);
+  if (ledgerHttpFailure) {
+    return 'cloudflare-ai-budget-ledger-' + ledgerHttpFailure[1].toLowerCase() + '-http-' + ledgerHttpFailure[2];
+  }
+  const ledgerNetworkFailure = code.match(/^OVYX_AI_BUDGET_LEDGER_(READ|MIGRATION|INITIALIZE|STOP|RESERVATION|UNKNOWN)_NETWORK_ERROR$/);
+  if (ledgerNetworkFailure) {
+    return 'cloudflare-ai-budget-ledger-' + ledgerNetworkFailure[1].toLowerCase() + '-network-error';
+  }
+  const ledgerTransportFailure = code.match(/^OVYX_AI_BUDGET_LEDGER_(READ|MIGRATION|INITIALIZE|STOP|RESERVATION|UNKNOWN)_TRANSPORT_(DNS|TIMEOUT|SOCKET|TLS|NETWORK_UNREACHABLE|INVALID_URL|NETWORK)$/);
+  if (ledgerTransportFailure) {
+    return 'cloudflare-ai-budget-ledger-' + ledgerTransportFailure[1].toLowerCase() +
+      '-transport-' + ledgerTransportFailure[2].toLowerCase().replace(/_/g, '-');
+  }
+  const ledgerCause = code.match(/^OVYX_AI_BUDGET_LEDGER_(READ|MIGRATION|INITIALIZE|STOP|RESERVATION|UNKNOWN)_CAUSE_(GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED|GOOGLE_OAUTH_ACCESS_TOKEN_MISSING|GOOGLE_OAUTH_RESPONSE_INVALID|FIREBASE_SERVICE_ACCOUNT_NOT_CONFIGURED|FIREBASE_SERVICE_ACCOUNT_INVALID_JSON|FIREBASE_SERVICE_ACCOUNT_MISSING_FIELDS|FIREBASE_JWT_SIGNING_FAILED|FIREBASE_ACCESS_TOKEN_ACQUISITION_FAILED|FIRESTORE_READ_TRANSPORT_FAILED|FIRESTORE_READ_INVALID_JSON|FIRESTORE_READ_FAILED|FIRESTORE_DOCUMENT_CREATE_FAILED|FIRESTORE_CONDITIONAL_WRITE_FAILED|FIRESTORE_PRECONDITION_REQUIRED|FIRESTORE_DOCUMENT_ALREADY_EXISTS|FIRESTORE_PRECONDITION_FAILED)$/);
+  if (ledgerCause) {
+    return 'cloudflare-ai-budget-ledger-' + ledgerCause[1].toLowerCase() + '-cause-' + ledgerCause[2].toLowerCase().replace(/_/g, '-');
+  }
+  const ledgerStatusless = code.match(/^OVYX_AI_BUDGET_LEDGER_(READ|MIGRATION|INITIALIZE|STOP|RESERVATION|UNKNOWN)_ERROR_(ERROR|DATAERROR|OPERATIONERROR|INVALIDACCESSERROR|NOTSUPPORTEDERROR|SYNTAXERROR|RANGEERROR|REFERENCEERROR|DOMEXCEPTION|ABORTERROR|TIMEOUTERROR|UNKNOWN)$/);
+  if (ledgerStatusless) {
+    return 'cloudflare-ai-budget-ledger-' + ledgerStatusless[1].toLowerCase() + '-error-' + ledgerStatusless[2].toLowerCase();
+  }
+  const safeCloudflareFailureDetails = {
+    OVYX_AI_ENGINE_MODE_NOT_CONFIGURED: 'cloudflare-engine-mode-not-configured',
+    OVYX_NATIVE_AI_NOT_CONFIGURED: 'cloudflare-ai-binding-not-configured',
+    OVYX_AI_BUDGET_LEDGER_UNAVAILABLE: 'cloudflare-ai-budget-ledger-unavailable',
+    OVYX_AI_BUDGET_LEDGER_AUTH_FAILED: 'cloudflare-ai-budget-ledger-auth-failed',
+    OVYX_AI_BUDGET_LEDGER_PERMISSION_DENIED: 'cloudflare-ai-budget-ledger-permission-denied',
+    OVYX_AI_BUDGET_LEDGER_BAD_REQUEST: 'cloudflare-ai-budget-ledger-bad-request',
+    OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED: 'cloudflare-ai-budget-ledger-conflict-exhausted',
+    OVYX_AI_PAID_BUDGET_NOT_CONFIGURED: 'cloudflare-ai-paid-budget-not-configured',
+    OVYX_AI_NEURON_BUDGET_EXHAUSTED: 'cloudflare-ai-neuron-budget-exhausted',
+    OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED: 'cloudflare-ai-daily-quota-exhausted',
+    OVYX_AI_CLOUDFLARE_RATE_LIMITED: 'cloudflare-ai-rate-limited',
+    OVYX_AI_MODEL_NOT_AVAILABLE_ON_FREE_PLAN: 'cloudflare-model-not-available-on-free-plan',
+    OVYX_AI_CLOUDFLARE_UNAVAILABLE: 'cloudflare-ai-unavailable',
+    OVYX_AI_CLOUDFLARE_EMPTY_RESPONSE: 'cloudflare-ai-empty-response',
+    OVYX_AI_CLOUDFLARE_CHOICES_EMPTY: 'cloudflare-ai-empty-choices',
+    OVYX_AI_CLOUDFLARE_CHOICES_NO_TEXT: 'cloudflare-ai-choices-no-text',
+    OVYX_AI_CLOUDFLARE_REASONING_ONLY: 'cloudflare-ai-reasoning-only',
+    OVYX_AI_CLOUDFLARE_MESSAGE_CONTENT_UNSUPPORTED: 'cloudflare-ai-message-content-unsupported',
+    OVYX_AI_CLOUDFLARE_RESPONSE_SHAPE_UNSUPPORTED: 'cloudflare-ai-response-shape-unsupported',
+    OVYX_AI_TIMEOUT: 'cloudflare-ai-timeout',
+  };
+  if (safeCloudflareFailureDetails[code]) return safeCloudflareFailureDetails[code];
+  const safeWebStudioFailureDetails = {
+    WEBSTUDIO_PAGE_LIMIT: 'webstudio-page-limit',
+    WEBSTUDIO_SITEMAP_INVALID: 'webstudio-sitemap-invalid',
+    WEBSTUDIO_SITEMAP_INCOMPLETE: 'webstudio-sitemap-incomplete',
+    WEBSTUDIO_BATCH_PLAN_FAILED: 'webstudio-batch-plan-failed',
+    WEBSTUDIO_BATCH_EMPTY: 'webstudio-batch-empty',
+    WEBSTUDIO_BATCH_FILE_LIMIT: 'webstudio-batch-file-limit',
+    WEBSTUDIO_PATH_NOT_ALLOWED: 'webstudio-path-not-allowed',
+    WEBSTUDIO_EMPTY_FILE: 'webstudio-empty-file',
+    WEBSTUDIO_BATCH_MISSING_FILES: 'webstudio-batch-missing-files',
+    WEBSTUDIO_SITE_VALIDATION_FAILED: 'webstudio-site-validation-failed',
+    WEBSTUDIO_PROMPT_REQUIREMENT_MISSING: 'webstudio-prompt-requirement-missing',
+  };
+  if (safeWebStudioFailureDetails[code]) return safeWebStudioFailureDetails[code];
+  if (code === 'PROMPT_REQUIRED') return 'prompt-required';
+  if (error?.name === 'AbortError' || error?.name === 'TimeoutError') return 'upstream-timeout';
+  if (error?.name === 'TypeError') return 'upstream-network-error';
+  return 'generation-error';
+}
+
+const SAFE_VALIDATION_CATEGORY_RULES = [
+  [/expected exactly one HTML document|append another page/i, 'html-document-count'],
+  [/escaped quotes|HTML attributes contain escaped quotes/i, 'escaped-html-attribute-quotes'],
+  [/valid html lang attribute/i, 'missing-html-language'],
+  [/viewport meta tag/i, 'missing-viewport-meta'],
+  [/meta description/i, 'missing-meta-description'],
+  [/page title does not match/i, 'page-title-mismatch'],
+  [/isolated QA contact form must use method/i, 'qa-form-method-or-action'],
+  [/isolated QA form must submit to its local QA receiver/i, 'qa-form-submit-handler'],
+  [/unsafe or invalid file path|path is not allowed/i, 'invalid-file-path'],
+  [/empty|missing|required/i, 'missing-or-empty-required-content'],
+];
+
+export function safeLiveGenerationValidationCategories(error) {
+  if (String(error?.code || '').toUpperCase() !== 'WEBSTUDIO_SITE_VALIDATION_FAILED') return [];
+  const issues = Array.isArray(error?.validationIssues) ? error.validationIssues : [];
+  const categories = [];
+  for (const issue of issues.slice(0, 16)) {
+    const value = String(issue || '').slice(0, 1000);
+    const match = SAFE_VALIDATION_CATEGORY_RULES.find(([pattern]) => pattern.test(value));
+    const category = match ? match[1] : 'other-structural-validation';
+    if (!categories.includes(category)) categories.push(category);
+  }
+  return categories.slice(0, 12);
+}
+
+const SAFE_OUTPUT_ROOT_KEYS = new Set([
+  'summary', 'files', 'fileEdits', 'patch', 'html', 'code',
+  'siteMap', 'text', 'response', 'output', 'output_text', 'content', 'message',
+]);
+const SAFE_OUTPUT_EXTENSIONS = new Set(['html', 'htm', 'css', 'js', 'mjs', 'other']);
+const SAFE_OUTPUT_CONTAINER_KINDS = new Set(['absent', 'object', 'array', 'other']);
+
+export function safeLiveGenerationOutputDiagnostics(error) {
+  const input = error?.outputDiagnostics;
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const integer = (value, maximum) => {
+    const number = Number(value);
+    return Number.isSafeInteger(number) ? Math.max(0, Math.min(maximum, number)) : 0;
+  };
+  const keys = Array.isArray(input.rootKeys)
+    ? [...new Set(input.rootKeys.slice(0, 12).map(value => {
+        const key = String(value || '');
+        return SAFE_OUTPUT_ROOT_KEYS.has(key) || key === 'other' ? key : 'other';
+      }))]
+    : [];
+  const containerKind = String(input.fileContainerKind || 'absent');
+  const extension = String(input.targetFileExtension || 'other').toLowerCase();
+  return {
+    responseCharacters: integer(input.responseCharacters, 200_000),
+    parsedJson: input.parsedJson === true,
+    rootKeys: keys,
+    fileContainerKind: SAFE_OUTPUT_CONTAINER_KINDS.has(containerKind) ? containerKind : 'other',
+    fileContainerEntries: integer(input.fileContainerEntries, 100),
+    extractedFileCount: integer(input.extractedFileCount, 100),
+    startsWithJsonObject: input.startsWithJsonObject === true,
+    endsWithJsonObject: input.endsWithJsonObject === true,
+    containsMarkdownFence: input.containsMarkdownFence === true,
+    containsHtmlDocument: input.containsHtmlDocument === true,
+    endsWithHtmlDocument: input.endsWithHtmlDocument === true,
+    batchIndex: integer(input.batchIndex, 100),
+    batchTotal: integer(input.batchTotal, 100),
+    targetFileExtension: SAFE_OUTPUT_EXTENSIONS.has(extension) ? extension : 'other',
+  };
+}
+
+export async function performBackendRuntimeRepair(payload, env, options = {}) {
+  const caseItem = CASES[String(payload?.caseId || '')];
+  if (!caseItem) return { ok: false, reason: 'case-not-allowlisted' };
+  const provider = chooseProvider(env, payload.provider || 'automatic');
+  if (!provider) return { ok: false, reason: 'ai-provider-not-configured' };
+  const model = String(payload.model || '').trim();
+  if (model.length > 120 || (model && !/^[A-Za-z0-9@._:/-]+$/.test(model))) {
+    return { ok: false, reason: 'model-id-invalid' };
+  }
+  if (!payload.files || typeof payload.files !== 'object' || Array.isArray(payload.files)) {
+    return { ok: false, reason: 'repair-files-required' };
+  }
+  const entries = Object.entries(payload.files);
+  if (!entries.length || entries.length > 6) return { ok: false, reason: 'repair-file-count-invalid' };
+  const files = {};
+  let totalChars = 0;
+  for (const [rawPath, content] of entries) {
+    const filePath = safeBackendRepairPath(rawPath);
+    if (!filePath || !filePath.startsWith('functions/') || !/\.(?:m?js|ts)$/i.test(filePath) ||
+        typeof content !== 'string' || !content.trim() || content.length > 24_000) {
+      return { ok: false, reason: 'repair-file-invalid' };
+    }
+    totalChars += content.length;
+    if (totalChars > 100_000) return { ok: false, reason: 'repair-context-too-large' };
+    files[filePath] = content;
+  }
+  if (!Array.isArray(payload.findings) || !payload.findings.length || payload.findings.length > 20) {
+    return { ok: false, reason: 'backend-failure-evidence-required' };
+  }
+  const findings = [];
+  for (const finding of payload.findings) {
+    const file = safeBackendRepairPath(finding?.file || '');
+    if (!file || !Object.hasOwn(files, file) || finding?.code !== 'BACKEND_CHECK_FAILED') {
+      return { ok: false, reason: 'backend-finding-not-mapped-to-supplied-source' };
+    }
+    findings.push({
+      channel: 'backend',
+      severity: 'blocker',
+      code: 'BACKEND_CHECK_FAILED',
+      message: String(finding.message || '').slice(0, 300),
+      file,
+    });
+  }
+  const targets = selectAutonomousRepairTargets(files, findings, {
+    maxFiles: 6, maxFileChars: 24_000, maxContextChars: 60_000,
+  });
+  if (!targets.length) return { ok: false, reason: 'no-safe-backend-repair-targets' };
+  const prompt = buildAutonomousRepairPrompt({
+    originalBrief: caseItem.prompt,
+    findings,
+    targets,
+  });
+  if (!prompt) return { ok: false, reason: 'repair-prompt-empty' };
+  try {
+    const repairResponse = await (options.callModel || callModel)(env, {
+      provider,
+      model: model || undefined,
+      taskPrompt: prompt,
+      system: 'You are performing one bounded OVYX backend runtime repair for a trusted acceptance artifact. Return strict JSON with complete replacements for only the exact allowlisted function files. Never add dependencies, change migrations, introduce credentials, bypass authentication, or call external services. The candidate will be rebuilt and rerun through the exact same backend tests.',
+      responseFormat: 'json',
+      maxTokens: 9000,
+    });
+    const candidate = validateAutonomousRepairCandidate({
+      originalFiles: files,
+      targets,
+      repairOutput: repairResponse?.text || '',
+    });
+    if (!candidate.ok) return { ok: false, reason: candidate.reason };
+    const changedFiles = Object.fromEntries(candidate.changedPaths.map(file => [file, candidate.files[file]]));
+    return {
+      ok: true,
+      operation: 'repair-backend',
+      provider: String(repairResponse?.provider || provider).slice(0, 40),
+      model: String(repairResponse?.model || model || '').slice(0, 120) || null,
+      attempts: 1,
+      changedPaths: candidate.changedPaths,
+      files: changedFiles,
+      verificationRequired: 'Rebuild the disposable backend and rerun the same checks before accepting this candidate.',
+    };
+  } catch (error) {
+    return { ok: false, reason: safeLiveGenerationFailureDetail(error) };
+  }
+}
+
+export async function handleLiveGenerationRequest(request, env, options = {}) {
+  if (request.method !== 'POST') {
+    return Response.json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, { status: 405, headers: { Allow: 'POST', 'Cache-Control': 'no-store' } });
+  }
+  const origin = request.headers.get('origin');
+  if (origin && origin !== new URL(request.url).origin) {
+    return Response.json({ ok: false, error: 'ORIGIN_REJECTED' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
+  }
+  const authorization = request.headers.get('authorization') || '';
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!match) return Response.json({ ok: false, error: 'AUTH_REQUIRED' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+  const verified = await verifyGithubOidcToken(match[1], options);
+  if (!verified.ok) {
+    return Response.json({
+      ok: false,
+      error: verified.reason === 'jwks-unavailable' ? 'AUTH_VERIFIER_UNAVAILABLE' : 'AUTH_NOT_AUTHORIZED',
+      ...(verified.reason === 'jwks-unavailable' && verified.detail ? { detail: verified.detail } : {}),
+    }, {
+      status: verified.reason === 'jwks-unavailable' ? 503 : 403,
+      headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+    });
+  }
+  const contentLength = Number(request.headers.get('content-length') || 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+    return Response.json({ ok: false, error: 'BODY_TOO_LARGE' }, { status: 413, headers: { 'Cache-Control': 'no-store' } });
+  }
+  let payload;
+  try {
+    payload = await readBoundedJson(request);
+  } catch {
+    return Response.json({ ok: false, error: 'INVALID_JSON_OR_BODY_TOO_LARGE' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+  }
+  const operation = String(payload?.operation || 'generate-site').trim().toLowerCase();
+  const isProviderPreflight = operation === 'provider-preflight';
+  const isBudgetStatus = operation === 'budget-status';
+  const isBackendRepair = operation === 'repair-backend';
+  const allowedKeys = isBudgetStatus
+    ? new Set(['operation'])
+    : isProviderPreflight
+      ? new Set(['operation', 'provider', 'model'])
+      : isBackendRepair
+        ? new Set(['operation', 'caseId', 'provider', 'model', 'files', 'findings'])
+        : new Set(['caseId', 'provider', 'model', 'publicSettings', 'profile']);
+  const requestedProvider = String(payload?.provider || 'automatic').trim().toLowerCase();
+  const isBudgetedStage4Smoke = payload?.profile === 'stage4-budgeted-smoke' &&
+    payload?.caseId === 'nigeria-baby-products' &&
+    requestedProvider === 'cloudflare-workers-ai';
+  const profileIsAllowed = !Object.hasOwn(payload || {}, 'profile') || isBudgetedStage4Smoke;
+  const allowedPreflightProviders = new Set([
+    'automatic', 'gemini', 'claude', 'anthropic', 'deepseek', 'openai',
+    'groq', 'openrouter', 'cloudflare-workers-ai', 'cloudflare', 'workers-ai',
+  ]);
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
+      Object.keys(payload).some(key => !allowedKeys.has(key)) ||
+      (isBudgetStatus
+        ? false
+        : isProviderPreflight
+          ? (!allowedPreflightProviders.has(requestedProvider) || Object.hasOwn(payload, 'caseId'))
+          : isBackendRepair
+            ? (!Object.hasOwn(CASES, String(payload.caseId || '')) || !allowedPreflightProviders.has(requestedProvider))
+            : (operation !== 'generate-site' || !Object.hasOwn(CASES, String(payload.caseId || '')) || !profileIsAllowed))) {
+    return Response.json({ ok: false, error: 'EVALUATION_CASE_NOT_ALLOWED' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+  }
+  if (isBudgetStatus) {
+    try {
+      const exhausted = await (options.isCloudflareFreeAllowanceExhausted || isCloudflareFreeAllowanceExhausted)(env);
+      const checkedAt = new Date();
+      const resetsAtUtc = new Date(Date.UTC(
+        checkedAt.getUTCFullYear(),
+        checkedAt.getUTCMonth(),
+        checkedAt.getUTCDate() + 1,
+      )).toISOString();
+      return Response.json({
+        ok: true,
+        operation: 'budget-status',
+        budget: 'ovyx-cloudflare-daily',
+        status: exhausted ? 'exhausted' : 'available',
+        checkedAt: checkedAt.toISOString(),
+        resetsAtUtc,
+        inferencePerformed: false,
+        providerReadinessVerified: false,
+        note: 'This checks OVYX’s protected daily budget ledger only. It does not call a model or prove external Cloudflare allocation/provider availability.',
+      }, { status: 200, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+    } catch (error) {
+      return Response.json({
+        ok: false,
+        operation: 'budget-status',
+        error: 'BUDGET_STATUS_UNAVAILABLE',
+        detail: safeLiveGenerationFailureDetail(error),
+        inferencePerformed: false,
+        providerReadinessVerified: false,
+      }, { status: 503, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+    }
+  }
+  if (isBackendRepair) {
+    const repaired = await performBackendRuntimeRepair(payload, env, options);
+    return Response.json(repaired, {
+      status: repaired.ok ? 200 : repaired.reason === 'ai-provider-not-configured' ? 503 : 422,
+      headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+    });
+  }
+  const caseItem = isProviderPreflight ? null : CASES[payload.caseId];
+  const buildCaseItem = isBudgetedStage4Smoke ? {
+    ...caseItem,
+    title: 'Stage 4 budgeted smoke website',
+    prompt: 'Create exactly TWO linked pages for a fictional Nigerian nursery-essentials retailer: Home and Contact. Use English (Nigeria), naira where illustrative currency is necessary, accessible semantic HTML, clearly labelled illustrative content, and a calm, polished mobile-first visual system. The Contact page must contain the isolated QA-only enquiry form described in the evaluation contract. Do not present any sample merchandise as available for purchase, invent real business contacts, live stock, safety certifications, shipping promises, or medical/developmental claims. Keep shared styling concise and use only local CSS/SVG; no external assets or trackers. This is a budgeted smoke artifact for engineering/human review, not a publishable client site or full acceptance result.',
+  } : caseItem;
+  let integrationState;
+  try {
+    integrationState = await (options.getProductionIntegrationState || getProductionIntegrationState)(env);
+  } catch {
+    return Response.json({ ok: false, error: 'INTEGRATION_STATE_UNAVAILABLE' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
+  if (integrationState?.live !== true) {
+    return Response.json({ ok: false, error: 'PRODUCTION_INTEGRATIONS_PAUSED' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
+  const provider = chooseProvider(env, requestedProvider);
+  if (!provider) {
+    return Response.json({ ok: false, error: 'NO_CONFIGURED_AI_PROVIDER' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
+  const model = String(payload.model || '').trim().slice(0, 140);
+  if (isProviderPreflight) {
+    try {
+      const result = await (options.callModel || callModel)(env, {
+        provider: requestedProvider,
+        model: model || undefined,
+        system: 'OVYX provider readiness check. Reply with exactly OVYX_PROVIDER_READY and nothing else.',
+        user: 'Reply with exactly OVYX_PROVIDER_READY.',
+        temperature: 0,
+        maxTokens: 32,
+        timeoutMs: 25_000,
+        // The protected free-only route uses a non-reasoning instruction model;
+        // keep readiness inexpensive and deterministic.
+        disableThinking: true,
+      });
+      const text = String(result?.text || '').trim();
+      if (!text) throw Object.assign(new Error('Provider returned an empty readiness response.'), { code: 'AI_PROVIDER_UNAVAILABLE' });
+      return Response.json({
+        ok: true,
+        operation: 'provider-preflight',
+        readiness: 'ready',
+        provider: String(result?.provider || (requestedProvider === 'automatic' ? 'automatic' : provider)).slice(0, 40),
+        model: String(result?.model || model || '').slice(0, 140) || null,
+      }, { status: 200, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+    } catch (error) {
+      return Response.json({
+        ok: false,
+        error: 'AI_PROVIDER_PREFLIGHT_FAILED',
+        detail: safeLiveGenerationFailureDetail(error),
+        providerAttempts: safeLiveGenerationProviderAttempts(error),
+      }, { status: 503, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+    }
+  }
+  const publicSettings = settingsFromRequest(payload.publicSettings);
+  const qaContract = publicSettings.enquiryUrl
+    ? QA_CONTRACT + '\n\nPUBLIC CONTACT FORM SEPARATION: The primary customer form must target the exact owner-approved public endpoint supplied for this isolated QA run. The separate QA-only form targets only ' + QA_ENDPOINT + '. Do not include secrets in any generated file. All test requests to the public endpoint must use source:"OVYX QA", test:true and dryRun:false. Only an explicit delivery receipt counts as delivered.'
+    : QA_CONTRACT + '\n\nNO PUBLIC ENQUIRY ENDPOINT IS CONFIGURED. Do not invent or infer a destination. Include an honest setup state for real enquiries. Test the isolated QA-only form locally; it is not a client-contact integration.';
+  // Keep the same QA-only form requirements in the main brief and the production
+  // quality contract so requirement planning and generation agree about them.
+  const prompt = buildEvaluationPrompt(buildCaseItem, publicSettings) + '\n\n' + qaContract;
+  const context = {
+    ...buildCaseItem.market,
+    market: { ...buildCaseItem.market },
+    industry: buildCaseItem.industry,
+    country: buildCaseItem.market.country,
+    locale: buildCaseItem.market.locale,
+    currency: buildCaseItem.market.currency,
+    language: buildCaseItem.market.language,
+    timeZone: buildCaseItem.market.timeZone,
+    evaluationArtifact: true,
+    qaOnlyEnquiryEndpoint: QA_ENDPOINT,
+    publicListingsEndpointConfigured: Boolean(publicSettings.listingsUrl),
+    publicEnquiryEndpointConfigured: Boolean(publicSettings.enquiryUrl),
+    realInventorySourceConfigured: Boolean(publicSettings.listingsUrl),
+    realEnquiryDestinationConfigured: Boolean(publicSettings.enquiryUrl),
+  };
+  const experience = buildExperienceBrief(prompt + '\n\n' + qaContract, context);
+  let generated;
+  try {
+    const builderEnv = {
+      ...env,
+      OVYX_WEBSTUDIO_MAX_PAGES: isBudgetedStage4Smoke ? '2' : '8',
+      OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY: isBudgetedStage4Smoke ? 'true' : 'false',
+      OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST: isBudgetedStage4Smoke ? 'Home|Contact' : '',
+      OVYX_WEBSTUDIO_ENFORCE_BROWSER_RUNTIME: isBudgetedStage4Smoke ? 'true' : 'false',
+      OVYX_WEBSTUDIO_MAX_BATCH_FILES: isBudgetedStage4Smoke ? '3' : '6',
+      OVYX_WEBSTUDIO_POLISH_ENABLED: isBudgetedStage4Smoke ? 'false' : (env.OVYX_WEBSTUDIO_POLISH_ENABLED || 'true'),
+      ...(isBudgetedStage4Smoke ? {
+        OVYX_WEBSTUDIO_PLAN_TOKENS: '1600',
+        OVYX_WEBSTUDIO_BATCH_TOKENS: '4200',
+        OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_TOKENS: '1200',
+      } : {}),
+    };
+    generated = await buildStudioMultiPage({
+      env: builderEnv,
+      callModel,
+      provider,
+      model: model || undefined,
+      authUser: null,
+      prompt,
+      project: { name: buildCaseItem.title, pages: [] },
+      files: {},
+      mode: 'build',
+      context: JSON.stringify({ ...context, experience }),
+      qualityContract: isBudgetedStage4Smoke ? qaContract : WEB_STUDIO_EXCELLENCE + '\n\n' + qaContract,
+    });
+  } catch (error) {
+    const outputDiagnostics = safeLiveGenerationOutputDiagnostics(error);
+    return Response.json({
+      ok: false,
+      error: 'LIVE_SITE_GENERATION_FAILED',
+      caseId: caseItem.id,
+      detail: safeLiveGenerationFailureDetail(error),
+      validationCategories: safeLiveGenerationValidationCategories(error),
+      providerAttempts: safeLiveGenerationProviderAttempts(error),
+      ...(outputDiagnostics ? { outputDiagnostics } : {}),
+    }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+  }
+  if (!generated || generated.ok !== true) {
+    return Response.json({
+      ok: false,
+      error: 'LIVE_SITE_GENERATION_FAILED',
+      caseId: caseItem.id,
+      detail: generated ? 'builder-result-not-ok' : 'builder-returned-empty-result',
+    }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+  }
+  const files = generated.files && typeof generated.files === 'object' ? generated.files : {};
+  const entries = Object.entries(files);
+  if (!entries.some(([name, value]) => /\.html?$/i.test(name) && typeof value === 'string' && value.trim())) {
+    return Response.json({ ok: false, error: 'LIVE_GENERATION_HTML_MISSING', caseId: caseItem.id }, { status: 422, headers: { 'Cache-Control': 'no-store' } });
+  }
+  const safeFiles = {};
+  try {
+    for (const [name, value] of entries) {
+      const file = safePath(name);
+      if (typeof value !== 'string' || !value.trim()) continue;
+      if (value.length > 120_000) throw new Error('Generated file exceeds the evaluation file limit.');
+      safeFiles[file] = value;
+    }
+  } catch {
+    return Response.json({ ok: false, error: 'GENERATED_FILE_REJECTED', caseId: caseItem.id }, { status: 422, headers: { 'Cache-Control': 'no-store' } });
+  }
+  const honesty = inventoryHonesty(caseItem, safeFiles, Boolean(publicSettings.listingsUrl));
+  if (honesty.passesHonestyGate === false) {
+    return Response.json({ ok: false, error: 'INVENTORY_HONESTY_FAILED', caseId: caseItem.id }, { status: 422, headers: { 'Cache-Control': 'no-store' } });
+  }
+  const metadata = {
+    id: caseItem.id,
+    title: buildCaseItem.title,
+    industry: buildCaseItem.industry,
+    evaluationProfile: isBudgetedStage4Smoke ? 'stage4-budgeted-smoke' : 'full-acceptance',
+    market: caseItem.market,
+    liveInventorySourceConfigured: Boolean(publicSettings.listingsUrl),
+    publicListingsEndpointConfigured: Boolean(publicSettings.listingsUrl),
+    enquiryDeliveryConfigured: Boolean(publicSettings.enquiryUrl),
+    qaOnlyEnquiryEndpoint: QA_ENDPOINT,
+    provider: generated.provider || provider,
+    model: generated.model || model || null,
+    generatedAt: new Date().toISOString(),
+    siteMap: generated.siteMap || null,
+    totalPages: generated.totalPages || generated.siteMap?.pages?.length || null,
+    generationRecovery: generated.generationRecovery || { status: 'not-needed' },
+    stage4SmokeQaFormAttributesRepaired: isBudgetedStage4Smoke && generated.stage4SmokeQaFormAttributesRepaired === true,
+    stage4SmokeQaFormBehaviorRepaired: isBudgetedStage4Smoke && generated.stage4SmokeQaFormBehaviorRepaired === true,
+    sharedAssetPagesRepaired: Number.isFinite(Number(generated.sharedAssetPagesRepaired))
+      ? Math.max(0, Math.min(250, Math.floor(Number(generated.sharedAssetPagesRepaired))))
+      : 0,
+    generatedFiles: Object.keys(safeFiles),
+    inventoryHonesty: honesty,
+    evidenceLimits: [
+      'Generated by the production multi-page builder using provider credentials held by the Cloudflare Pages runtime; credentials are not returned to the caller.',
+      publicSettings.listingsUrl ? 'A public feed was configured; record authenticity and rendered results still require separate verification.' : 'No approved real property feed was configured; live property inventory remains unverified.',
+      publicSettings.enquiryUrl ? 'An owner-approved public test endpoint was configured; actual delivery requires an explicit provider receipt.' : 'No owner-approved public enquiry endpoint was configured; actual customer delivery remains unverified.',
+    ],
+  };
+  return Response.json({
+    ok: true,
+    caseId: caseItem.id,
+    provider: metadata.provider,
+    model: metadata.model,
+    files: safeFiles,
+    metadata,
+  }, {
+    status: 200,
+    headers: {
+      'Cache-Control': 'no-store',
+      'Content-Type': 'application/json; charset=utf-8',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+}
+
+function buildEvaluationPrompt(caseItem, publicSettings) {
+  let prompt = caseItem.prompt;
+  if (caseItem.industry === 'real-estate' && publicSettings.listingsUrl) {
+    prompt = prompt
+      .replace('No real property inventory feed or client contact details are supplied.', 'The owner has supplied a public, browser-readable HTTPS property-feed endpoint for this evaluation.')
+      .replace('Show a clear honest live-inventory-not-connected empty state, or only visibly labelled illustrative sample cards.', 'Fetch the supplied property feed at ' + publicSettings.listingsUrl.href + ' using the browser fetch API, then render only active records returned by that endpoint, preserving stable record identifiers and source fields. Implement loading, empty, error and stale states. Do not show mock listings if the live source fails.');
+  }
+  if (publicSettings.enquiryUrl) {
+    prompt += '\n\nPUBLIC QA ENQUIRY INTEGRATION: The owner-approved public HTTPS endpoint is ' + publicSettings.enquiryUrl.href + '. Use this as the primary Contact form action and POST JSON fields name, email, subject, message, source:"OVYX QA", test:true, dryRun:false. This is an actual controlled QA delivery (not a dry run); endpoint owner must route test messages only to the owner-controlled QA recipient. Do not add secrets/private webhook URLs to generated files. Show success only when the endpoint returns an explicit delivery receipt such as delivered:true or deliveryStatus:"delivered". An HTTP 2xx or queued/accepted result alone does not prove delivery.';
+  } else {
+    prompt += '\n\nNO PUBLIC ENQUIRY ENDPOINT IS CONFIGURED. Do not invent a destination. Show honest setup state for real enquiries; the isolated local QA-only form does not deliver real customer messages.';
+  }
+  return prompt;
+}
+
+export async function onRequest(context) {
+  return handleLiveGenerationRequest(context.request, context.env);
+}

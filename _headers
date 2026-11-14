@@ -1,0 +1,145 @@
+/*
+  X-Content-Type-Options: nosniff
+
+/ovyx-tab-v6.svg
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(self), camera=()
+
+/ovyx-tab-v7.svg
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(self), camera=()
+
+/assets/ovyx-assistant-workspace.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-webstudio-cancel-safety.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-scoped-rollback.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-shell-favicon-lock.js
+  Cache-Control: no-store, no-cache, must-revalidate
+/assets/ovyx-sentinel.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-webstudio-reliability.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-webstudio-research.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-webstudio-fullstack-upgrade.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-webstudio-project-export.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-webstudio-visual-editor.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-webstudio-apply-suggestions.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-settings-billing-live.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-webstudio-quality.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-additional-ai-provider-diagnostics.js
+  Cache-Control: no-store, no-cache, must-revalidate
+  Cache-Control: no-store, no-cache, must-revalidate
+/assets/ovyx-provider-availability.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-settings-reliability.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-studio-trace.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-launch-polish.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/api/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization, Signature-Input, Signature
+  Access-Control-Max-Age: 86400
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-admin-workspace.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-sentinel-avatar-3d.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-admin-controls.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-app-studio-url-analyzer.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-app-studio-link-builder.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-app-studio-premium-polish.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-app-studio-project-brain.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-app-favicon.svg
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/manifest.json
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-brand-mark.png
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-shell-favicon-lock.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-brand-mark.svg
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-brand-lockup.png
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-brand-lockup.svg
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-webstudio-navigation-polish.js
+  Cache-Control: no-store, no-cache, must-revalidate
+/assets/ovyx-webstudio-project-branding.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-webstudio-code-search.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-connect-brand-icons.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-connect-ai-fallback.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-personal-connections-catalogue.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-command-centre.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-account-notifications.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-app-studio-workspace.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-app-studio-visual-refresh.js
+  Cache-Control: no-store, no-cache, must-revalidate

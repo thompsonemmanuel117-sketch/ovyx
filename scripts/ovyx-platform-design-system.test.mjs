@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const css=fs.readFileSync(path.join(root,'assets/css/ovyx-platform-design-system.css'),'utf8');
+const middleware=fs.readFileSync(path.join(root,'functions/_middleware.js'),'utf8');
+const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
+for(const token of ['--ovyx-ds-black:#000','--ovyx-ds-gold:#e8b64f','--ovyx-ds-white:#f8fafc','--ovyx-ds-silver:','--ovyx-ds-border:','--ovyx-ds-font-ui:','--ovyx-ds-font-mono:','--ovyx-ds-space-1:','--ovyx-ds-radius-lg:','--ovyx-ds-motion-base:']) assert.ok(css.includes(token),`Missing token ${token}`);
+for(const name of ['.ovyx-ds-page','.ovyx-ds-page-header','.ovyx-ds-grid','.ovyx-ds-panel','.ovyx-ds-card','.ovyx-ds-button--primary','.ovyx-ds-input','.ovyx-ds-select','.ovyx-ds-textarea','.ovyx-ds-table-wrap','.ovyx-ds-badge','.ovyx-ds-icon']) assert.ok(css.includes(name),`Missing component ${name}`);
+assert.match(css,/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+assert.match(css,/@media\s*\(max-width:\s*900px\)/);
+assert.match(css,/@media\s*\(max-width:\s*600px\)/);
+assert.match(css,/:focus-visible/);
+assert.ok(!/^(?:html|body|button|input|select|textarea|table)\s*[{,]/m.test(css),'Components must remain opt-in; no global element resets.');
+assert.ok(middleware.includes('/assets/css/ovyx-platform-design-system.css?v=20261110-3'),'Shell must load design system.');
+assert.ok(pkg.scripts.test.includes('scripts/ovyx-platform-design-system.test.mjs'),'Design-system test must run in npm test.');
+console.log('OVYX platform design-system contract: all checks passed.');

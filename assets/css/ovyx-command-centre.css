@@ -1,0 +1,32 @@
+/* Owner-only Admin Overview presentation; the duplicate Home dashboard section was removed. */
+#view-admin-overview.ovyx-cc-admin-view {
+  width:100%!important;
+  max-width:none!important;
+  padding:clamp(16px,3vw,42px)!important;
+}
+#view-admin-overview.ovyx-cc-admin-view > .ovyx-admin-workspace-hub,
+#view-admin-overview.ovyx-cc-admin-view > .ovyx-owner-live-panel,
+#view-admin-overview.ovyx-cc-admin-view > .adm-control-plane {
+  width:100%;
+  max-width:1440px;
+  margin-left:auto;
+  margin-right:auto;
+}
+#view-admin-overview .ovyx-cc-admin-metrics {
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:12px!important;
+  max-width:1440px;
+  margin:18px auto!important;
+}
+#view-admin-overview .ovyx-cc-admin-metrics > .v0-card { min-width:0; }
+#view-admin-overview .ovyx-cc-admin-heading {
+  width:100%;
+  max-width:1440px;
+  margin:0 auto 18px!important;
+}
+@media(max-width:520px) {
+  #view-admin-overview .ovyx-cc-admin-metrics {
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+}

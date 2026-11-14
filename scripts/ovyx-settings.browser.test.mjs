@@ -1,0 +1,639 @@
+// Regression trigger: changes to this browser suite should rerun its owning GitHub Actions workflow.
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+import { installOwnerBrowserApiFixtures, startBrowserStartupProfiler } from './ovyx-owner-browser-api-fixtures.mjs';
+
+const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
+if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
+
+async function waitForRouteRestore(page) {
+  // The late V25 controller reapplies the stored route at load/pageshow. Do not
+  // issue a test navigation until that boot restoration has finished.
+  await page.waitForFunction(
+    () => document.readyState === 'complete'
+      && typeof window.__OVYX_BOOT_ROUTE === 'string'
+      && window.KernelState?.activeView === window.__OVYX_BOOT_ROUTE,
+    null,
+    { timeout: 45000 },
+  );
+  await page.waitForTimeout(120);
+  await page.waitForFunction(
+    () => typeof window.__OVYX_BOOT_ROUTE === 'string'
+      && window.KernelState?.activeView === window.__OVYX_BOOT_ROUTE,
+    null,
+    { timeout: 10000 },
+  );
+}
+
+const browser = await chromium.launch({ headless: true, args: ['--disable-dev-shm-usage'] });
+try {
+  for (const target of [
+    { name: 'desktop', viewport: { width: 1280, height: 900 } },
+    { name: 'mobile', viewport: { width: 390, height: 844 } },
+  ]) {
+    const context = await browser.newContext({ viewport: target.viewport, acceptDownloads: true });
+    const page = await context.newPage();
+    page.on('console', message => {
+      if (message.type() === 'error') console.error('[' + target.name + '] browser console error: ' + message.text());
+    });
+    page.on('pageerror', error => console.error('[' + target.name + '] browser page error: ' + String(error?.stack || error)));
+    page.on('requestfailed', request => console.error('[' + target.name + '] request failed: ' + request.url() + ' ' + (request.failure()?.errorText || '')));
+    page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed during Settings bootstrap.'));
+    page.on('close', () => console.error('[' + target.name + '] Chromium page closed during Settings bootstrap.'));
+    browser.on('disconnected', () => console.error('[' + target.name + '] Chromium browser disconnected.'));
+    page.setDefaultTimeout(20000);
+    await installOwnerBrowserApiFixtures(page);
+    const stopStartupProfiler = await startBrowserStartupProfiler(page, target.name + ' Settings');
+    const settingsErrors = [];
+    page.on('pageerror', error => {
+      if (/renderDataLayer|OVYXDataLayerSettings|ovyx-data-(?:endpoint|sync|test|save|schema)|dbCfg/i.test(error.message)) {
+        settingsErrors.push(error.message);
+      }
+    });
+
+    console.log('[' + target.name + '] Settings stage: navigating to OVYX shell.');
+    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
+    assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX app did not load.');
+    console.log('[' + target.name + '] Settings stage: shell response received; waiting for Settings bootstrap.');
+    console.log('[' + target.name + '] Settings stage: checking route authority, Settings root and data-layer readiness markers.');
+    try {
+      await page.waitForFunction(
+        () => document.readyState !== 'loading'
+          && typeof window.OVYXRouteAuthority?.go === 'function'
+          && typeof window.OVYXSettings?.show === 'function'
+          && !!window.OVYXDataLayerSettings
+          && !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main')
+          && window.OVYXSettings.__n1415 === true,
+        null,
+        { timeout: 45000, polling: 250 },
+      );
+    } catch (error) {
+      const diagnostic = await Promise.race([
+        page.evaluate(() => ({
+          readyState: document.readyState,
+          routeAuthority: typeof window.OVYXRouteAuthority?.go,
+          settingsShow: typeof window.OVYXSettings?.show,
+          settingsRoot: !!window.OVYXSettings?.root,
+          settingsMain: !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main'),
+          dataLayerSettings: !!window.OVYXDataLayerSettings,
+          dataLayerMarker: window.OVYXSettings?.__n1415 === true,
+          settingsCurrent: window.OVYXSettings?.current || null,
+          scripts: Array.from(document.scripts).filter(script => script.src).map(script => ({
+            src: script.src, readyState: script.readyState || null
+          })),
+          bodyChildren: document.body?.children?.length || 0,
+        })),
+        new Promise(resolve => setTimeout(() => resolve({ diagnostic: 'Browser page did not answer the bootstrap diagnostic within 5 seconds.' }), 5000)),
+      ]).catch(error => ({
+        diagnostic: 'Browser page or context closed before the bootstrap diagnostic completed.',
+        error: String(error?.message || error),
+      }));
+      console.error('[' + target.name + '] OVYX bootstrap diagnostic: ' + JSON.stringify(diagnostic));
+      throw error;
+    }
+
+    await stopStartupProfiler();
+    await waitForRouteRestore(page);
+    console.log('[' + target.name + '] Settings bootstrap and route restoration passed.');
+    console.log('[' + target.name + '] Settings stage: Data Layer entry');
+    // Use the canonical route authority so this data-layer test is independent of optional history wrappers.
+    await page.evaluate(() => { window.OVYXRouteAuthority.go('settings'); });
+    await page.locator('#view-settings').waitFor({ state: 'visible' });
+    await page.evaluate(() => window.OVYXSettings.show('workspace'));
+    const layer = page.locator('#ovyx-data-layer-panel');
+    await layer.waitFor({ state: 'visible' });
+
+    const initialCopy = await layer.innerText();
+    assert.match(initialCopy, /does not create databases or run migrations automatically/i, '[' + target.name + '] must not imply OVYX provisions PostgreSQL.');
+    assert.match(initialCopy, /Health check only/i, '[' + target.name + '] must explain the actual test scope.');
+    assert.match(initialCopy, /Download SQL schema creates a starter file on this device/i);
+    assert.doesNotMatch(initialCopy, /Production-ready relational storage/i);
+
+    // Missing configuration should produce a useful status without making a network request.
+    await page.locator('#ovyx-data-test').click();
+    assert.equal(
+      (await page.locator('#ovyx-data-result').innerText()).trim(),
+      'Add your secure data service address first.',
+      '[' + target.name + '] an empty endpoint must be handled clearly.',
+    );
+
+    const endpoint = 'https://data-api.example.test/api/data';
+    await page.locator('#ovyx-data-endpoint').fill(endpoint);
+    await page.locator('#ovyx-data-save').click();
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}'));
+    assert.equal(saved.endpoint, endpoint, '[' + target.name + '] external endpoint preference must be saved locally.');
+
+    // Add a cookie for the external endpoint. The health test must deliberately omit it.
+    await context.addCookies([{
+      name: 'third_party_session',
+      value: 'must-not-be-sent',
+      url: 'https://data-api.example.test',
+      sameSite: 'None',
+      secure: true,
+    }]);
+    const healthRequests = [];
+    await page.route('https://data-api.example.test/api/data/health', async route => {
+      const request = route.request();
+      healthRequests.push({
+        method: request.method(),
+        url: request.url(),
+        headers: await request.allHeaders(),
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store' },
+        body: JSON.stringify({ ok: true, database: 'PostgreSQL' }),
+      });
+    });
+
+    await page.locator('#ovyx-data-test').click();
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-data-result')?.textContent?.includes('Service check completed successfully'),
+      null,
+      { timeout: 20000 },
+    );
+    assert.equal(healthRequests.length, 1, '[' + target.name + '] Test API must make exactly one request in this interaction.');
+    assert.equal(healthRequests[0].method, 'GET', '[' + target.name + '] Test API should only make the documented health GET.');
+    assert.equal(healthRequests[0].url, endpoint + '/health');
+    assert.equal(healthRequests[0].headers.cookie, undefined, '[' + target.name + '] external endpoint cookies must not be sent.');
+    const resultText = await page.locator('#ovyx-data-result').innerText();
+    assert.match(resultText, /Service check completed successfully/i);
+    assert.match(resultText, /This check confirms only that the service responds/i);
+    assert.match(resultText, /does not verify data storage or app data operations/i,
+      '[' + target.name + '] a health response must not claim database/CRUD verification.');
+    assert.doesNotMatch(resultText, /backend-reported database|PostgreSQL/i,
+      '[' + target.name + '] a health response must not imply the database vendor or CRUD operations were verified.');
+
+    console.log('[' + target.name + '] Settings stage: schema download');
+    const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
+    await page.locator('#ovyx-data-schema').click();
+    const download = await downloadPromise;
+    console.log('[' + target.name + '] data-layer schema download completed.');
+    assert.equal(download.suggestedFilename(), 'ovyx-postgresql-schema.sql',
+      '[' + target.name + '] schema button should download the starter schema file.');
+
+    const sync = page.locator('#ovyx-data-sync');
+    await sync.click();
+    assert.equal(await sync.getAttribute('aria-checked'), 'false',
+      '[' + target.name + '] sync switch should reflect the off state after clicking.');
+    const afterToggle = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}'));
+    assert.equal(afterToggle.projectSync, false, '[' + target.name + '] sync switch should persist its state locally.');
+    // External metadata sync is a separate opt-in from built-in OVYX cloud sync.
+    // It requires an explicit external-origin confirmation and sends only bounded project metadata.
+    const metadataRequests = [];
+    await page.route('https://data-api.example.test/api/data/projects**', async route => {
+      const request = route.request();
+      const headers = await request.allHeaders();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({
+          status: 204,
+          headers: {
+            'access-control-allow-origin': '*',
+            'access-control-allow-methods': 'POST, PUT, OPTIONS',
+            'access-control-allow-headers': 'authorization,content-type',
+            'access-control-max-age': '0',
+          },
+          body: '',
+        });
+        return;
+      }
+      metadataRequests.push({
+        method: request.method(),
+        url: request.url(),
+        headers,
+        body: request.postDataJSON(),
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store' },
+        body: JSON.stringify({ ok: true, accepted: true }),
+      });
+    });
+    await page.evaluate(() => {
+      const state = window.KernelState;
+      window.__externalDataSyncOriginal = {
+        firebase: window.firebase,
+        activeProject: state && state.activeProject,
+        projects: state && state.projects,
+      };
+      const user = {
+        uid: 'external-data-sync-browser-user',
+        async getIdToken() { return 'test-external-data-sync-token'; },
+      };
+      Object.defineProperty(window, 'firebase', {
+        configurable: true,
+        writable: true,
+        value: { auth: () => ({ currentUser: user }) },
+      });
+      if (state) {
+        state.activeProject = {
+          id: 'external-sync-project-1',
+          name: 'Metadata Only Fixture',
+          description: 'This field is safe project metadata.',
+          status: 'draft',
+          framework: 'html',
+          updatedAt: '2026-10-19T00:00:00.000Z',
+          pages: [{ name: 'Home' }, { name: 'About' }],
+          files: { 'src/private.js': 'DO_NOT_UPLOAD_SECRET_SOURCE' },
+          secrets: { API_KEY: 'DO_NOT_UPLOAD_SECRET_VALUE' },
+        };
+      }
+    });
+    let approvalMessage = '';
+    page.once('dialog', async dialog => {
+      approvalMessage = dialog.message();
+      await dialog.accept();
+    });
+    const enableExternalSync = page.locator('#ovyx-data-api-sync');
+    await enableExternalSync.waitFor({ state: 'visible' });
+    await enableExternalSync.click();
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-project-data-sync-status')?.textContent?.includes('sync succeeded'),
+      null,
+      { timeout: 15000 },
+    );
+    assert.match(approvalMessage, /data-api\.example\.test/i,
+      '[' + target.name + '] enabling a cross-origin endpoint must show the destination before sending authentication.');
+    assert.match(approvalMessage, /Firebase ID token/i,
+      '[' + target.name + '] external authentication sharing must be disclosed before consent.');
+    assert.equal(metadataRequests.length, 1, '[' + target.name + '] enabling sync should make one metadata write.');
+    assert.equal(metadataRequests[0].method, 'POST');
+    assert.equal(metadataRequests[0].url, endpoint + '/projects');
+    assert.equal(metadataRequests[0].headers.authorization, 'Bearer test-external-data-sync-token');
+    assert.equal(metadataRequests[0].headers.cookie, undefined,
+      '[' + target.name + '] external sync must omit third-party cookies.');
+    assert.deepEqual(Object.keys(metadataRequests[0].body.project).sort(),
+      ['description','framework','id','name','pageCount','schemaVersion','status','updatedAt'].sort(),
+      '[' + target.name + '] external sync must send bounded metadata only, never source files or secrets.');
+    assert.equal(metadataRequests[0].body.project.pageCount, 2);
+    assert.equal(JSON.stringify(metadataRequests[0].body).includes('DO_NOT_UPLOAD_SECRET'), false,
+      '[' + target.name + '] project files and secret-shaped fixture data must never be included.');
+    const externalSaved = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.external.v1') || '{}'));
+    assert.equal(externalSaved.projectSync, true);
+    assert.equal(externalSaved.consentedOrigin, 'https://data-api.example.test');
+    assert.equal(await page.locator('#ovyx-data-sync').getAttribute('aria-checked'), 'false',
+      '[' + target.name + '] enabling external metadata sync must not enable built-in cloud sync.');
+
+    // Turn off the external integration so later reload/Settings tests never sync in the background.
+    await enableExternalSync.click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.data.layer.external.v1') || '{}').projectSync === false);
+    await page.evaluate(() => {
+      const original = window.__externalDataSyncOriginal;
+      if (!original) return;
+      Object.defineProperty(window, 'firebase', { configurable: true, writable: true, value: original.firebase });
+      if (window.KernelState) {
+        window.KernelState.activeProject = original.activeProject;
+        window.KernelState.projects = original.projects;
+      }
+      delete window.__externalDataSyncOriginal;
+    });
+
+    console.log('[' + target.name + '] Settings stage: external sync and reload');
+    // Reopening the panel must not duplicate its injected container or lose settings.
+    await page.evaluate(() => window.OVYXSettings.show('appearance'));
+    await page.evaluate(() => window.OVYXSettings.show('workspace'));
+    await page.locator('#ovyx-data-endpoint').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#ovyx-data-layer-panel').count(), 1,
+      '[' + target.name + '] the injected Data Layer panel must not duplicate.');
+    assert.equal(await page.locator('#ovyx-data-endpoint').inputValue(), endpoint);
+    assert.equal(await page.locator('#ovyx-data-sync').getAttribute('aria-checked'), 'false');
+
+    // Verify local persistence across an actual page reload as well.
+    await page.reload({ waitUntil: 'commit', timeout: 60000 });
+    await page.waitForFunction(
+      () => document.readyState !== 'loading'
+        && typeof window.OVYXRouteAuthority?.go === 'function'
+        && typeof window.OVYXSettings?.show === 'function'
+        && !!window.OVYXDataLayerSettings
+        && document.readyState !== 'loading'
+        && !!window.OVYXSettings?.root?.querySelector('#ovyx-settings-main')
+        && window.OVYXSettings.__n1415 === true,
+      null,
+      { timeout: 45000 },
+    );
+    // This assertion checks local preference persistence after reload; it does
+    // not need the unrelated app-wide last-view restoration to equal Settings.
+    // Wait for pageshow/late route guards to settle, then explicitly open Settings.
+    await page.waitForTimeout(400);
+    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
+    await page.locator('#view-settings').waitFor({ state: 'visible' });
+    await page.evaluate(() => window.OVYXSettings.show('workspace'));
+    await page.locator('#ovyx-data-endpoint').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#ovyx-data-endpoint').inputValue(), endpoint);
+    const afterReload = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}'));
+    assert.equal(afterReload.projectSync, false);
+
+    console.log('[' + target.name + '] Settings stage: Appearance round-trip');
+    // Exercise Appearance preview, save, cancel, and reset through the rendered UI.
+    // Seed a known persisted baseline and reload so ThemeContext starts from that state.
+    await page.evaluate(() => {
+      const dark = {
+        mode: 'dark',
+        accentColor: '#F59E0B',
+        backgroundColor: '#050607',
+        sidebarColor: '#050607',
+        cardColor: '#0B0D10',
+        borderColor: '#1B222A',
+        textColor: '#F8FAFC',
+        mutedColor: '#94A3B8',
+        density: 'balanced',
+        scale: 'balanced',
+        motion: 'full',
+      };
+      localStorage.setItem('ovyx-theme', JSON.stringify(dark));
+      localStorage.setItem('ovyx.appearance.v3', JSON.stringify({ mode: 'dark', density: 'balanced', scale: 'balanced', motion: 'full' }));
+      // Make the app's late route-restoration controller reopen Settings on reload.
+      // Otherwise it can validly restore Home while this test expects Settings.
+      localStorage.setItem('ovyx.runtime.route.v18', 'settings');
+      localStorage.setItem('ovyx.settings.last-view.v1', 'settings');
+      // The boot hint prioritizes the current session record. Seed all route
+      // sources consistently so this reload tests Settings, not stale Home/Studio.
+      const session = JSON.parse(localStorage.getItem('ovyx.runtime.session.v4') || '{}');
+      localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ ...session, route: 'settings' }));
+    });
+    await page.reload({ waitUntil: 'commit', timeout: 60000 });
+    await page.waitForFunction(
+      () => typeof window.Router?.go === 'function' && typeof window.OVYXSettings?.show === 'function',
+      null,
+      { timeout: 45000 },
+    );
+    // The app may legitimately calculate a different boot hint during pageshow;
+    // the test's assertions concern Settings persistence, not that global hint.
+    // Wait for its late restoration pass to settle, then navigate directly.
+    await page.waitForTimeout(400);
+    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
+    await page.locator('#view-settings').waitFor({ state: 'visible' });
+    await page.evaluate(() => window.OVYXSettings.show('appearance'));
+    const appearance = page.locator('[data-settings-panel="appearance"]');
+    await appearance.waitFor({ state: 'visible' });
+    await appearance.locator('[data-appearance-save]').waitFor({ state: 'visible' });
+    await appearance.locator('[data-appearance-cancel]').waitFor({ state: 'visible' });
+
+    const initialSavedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(initialSavedTheme.mode, 'dark', '[' + target.name + '] Appearance test baseline must be dark.');
+    await appearance.locator('[data-mode="light"]').click();
+    await page.waitForFunction(() => document.documentElement.dataset.ovyxAppearanceMode === 'light');
+    let savedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(savedTheme.mode, 'dark', '[' + target.name + '] selecting Light must preview without persisting before Save.');
+
+    await appearance.locator('#set-density').selectOption('compact');
+    await page.waitForFunction(() => window.ThemeContext?.get?.().density === 'compact');
+    savedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(savedTheme.density, 'balanced', '[' + target.name + '] density changes must remain a preview until Save.');
+
+    await appearance.locator('[data-appearance-cancel]').click();
+    await page.waitForFunction(() => document.documentElement.dataset.ovyxAppearanceMode === 'dark'
+      && window.ThemeContext?.get?.().density === 'balanced');
+    savedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(savedTheme.mode, 'dark', '[' + target.name + '] Cancel must retain the saved mode.');
+    assert.equal(savedTheme.density, 'balanced', '[' + target.name + '] Cancel must retain saved density.');
+
+    await appearance.locator('[data-mode="light"]').click();
+    await appearance.locator('[data-appearance-save]').click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}').mode === 'light');
+    savedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(savedTheme.mode, 'light', '[' + target.name + '] Save Appearance must persist selected mode.');
+
+    await page.evaluate(() => window.OVYXSettings.show('privacy'));
+    const privacy = page.locator('[data-settings-panel="privacy"]');
+    await privacy.locator('[data-clear-appearance]').click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}').mode === 'dark');
+    savedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(savedTheme.mode, 'dark', '[' + target.name + '] Privacy reset must restore the dark appearance baseline.');
+    assert.equal(savedTheme.density, 'balanced', '[' + target.name + '] Privacy reset must restore balanced density.');
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('ovyx.appearance.v3'))).mode, 'dark',
+      '[' + target.name + '] Privacy reset must update the legacy appearance mirror too.');
+
+
+    console.log('[' + target.name + '] Settings stage: Notifications');
+    // Notifications must show only the current account-backed control set.
+    await page.evaluate(() => window.OVYXSettings.show('notifications'));
+    const notifications = page.locator('[data-settings-panel="notifications"]');
+    await page.waitForFunction(() => {
+      const p = document.querySelector('[data-settings-panel="notifications"]');
+      return !!p && !!p.querySelector('#notify-save')
+        && p.querySelectorAll('[data-notify]').length === 8
+        && !p.querySelector('#set-notify-build');
+    });
+    assert.equal(await notifications.locator('[data-notify]').count(), 8,
+      '[' + target.name + '] the old 3-switch notification panel must not appear alongside the new 8 preferences.');
+    assert.equal(await notifications.locator('#set-notify-build, #set-notify-fail, #set-notify-usage').count(), 0,
+      '[' + target.name + '] legacy notification controls must be removed from the rendered panel.');
+    const notificationCopy = await notifications.innerText();
+    assert.match(notificationCopy, /EMAIL \(PREFERENCES ONLY\)/i);
+    assert.equal((notificationCopy.match(/this panel does not send email\./gi) || []).length, 2,
+      '[' + target.name + '] both email preference switches must explain that they do not send email.');
+
+    // When the optional server-connection card is mounted, verify its labels. The source contract is also guarded in npm test.
+    const hasConnectionCard = await page.evaluate(() => !!window.OVYXConnections && !!document.getElementById('ovyx-cloudflare-status'));
+    if (hasConnectionCard) {
+      const connectionLabels = await page.evaluate(() => {
+        const status = document.getElementById('ovyx-cloudflare-status');
+        const values = [];
+        for (const state of ['unknown', 'available', 'auth_required', 'unavailable', 'connected']) {
+          window.OVYXConnections.cloudflare = { server: true, status: state };
+          window.OVYXConnections.render();
+          values.push(status.textContent.trim());
+        }
+        return values;
+      });
+      assert.deepEqual(connectionLabels, ['NOT VERIFIED', 'AVAILABLE', 'AUTH REQUIRED', 'UNAVAILABLE', 'CONNECTED · SERVER'],
+        '[' + target.name + '] Cloudflare state labels must never claim connected for unknown/unavailable state.');
+    }
+
+    console.log('[' + target.name + '] Settings stage: Usage and quota');
+    // Verify that server quota refreshes on Usage panel entry and that failures remain honest/recoverable.
+    await page.evaluate(() => {
+      const user = {
+        uid: 'settings-balance-e2e',
+        email: 'settings-balance-e2e@example.test',
+        async getIdToken() { return 'test-only-browser-token'; },
+      };
+      const auth = () => ({ currentUser: user });
+      const firebaseStub = window.firebase || {};
+      try { Object.defineProperty(firebaseStub, 'auth', { configurable: true, enumerable: true, writable: true, value: auth }); }
+      catch (_) { firebaseStub.auth = auth; }
+      try { Object.defineProperty(window, 'firebase', { configurable: true, enumerable: true, writable: true, value: firebaseStub }); }
+      catch (_) { window.firebase = firebaseStub; }
+    });
+    let balanceReply = {
+      status: 200,
+      body: { ok: true, monthlyLimit: 100, current_monthly_tokens: 80, baseRemaining: 80, boosterTokens: 11, daily_prompts_allowance: 4, plan: 'free' },
+    };
+    const balanceRequests = [];
+    await page.route('**/api/tokens/balance', async route => {
+      const request = route.request();
+      balanceRequests.push({ method: request.method(), headers: await request.allHeaders() });
+      await route.fulfill({
+        status: balanceReply.status,
+        contentType: 'application/json',
+        headers: { 'Cache-Control': 'no-store' },
+        body: JSON.stringify(balanceReply.body),
+      });
+    });
+
+    let beforeQuotaLoad = balanceRequests.length;
+    await page.evaluate(() => window.OVYXSettings.show('usage'));
+    await page.waitForFunction(() => document.getElementById('set-token-meter')?.textContent?.trim() === '20 used / 100');
+    assert.ok(balanceRequests.length > beforeQuotaLoad, '[' + target.name + '] opening Usage must request server quota.');
+    assert.ok(balanceRequests.every(r => r.method === 'GET' && r.headers.authorization === 'Bearer test-only-browser-token'),
+      '[' + target.name + '] Usage quota refresh must be an authenticated GET.');
+    assert.match(await page.locator('#ovyx-usage-server-detail').innerText(), /Remaining: 80 tokens/i);
+
+    balanceReply = {
+      status: 503,
+      body: { ok: false, error: 'Simulated quota balance outage' },
+    };
+    await page.evaluate(() => window.OVYXSettings.show('privacy'));
+    beforeQuotaLoad = balanceRequests.length;
+    await page.evaluate(() => window.OVYXSettings.show('usage'));
+    await page.waitForFunction(() => document.getElementById('set-token-meter')?.textContent?.trim() === 'Usage unavailable');
+    assert.ok(balanceRequests.length > beforeQuotaLoad, '[' + target.name + '] re-opening Usage must retry the server quota request.');
+    assert.equal(await page.locator('#set-token-meter').getAttribute('title'), 'Simulated quota balance outage',
+      '[' + target.name + '] quota failures must preserve an actionable error instead of showing a stale success value.');
+
+    balanceReply = {
+      status: 200,
+      body: { ok: true, monthlyLimit: 100, current_monthly_tokens: 65, baseRemaining: 65, boosterTokens: 18, daily_prompts_allowance: 3, plan: 'free' },
+    };
+    await page.evaluate(() => window.OVYXSettings.show('privacy'));
+    beforeQuotaLoad = balanceRequests.length;
+    await page.evaluate(() => window.OVYXSettings.show('usage'));
+    await page.waitForFunction(() => document.getElementById('set-token-meter')?.textContent?.trim() === '35 used / 100');
+    assert.ok(balanceRequests.length > beforeQuotaLoad, '[' + target.name + '] Usage must recover when the server returns a valid quota again.');
+    assert.match(await page.locator('#ovyx-usage-server-detail').innerText(), /Remaining: 65 tokens/i);
+
+    console.log('[' + target.name + '] Settings stage: Token Booster');
+    await page.evaluate(() => window.OVYXSettings.show('boosters'));
+    const boosters = page.locator('[data-settings-panel="boosters"]');
+    await page.waitForFunction(() => !!document.querySelector('[data-settings-panel="boosters"] #ovyx-v65-booster-balance')
+      && document.querySelectorAll('[data-settings-panel="boosters"] [data-boost-pack]').length === 3);
+    const boosterCopy = await boosters.innerText();
+    assert.match(boosterCopy, /Checkout requires sign-in and an available payment provider/i);
+    assert.match(boosterCopy, /credited only after server verification/i);
+    assert.equal(await boosters.locator('[data-boost-pack]').count(), 3,
+      '[' + target.name + '] Starter, Builder and Studio purchase actions must all be rendered.');
+    assert.doesNotMatch(boosterCopy, /future booster products/i);
+    const balanceLabel = page.locator('#ovyx-v65-booster-balance');
+    await page.waitForFunction(() => document.getElementById('ovyx-v65-booster-balance')?.textContent?.trim() === '18 extra tokens',
+      null, { timeout: 15000 });
+    assert.ok(balanceRequests.length > 0, '[' + target.name + '] opening Boosters after sign-in must refresh the existing panel balance.');
+    assert.ok(balanceRequests.every(r => r.method === 'GET' && r.headers.authorization === 'Bearer test-only-browser-token'),
+      '[' + target.name + '] Booster balance must use the authenticated balance endpoint.');
+
+    balanceReply = {
+      status: 200,
+      body: { ok: true, monthlyLimit: 100, current_monthly_tokens: 63, baseRemaining: 63, boosterTokens: 42, daily_prompts_allowance: 3, plan: 'free' },
+    };
+    let beforeBalanceRefresh = balanceRequests.length;
+    await boosters.locator('#ovyx-v65-booster-refresh').click();
+    await page.waitForFunction(() => document.getElementById('ovyx-v65-booster-balance')?.textContent?.trim() === '42 extra tokens');
+    assert.ok(balanceRequests.length > beforeBalanceRefresh, '[' + target.name + '] Refresh balance must issue a new server request.');
+    assert.equal(await page.evaluate(() => window.TokenQuotaRegistry?.boosterTokens), 42,
+      '[' + target.name + '] refreshed balance must update the shared quota meter state.');
+
+    balanceReply = {
+      status: 503,
+      body: { ok: false, error: 'Simulated booster balance outage' },
+    };
+    beforeBalanceRefresh = balanceRequests.length;
+    await boosters.locator('#ovyx-v65-booster-refresh').click();
+    await page.waitForFunction(() => document.getElementById('ovyx-v65-booster-balance')?.textContent?.trim() === 'Balance unavailable');
+    assert.ok(balanceRequests.length > beforeBalanceRefresh, '[' + target.name + '] failed balance refresh must still call the server.');
+    assert.notEqual((await balanceLabel.innerText()).trim(), '0 extra tokens',
+      '[' + target.name + '] a failed balance refresh must not turn an unknown balance into a false zero.');
+
+    balanceReply = {
+      status: 200,
+      body: { ok: true, monthlyLimit: 100, current_monthly_tokens: 62, baseRemaining: 62, boosterTokens: 43, daily_prompts_allowance: 3, plan: 'free' },
+    };
+    beforeBalanceRefresh = balanceRequests.length;
+    await boosters.locator('#ovyx-v65-booster-refresh').click();
+    await page.waitForFunction(() => document.getElementById('ovyx-v65-booster-balance')?.textContent?.trim() === '43 extra tokens');
+    assert.ok(balanceRequests.length > beforeBalanceRefresh, '[' + target.name + '] Refresh balance must recover after a service error.');
+
+    // Open the checkout UI but never use a real payment provider: the API is mocked to fail.
+    await boosters.locator('[data-boost-pack="starter"]').click();
+    const boosterModal = page.locator('#ovyx-v65-booster-modal');
+    await boosterModal.waitFor({ state: 'visible' });
+    assert.match(await boosterModal.innerText(), /credited only after the payment provider confirms and the OVYX server verifies/i);
+    await boosterModal.locator('[data-pack="builder"]').click();
+    await boosterModal.locator('[data-currency]').selectOption('USD');
+    await page.waitForFunction(() => document.querySelector('#ovyx-v65-booster-modal [data-provider]')?.value === 'paystack');
+    assert.equal(await boosterModal.locator('[data-provider]').inputValue(), 'paystack');
+    await page.waitForFunction(() => document.querySelector('#ovyx-v65-booster-modal [data-provider-note]')?.textContent?.includes('International USD checkout attempts the configured Paystack provider'));
+    assert.match(await boosterModal.locator('[data-provider-note]').innerText(), /Availability is checked when you continue; errors stop the purchase/i);
+
+    await page.evaluate(() => {
+      const fakeUser = { uid: 'settings-booster-e2e', email: 'settings-booster@example.test', emailVerified: true, getIdToken: async () => 'test-only-browser-token' };
+      try { Object.defineProperty(window, 'firebase', { configurable: true, writable: true, value: { auth: () => ({ currentUser: fakeUser }) } }); }
+      catch (_) { window.firebase = { auth: () => ({ currentUser: fakeUser }) }; }
+    });
+    let paymentCreatePayload = null;
+    await page.route('**/api/payments/create', async route => {
+      paymentCreatePayload = route.request().postDataJSON();
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'MOCKED_PROVIDER_UNAVAILABLE' }) });
+    });
+    await boosterModal.locator('[data-pay]').click();
+    await page.waitForFunction(() => document.querySelector('#ovyx-v65-booster-modal [data-status]')?.textContent?.includes('MOCKED_PROVIDER_UNAVAILABLE'));
+    assert.deepEqual(paymentCreatePayload, {
+      productType: 'token_booster', productId: 'builder', currency: 'USD', provider: 'paystack',
+    }, '[' + target.name + '] checkout must send the selected pack and server-controlled provider choice.');
+    assert.equal(await boosterModal.locator('[data-pay]').isEnabled(), true,
+      '[' + target.name + '] failed checkout initialization must re-enable the button for retry.');
+    assert.doesNotMatch(await boosterModal.locator('[data-status]').innerText(), /Payment confirmed|tokens have been added/i,
+      '[' + target.name + '] failed checkout must never claim the tokens were credited.');
+    await boosterModal.locator('[data-close]').click();
+
+    console.log('[' + target.name + '] Settings stage: Billing and Security');
+    await page.evaluate(() => window.OVYXSettings.show('plan'));
+    const planPanel = page.locator('[data-settings-panel="plan"]');
+    // The Billing layer replaces the initial Plan shell asynchronously; test its final visible control.
+    const upgradeToPro = await planPanel.locator('#ovyx-upgrade-btn').elementHandle();
+    assert.ok(upgradeToPro, '[' + target.name + '] the final Billing action must render.');
+    await page.evaluate(() => window.TokenQuotaRegistry?.renderMeter?.());
+    assert.equal(await upgradeToPro.evaluate(element => element.isConnected), true,
+      '[' + target.name + '] a quota refresh must not detach the visible Upgrade to Pro control.');
+    await upgradeToPro.click();
+    await page.waitForFunction(() => window.KernelState?.activeView === 'pricing', null, { timeout: 15000 });
+    await page.locator('#view-pricing').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#view-pricing').getAttribute('aria-label'), 'OVYX Plans',
+      '[' + target.name + '] Upgrade to Pro must navigate to the Plans view.');
+    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
+    await page.locator('#view-settings').waitFor({ state: 'visible' });
+
+    // Clear the payment-only identity fixture before verifying signed-out Security state.
+    await page.evaluate(() => {
+      Object.defineProperty(window, 'firebase', { configurable: true, writable: true, value: { auth: () => ({ currentUser: null }) } });
+    });
+
+    await page.evaluate(() => window.OVYXSettings.show('security'));
+    await page.waitForFunction(() => !!document.querySelector('[data-settings-panel="security"] #ovyx-revoke-all-devices'));
+    const securityCopy = await page.locator('[data-settings-panel="security"]').innerText();
+    assert.match(securityCopy, /Not signed in/i);
+    assert.match(securityCopy, /No active authenticated session/i);
+    assert.match(securityCopy, /INACTIVE/i);
+    assert.doesNotMatch(securityCopy, /● Protected/i,
+      '[' + target.name + '] signing out must not be shown as a protected/active session.');
+
+    assert.deepEqual(settingsErrors, [], '[' + target.name + '] Settings controls should not throw browser errors.');
+    await context.close();
+  }
+  console.log('OVYX Settings browser tests passed on desktop and mobile: Data Layer, Appearance, Notifications, connection/security statuses, and mocked Token Booster failure handling.');
+} finally {
+  let closeTimer;
+  try {
+    await Promise.race([
+      browser.close(),
+      new Promise((_, reject) => { closeTimer = setTimeout(() => reject(new Error('Chromium shutdown exceeded 8 seconds.')), 8000); }),
+    ]);
+  } catch (error) {
+    console.error('[settings-browser] ' + String(error?.message || error));
+    process.exitCode = 1;
+    process.exit(1);
+  } finally {
+    if (closeTimer) clearTimeout(closeTimer);
+  }
+}

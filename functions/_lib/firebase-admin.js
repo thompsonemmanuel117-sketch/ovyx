@@ -1,0 +1,1228 @@
+/**
+ * OVYX Firebase Admin REST Layer
+ * Phase 2 + Phase 3
+ *
+ * Cloudflare Pages Functions / Workers compatible.
+ * Uses a Firebase service account through OAuth2 + Firestore REST.
+ */
+
+const FIRESTORE_SCOPE =
+  'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/devstorage.full_control';
+
+let cachedAccessToken = null;
+let cachedAccessTokenExpiresAt = 0;
+
+function base64UrlEncode(bytes) {
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function base64UrlDecodeToBytes(value) {
+  const normalized = String(value)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const padded =
+    normalized + '='.repeat((4 - normalized.length % 4) % 4);
+
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes;
+}
+
+function pemToArrayBuffer(pem) {
+  // Cloudflare secret editors may preserve JSON-escaped newline sequences
+  // as literal backslash-n pairs. Normalize them the same way as /api/health
+  // before base64 decoding, or a healthy-looking service account fails when
+  // the first Firestore/OAuth request tries to sign its JWT.
+  const normalized = String(pem)
+    .replace(/\\n/g, '\n')
+    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
+    .replace(/-----END PRIVATE KEY-----/g, '')
+    .replace(/\s+/g, '');
+
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes.buffer;
+}
+
+async function signJwtRS256(header, payload, privateKeyPem) {
+  const headerPart = base64UrlEncode(
+    new TextEncoder().encode(JSON.stringify(header))
+  );
+
+  const payloadPart = base64UrlEncode(
+    new TextEncoder().encode(JSON.stringify(payload))
+  );
+
+  const signingInput = `${headerPart}.${payloadPart}`;
+
+  try {
+    const cryptoKey = await crypto.subtle.importKey(
+      'pkcs8',
+      pemToArrayBuffer(privateKeyPem),
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256'
+      },
+      false,
+      ['sign']
+    );
+
+    const signature = await crypto.subtle.sign(
+      'RSASSA-PKCS1-v1_5',
+      cryptoKey,
+      new TextEncoder().encode(signingInput)
+    );
+
+    return `${signingInput}.${base64UrlEncode(
+      new Uint8Array(signature)
+    )}`;
+  } catch {
+    // Never expose key material or platform-specific crypto error text.
+    throw Object.assign(new Error('Firebase service-account JWT signing failed.'), {
+      code: 'FIREBASE_JWT_SIGNING_FAILED'
+    });
+  }
+}
+
+function parseServiceAccount(env) {
+  const raw =
+    env?.FIREBASE_SERVICE_ACCOUNT_JSON ||
+    env?.FIREBASE_SERVICE_ACCOUNT;
+
+  if (!raw) {
+    throw Object.assign(new Error('FIREBASE_SERVICE_ACCOUNT_JSON is not configured.'), {
+      code: 'FIREBASE_SERVICE_ACCOUNT_NOT_CONFIGURED'
+    });
+  }
+
+  let account;
+
+  try {
+    account =
+      typeof raw === 'string'
+        ? JSON.parse(raw)
+        : raw;
+  } catch {
+    throw Object.assign(new Error('FIREBASE_SERVICE_ACCOUNT_JSON is invalid JSON.'), {
+      code: 'FIREBASE_SERVICE_ACCOUNT_INVALID_JSON'
+    });
+  }
+
+  if (
+    !account ||
+    !account.client_email ||
+    !account.private_key ||
+    !account.project_id
+  ) {
+    throw Object.assign(new Error('Firebase service account is missing required fields.'), {
+      code: 'FIREBASE_SERVICE_ACCOUNT_MISSING_FIELDS'
+    });
+  }
+
+  return account;
+}
+
+async function getGoogleAccessToken(env) {
+  const now = Date.now();
+
+  if (
+    cachedAccessToken &&
+    cachedAccessTokenExpiresAt > now + 60_000
+  ) {
+    return cachedAccessToken;
+  }
+
+  const serviceAccount = parseServiceAccount(env);
+
+  const issuedAt = Math.floor(now / 1000);
+
+  const assertion = await signJwtRS256(
+    {
+      alg: 'RS256',
+      typ: 'JWT'
+    },
+    {
+      iss: serviceAccount.client_email,
+      scope: FIRESTORE_SCOPE,
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: issuedAt,
+      exp: issuedAt + 3600
+    },
+    serviceAccount.private_key
+  );
+
+  let data = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch(
+      'https://oauth2.googleapis.com/token',
+      {
+        method: 'POST',
+        headers: {
+          'content-type':
+            'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          grant_type:
+            'urn:ietf:params:oauth:grant-type:jwt-bearer',
+          assertion
+        })
+      }
+    );
+
+    if (!response.ok) {
+      // Keep status metadata so the guarded Firestore budget ledger can retry
+      // transient OAuth service errors and classify permanent authorization
+      // failures without logging response bodies or credentials.
+      throw Object.assign(
+        new Error(`Google OAuth token exchange failed (${response.status}).`),
+        {
+          status: response.status,
+          code: 'GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED',
+        }
+      );
+    }
+
+    let candidate = null;
+    try { candidate = await response.json(); } catch (_) {}
+    const accessToken = typeof candidate?.access_token === 'string'
+      ? candidate.access_token.trim()
+      : '';
+    if (accessToken) {
+      data = { ...candidate, access_token: accessToken };
+      break;
+    }
+
+    // A successful HTTP status without a usable access token is an upstream
+    // response-shape anomaly. Retry it once only; never log or return the
+    // response body, and fail closed if the response stays malformed.
+    if (attempt === 0) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      continue;
+    }
+    throw Object.assign(
+      new Error('Google OAuth response did not contain a usable access token.'),
+      { code: candidate ? 'GOOGLE_OAUTH_ACCESS_TOKEN_MISSING' : 'GOOGLE_OAUTH_RESPONSE_INVALID' }
+    );
+  }
+
+  if (!data?.access_token) {
+    throw Object.assign(new Error('Google OAuth response did not contain a usable access token.'), {
+      code: 'GOOGLE_OAUTH_ACCESS_TOKEN_MISSING'
+    });
+  }
+
+  cachedAccessToken = data.access_token;
+
+  cachedAccessTokenExpiresAt =
+    now + Number(data.expires_in || 3600) * 1000;
+
+  return cachedAccessToken;
+}
+
+function firestoreBaseUrl(projectId) {
+  return (
+    `https://firestore.googleapis.com/v1/projects/` +
+    `${encodeURIComponent(projectId)}` +
+    `/databases/(default)/documents`
+  );
+}
+
+function firestoreValue(value) {
+  if (value === null) {
+    return { nullValue: null };
+  }
+
+  if (typeof value === 'boolean') {
+    return { booleanValue: value };
+  }
+
+  if (typeof value === 'number') {
+    if (
+      Number.isInteger(value) &&
+      Number.isSafeInteger(value)
+    ) {
+      return { integerValue: String(value) };
+    }
+
+    return { doubleValue: value };
+  }
+
+  if (typeof value === 'string') {
+    return { stringValue: value };
+  }
+
+  if (value instanceof Date) {
+    return {
+      timestampValue: value.toISOString()
+    };
+  }
+
+  if (Array.isArray(value)) {
+    return {
+      arrayValue: {
+        values: value.map(firestoreValue)
+      }
+    };
+  }
+
+  if (typeof value === 'object') {
+    const fields = {};
+
+    for (const [key, nestedValue] of Object.entries(value)) {
+      fields[key] = firestoreValue(nestedValue);
+    }
+
+    return {
+      mapValue: {
+        fields
+      }
+    };
+  }
+
+  return {
+    stringValue: String(value)
+  };
+}
+
+function firestoreDocument(fields = {}) {
+  const result = {};
+
+  for (const [key, value] of Object.entries(fields)) {
+    result[key] = firestoreValue(value);
+  }
+
+  return { fields: result };
+}
+
+function firestoreValueToJs(value) {
+  if (!value) return null;
+
+  if ('nullValue' in value) return null;
+  if ('stringValue' in value) return value.stringValue;
+  if ('booleanValue' in value) return value.booleanValue;
+
+  if ('integerValue' in value) {
+    const number = Number(value.integerValue);
+
+    return Number.isSafeInteger(number)
+      ? number
+      : value.integerValue;
+  }
+
+  if ('doubleValue' in value) {
+    return value.doubleValue;
+  }
+
+  if ('timestampValue' in value) {
+    return value.timestampValue;
+  }
+
+  if ('arrayValue' in value) {
+    return (value.arrayValue.values || [])
+      .map(firestoreValueToJs);
+  }
+
+  if ('mapValue' in value) {
+    const result = {};
+
+    for (
+      const [key, nestedValue] of Object.entries(
+        value.mapValue.fields || {}
+      )
+    ) {
+      result[key] = firestoreValueToJs(nestedValue);
+    }
+
+    return result;
+  }
+
+  return null;
+}
+
+export function firestoreDocumentToJs(document) {
+  const result = {};
+
+  for (
+    const [key, value] of Object.entries(
+      document?.fields || {}
+    )
+  ) {
+    result[key] = firestoreValueToJs(value);
+  }
+
+  return result;
+}
+
+const SAFE_FIRESTORE_TRANSPORT_CODES = new Set([
+  'ENOTFOUND', 'EAI_AGAIN', 'ERR_NAME_NOT_RESOLVED',
+  'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT',
+  'ECONNRESET', 'ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'EPIPE', 'UND_ERR_SOCKET',
+  'ERR_TLS_CERT_ALTNAME_INVALID', 'CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'ERR_INVALID_URL', 'UND_ERR_RESPONSE_STATUS'
+]);
+
+const SAFE_FIRESTORE_TRANSPORT_CLASSES = new Set([
+  'dns', 'timeout', 'socket', 'tls', 'network-unreachable', 'invalid-url', 'network', 'unknown'
+]);
+
+export function classifyFirestoreReadTransportFailure(error) {
+  const chain = [];
+  let current = error;
+  for (let depth = 0; current && depth < 4; depth += 1) {
+    chain.push(current);
+    current = current?.cause;
+  }
+  const codes = chain.map(item => String(item?.code || '').toUpperCase());
+  const messages = chain.map(item => String(item?.message || '').slice(0, 300)).join(' ').toLowerCase();
+  const code = codes.find(value => SAFE_FIRESTORE_TRANSPORT_CODES.has(value)) || null;
+  let failureClass = 'unknown';
+  if (codes.some(value => ['ENOTFOUND', 'EAI_AGAIN', 'ERR_NAME_NOT_RESOLVED'].includes(value)) || /dns|name resolution|name not resolved|could not resolve/i.test(messages)) {
+    failureClass = 'dns';
+  } else if (codes.some(value => value.startsWith('ERR_TLS') || ['CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT'].includes(value)) || /certificate|\btls\b|\bssl\b/i.test(messages)) {
+    failureClass = 'tls';
+  } else if (codes.some(value => ['ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT'].includes(value)) || /timed? ?out|timeout/i.test(messages)) {
+    failureClass = 'timeout';
+  } else if (codes.some(value => ['ECONNRESET', 'ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'EPIPE', 'UND_ERR_SOCKET'].includes(value)) || /socket|connection reset|connection refused/i.test(messages)) {
+    failureClass = codes.some(value => ['EHOSTUNREACH', 'ENETUNREACH'].includes(value)) || /network is unreachable|host unreachable/i.test(messages)
+      ? 'network-unreachable' : 'socket';
+  } else if (codes.includes('ERR_INVALID_URL') || /invalid url|invalid url string/i.test(messages)) {
+    failureClass = 'invalid-url';
+  } else if (error?.name === 'TypeError' || /fetch failed|network request failed/i.test(messages)) {
+    failureClass = 'network';
+  }
+  if (!SAFE_FIRESTORE_TRANSPORT_CLASSES.has(failureClass)) failureClass = 'unknown';
+  const safeName = name => ['TypeError', 'Error', 'AbortError', 'TimeoutError', 'DOMException'].includes(String(name || ''))
+    ? String(name) : 'Other';
+  return {
+    errorName: safeName(error?.name),
+    causeName: safeName(chain[1]?.name),
+    causeCode: code,
+    failureClass,
+  };
+}
+
+export async function getFirestoreDocument(
+  env,
+  collection,
+  documentId
+) {
+  const serviceAccount = parseServiceAccount(env);
+  let accessToken;
+  try {
+    accessToken = await getGoogleAccessToken(env);
+  } catch (error) {
+    if ((Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599) || ['GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED', 'GOOGLE_OAUTH_ACCESS_TOKEN_MISSING', 'GOOGLE_OAUTH_RESPONSE_INVALID', 'FIREBASE_SERVICE_ACCOUNT_NOT_CONFIGURED', 'FIREBASE_SERVICE_ACCOUNT_INVALID_JSON', 'FIREBASE_SERVICE_ACCOUNT_MISSING_FIELDS', 'FIREBASE_JWT_SIGNING_FAILED'].includes(String(error?.code || ''))) throw error;
+    throw Object.assign(new Error('Firebase access-token acquisition failed.'), {
+      code: 'FIREBASE_ACCESS_TOKEN_ACQUISITION_FAILED'
+    });
+  }
+
+  const url =
+    `${firestoreBaseUrl(serviceAccount.project_id)}` +
+    `/${encodeURIComponent(collection)}` +
+    `/${encodeURIComponent(documentId)}`;
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+  } catch (error) {
+    if ((Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599) || ['FIREBASE_ACCESS_TOKEN_ACQUISITION_FAILED', 'FIREBASE_SERVICE_ACCOUNT_NOT_CONFIGURED', 'FIREBASE_SERVICE_ACCOUNT_INVALID_JSON', 'FIREBASE_SERVICE_ACCOUNT_MISSING_FIELDS', 'FIREBASE_JWT_SIGNING_FAILED', 'GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED', 'GOOGLE_OAUTH_ACCESS_TOKEN_MISSING', 'GOOGLE_OAUTH_RESPONSE_INVALID'].includes(String(error?.code || ''))) throw error;
+    const transport = classifyFirestoreReadTransportFailure(error);
+    // Only emit an allow-listed classification for the dedicated AI usage
+    // ledger. Never log a document ID, project URL, token, or raw fetch error.
+    if (collection === 'system' && documentId === 'ovyx-workers-ai-budget') {
+      console.error('[OVYX FIRESTORE READ TRANSPORT]', JSON.stringify({
+        stage: 'document-read',
+        target: 'workers-ai-budget-ledger',
+        host: 'firestore.googleapis.com',
+        ...transport,
+      }));
+    }
+    throw Object.assign(new Error('Firestore document read transport failed.'), {
+      code: 'FIRESTORE_READ_TRANSPORT_FAILED',
+      transportClass: transport.failureClass,
+    });
+  }
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw Object.assign(
+      new Error(`Firestore document read failed (${response.status}).`),
+      { status: response.status, code: 'FIRESTORE_READ_FAILED' }
+    );
+  }
+
+  try {
+    return await response.json();
+  } catch {
+    throw Object.assign(new Error('Firestore document read returned invalid JSON.'), {
+      code: 'FIRESTORE_READ_INVALID_JSON'
+    });
+  }
+}
+
+export async function getFirestoreData(
+  env,
+  collection,
+  documentId
+) {
+  const document =
+    await getFirestoreDocument(
+      env,
+      collection,
+      documentId
+    );
+
+  return document
+    ? firestoreDocumentToJs(document)
+    : null;
+}
+
+export async function listFirestoreDocuments(
+  env,
+  collection,
+  pageSize = 100,
+  pageToken = null
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+
+  const normalizedPageSize = Math.min(
+    Math.max(Number(pageSize) || 100, 1),
+    1000
+  );
+
+  const params = new URLSearchParams({
+    pageSize: String(normalizedPageSize)
+  });
+
+  if (pageToken) {
+    params.set('pageToken', String(pageToken));
+  }
+
+  const url =
+    `${firestoreBaseUrl(serviceAccount.project_id)}\/${encodeURIComponent(collection)}?${params.toString()}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+
+    console.error(
+      '[OVYX FIRESTORE LIST]',
+      response.status,
+      text.slice(0, 500)
+    );
+
+    throw new Error(
+      `Firestore document list failed (${response.status}).`
+    );
+  }
+
+  const data = await response.json();
+
+  const documents = Array.isArray(data.documents)
+    ? data.documents.map(document => {
+        const value = firestoreDocumentToJs(document);
+        const name = String(document?.name || '');
+        const id = name.split('/').pop() || '';
+
+        return {
+          ...value,
+          id
+        };
+      })
+    : [];
+
+  return {
+    documents,
+    nextPageToken: data.nextPageToken || null
+  };
+}
+
+export async function addFirestoreDocument(
+  env,
+  collection,
+  data,
+  documentId = crypto.randomUUID()
+) {
+  if (
+    !/^[A-Za-z0-9_-]{1,160}$/.test(
+      String(documentId)
+    )
+  ) {
+    throw new Error(
+      'Firestore document ID is invalid.'
+    );
+  }
+
+  await setFirestoreDocument(
+    env,
+    collection,
+    documentId,
+    data,
+    { merge: false }
+  );
+
+  return documentId;
+}
+
+export async function setFirestoreDocument(
+  env,
+  collection,
+  documentId,
+  data,
+  { merge = true } = {}
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken =
+    await getGoogleAccessToken(env);
+
+  const url =
+    `${firestoreBaseUrl(serviceAccount.project_id)}/` +
+    `${encodeURIComponent(collection)}/` +
+    `${encodeURIComponent(documentId)}`;
+
+  const body = firestoreDocument(data);
+
+  let requestUrl = url;
+
+  if (merge) {
+    const fieldPaths = Object.keys(data);
+
+    const params = new URLSearchParams();
+
+    for (const fieldPath of fieldPaths) {
+      params.append(
+        'updateMask.fieldPaths',
+        fieldPath
+      );
+    }
+
+    requestUrl = `${url}?${params.toString()}`;
+  }
+
+  const response = await fetch(requestUrl, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+
+    console.error(
+      '[OVYX FIRESTORE WRITE]',
+      response.status,
+      text.slice(0, 500)
+    );
+
+    throw new Error(
+      `Firestore document write failed (${response.status}).`
+    );
+  }
+
+  return response.json();
+}
+
+export async function createFirestoreDocument(
+  env,
+  collection,
+  documentId,
+  data
+) {
+  return setFirestoreDocument(
+    env,
+    collection,
+    documentId,
+    data,
+    { merge: false }
+  );
+}
+
+
+/**
+ * Atomically creates a document only when its ID does not already exist.
+ * Unlike setFirestoreDocument(), this cannot replace an existing global config
+ * document when a first-run initializer races with another request.
+ */
+export async function createFirestoreDocumentIfAbsent(
+  env,
+  collection,
+  documentId,
+  data
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+  const params = new URLSearchParams({ documentId: String(documentId) });
+  const url = `${firestoreBaseUrl(serviceAccount.project_id)}/${encodeURIComponent(collection)}?${params.toString()}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(firestoreDocument(data)),
+  });
+
+  if (response.status === 409) {
+    throw Object.assign(
+      new Error('Firestore document already exists.'),
+      { status: 409, code: 'FIRESTORE_DOCUMENT_ALREADY_EXISTS' }
+    );
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error('[OVYX FIRESTORE CREATE IF ABSENT]', response.status, text.slice(0, 500));
+    throw Object.assign(
+      new Error(`Firestore document creation failed (${response.status}).`),
+      { status: response.status, code: 'FIRESTORE_DOCUMENT_CREATE_FAILED' }
+    );
+  }
+
+  return response.json();
+}
+
+export async function setFirestoreDocumentIfCurrent(
+  env,
+  collection,
+  documentId,
+  data,
+  updateTime
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+
+  if (!updateTime) {
+    throw Object.assign(
+      new Error('Firestore update precondition is missing.'),
+      { status: 400, code: 'FIRESTORE_PRECONDITION_REQUIRED' }
+    );
+  }
+
+  const url =
+    `${firestoreBaseUrl(serviceAccount.project_id)}/` +
+    `${encodeURIComponent(collection)}/` +
+    `${encodeURIComponent(documentId)}`;
+
+  const params = new URLSearchParams({
+    'currentDocument.updateTime': String(updateTime),
+  });
+
+  for (const fieldPath of Object.keys(data)) {
+    params.append('updateMask.fieldPaths', fieldPath);
+  }
+
+  const response = await fetch(`${url}?${params.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(firestoreDocument(data)),
+  });
+
+  if (response.status === 409) {
+    throw Object.assign(
+      new Error('Firestore document changed concurrently.'),
+      { status: 409, code: 'FIRESTORE_PRECONDITION_FAILED' }
+    );
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error(
+      '[OVYX FIRESTORE CONDITIONAL WRITE]',
+      response.status,
+      text.slice(0, 500)
+    );
+    throw Object.assign(
+      new Error(`Firestore conditional write failed (${response.status}).`),
+      // Preserve the HTTP status for safe retry-vs-configuration diagnosis.
+      // Never include the provider response body in the thrown error.
+      { status: response.status, code: 'FIRESTORE_CONDITIONAL_WRITE_FAILED' }
+    );
+  }
+
+  return response.json();
+}
+
+function encodeFirestorePath(pathValue) {
+  return String(pathValue || '')
+    .split('/')
+    .filter(Boolean)
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+}
+
+async function firestoreListCollectionIds(env, parentPath) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+
+  let pageToken = null;
+  const collectionIds = [];
+
+  do {
+    const params = new URLSearchParams({ pageSize: '1000' });
+    if (pageToken) params.set('pageToken', pageToken);
+
+    const url =
+      `${firestoreBaseUrl(serviceAccount.project_id)}/` +
+      `${encodeFirestorePath(parentPath)}:listCollectionIds?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: '{}',
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Firestore collection enumeration failed (${response.status}): ${text.slice(0, 300)}`
+      );
+    }
+
+    const data = await response.json();
+    for (const id of data.collectionIds || []) collectionIds.push(String(id));
+    pageToken = data.nextPageToken || null;
+  } while (pageToken);
+
+  return collectionIds;
+}
+
+async function firestoreListChildDocuments(env, parentPath, collectionId) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+
+  let pageToken = null;
+  const documents = [];
+
+  do {
+    const params = new URLSearchParams({ pageSize: '1000' });
+    if (pageToken) params.set('pageToken', pageToken);
+
+    const path =
+      `${parentPath}/${collectionId}`;
+
+    const url =
+      `${firestoreBaseUrl(serviceAccount.project_id)}/` +
+      `${encodeFirestorePath(path)}?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (response.status === 404) return documents;
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Firestore child document enumeration failed (${response.status}): ${text.slice(0, 300)}`
+      );
+    }
+
+    const data = await response.json();
+    for (const document of data.documents || []) {
+      if (document?.name) documents.push(String(document.name));
+    }
+    pageToken = data.nextPageToken || null;
+  } while (pageToken);
+
+  return documents;
+}
+
+async function deleteFirestoreDocumentPath(env, relativePath) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+
+  const url =
+    `${firestoreBaseUrl(serviceAccount.project_id)}/` +
+    encodeFirestorePath(relativePath);
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (response.status === 404) return false;
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `Firestore document deletion failed (${response.status}): ${text.slice(0, 300)}`
+    );
+  }
+
+  return true;
+}
+
+async function deleteFirestoreTreeByPath(env, relativePath) {
+  let deleted = 0;
+
+  const collectionIds = await firestoreListCollectionIds(
+    env,
+    relativePath
+  );
+
+  for (const collectionId of collectionIds) {
+    const children = await firestoreListChildDocuments(
+      env,
+      relativePath,
+      collectionId
+    );
+
+    for (const fullName of children) {
+      const marker = '/documents/';
+      const index = fullName.indexOf(marker);
+      const childPath = index >= 0
+        ? fullName.slice(index + marker.length)
+        : fullName;
+
+      deleted += await deleteFirestoreTreeByPath(env, childPath);
+    }
+  }
+
+  if (await deleteFirestoreDocumentPath(env, relativePath)) {
+    deleted += 1;
+  }
+
+  return deleted;
+}
+
+function firestoreDocumentPathFromSegments(env,segments){
+  const serviceAccount=parseServiceAccount(env);
+  const parts=Array.isArray(segments)?segments.map(v=>String(v??'').trim()).filter(Boolean):[];
+  if(!parts.length||parts.length%2!==0)throw new Error('Firestore document path must contain collection/document pairs.');
+  return {
+    serviceAccount,
+    url:`${firestoreBaseUrl(serviceAccount.project_id)}/${parts.map(encodeURIComponent).join('/')}`
+  };
+}
+
+export async function getFirestoreDocumentAtPath(env,segments){
+  const {url}=firestoreDocumentPathFromSegments(env,segments);
+  const accessToken=await getGoogleAccessToken(env);
+  const response=await fetch(url,{method:'GET',headers:{Authorization:`Bearer ${accessToken}`}});
+  if(response.status===404)return null;
+  if(!response.ok)throw new Error(`Firestore document read failed (${response.status}).`);
+  return response.json();
+}
+
+export async function getFirestoreDataAtPath(env,segments){
+  const document=await getFirestoreDocumentAtPath(env,segments);
+  return document?firestoreDocumentToJs(document):null;
+}
+
+export async function setFirestoreDocumentAtPath(env,segments,data,{merge=true,expectedUpdateTime=null}={}){
+  const {url}=firestoreDocumentPathFromSegments(env,segments);
+  const accessToken=await getGoogleAccessToken(env);
+  const params=new URLSearchParams();
+  if(merge)for(const fieldPath of Object.keys(data||{}))params.append('updateMask.fieldPaths',fieldPath);
+  if(expectedUpdateTime)params.set('currentDocument.updateTime',String(expectedUpdateTime));
+  const requestUrl=params.toString()?`${url}?${params.toString()}`:url;
+  const response=await fetch(requestUrl,{method:'PATCH',headers:{Authorization:`Bearer ${accessToken}`,'content-type':'application/json'},body:JSON.stringify(firestoreDocument(data))});
+  if(response.ok)return response.json();
+  const text=await response.text().catch(()=> '');
+  if(response.status===409||response.status===412)throw Object.assign(new Error('Firestore document changed concurrently.'),{status:409,code:'FIRESTORE_PRECONDITION_FAILED'});
+  throw Object.assign(new Error(`Firestore document write failed (${response.status}): ${text.slice(0,300)}`),{status:response.status>=500?503:400,code:'FIRESTORE_WRITE_FAILED'});
+}
+
+export async function deleteFirestoreDocumentAtPath(env,segments,expectedUpdateTime=null){
+  const {url}=firestoreDocumentPathFromSegments(env,segments);
+  const accessToken=await getGoogleAccessToken(env);
+  const params=new URLSearchParams();
+  if(expectedUpdateTime)params.set('currentDocument.updateTime',String(expectedUpdateTime));
+  const response=await fetch(params.toString()?`${url}?${params.toString()}`:url,{method:'DELETE',headers:{Authorization:`Bearer ${accessToken}`}});
+  if(response.ok||response.status===404)return true;
+  const text=await response.text().catch(()=> '');
+  if(response.status===409||response.status===412)throw Object.assign(new Error('Firestore document changed concurrently.'),{status:409,code:'FIRESTORE_PRECONDITION_FAILED'});
+  throw Object.assign(new Error(`Firestore document deletion failed (${response.status}): ${text.slice(0,300)}`),{status:response.status>=500?503:400,code:'FIRESTORE_DELETE_FAILED'});
+}
+
+export async function listFirestoreSubcollectionDocumentsAtPath(env,parentSegments,subcollection,pageSize=100){
+  const accessToken=await getGoogleAccessToken(env);
+  const parent=firestoreDocumentPathFromSegments(env,parentSegments).url;
+  const name=String(subcollection||'').trim();
+  if(!name||name.includes('/'))throw new Error('Firestore subcollection name is invalid.');
+  const params=new URLSearchParams({pageSize:String(Math.min(Math.max(Number(pageSize)||100,1),1000))});
+  const response=await fetch(`${parent}/${encodeURIComponent(name)}?${params.toString()}`,{headers:{Authorization:`Bearer ${accessToken}`}});
+  if(!response.ok)throw new Error(`Firestore nested subcollection list failed (${response.status}).`);
+  const data=await response.json();
+  return (data.documents||[]).map(document=>({id:String(document?.name||'').split('/').pop()||'',data:firestoreDocumentToJs(document)}));
+}
+
+export async function listFirestoreSubcollectionDocuments(env,parentCollection,parentDocumentId,subcollection,pageSize=100){
+  const serviceAccount=parseServiceAccount(env);
+  const accessToken=await getGoogleAccessToken(env);
+  const parent=firestoreDocumentPathFromSegments(env,[parentCollection,parentDocumentId]).url;
+  const params=new URLSearchParams({pageSize:String(Math.min(Math.max(Number(pageSize)||100,1),1000))});
+  const response=await fetch(`${parent}/${encodeURIComponent(subcollection)}?${params.toString()}`,{method:'GET',headers:{Authorization:`Bearer ${accessToken}`}});
+  if(!response.ok)throw new Error(`Firestore subcollection list failed (${response.status}).`);
+  const data=await response.json();
+  return (data.documents||[]).map(document=>({id:String(document?.name||'').split('/').pop()||'',data:firestoreDocumentToJs(document)}));
+}
+
+export async function deleteFirestoreDocumentTree(
+  env,
+  collection,
+  documentId
+) {
+  const path =
+    `${String(collection || '').trim()}/${String(documentId || '').trim()}`;
+
+  return deleteFirestoreTreeByPath(env, path);
+}
+
+async function storageBucket(env) {
+  if (String(env?.FIREBASE_STORAGE_BUCKET || '').trim()) {
+    return String(env.FIREBASE_STORAGE_BUCKET).trim();
+  }
+
+  const serviceAccount = parseServiceAccount(env);
+  return `${serviceAccount.project_id}.firebasestorage.app`;
+}
+
+export async function deleteStoragePrefix(
+  env,
+  prefix
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+  const bucket = await storageBucket(env);
+  const objectPrefix = String(prefix || '').replace(/^\/+/, '');
+
+  let pageToken = null;
+  let deleted = 0;
+
+  do {
+    const params = new URLSearchParams({
+      prefix: objectPrefix,
+      maxResults: '1000',
+    });
+    if (pageToken) params.set('pageToken', pageToken);
+
+    const listUrl =
+      `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucket)}/o?${params.toString()}`;
+
+    const response = await fetch(listUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (response.status === 404) return 0;
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Firebase Storage cleanup enumeration failed (${response.status}): ${text.slice(0, 300)}`
+      );
+    }
+
+    const data = await response.json();
+
+    for (const object of data.items || []) {
+      const name = String(object?.name || '');
+      if (!name) continue;
+
+      const deleteUrl =
+        `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(name)}`;
+
+      const deletion = await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (deletion.status === 404) continue;
+
+      if (!deletion.ok) {
+        const text = await deletion.text();
+        throw new Error(
+          `Firebase Storage object deletion failed (${deletion.status}): ${text.slice(0, 300)}`
+        );
+      }
+
+      deleted += 1;
+    }
+
+    pageToken = data.nextPageToken || null;
+  } while (pageToken);
+
+  return deleted;
+}
+/**
+ * Changes the actual Firebase Authentication account status.
+ * This is deliberately server-only: the service-account credential never
+ * leaves the Worker, and protected API authentication reads Firebase status.
+ */
+export async function setFirebaseAccountDisabled(env, uid, disabled) {
+  const serviceAccount = parseServiceAccount(env);
+  const cleanUid = String(uid || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(cleanUid)) {
+    throw Object.assign(new Error('Firebase user ID is invalid.'), {
+      status: 400,
+      code: 'AUTH_INVALID_IDENTITY'
+    });
+  }
+  if (typeof disabled !== 'boolean') {
+    throw Object.assign(new Error('Account disabled status must be boolean.'), {
+      status: 400,
+      code: 'AUTH_INVALID_ACCOUNT_STATUS'
+    });
+  }
+
+  const accessToken = await getGoogleIdentityToolkitAccessToken(env);
+  const projectId = encodeURIComponent(serviceAccount.project_id);
+  const updateUrl = 'https://identitytoolkit.googleapis.com/v1/projects/' + projectId + '/accounts:update';
+  const updateResponse = await fetch(updateUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + accessToken,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({ localId: cleanUid, disableUser: disabled })
+  });
+  const updatePayload = await updateResponse.json().catch(() => ({}));
+  if (!updateResponse.ok) {
+    throw Object.assign(
+      new Error(String(updatePayload?.error?.message || 'Firebase account status update failed.').slice(0, 240)),
+      {
+        status: updateResponse.status >= 500 ? 503 : updateResponse.status,
+        code: updateResponse.status === 403 ? 'AUTH_ACCOUNT_UPDATE_FORBIDDEN' : 'AUTH_ACCOUNT_UPDATE_FAILED'
+      }
+    );
+  }
+  if (String(updatePayload.localId || '') !== cleanUid) {
+    throw Object.assign(new Error('Firebase did not confirm the selected account identity.'), {
+      status: 503,
+      code: 'AUTH_ACCOUNT_UPDATE_UNCONFIRMED'
+    });
+  }
+
+  // The update response does not include the disabled flag in its documented
+  // response schema; look the account up again and verify the actual state.
+  const lookupResponse = await fetch(
+    'https://identitytoolkit.googleapis.com/v1/projects/' + projectId + '/accounts:lookup',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ localId: [cleanUid] })
+    }
+  );
+  const lookupPayload = await lookupResponse.json().catch(() => ({}));
+  if (!lookupResponse.ok) {
+    throw Object.assign(
+      new Error('Firebase accepted the account update but its final status could not be verified.'),
+      {
+        status: lookupResponse.status >= 500 ? 503 : lookupResponse.status,
+        code: 'AUTH_ACCOUNT_UPDATE_UNVERIFIED'
+      }
+    );
+  }
+  const confirmed = (Array.isArray(lookupPayload.users) ? lookupPayload.users : [])
+    .find(account => String(account?.localId || '') === cleanUid);
+  if (!confirmed || confirmed.disabled !== disabled) {
+    throw Object.assign(new Error('Firebase did not confirm the requested account status.'), {
+      status: 503,
+      code: 'AUTH_ACCOUNT_UPDATE_UNCONFIRMED'
+    });
+  }
+  return { uid: cleanUid, disabled: confirmed.disabled, confirmed: true };
+}
+
+export async function revokeFirebaseRefreshTokens(
+  env,
+  uid,
+  validSince = Math.floor(Date.now() / 1000)
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const cleanUid = String(uid || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(cleanUid)) {
+    throw Object.assign(new Error('Firebase user ID is invalid.'), {
+      status: 400,
+      code: 'AUTH_INVALID_IDENTITY'
+    });
+  }
+  const timestamp = Number(validSince);
+  if (!Number.isFinite(timestamp) || timestamp < 0) {
+    throw Object.assign(new Error('Firebase session revocation timestamp is invalid.'), {
+      status: 400,
+      code: 'AUTH_INVALID_REVOCATION_TIME'
+    });
+  }
+
+  const accessToken = await getGoogleIdentityToolkitAccessToken(env);
+  const url = 'https://identitytoolkit.googleapis.com/v1/projects/' +
+    encodeURIComponent(serviceAccount.project_id) + '/accounts:update';
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + accessToken,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      localId: cleanUid,
+      validSince: String(Math.floor(timestamp))
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = String(payload?.error?.message || 'Firebase refresh-token revocation failed.');
+    throw Object.assign(new Error(message.slice(0, 240)), {
+      status: response.status >= 500 ? 503 : response.status,
+      code: response.status === 403 ? 'AUTH_REVOCATION_FORBIDDEN' : 'AUTH_REVOCATION_FAILED'
+    });
+  }
+  return { uid: cleanUid, validSince: Math.floor(timestamp) };
+}

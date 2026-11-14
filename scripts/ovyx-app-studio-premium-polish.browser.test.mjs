@@ -1,0 +1,249 @@
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright';
+
+const runtimeSource = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-premium-polish.js', import.meta.url)), 'utf8');
+const runtime = runtimeSource.replace(
+  'function enhanceStages(root) {',
+  'function enhanceStages(root) { window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ = (window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ || 0) + 1;'
+);
+assert.notEqual(runtime, runtimeSource, 'The stage-enhancement instrumentation point must remain available.');
+const appShellRuntime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-shell-polish.js', import.meta.url)), 'utf8');
+const requests = [];
+const report = {
+  source: { inputUrl: 'https://coastal.example/', canonicalUrl: 'https://coastal.example/', analyzedAt: '2026-10-18T00:00:00Z' },
+  summary: { pagesDiscovered: 3, pagesInspected: 2, assetsDiscovered: 4, pagesBlocked: 0 },
+  branding: { name: 'Coastal Living', confidence: 'high', colors: { primary: '#D81B60', secondary: '#302060' } }
+};
+const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body data-ovyx-v57-view="home">
+<section id="view-router-viewport"><section id="view-home"><div class="v59-dashboard-shell">Dashboard content fixture</div></section></section>
+<nav id="ovyx-v52-bottom-bar" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr))"><button>Home</button><button>Build</button><button class="v52-bottom-create"><b>+</b>New</button><button>Code</button><button>More</button></nav>
+<section id="view-appstudio" class="flex flex-col">
+  <section id="ovyx-app-studio-brand-dna-panel" class="ovyx-app-brand-dna">
+    <div class="ovyx-app-brand-dna__heading"><h3>Brand DNA</h3></div>
+    <div class="ovyx-app-brand-dna__grid"><label>App name<input data-brand-app-name value="Coastal Living"></label></div>
+    <button data-brand-save>Save identity</button>
+  </section>
+  <section id="ovyx-app-studio-url-analyzer-panel" class="ovyx-ua-panel">
+    <form><label>Website URL<input data-ua-url type="url" value="https://coastal.example"></label><button data-ua-analyze>Analyze website</button></form>
+    <div data-ua-results>
+      <div class="ovyx-ua-stats"><div class="ovyx-ua-stat"><strong>2</strong><span>Pages inspected</span></div></div>
+      <section class="ovyx-ua-section"><h4>Detected identity</h4><button class="ovyx-ua-secondary" data-ua-palette>Use detected palette in Brand DNA</button></section>
+      <section class="ovyx-ua-section"><h4>Site map</h4><ul class="ovyx-ua-pages"><li>Home</li><li>About</li></ul></section>
+      <section class="ovyx-ua-section"><h4>Assets discovered</h4><ul><li>Logo URL</li><li>Stylesheet URL</li></ul></section>
+      <section class="ovyx-ua-section"><h4>What this report can and cannot tell us</h4><p>Known inspection limits</p></section>
+      <p class="ovyx-ua-report-foot">Source report is held in this tab.</p>
+      <section id="ovyx-app-studio-link-builder" class="ovyx-lb-panel"><h4>Generate your first link-based app</h4><button data-lb-generate>Generate first app</button></section>
+    </div>
+  </section>
+  <div id="app-studio-clean-canvas"><div id="as4-shell">Existing Web Studio mobile conversion form</div></div>
+  <section id="ovyx-app-studio-project-brain" class="ovyx-lb-brain">
+    <p data-lb-brain-status>STATIC CHECKS ONLY</p>
+    <details class="ovyx-lb-brain-findings" open><summary>Failures, warnings and evidence</summary><ul><li>Fixture evidence</li></ul></details>
+  </section>
+  <section id="ovyx-app-studio-release" class="ovyx-lb-release"><button data-lb-publish>Publish production</button></section>
+</section>
+<script>
+window.__OVYX_URL_ANALYZER_LAST_REPORT__=${JSON.stringify(report)};
+window.__OVYX_APP_STUDIO_GENERATED_PROJECT__=null;
+window.__OVYX_PROJECT_BRAIN_REPORT__=null;
+window.ThemeContext={
+  theme:{mode:'dark',backgroundColor:'#050607',sidebarColor:'#050607',cardColor:'#0B0D10',borderColor:'#1B222A',textColor:'#F8FAFC',mutedColor:'#94A3B8',accentColor:'#E8B64F'},
+  get(){return {...this.theme}},
+  preview(patch){this.theme={...this.theme,...patch};document.dispatchEvent(new CustomEvent('ovyx:theme-applied',{detail:{effective:{...this.theme},reason:'preview'}}));return this.theme},
+  set(patch){return this.preview(patch)},
+  isDirty(){return true}
+};
+window.OVYXThemeLab={
+  state:{active:'custom_test',customThemes:{custom_test:{name:'Low contrast test',bg:'#000000',panel:'#101010',text:'#111111',secondary:'#222222',muted:'#333333',accent:'#010101',border:'#111111'}}},
+  activeTheme(){return this.state.customThemes[this.state.active]},
+  apply(){return true},
+  set(id){this.state.active=id;return id}
+};
+</script>
+<script src="/assets/ovyx-app-studio-premium-polish.js"></script>
+<script src="/assets/ovyx-app-shell-polish.js"></script>
+</body></html>`;
+
+function send(res, status, body, type='application/json; charset=utf-8') {
+  res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store' });
+  res.end(type.includes('json') ? JSON.stringify(body) : String(body));
+}
+const server = createServer((req, res) => {
+  if (req.url === '/') return send(res, 200, html, 'text/html; charset=utf-8');
+  if (req.url === '/assets/ovyx-app-studio-premium-polish.js') return send(res, 200, runtime, 'text/javascript; charset=utf-8');
+  if (req.url === '/assets/ovyx-app-shell-polish.js') return send(res, 200, appShellRuntime, 'text/javascript; charset=utf-8');
+  if (req.url === '/favicon.ico') { res.writeHead(204); return res.end(); }
+  requests.push(req.url);
+  return send(res, 404, { ok: false });
+});
+await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+const base = 'http://127.0.0.1:' + server.address().port;
+const browser = await chromium.launch({ headless: true });
+try {
+  const desktop = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const errors = [];
+  desktop.on('pageerror', error => errors.push(error.message));
+  await desktop.goto(base, { waitUntil: 'load' });
+  await desktop.locator('#ovyx-as-title').waitFor();
+  await desktop.waitForTimeout(120);
+  const stagePassesBeforeIdle = await desktop.evaluate(() => window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ || 0);
+  await desktop.waitForTimeout(200);
+  const stagePassesAfterIdle = await desktop.evaluate(() => window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ || 0);
+  assert.ok(stagePassesAfterIdle - stagePassesBeforeIdle <= 1,
+    'App Studio stage metadata must settle after initial rendering instead of repeatedly triggering the whole-body MutationObserver. ' +
+    'Enhancement runs grew from ' + stagePassesBeforeIdle + ' to ' + stagePassesAfterIdle + '.');
+  const wideLayout = await desktop.evaluate(() => {
+    const root = document.getElementById('view-appstudio');
+    const hero = document.getElementById('ovyx-app-studio-experience');
+    const canvas = document.getElementById('app-studio-clean-canvas');
+    return { viewport: document.documentElement.clientWidth, root: root.getBoundingClientRect().width, hero: hero.getBoundingClientRect().width, canvas: canvas.getBoundingClientRect().width };
+  });
+  assert.ok(wideLayout.root > 1300 && wideLayout.hero > 1200 && wideLayout.canvas > 1200,
+    'Desktop App Studio sections must use the full available screen width rather than the former 1120px cap: ' + JSON.stringify(wideLayout));
+
+  const desktopPolish = await desktop.evaluate(() => {
+    window.OVYXThemeLab.set('custom_test');
+    const theme = window.ThemeContext.get();
+    const root = getComputedStyle(document.documentElement);
+    const effective = {
+      backgroundColor: root.getPropertyValue('--bg').trim(),
+      cardColor: root.getPropertyValue('--card').trim(),
+      textColor: root.getPropertyValue('--text').trim(),
+      mutedColor: root.getPropertyValue('--muted').trim(),
+      accentColor: root.getPropertyValue('--accent').trim(),
+      borderColor: root.getPropertyValue('--border').trim()
+    };
+    const luminance = color => {
+      const rgb = color.slice(1).match(/.{2}/g).map(value => parseInt(value, 16) / 255)
+        .map(value => value <= .04045 ? value / 12.92 : Math.pow((value + .055) / 1.055, 2.4));
+      return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
+    };
+    const ratio = (a,b) => {
+      const x=luminance(a), y=luminance(b);
+      return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);
+    };
+    return {
+      theme, effective,
+      textContrast: Math.min(ratio(effective.textColor,effective.backgroundColor),ratio(effective.textColor,effective.cardColor)),
+      mutedContrast: Math.min(ratio(effective.mutedColor,effective.backgroundColor),ratio(effective.mutedColor,effective.cardColor)),
+      accentContrast: Math.min(ratio(effective.accentColor,effective.backgroundColor),ratio(effective.accentColor,effective.cardColor)),
+      borderContrast: ratio(effective.borderColor,effective.cardColor),
+      bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom
+    };
+  });
+  assert.ok(desktopPolish.textContrast >= 4.5, 'Theme text must remain readable against both canvas and cards: ' + JSON.stringify(desktopPolish));
+  assert.ok(desktopPolish.mutedContrast >= 4.5, 'Muted theme text must retain readable contrast: ' + JSON.stringify(desktopPolish));
+  assert.ok(desktopPolish.accentContrast >= 3, 'Theme accents must remain distinguishable: ' + JSON.stringify(desktopPolish));
+  assert.ok(desktopPolish.borderContrast >= 1.5, 'Theme borders must remain visible against cards: ' + JSON.stringify(desktopPolish));
+  assert.equal(desktopPolish.theme.textColor, '#111111', 'Contrast protection must not overwrite the user-selected color stored for export.');
+  assert.equal(desktopPolish.theme.accentColor, '#010101', 'Contrast protection must not rewrite the original Theme Lab accent in saved/exported theme data.');
+  assert.equal(desktopPolish.bottomPadding, '22px', 'App Studio should not reserve the old excessive 72px bottom gap.');
+
+  assert.equal(await desktop.locator('#view-appstudio > #ovyx-app-studio-experience').count(), 1, 'The new guided workspace header must be mounted once at the top.');
+  assert.match(await desktop.locator('#ovyx-as-title').innerText(), /From website to working app/);
+  assert.equal(await desktop.locator('[data-ovyx-as-step]').count(), 4, 'The workspace should present one clear analyze → generate → verify → release path.');
+  assert.ok(await desktop.locator('[data-ovyx-as-step="analyze"]').evaluate(el => el.classList.contains('is-complete')));
+  assert.ok(await desktop.locator('[data-ovyx-as-step="generate"]').evaluate(el => el.classList.contains('is-current')));
+
+  const identity = desktop.locator('#ovyx-as-identity-details');
+  assert.equal(await identity.count(), 1);
+  assert.equal(await identity.evaluate(el => el.open), false, 'Detailed brand editing should not dominate the first view.');
+  assert.ok(await identity.locator('#ovyx-app-studio-brand-dna-panel').count());
+  const legacy = desktop.locator('#ovyx-as-existing-conversion');
+  assert.equal(await legacy.evaluate(el => el.open), false, 'The older Web Studio conversion wizard must remain available but tucked away.');
+  assert.match(await legacy.locator('summary').innerText(), /Convert a Web Studio design/);
+  await legacy.locator('summary').click();
+  assert.equal(await legacy.evaluate(el => el.open), true);
+  assert.match(await legacy.innerText(), /Existing Web Studio mobile conversion form/);
+  await legacy.locator('summary').click();
+
+  const reportDetails = desktop.locator('#ovyx-app-studio-url-analyzer-panel .ovyx-as-report-details');
+  await reportDetails.waitFor();
+  assert.equal(await reportDetails.evaluate(el => el.open), false, 'The deep site map/assets/limitations should be progressive-disclosure content.');
+  assert.match(await reportDetails.locator('summary').innerText(), /3 pages reviewed/);
+  assert.equal(await desktop.locator('[data-ua-results] > .ovyx-ua-stats').count(), 1);
+  assert.equal(await desktop.locator('[data-ua-results] > .ovyx-ua-section').count(), 1, 'The key detected identity remains visible above the detailed report.');
+  assert.equal(await desktop.locator('[data-ua-results] > #ovyx-app-studio-link-builder').count(), 1, 'The generator stays prominent beside the summary, not hidden in detailed scan output.');
+
+  await desktop.locator('[data-ua-palette]').click();
+  assert.equal(await identity.evaluate(el => el.open), true, 'Palette transfer must open Brand DNA before asking the user to review it.');
+  await identity.locator('summary').click();
+
+  assert.equal(await desktop.locator('#ovyx-app-studio-project-brain .ovyx-lb-brain-findings').evaluate(el => el.open), false, 'Detailed test evidence should start collapsed, while the Project Brain status stays visible.');
+  await desktop.evaluate(() => {
+    window.__OVYX_APP_STUDIO_GENERATED_PROJECT__ = { id: 'link-coastal', name: 'Coastal Living', releaseState: { web: {}, mobile: null } };
+    window.__OVYX_PROJECT_BRAIN_REPORT__ = { status: 'passed', summary: { runtimeChecked: true, failures: 0, warnings: 0, passed: 20 } };
+    window.dispatchEvent(new CustomEvent('ovyx:link-app-generated'));
+    window.dispatchEvent(new CustomEvent('ovyx:project-brain-updated'));
+  });
+  await desktop.waitForFunction(() => document.querySelector('[data-ovyx-as-step="verify"]')?.classList.contains('is-complete'));
+  assert.ok(await desktop.locator('[data-ovyx-as-step="release"]').evaluate(el => el.classList.contains('is-current')));
+
+  await desktop.locator('[data-ovyx-as-step="release"]').click();
+  assert.ok(await desktop.locator('#ovyx-app-studio-release').isVisible(), 'The guided release step must scroll to the real release controls.');
+
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await mobile.emulateMedia({ reducedMotion: 'reduce' });
+  await mobile.goto(base, { waitUntil: 'load' });
+  await mobile.locator('#ovyx-as-title').waitFor();
+  const metrics = await mobile.evaluate(() => {
+    const root = document.getElementById('view-appstudio');
+    return {
+      viewport: document.documentElement.clientWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      appWidth: root.clientWidth,
+      appScrollWidth: root.scrollWidth,
+      overflowingChildren: Array.from(root.children).map(child => ({
+        id: child.id || '',
+        className: String(child.className || '').slice(0, 120),
+        width: Math.round(child.getBoundingClientRect().width),
+        clientWidth: child.clientWidth,
+        scrollWidth: child.scrollWidth,
+        overflowNodes: Array.from(child.querySelectorAll('*')).filter(node => node.scrollWidth > node.clientWidth + 2).slice(0, 8).map(node => ({
+          tag: node.tagName.toLowerCase(),
+          id: node.id || '',
+          className: String(node.className || '').slice(0, 100),
+          clientWidth: node.clientWidth,
+          scrollWidth: node.scrollWidth,
+          width: Math.round(node.getBoundingClientRect().width)
+        }))
+      })).filter(child => child.scrollWidth > child.clientWidth + 2 || child.width > root.clientWidth + 2)
+    };
+  });
+  assert.ok(metrics.appWidth > 0 && metrics.documentWidth <= metrics.viewport + 1 && metrics.appScrollWidth <= metrics.appWidth + 1,
+    'The premium App Studio layout must not create mobile horizontal overflow: ' + JSON.stringify(metrics));
+  const mobileShell = await mobile.evaluate(() => {
+    const dock = document.getElementById('ovyx-v52-bottom-bar');
+    const shell = document.querySelector('#view-home .v59-dashboard-shell');
+    const rect = dock.getBoundingClientRect();
+    const style = getComputedStyle(dock);
+    return {
+      left: rect.left, right: rect.right, bottom: rect.bottom, height: rect.height,
+      position: style.position, backgroundImage: style.backgroundImage,
+      topRadius: style.borderTopLeftRadius,
+      shellPadding: getComputedStyle(shell).paddingBottom,
+      viewportPadding: getComputedStyle(document.getElementById('view-router-viewport')).paddingBottom
+    };
+  });
+  assert.equal(mobileShell.position, 'fixed', 'The Home dock must stay anchored while dashboard content scrolls.');
+  assert.ok(Math.abs(mobileShell.left) < 0.5 && Math.abs(mobileShell.right - 390) < 0.5 && Math.abs(mobileShell.bottom - 844) < 0.5,
+    'The bottom navigation must attach to the dashboard screen edges rather than float as a detached pill: ' + JSON.stringify(mobileShell));
+  assert.notEqual(mobileShell.backgroundImage, 'none', 'The dock must retain its own themed surface instead of being flattened into the page canvas.');
+  assert.equal(mobileShell.topRadius, '18px', 'The integrated dock should keep a soft top edge.');
+  assert.equal(mobileShell.height, 64, 'The integrated dock must preserve the established 64px navigation height.');
+  assert.equal(mobileShell.shellPadding, '108px', 'The dashboard must keep a modest scroll clearance so its final card can clear the fixed dock without restoring the old oversized 190px runway.');
+  assert.match(mobileShell.viewportPadding, /76px/, 'The scroll viewport must reserve only enough room for the attached dock.');
+  const animation = await mobile.locator('#ovyx-app-studio-experience').evaluate(el => getComputedStyle(el).animationDuration);
+  assert.ok(['1e-05s', '0.00001s', '0.01ms'].includes(animation) || parseFloat(animation) <= 0.00001,
+    'Reduced-motion users must not receive decorative entrance animation; got ' + animation);
+  assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 4);
+  assert.deepEqual(errors, [], 'The workspace design runtime must not throw browser errors.');
+  assert.ok(requests.every(path => !path.startsWith('/api/')), 'Visual enhancements must not trigger or duplicate network/API requests.');
+  console.log('OVYX App Studio premium polish browser checks passed: guided four-step flow, compact brand/report disclosures, retained conversion path, working palette transfer, desktop/mobile fit and reduced-motion support.');
+} finally {
+  await browser.close();
+  await new Promise(resolve => server.close(resolve));
+}

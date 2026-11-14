@@ -1,0 +1,554 @@
+import { buildProjectIntelligence, projectIntelligenceInstructions } from '../functions/_lib/project-intelligence.js';
+import assert from 'node:assert/strict';
+import {
+  buildWebsiteEnginePlan,
+  buildWebsiteEngineInstructions,
+  websiteEngineClientSummary,
+  buildWebsiteEngineReadiness,
+  runWebsiteGeneration,
+  parseBackendFiles,
+  auditBackendFiles,
+} from '../functions/_lib/website-engine.js';
+
+const prompt = [
+  'Build a premium multi-page website for a boutique hotel.',
+  'Pages: Home, About, Services, Pricing.',
+  'Include a reservation flow, contact form and email delivery.',
+  'Do not invent room prices, guest reviews or availability.',
+  'Use an editorial visual direction with responsive layouts.',
+].join(' ');
+
+const plan = buildWebsiteEnginePlan(prompt, {
+  market: 'Nigeria',
+  integrations: [{ provider: 'Resend', connected: true }],
+});
+assert.equal(plan.engine, 'ovyx-unified-website-engine');
+assert.equal(plan.strategy, 'multi-page');
+assert.deepEqual(plan.pageArchitecture.pages.map(page => page.title), ['Home', 'About', 'Services', 'Pricing', 'Reservations', 'Contact']);
+assert.ok(plan.requirementManifest.total >= 4);
+assert.ok(plan.requirementManifest.constraints.some(item => /do not invent/i.test(item)));
+assert.ok(plan.interactionArchitecture.capabilities.includes('booking'));
+assert.ok(plan.interactionArchitecture.capabilities.includes('forms'));
+assert.equal(plan.interactionArchitecture.capabilities.includes('file-storage'), false,
+  'Existing hotel brief does not request user-managed file storage.');
+assert.ok(plan.integrations.some(item => item.capability === 'email' && item.connection === 'configured-unverified' && item.connectionMetadataPresent));
+assert.ok(plan.integrations.find(item => item.capability === 'email').recommendedProviders.includes('Resend'));
+assert.match(plan.integrations.find(item => item.capability === 'email').ownerAction, /verify the sending domain/i);
+const nigeriaPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { country: 'Nigeria' }).integrations.find(item => item.capability === 'payments');
+assert.ok(nigeriaPayments.recommendedProviders.includes('Paystack'));
+assert.ok(nigeriaPayments.recommendedProviders.includes('OPay'));
+const nigeriaCodePayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { countryCode: 'NG' }).integrations.find(item => item.capability === 'payments');
+assert.ok(nigeriaCodePayments.recommendedProviders.includes('Paystack'));
+const nigeriaCurrencyPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { currency: 'NGN' }).integrations.find(item => item.capability === 'payments');
+assert.ok(nigeriaCurrencyPayments.recommendedProviders.includes('OPay'));
+const germanyPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { country: 'Germany' }).integrations.find(item => item.capability === 'payments');
+assert.deepEqual(germanyPayments.recommendedProviders, [], 'Do not recommend a payment provider until its merchant and settlement-country eligibility is confirmed.');
+const explicitGermanyOverridesMarket = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { country: 'Germany', market: 'Nigeria' }).integrations.find(item => item.capability === 'payments');
+assert.deepEqual(explicitGermanyOverridesMarket.recommendedProviders, [], 'An explicit non-Nigerian country must not inherit a Nigerian provider recommendation or assume Stripe eligibility.');
+assert.match(germanyPayments.recommendation, /settlement country/i);
+assert.match(germanyPayments.recommendation, /Do not assume Stripe, Paystack, OPay or any other provider is available/i);
+const unspecifiedMarketPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.').integrations.find(item => item.capability === 'payments');
+assert.deepEqual(unspecifiedMarketPayments.recommendedProviders, [], 'An unspecified target market must not silently select any payment provider.');
+assert.match(unspecifiedMarketPayments.recommendation, /No payment provider is selected by default/i);
+const japanPayments = buildWebsiteEnginePlan('Build an online store with card payments and checkout.', { countryCode: 'JP' }).integrations.find(item => item.capability === 'payments');
+assert.deepEqual(japanPayments.recommendedProviders, [], 'Japan must not receive an unverified global payment-provider recommendation.');
+assert.ok(plan.integrations.some(item => item.capability === 'booking' && item.connection === 'internal-database-backed-option' && item.externalProviderRequired === false));
+assert.ok(plan.integrations.some(item => item.capability === 'database' && item.connection === 'connect-required' && item.productionGate === 'blocked-until-live-verification'));
+assert.ok(plan.qualityGates.length > 0);
+assert.equal(plan.fullStackArchitecture.engine, 'ovyx-fullstack-architecture');
+assert.ok(plan.fullStackArchitecture.capabilities.frontend);
+assert.ok(plan.fullStackArchitecture.capabilities.booking);
+assert.ok(plan.fullStackArchitecture.apiContracts.some(route => route.path === '/api/bookings'));
+assert.ok(plan.fullStackArchitecture.testPlan.some(test => test.id === 'booking-conflicts'));
+assert.ok(plan.fullStackArchitecture.stateMachines.some(machine => machine.entity === 'Booking'));
+assert.ok(plan.fullStackArchitecture.crossLayerContracts.dataConsistency);
+assert.equal(websiteEngineClientSummary(plan).fullStackArchitecture.graph.valid, true);
+assert.ok(websiteEngineClientSummary(plan).fullStackArchitecture.workflowStateMachineCount > 0);
+assert.match(buildWebsiteEngineInstructions(plan), /AUTHORITATIVE PRE-GENERATION PLAN/);
+assert.match(buildWebsiteEngineInstructions(plan), /serves users and audiences worldwide/i);
+assert.match(buildWebsiteEngineInstructions(plan), /BCP 47 language tags, ISO 3166-1 country codes, ISO 4217 currency codes and IANA timezone identifiers/i);
+assert.match(buildWebsiteEngineInstructions(plan), /Do not default to Paystack or OPay for a non-Nigerian business/i);
+assert.match(buildWebsiteEngineInstructions(plan), /FULL-STACK ARCHITECTURE CONTRACT/);
+assert.match(buildWebsiteEngineInstructions(plan), /do not silently return a frontend-only site/i);
+assert.match(buildWebsiteEngineInstructions(plan), /configured-but-unverified/i);
+assert.ok(buildWebsiteEngineInstructions(plan).includes('surface a setup/connect request to the owner'));
+assert.match(buildWebsiteEngineInstructions(plan), /Payment checkout must remain disabled until server-side credentials/i);
+assert.match(buildWebsiteEngineInstructions(plan), /internal database-backed reservation workflow/i);
+assert.match(buildWebsiteEngineInstructions(plan), /Cloudflare D1/);
+assert.match(buildWebsiteEngineInstructions(plan), /matching server route\/handler/i);
+assert.match(buildWebsiteEngineInstructions(plan), /domain schema, relationships, constraints and indexes/i);
+assert.match(buildWebsiteEngineInstructions(plan), /workflow state machines/i);
+assert.match(buildWebsiteEngineInstructions(plan), /authorization-negative cases/i);
+const persistenceContract = {
+  apiContracts: [{ id: 'records-read', method: 'GET', path: '/api/records', authPolicy: 'session-or-authenticated', modelIds: ['model-record'] }],
+  dataModels: [],
+  dataIntegrity: { relationships: [], indexes: [] },
+  stateMachines: [],
+};
+const memoryOnlyAudit = auditBackendFiles({
+  'functions/api/records.js': 'export async function onRequestGet({ data }) { const user = requireAuth(data.user); const db = new Map(); return Response.json({ record: db.get(user.uid) }); }',
+}, persistenceContract);
+assert.equal(memoryOnlyAudit.routeEvidence[0].persistenceDetected, false,
+  'An in-memory Map must not count as persistent backend storage.');
+const databaseBackedAudit = auditBackendFiles({
+  'functions/api/records.js': "export async function onRequestGet({ env, data }) { const user = requireAuth(data.user); const record = await env.DB.prepare('SELECT id FROM records WHERE owner_id = ?').bind(user.uid).first(); return Response.json(record); }",
+}, persistenceContract);
+assert.equal(databaseBackedAudit.routeEvidence[0].persistenceDetected, true,
+  'A server route using the configured database binding and a real query should retain source evidence; runtime persistence remains a separate gate.');
+const safeBackendSource = parseBackendFiles({ files: {
+  'functions/api/health.js': 'export async function onRequestGet() { return Response.json({ ok: true }); }',
+  'functions/api/secret.js': "export async function onRequestGet() { const key = 'sk_live_12345678901234567890'; return Response.json({ ok: true }); }",
+  'functions/api/unsafe.js': 'export async function onRequestGet() { return eval("1 + 1"); }',
+  'functions/api/slack-secret.js': "export async function onRequestGet() { const key = 'xoxb-12345678901234567890'; return Response.json({ ok: true }); }",
+} });
+assert.deepEqual(Object.keys(safeBackendSource), ['functions/api/health.js'],
+  'Backend source ingestion must reject known credential formats and unsafe dynamic execution while retaining safe route code.');
+assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
+const emailSummary = websiteEngineClientSummary(plan).integrations.find(item => item.capability === 'email');
+assert.equal(emailSummary.connection, 'configured-unverified');
+assert.equal(emailSummary.productionGate, 'blocked-until-live-verification');
+assert.ok(emailSummary.recommendedProviders.includes('Resend'));
+assert.match(emailSummary.ownerAction, /test a real message/i);
+assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
+const genericFullStackPlan = buildWebsiteEnginePlan(
+  'Build a full-stack business website with a custom backend and persistent data.',
+);
+assert.ok(genericFullStackPlan.integrations.some(item => item.capability === 'database'),
+  'A full-stack brief must include its inferred database integration in the website plan.');
+assert.ok(genericFullStackPlan.interactionArchitecture.capabilities.includes('persistent-data'),
+  'The website capability summary must reflect inferred persistent data requirements.');
+
+const uploadPlan = buildWebsiteEnginePlan(
+  'Build a full-stack client portal with secure image and document uploads stored in Cloudflare R2.',
+  { connections: [{ provider: 'Cloudflare R2', connected: true }] },
+);
+assert.ok(uploadPlan.fullStackArchitecture.capabilities.fileStorage,
+  'File uploads must be recognized as a first-class full-stack capability.');
+assert.ok(uploadPlan.fullStackArchitecture.dataModels.some(model => model.name === 'StoredAsset'));
+assert.ok(uploadPlan.fullStackArchitecture.apiContracts.some(route => route.path === '/api/assets'));
+assert.ok(uploadPlan.interactionArchitecture.capabilities.includes('file-storage'));
+assert.ok(uploadPlan.integrations.some(item => item.capability === 'storage' && item.connection === 'configured-unverified'));
+assert.match(buildWebsiteEngineInstructions(uploadPlan), /upload-isolation/);
+
+
+const linePreservingBrief = [
+  'Build a multi-page business website.',
+  'Keep the existing user accounts and secure sessions.',
+  'Persist enquiries and send them through the configured email integration.',
+].join('\n');
+assert.equal(
+  buildWebsiteEnginePlan(linePreservingBrief).requirementManifest.total,
+  3,
+  'The website engine must preserve separate line-delimited requirements when building its prompt contract.',
+);
+
+// Long accepted briefs must never be cut in the middle of the model-facing JSON.
+// The full brief remains in the task prompt; the bounded index preserves every
+// requirement ID and explicitly labels excerpts as non-authoritative summaries.
+const longBrief = Array.from({ length: 180 }, (_, index) =>
+  'Requirement ' + (index + 1) + ': Preserve the full requested route content, meaningful interactions, accessible controls, responsive layout, trustworthy data handling and recovery states without inventing unsupported facts'
+).join('\n');
+const longPlan = buildWebsiteEnginePlan(longBrief);
+assert.equal(longPlan.requirementManifest.total, 180);
+const longInstructions = buildWebsiteEngineInstructions(longPlan);
+const serializedPlan = longInstructions.split(/\n\n/)[2];
+assert.ok(serializedPlan.length <= 18000, 'The serialized Website Engine plan must stay within its defined instruction budget.');
+const parsedLongPlan = JSON.parse(serializedPlan);
+assert.equal(parsedLongPlan.requirementManifest.requirements.length, 180);
+assert.equal(parsedLongPlan.requirementManifest.requirements[0][0], 'R001');
+assert.equal(parsedLongPlan.requirementManifest.requirements.at(-1)[0], 'R180');
+assert.equal(parsedLongPlan.requirementManifest.sourcePromptRemainsAuthoritative, true);
+assert.equal(parsedLongPlan.requirementManifest.indexEntriesAreExcerpts, true);
+assert.ok(parsedLongPlan.designArchitecture.mustHave.length > 0);
+assert.ok(parsedLongPlan.designArchitecture.conversionPrinciples.length > 0);
+assert.ok(parsedLongPlan.fullStackArchitecture);
+assert.equal(parsedLongPlan.fullStackArchitecture.requirementTraceabilityGroups.reduce((sum, group) => sum + group.requirementIds.length, 0), 180);
+assert.ok(serializedPlan.length <= 18000, 'The architecture contract must fit the same bounded model instruction budget.');
+
+const longFullStackBrief = Array.from({ length: 180 }, (_, index) =>
+  'Requirement ' + (index + 1) + ': Persist the order record, enforce account roles, validate checkout, reconcile payment events and verify the server API response for workflow step ' + (index + 1) + '.'
+).join('\n');
+const longFullStackPlan = buildWebsiteEnginePlan(longFullStackBrief);
+const longFullStackInstructions = buildWebsiteEngineInstructions(longFullStackPlan);
+const longFullStackSerialized = longFullStackInstructions.split(/\n\n/)[2];
+assert.ok(longFullStackSerialized.length <= 18000, 'A complex full-stack architecture and all requirement IDs must fit the safe model instruction budget.');
+const parsedLongFullStack = JSON.parse(longFullStackSerialized);
+assert.equal(parsedLongFullStack.fullStackArchitecture.requirementTraceabilityGroups.reduce(
+  (sum, group) => sum + group.requirementIds.length, 0
+), 180);
+assert.equal(parsedLongFullStack.fullStackArchitecture.graphIntegrity.valid, true);
+assert.ok(parsedLongFullStack.fullStackArchitecture.apiContracts.some(route => route.path === '/api/payments/intents'));
+assert.ok(parsedLongFullStack.fullStackArchitecture.security.controls.some(control => control[0] === 'payment-integrity'));
+assert.ok(parsedLongFullStack.fullStackArchitecture.stateMachines.some(machine => machine.entity === 'PaymentAttempt'));
+assert.ok(parsedLongFullStack.fullStackArchitecture.dataIntegrity.constraints.some(item => item[0] === 'money-minor-units'));
+
+
+const freshBuildReadiness = buildWebsiteEngineReadiness(
+  'Build a business website with a real contact form and email delivery.',
+  {},
+  { mode: 'build', conversationText: 'We need messages to reach the business owner.' },
+);
+assert.equal(freshBuildReadiness.type, 'build_readiness');
+assert.ok(freshBuildReadiness.questions.some(question => /public email address/i.test(question)));
+const existingHtml = {
+  'index.html': '<!doctype html><html><head><title>Existing</title></head><body>' + 'Existing project content '.repeat(40) + '</body></html>',
+};
+assert.equal(buildWebsiteEngineReadiness(
+  'Fix the hero spacing and align the navigation.',
+  { files: existingHtml },
+  { mode: 'build', files: existingHtml },
+), null, 'Routine existing-site edits should not be interrupted by fresh-build intake questions.');
+assert.ok(buildWebsiteEngineReadiness(
+  'Add real Paystack checkout to this existing website.',
+  { files: existingHtml },
+  { mode: 'build', files: existingHtml },
+), 'Adding a real integration to an existing site must still trigger readiness checks.');
+assert.equal(buildWebsiteEngineReadiness(
+  'Build a business website with a contact form.',
+  {},
+  { mode: 'assistant' },
+), null, 'Readiness questions only gate actual website builds.');
+
+let multiPageCalls = 0;
+let modelCalls = 0;
+let repairCalls = 0;
+const multiPage = await runWebsiteGeneration({
+  env: {},
+  callModel: async () => { modelCalls += 1; return { text: 'unused' }; },
+  shouldBuild: true,
+  initialQuotaInputText: 'initial',
+  multiPageOptions: { prompt: 'brief' },
+  buildMultiPage: async options => {
+    multiPageCalls += 1;
+    assert.equal(options.prompt, 'brief');
+    assert.equal(typeof options.callModel, 'function');
+    return { text: 'built', files: { 'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Built site</title></head><body><h1>Built</h1></body></html>' }, quotaInputText: 'builder-input', quotaOutputText: 'builder-output' };
+  },
+  repairSinglePage: async () => { repairCalls += 1; return null; },
+});
+assert.equal(multiPage.multiPageBuild, true);
+assert.equal(multiPage.result.text, 'built');
+assert.equal(multiPage.quotaInputText, 'builder-input');
+assert.equal(multiPage.quotaOutputText, 'builder-output');
+assert.equal(multiPageCalls, 1);
+assert.equal(modelCalls, 0);
+assert.equal(repairCalls, 0);
+
+
+const backendArchitecture = buildWebsiteEnginePlan(
+  'Build a full-stack contact website with a contact form and database persistence.'
+).fullStackArchitecture;
+const workflowSource = 'export const workflowContracts = ' + JSON.stringify(backendArchitecture.stateMachines || []) + '; export function transitionContactSubmission(state, nextState) { return { state, nextState }; }';
+const backendTestSource = "import { test } from 'node:test'; import assert from 'node:assert/strict'; test('authorization owner rate-limit idempotency workflow transition', () => { assert.ok(['authorization', 'owner', 'rate-limit', 'idempotency', 'transition'].length === 5); });";
+let backendCalls = 0;
+const backendBuild = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  fullStackArchitecture: backendArchitecture,
+  originalPrompt: 'Build a contact form that persists submissions.',
+  modelOptions: { system: 'system' },
+  callModel: async (_env, options) => {
+    backendCalls += 1;
+    assert.match(options.taskPrompt, /FULL-STACK SOURCE GENERATION/);
+    assert.match(options.taskPrompt, /opaque owner-scoped object keys/);
+    assert.match(options.taskPrompt, /valid IANA timezone/);
+    assert.match(options.taskPrompt, /active server-owned schema version/);
+    assert.match(options.taskPrompt, /CSRF protection/);
+    assert.match(options.taskPrompt, /transactional outbox/);
+    assert.match(options.taskPrompt, /Every route that declares data models must execute a real provider-backed read or write/);
+    assert.match(options.taskPrompt, /hard-coded arrays, in-memory maps, TODOs, mock repositories/);
+    return {
+      text: JSON.stringify({
+        files: {
+          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const values = validateRequest(await context.request.json()); const result = await context.env.DB.prepare(\"INSERT INTO contact_submissions\").bind(values.name, values.replyTo, values.message).run(); return Response.json({ ok: true, result }); }',
+          'db/schema.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
+          'migrations/0001_initial.sql': 'CREATE TABLE contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
+          'server/workflows/contact-submission.js': workflowSource,
+          'tests/backend-contracts.test.js': backendTestSource,
+          'ovyx-qa-plan.json': JSON.stringify({
+            version: 1,
+            backendRequired: true,
+            backendChecks: [{ id: 'contact-submission-read', sourceFile: 'functions/api/contact-submissions.js', method: 'GET', route: '/api/contact-submissions', expectedStatus: 200, identity: 'anonymous' }],
+          }),
+        },
+      }),
+      usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+    };
+  },
+  buildMultiPage: async () => ({
+    text: 'frontend built',
+    files: { 'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Contact</title></head><body>Contact</body></html>' },
+    rawUsage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 },
+  }),
+});
+assert.equal(backendCalls, 1, 'A full-stack website build must run a distinct backend source-generation pass.');
+assert.equal(backendBuild.result.fullStackGeneration.status, 'source-generated-runtime-unverified');
+assert.equal(backendBuild.fullStackSourceEvidence.status, 'source-evidence-present-runtime-unverified');
+assert.ok(backendBuild.result.files['functions/api/contact-submissions.js']);
+assert.ok(backendBuild.result.files['db/schema.sql']);
+assert.equal(backendBuild.fullStackSourceEvidence.runtimeBehaviorVerified, false);
+assert.equal(backendBuild.fullStackSourceEvidence.databasePersistenceVerified, false);
+assert.equal(backendBuild.fullStackSourceEvidence.workflowEvidenceCount, backendArchitecture.stateMachines.length);
+assert.equal(backendBuild.fullStackSourceEvidence.generatedTestEvidence, true);
+assert.equal(backendBuild.fullStackSourceEvidence.requestValidationEvidenceCount, 1);
+assert.equal(backendBuild.fullStackSourceEvidence.persistenceEvidenceCount, 1);
+assert.equal(backendBuild.fullStackSourceEvidence.migrationEvidence, true);
+assert.equal(backendBuild.fullStackSourceEvidence.databaseProvider, 'not-selected-by-architecture-planner');
+assert.equal(backendBuild.fullStackSourceEvidence.indexEvidenceCount, backendArchitecture.dataIntegrity.indexes.length);
+assert.equal(backendBuild.fullStackSourceEvidence.relationshipEvidenceCount, backendArchitecture.dataIntegrity.relationships.length);
+assert.deepEqual(backendBuild.result.rawUsage, { prompt_tokens: 13, completion_tokens: 24, total_tokens: 37 }, 'Backend model usage must be added to frontend generation usage before quota settlement.');
+
+
+
+let singlePageBackendCalls = 0;
+const singlePageHtml = '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Single page contact</title></head><body>Single page contact</body></html>';
+const singlePageBackend = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  fullStackArchitecture: backendArchitecture,
+  originalPrompt: 'Build a single-page full-stack contact website.',
+  modelOptions: { system: 'system' },
+  callModel: async (_env, options) => {
+    singlePageBackendCalls += 1;
+    if (!options.taskPrompt || !options.taskPrompt.includes('FULL-STACK SOURCE GENERATION')) {
+      return { text: singlePageHtml, rawUsage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 } };
+    }
+    return {
+      text: JSON.stringify({
+        files: {
+          'functions/api/contact-submissions.js': 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const input = await context.request.json(); const values = validateRequest(input); const result = await context.env.DB.prepare("INSERT INTO contact_submissions").bind(values.name, values.replyTo, values.message).run(); return Response.json({ ok: true, result }); }',
+          'db/schema.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
+          'migrations/0001_initial.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
+          'server/workflows/contact-submission.js': workflowSource,
+          'tests/backend-contracts.test.js': backendTestSource,
+          'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: true, backendChecks: [{ id: 'contact-submission-read', sourceFile: 'functions/api/contact-submissions.js', method: 'GET', route: '/api/contact-submissions', expectedStatus: 200 }] }),
+        },
+      }),
+      usage: { prompt_tokens: 4, completion_tokens: 6, total_tokens: 10 },
+    };
+  },
+  buildMultiPage: async () => null,
+  repairSinglePage: async ({ result }) => ({ result, quotaInputText: 'single page prompt', quotaOutputText: result.text }),
+});
+assert.equal(singlePageBackendCalls, 2);
+assert.equal(singlePageBackend.multiPageBuild, true, 'A single-page frontend must be packaged with its generated backend files.');
+assert.equal(singlePageBackend.result.files['index.html'], singlePageHtml);
+assert.ok(singlePageBackend.result.files['functions/api/contact-submissions.js']);
+assert.deepEqual(singlePageBackend.result.rawUsage, { prompt_tokens: 6, completion_tokens: 9, total_tokens: 15 });
+
+let secureBackendAttempts = 0;
+const secureBackendBuild = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  fullStackArchitecture: backendArchitecture,
+  originalPrompt: 'Build a full-stack contact website.',
+  callModel: async () => {
+    secureBackendAttempts += 1;
+    const routeSource = secureBackendAttempts === 1
+      ? 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const key = "sk_" + "live_12345678901234567890"; return Response.json({ key }); }'
+      : 'export async function onRequestPost(context) { await enforceRateLimit(context.request); const values = validateRequest(await context.request.json()); const result = await context.env.DB.prepare("INSERT INTO contact_submissions").bind(values.name, values.replyTo, values.message).run(); return Response.json({ ok: true, result }); }';
+    return {
+      text: JSON.stringify({
+        files: {
+          'functions/api/contact-submissions.js': routeSource,
+          'functions/api/unsafe-runtime.js': "export async function onRequestGet() { return Response.json({ value: eval('1 + 1') }); }",
+          'db/schema.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
+          'migrations/0001_initial.sql': 'CREATE TABLE IF NOT EXISTS contact_submissions (id TEXT PRIMARY KEY, name TEXT NOT NULL, reply_to TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL);',
+          'server/workflows/contact-submission.js': workflowSource,
+          'tests/backend-contracts.test.js': backendTestSource,
+          'ovyx-qa-plan.json': JSON.stringify({ version: 1, backendRequired: true, backendChecks: [{ id: 'contact-submission-read', sourceFile: 'functions/api/contact-submissions.js', method: 'GET', route: '/api/contact-submissions', expectedStatus: 200 }] }),
+        },
+      }),
+    };
+  },
+  buildMultiPage: async () => ({ text: 'frontend built', files: { 'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Built site</title></head><body><h1>Built</h1></body></html>' } }),
+});
+assert.equal(secureBackendAttempts, 2, 'Credential-shaped generated source must be rejected and repaired once.');
+assert.equal(secureBackendBuild.fullStackSourceEvidence.status, 'source-evidence-present-runtime-unverified');
+assert.doesNotMatch(secureBackendBuild.result.files['functions/api/contact-submissions.js'], /sk_live_/);
+assert.equal(secureBackendBuild.result.files['functions/api/unsafe-runtime.js'], undefined, 'Unsafe dynamic execution must be filtered from generated backend files.');
+
+const fallback = await runWebsiteGeneration({
+  env: {},
+  callModel: async (_env, options) => { modelCalls += 1; assert.equal(options.system, 'system'); return { text: 'raw' }; },
+  shouldBuild: true,
+  modelOptions: { system: 'system' },
+  singlePageOptions: { prompt: 'brief' },
+  buildMultiPage: async () => null,
+  repairSinglePage: async options => {
+    repairCalls += 1;
+    assert.equal(options.result.text, 'raw');
+    assert.equal(options.prompt, 'brief');
+    return { result: { text: 'repaired' }, quotaInputText: 'repair-input', quotaOutputText: 'repair-output' };
+  },
+});
+assert.equal(fallback.multiPageBuild, false);
+assert.equal(fallback.result.text, 'repaired');
+assert.equal(fallback.quotaInputText, 'repair-input');
+assert.equal(fallback.quotaOutputText, 'repair-output');
+
+let scopedBuildCalls = 0;
+let scopedRepairCalls = 0;
+const scoped = await runWebsiteGeneration({
+  env: {},
+  callModel: async () => ({ text: 'scoped edit' }),
+  shouldBuild: true,
+  scopedEdit: true,
+  buildMultiPage: async () => { scopedBuildCalls += 1; return null; },
+  repairSinglePage: async () => { scopedRepairCalls += 1; return null; },
+});
+assert.equal(scoped.result.text, 'scoped edit');
+assert.equal(scopedBuildCalls, 0);
+assert.equal(scopedRepairCalls, 0);
+
+await assert.rejects(() => runWebsiteGeneration({ shouldBuild: true }), /requires a model caller/);
+
+const backendPlanBuild = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  originalPrompt: 'Build a full-stack contact app with persistent enquiries.',
+  modelOptions: { system: 'OVYX website generation system', maxTokens: 12000 },
+  callModel: async () => { throw new Error('A valid static/backend QA manifest must not require a repair call.'); },
+  buildMultiPage: async () => ({
+    text: 'Generated full-stack contact app.',
+    files: {
+      'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Contact app</title></head><body><h1>Contact app</h1></body></html>',
+      'functions/api/health.js': 'export async function onRequestGet() { return Response.json({ ok: true }); }',
+      'ovyx-qa-plan.json': JSON.stringify({
+        version: 1,
+        backendRequired: true,
+        journeys: [{ id: 'contact-home', name: 'Contact app home', startRoute: '/', steps: [{ action: 'expectText', text: 'Contact app' }] }],
+        apiChecks: [],
+        backendChecks: [{ id: 'health', name: 'API health', method: 'GET', route: '/api/health', sourceFile: 'functions/api/health.js', expectedStatus: 200 }],
+      }),
+    },
+  }),
+});
+assert.equal(backendPlanBuild.autonomousQa.backendPlan.required, true);
+assert.equal(backendPlanBuild.autonomousQa.backendPlan.declaredChecks, 1);
+assert.equal(backendPlanBuild.autonomousQa.backendPlan.runtimeStatus, 'blocked-no-generated-backend-runtime-adapter');
+assert.equal(backendPlanBuild.autonomousQa.channels.find(channel => channel.channel === 'backend').status, 'blocked',
+  'A generated backend must remain unverified until its own disposable runtime adapter executes the declared checks.');
+
+
+console.log('OVYX unified website engine tests passed.');
+
+
+const filePlan = buildWebsiteEnginePlan('Update the existing site header and preserve every other route.', {
+  files: {
+    'index.html': '<script type="module" src="./src/main.js"></script>',
+    'src/main.js': "import './header.js';",
+    'src/header.js': 'export const header = true;',
+  },
+  changedPaths: ['src/header.js'],
+});
+assert.equal(filePlan.fileArchitecture.status, 'analyzed');
+assert.equal(filePlan.fileArchitecture.fileCount, 3);
+assert.deepEqual(filePlan.fileArchitecture.impactAnalysis.impactedPaths, ['src/main.js', 'index.html']);
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('fileArchitecture'));
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('ovyx-qa-plan.json'));
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('expectVisible'));
+assert.ok(buildWebsiteEngineInstructions(filePlan).includes('GET or HEAD'));
+assert.equal(websiteEngineClientSummary(filePlan).fileArchitecture.dependencyCount, 2);
+
+const cyclicIntegrationContext = { connections: {} };
+cyclicIntegrationContext.connections.self = cyclicIntegrationContext.connections;
+cyclicIntegrationContext.connections.provider = { provider: 'Resend', connected: true };
+const cyclicContextPlan = buildWebsiteEnginePlan('Build a contact form with email delivery.', cyclicIntegrationContext);
+assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').connection, 'configured-unverified',
+  'Saved connection metadata must never be mistaken for a live delivery test, even in cyclic context.');
+assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').productionGate, 'blocked-until-live-verification');
+assert.equal(cyclicContextPlan.integrations.find(item => item.capability === 'email').connectionMetadataPresent, true);
+assert.equal(websiteEngineClientSummary(cyclicContextPlan).integrations.find(item => item.capability === 'email').nextAction, 'connect-provider-and-run-live-verification');
+
+const conflictedPlan = buildWebsiteEnginePlan('Include a customer login and account dashboard.\nDo not include a customer login and account dashboard.');
+assert.equal(conflictedPlan.requirementIntelligence.counts.total, conflictedPlan.requirementManifest.total);
+assert.equal(conflictedPlan.requirementIntelligence.conflicts.length, 1);
+assert.ok(buildWebsiteEngineInstructions(conflictedPlan).includes('Conflicting instructions remain unresolved'));
+assert.equal(websiteEngineClientSummary(conflictedPlan).requirementIntelligence.counts.conflicts, 1);
+
+
+
+const autonomousBuild = await runWebsiteGeneration({
+  env: {},
+  shouldBuild: true,
+  originalPrompt: 'Build a working contact website with a visible contact panel.',
+  modelOptions: { system: 'OVYX website generation system', maxTokens: 12000 },
+  callModel: async (_env, options) => {
+    assert.equal(options.responseFormat, 'json');
+    assert.match(options.taskPrompt, /FAILED TEST EVIDENCE/);
+    return {
+      text: JSON.stringify({ files: {
+        'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Repaired contact site</title></head><body><h1>Contact</h1></body></html>',
+      } }),
+      usage: { prompt_tokens: 7, completion_tokens: 9, total_tokens: 16 },
+    };
+  },
+  buildMultiPage: async () => ({
+    text: 'Generated website with a missing title and doctype.',
+    files: { 'index.html': '<html><body><h1>Contact</h1></body></html>' },
+    rawUsage: { prompt_tokens: 3, completion_tokens: 4, total_tokens: 7 },
+  }),
+});
+assert.equal(autonomousBuild.autonomousQa.repair.status, 'repaired-and-passed');
+assert.equal(autonomousBuild.autonomousQa.channels.find(channel => channel.channel === 'static').status, 'passed');
+assert.equal(autonomousBuild.autonomousQa.channels.find(channel => channel.channel === 'browser').status, 'blocked');
+assert.equal(autonomousBuild.result.files['index.html'].includes('<title>Repaired contact site</title>'), true);
+assert.deepEqual(autonomousBuild.result.rawUsage, { prompt_tokens: 10, completion_tokens: 13, total_tokens: 23 },
+  'The bounded QA repair model call must be included in generation quota usage.');
+assert.equal(autonomousBuild.autonomousQa.status, 'blocked',
+  'A generated site must not be reported fully passed until its real browser and journey evidence has run.');
+
+
+
+const intelligence = buildProjectIntelligence({
+  'package.json': JSON.stringify({ dependencies: { react: '1.0.0', vite: '1.0.0' } }),
+  'index.html': '<!doctype html><html><body><main>Home</main></body></html>',
+  'src/pages/account.tsx': 'export default function Account() { return null; }',
+  'src/components/ProductCard.tsx': 'export function ProductCard() { return null; }',
+  'functions/api/orders.js': 'export async function onRequestGet() {} export async function onRequestPost() {}',
+  'migrations/0001_orders.sql': 'CREATE TABLE orders (id TEXT PRIMARY KEY, owner_id TEXT);',
+  'src/lib/auth.ts': 'export function requireAuth() {}',
+  'src/lib/payments.ts': 'export async function createPaystackCheckout() {} // payment checkout workflow',
+});
+assert.equal(intelligence.status, 'source-mapped');
+assert.equal(intelligence.evidenceLevel, 'static-source-only-runtime-unverified');
+assert.ok(intelligence.project.frameworks.includes('Vite'));
+assert.ok(intelligence.project.frameworks.includes('React'));
+assert.ok(intelligence.project.routes.some(route => route.path === '/account/'));
+assert.ok(intelligence.project.apiRoutes.some(route => route.source === 'functions/api/orders.js' && route.methods.includes('POST')));
+assert.ok(intelligence.project.schemaFiles.includes('migrations/0001_orders.sql'));
+assert.ok(intelligence.project.migrationFiles.includes('migrations/0001_orders.sql'));
+assert.ok(intelligence.project.authEvidence.includes('authorization-or-ownership-source'));
+assert.ok(intelligence.project.integrationEvidence.includes('paystack'));
+assert.ok(intelligence.project.detectedCapabilities.includes('payments'));
+assert.equal(JSON.stringify(intelligence).includes('createPaystackCheckout() {}'), false,
+  'The project map must never include source file contents.');
+assert.equal(intelligence.changeSafety.requireOwnerApprovalForDestructiveChanges, true);
+assert.match(projectIntelligenceInstructions(intelligence).join(' '), /not proof that routes, databases/i);
+assert.match(projectIntelligenceInstructions(intelligence).join(' '), /Prefer a minimal compatible extension/i);
+
+const noProjectIntelligence = buildProjectIntelligence({});
+assert.equal(noProjectIntelligence.status, 'no-project-files');
+assert.match(projectIntelligenceInstructions(noProjectIntelligence).join(' '), /new project build/i);
+
+const partialProjectIntelligence = buildProjectIntelligence({
+  'oversized.js': 'x'.repeat(160001),
+});
+assert.equal(partialProjectIntelligence.status, 'no-project-files',
+  'A project containing only rejected oversized files has no analyzable source map.');
+
+const existingProjectPlan = buildWebsiteEnginePlan(
+  'Add a customer order history page to this existing application.',
+  { files: {
+    'package.json': '{"dependencies":{"react":"1.0.0","vite":"1.0.0"}}',
+    'src/pages/orders.tsx': 'export default function Orders() { return null; }',
+    'functions/api/orders.js': 'export async function onRequestGet() {}',
+    'migrations/0001_orders.sql': 'CREATE TABLE orders (id TEXT PRIMARY KEY);',
+  } },
+);
+assert.equal(existingProjectPlan.projectIntelligence.status, 'source-mapped');
+assert.ok(existingProjectPlan.projectIntelligence.project.routes.some(route => route.path === '/orders/'));
+assert.match(buildWebsiteEngineInstructions(existingProjectPlan), /EXISTING PROJECT INTELLIGENCE MAP/);
+assert.match(buildWebsiteEngineInstructions(existingProjectPlan), /do not create duplicate systems/);
+assert.equal(websiteEngineClientSummary(existingProjectPlan).projectIntelligence.routeCount, 1);

@@ -1,0 +1,526 @@
+const DEFAULT_PAGE_LIMIT = 250;
+
+function cleanRelativePath(value) {
+  const path = String(value || '').trim().replace(/^\/+/, '');
+  if (
+    !path ||
+    path.length > 500 ||
+    path.includes('\\') ||
+    path.split('/').some(part => part === '.' || part === '..') ||
+    /^(?:node_modules|dist|build|coverage|\.git|\.env)(?:\/|$)/i.test(path)
+  ) {
+    return '';
+  }
+  return path;
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function boundedText(value, max = 240) {
+  return String(value == null ? '' : value)
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+function boundedTextList(value, itemLimit = 10, itemChars = 180) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value.slice(0, itemLimit).map(item => boundedText(
+    typeof item === 'string' ? item : item && (item.title || item.name || item.requirement || item.purpose),
+    itemChars,
+  )).filter(item => {
+    const key = item.toLowerCase();
+    if (!item || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizePageSections(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 12).map((section, index) => {
+    if (typeof section === 'string') return { title: boundedText(section, 100), purpose: '', contentNotes: '' };
+    if (!section || typeof section !== 'object') return null;
+    const title = boundedText(section.title || section.name || section.heading || 'Section ' + (index + 1), 100);
+    if (!title) return null;
+    return {
+      title,
+      purpose: boundedText(section.purpose || section.goal || section.role, 180),
+      contentNotes: boundedText(section.contentNotes || section.content || section.copyDirection, 220),
+    };
+  }).filter(Boolean);
+}
+
+function normalizeDesignSystem(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    artDirection: boundedText(source.artDirection || source.direction || source.visualDirection, 320),
+    typography: boundedText(source.typography || source.typeSystem, 240),
+    palette: boundedTextList(source.palette || source.colors, 8, 100),
+    typeScale: boundedTextList(source.typeScale, 8, 120),
+    spacingScale: boundedTextList(source.spacingScale || source.spacing, 8, 100),
+    componentPrinciples: boundedTextList(source.componentPrinciples || source.components, 10, 180),
+    motionPrinciples: boundedTextList(source.motionPrinciples || source.motion, 8, 180),
+    motionTokens: boundedTextList(source.motionTokens || source.motionTiming, 8, 120),
+    accessibilityPrinciples: boundedTextList(source.accessibilityPrinciples || source.accessibility, 8, 180),
+  };
+}
+
+function normalizeComponentContracts(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 12).map((component, index) => {
+    if (typeof component === 'string') {
+      const name = boundedText(component, 100);
+      return name ? { name, purpose: '', variants: [], shared: false, dependsOn: [], accessibilityContract: '' } : null;
+    }
+    if (!component || typeof component !== 'object') return null;
+    const name = boundedText(component.name || component.title || component.component, 100);
+    if (!name) return null;
+    return {
+      name,
+      purpose: boundedText(component.purpose || component.role, 180),
+      variants: boundedTextList(component.variants, 8, 100),
+      shared: component.shared === true,
+      dependsOn: boundedTextList(component.dependsOn || component.dependencies, 8, 100),
+      accessibilityContract: boundedText(component.accessibilityContract || component.accessibility, 180),
+    };
+  }).filter(Boolean);
+}
+
+function normalizeImageSlots(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 10).map((slot, index) => {
+    if (!slot || typeof slot !== 'object') return null;
+    const subject = boundedText(slot.subject || slot.assetSubject || slot.description, 180);
+    const purpose = boundedText(slot.purpose || slot.role, 160);
+    if (!subject && !purpose) return null;
+    const source = String(slot.sourcePreference || slot.source || 'project-asset').toLowerCase();
+    return {
+      name: boundedText(slot.name || slot.slot || 'image-' + (index + 1), 80),
+      subject,
+      purpose,
+      placement: boundedText(slot.placement || slot.section, 140),
+      aspectRatio: boundedText(slot.aspectRatio || slot.ratio, 32),
+      composition: boundedText(slot.composition || slot.artDirection, 180),
+      altText: boundedText(slot.altText || slot.alt, 180),
+      sourcePreference: ['project-asset', 'ai-generated', 'user-upload', 'none'].includes(source) ? source : 'project-asset',
+      mustRepresentRealSubject: slot.mustRepresentRealSubject === true,
+    };
+  }).filter(Boolean);
+}
+
+function normalizePageBlueprint(item) {
+  return {
+    audience: boundedText(item.audience || item.targetAudience, 180),
+    primaryAction: boundedText(item.primaryAction || item.primaryCTA, 180),
+    sections: normalizePageSections(item.sections || item.contentSections),
+    visualDirection: boundedText(item.visualDirection || item.artDirection, 320),
+    motionChoreography: boundedTextList(item.motionChoreography || item.motionNotes, 8, 200),
+    interactionRequirements: boundedTextList(item.interactionRequirements || item.interactions, 12, 180),
+    dataRequirements: boundedTextList(item.dataRequirements || item.dataNeeds, 10, 180),
+    components: boundedTextList(item.components || item.reusableComponents, 10, 140),
+    componentContracts: normalizeComponentContracts(item.componentContracts || item.componentPlan),
+    imageSlots: normalizeImageSlots(item.imageSlots || item.assetSlots),
+    seoIntent: boundedText(item.seoIntent || item.searchIntent, 220),
+    responsiveNotes: boundedTextList(item.responsiveNotes, 8, 160),
+    accessibilityNotes: boundedTextList(item.accessibilityNotes, 8, 160),
+    performanceNotes: boundedTextList(item.performanceNotes, 8, 160),
+    integrationBoundaries: boundedTextList(item.integrationBoundaries, 8, 180),
+  };
+}
+
+function preserveTextEdges(value, maxChars, reason = 'middle of the context shortened') {
+  const source = String(value || '');
+  const limit = Math.max(0, Math.floor(Number(maxChars) || 0));
+  if (source.length <= limit) return source;
+  const marker = '\n\n[OVYX CONTEXT NOTE: ' + reason + '; the beginning and ending have been preserved.]\n\n';
+  if (limit <= marker.length + 2) return source.slice(0, limit);
+  const contentBudget = limit - marker.length;
+  const headChars = Math.ceil(contentBudget * 0.46);
+  const tailChars = contentBudget - headChars;
+  return source.slice(0, headChars) + marker + source.slice(-tailChars);
+}
+
+function routeFromPath(path) {
+  const normalized = String(path || '').replace(/^\/+/, '').replace(/\\/g, '/');
+  const appPage = normalized.match(/^(?:src\/)?app(?:\/(.*))?\/page\.[cm]?[jt]sx?$/i);
+  if (appPage) {
+    const route = String(appPage[1] || '').replace(/\/+$/, '');
+    return route ? '/' + route : '/';
+  }
+
+  const sourcePage = normalized.match(/^(?:src\/)?pages\/(.+)\.(?:astro|tsx?|jsx?)$/i);
+  if (sourcePage) {
+    const route = sourcePage[1].replace(/\/index$/i, '').replace(/^\/+|\/+$/g, '');
+    return route && route !== 'index' ? '/' + route : '/';
+  }
+
+  if (/^index\.html$/i.test(normalized)) return '/';
+  if (/\/index\.html$/i.test(normalized)) {
+    const directory = normalized.replace(/\/index\.html$/i, '').replace(/^\/+|\/+$/g, '');
+    return directory ? '/' + directory + '/' : '/';
+  }
+  if (/\.html$/i.test(normalized)) return '/' + normalized;
+  if (/\.(?:astro|tsx?|jsx?)$/i.test(normalized)) {
+    return '/' + normalized.replace(/\.(?:astro|tsx?|jsx?)$/i, '').replace(/^\/+|\/+$/g, '');
+  }
+  return '/' + normalized.replace(/\/+$/, '') + '/';
+}
+
+function routeSignature(url) {
+  return String(url || '/')
+    .split(/[?#]/, 1)[0]
+    .replace(/\[\[?\.\.\.[^\]]+\]\]?|\[[^\]]+\]|:[A-Za-z0-9_]+|\*/g, ':param')
+    .replace(/\/{2,}/g, '/')
+    .replace(/\/+$/, '') || '/';
+}
+
+export function normalizeSiteMap(raw, maxPages = DEFAULT_PAGE_LIMIT) {
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.pages)) {
+    return { siteMap: null, overflow: 0 };
+  }
+
+  const pageLimit = Number.isFinite(Number(maxPages)) && Number(maxPages) > 0
+    ? Math.floor(Number(maxPages))
+    : DEFAULT_PAGE_LIMIT;
+  const overflow = Math.max(0, raw.pages.length - pageLimit);
+  const pageInput = raw.pages.slice(0, pageLimit);
+  const pages = [];
+  const seenPaths = new Set();
+
+  for (const item of pageInput) {
+    if (!item || typeof item !== 'object') continue;
+    const path = cleanRelativePath(item.path);
+    if (!path || seenPaths.has(path)) continue;
+    seenPaths.add(path);
+
+    const derivedUrl = routeFromPath(path);
+    const frameworkRoutePath = /^(?:src\/)?(?:app(?:\/.*)?\/page\.[cm]?[jt]sx?|pages\/.*\.(?:astro|tsx?|jsx?))$/i.test(path);
+    const isStaticHtmlPath = /\.html$/i.test(path);
+    let url = (frameworkRoutePath || isStaticHtmlPath)
+      ? derivedUrl
+      : String(item.url || derivedUrl).trim();
+    if (/^(?:\/\/|https?:\/\/)/i.test(url)) url = derivedUrl;
+    if (!url.startsWith('/')) url = '/' + url;
+    url = url.replace(/\/{2,}/g, '/');
+    if (!url || url.includes('..') || url.includes('\\')) url = derivedUrl;
+
+    pages.push({
+      title: boundedText(item.title || item.name || path, 120),
+      path,
+      url,
+      goal: boundedText(item.goal || item.purpose || item.description, 180),
+      ...normalizePageBlueprint(item),
+    });
+  }
+
+  const routeGroups = new Map();
+  for (const page of pages) {
+    const signature = routeSignature(page.url);
+    const group = routeGroups.get(signature) || [];
+    group.push({ path: page.path, url: page.url, title: page.title });
+    routeGroups.set(signature, group);
+  }
+  const routeCollisions = [...routeGroups.entries()]
+    .filter(([, group]) => group.length > 1)
+    .map(([signature, group]) => ({ signature, pages: group }));
+
+  const routeValidation = {
+    status: routeCollisions.length ? 'conflicts-detected' : 'valid',
+    blocking: routeCollisions.length > 0,
+    pageCount: pages.length,
+    routeCollisionCount: routeCollisions.length,
+    routeCollisions,
+    instruction: routeCollisions.length
+      ? 'Resolve every colliding route explicitly. Never silently overwrite a page or discard an explicitly requested route.'
+      : 'No duplicate normalized route signatures were detected in the supplied page plan.',
+  };
+
+  const sharedSeen = new Set();
+  const sharedFiles = [];
+  for (const item of Array.isArray(raw.sharedFiles) ? raw.sharedFiles : []) {
+    const source = typeof item === 'string' ? { path: item } : item;
+    const path = cleanRelativePath(source?.path);
+    if (!path || sharedSeen.has(path)) continue;
+    sharedSeen.add(path);
+    sharedFiles.push({
+      path,
+      purpose: String(source.purpose || source.role || 'Shared styling, navigation, interaction, routing or project configuration').trim().slice(0, 300),
+    });
+  }
+
+  const pagePaths = new Set(pages.map(page => page.path));
+  const declaredFoundation = (Array.isArray(raw.foundationPaths) ? raw.foundationPaths : [])
+    .map(cleanRelativePath)
+    .filter(path => path && (!pagePaths.has(path) || path === pages[0]?.path));
+
+  const foundationPaths = unique([
+    pages[0]?.path,
+    ...declaredFoundation,
+    ...sharedFiles.map(file => file.path),
+  ]).filter(path => !pagePaths.has(path) || path === pages[0]?.path);
+
+  return {
+    siteMap: {
+      architecture: boundedText(raw.architecture || raw.routingStrategy || 'Project-native page architecture', 500),
+      designSystem: normalizeDesignSystem(raw.designSystem),
+      pages,
+      sharedFiles,
+      foundationPaths,
+      routeValidation,
+    },
+    routeValidation,
+    overflow,
+  };
+}
+
+function chunk(items, size) {
+  const chunks = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
+export function createSiteBuildBatches(siteMap, maxChangedFiles = 6) {
+  if (!siteMap || !Array.isArray(siteMap.pages) || siteMap.pages.length < 2) return [];
+  const maxChanges = Math.max(2, Math.floor(Number(maxChangedFiles) || 6));
+  const pages = siteMap.pages;
+  const pageByPath = new Map(pages.map(page => [page.path, page]));
+  const sharedFiles = Array.isArray(siteMap.sharedFiles) ? siteMap.sharedFiles : [];
+  const sharedPaths = unique(sharedFiles.map(file => file.path));
+  const homepagePath = pages[0].path;
+  const foundationPaths = unique([
+    homepagePath,
+    ...(Array.isArray(siteMap.foundationPaths) ? siteMap.foundationPaths : []),
+    ...sharedPaths,
+  ]).filter(path => !pageByPath.has(path) || path === homepagePath);
+
+  const batches = [];
+  const foundationChunks = chunk(foundationPaths, maxChanges);
+  for (const paths of foundationChunks) {
+    batches.push({
+      kind: 'foundation',
+      targetPaths: paths,
+      targetPages: paths.map(path => pageByPath.get(path)).filter(Boolean),
+      targetFiles: paths.map(path => {
+        const shared = sharedFiles.find(file => file.path === path);
+        return {
+          path,
+          kind: pageByPath.has(path) ? 'page' : 'shared',
+          title: pageByPath.get(path)?.title || path,
+          goal: pageByPath.get(path)?.goal || shared?.purpose || 'Create the shared foundation required by the website.',
+          pageBlueprint: pageByPath.has(path) ? normalizePageBlueprint(pageByPath.get(path)) : null,
+        };
+      }),
+    });
+  }
+
+  const foundationPagePaths = new Set(foundationPaths.filter(path => pageByPath.has(path)));
+  const remainingPages = pages.filter(page => !foundationPagePaths.has(page.path));
+  const pageBatchSize = Math.max(1, maxChanges - 3);
+  for (const pageGroup of chunk(remainingPages, pageBatchSize)) {
+    batches.push({
+      kind: 'pages',
+      targetPaths: pageGroup.map(page => page.path),
+      targetPages: pageGroup,
+      targetFiles: pageGroup.map(page => ({
+        path: page.path,
+        kind: 'page',
+        title: page.title,
+        goal: page.goal,
+        pageBlueprint: normalizePageBlueprint(page),
+      })),
+    });
+  }
+
+  return batches.map((batch, index) => ({
+    ...batch,
+    index: index + 1,
+    total: batches.length,
+    maxChangedFiles: maxChanges,
+    maxAdditionalChanges: Math.max(0, maxChanges - batch.targetPaths.length),
+    allowedPaths: unique([...batch.targetPaths, ...sharedPaths]),
+    allSharedPaths: sharedPaths,
+  }));
+}
+
+export function mergeStagedChanges(existingChanges = [], incomingChanges = []) {
+  const staged = new Map(
+    (Array.isArray(existingChanges) ? existingChanges : []).map(item => [item.path, item]),
+  );
+
+  for (const item of Array.isArray(incomingChanges) ? incomingChanges : []) {
+    if (!item?.path) continue;
+    if (item.removeStagedCreate) {
+      staged.delete(item.path);
+      continue;
+    }
+
+    const previous = staged.get(item.path);
+    if (!previous) {
+      staged.set(item.path, item);
+      continue;
+    }
+
+    const action = previous.action === 'create'
+      ? 'create'
+      : (item.action || previous.action);
+
+    staged.set(item.path, {
+      ...previous,
+      ...item,
+      action,
+      previousSha: previous.previousSha || item.previousSha,
+    });
+  }
+
+  return [...staged.values()].map(({ removeStagedCreate, ...item }) => item);
+}
+
+export function buildSiteBatchContext({
+  baseContext = '',
+  stagedChanges = [],
+  siteMap,
+  batch,
+  repositoryFiles = {},
+  maxChars = 160_000,
+}) {
+  const limit = Math.max(20_000, Math.floor(Number(maxChars) || 160_000));
+  const pages = Array.isArray(siteMap?.pages) ? siteMap.pages : [];
+  const sitemapText = JSON.stringify({
+    architecture: siteMap?.architecture || '',
+    designSystem: siteMap?.designSystem || {},
+    routeValidation: siteMap?.routeValidation || { status: 'not-available', blocking: false },
+    pages: pages.map(page => ({
+      title: page.title, path: page.path, url: page.url, goal: page.goal,
+      audience: page.audience, primaryAction: page.primaryAction, sections: page.sections,
+      visualDirection: page.visualDirection, motionChoreography: page.motionChoreography, interactionRequirements: page.interactionRequirements,
+      dataRequirements: page.dataRequirements, components: page.components,
+      componentContracts: page.componentContracts, imageSlots: page.imageSlots, seoIntent: page.seoIntent,
+      responsiveNotes: page.responsiveNotes, accessibilityNotes: page.accessibilityNotes,
+      performanceNotes: page.performanceNotes, integrationBoundaries: page.integrationBoundaries,
+    })),
+    sharedFiles: (siteMap?.sharedFiles || []).map(file => ({ path: file.path, purpose: file.purpose })),
+  });
+  const staged = Array.isArray(stagedChanges)
+    ? stagedChanges.filter(item => item && item.action !== 'delete' && typeof item.content === 'string')
+    : [];
+  const stagedPaths = unique(staged.map(item => item.path));
+  const sharedPaths = new Set((siteMap?.sharedFiles || []).map(file => file.path));
+  const homepagePath = pages[0]?.path;
+  const targetPaths = new Set(batch?.targetPaths || []);
+  const recentPaths = staged.filter(item => !sharedPaths.has(item.path)).slice(-2).map(item => item.path);
+  const priorityPaths = unique([
+    ...stagedPaths.filter(path => sharedPaths.has(path)),
+    homepagePath,
+    ...stagedPaths.filter(path => targetPaths.has(path)),
+    ...recentPaths,
+  ]);
+  const byPath = new Map(staged.map(item => [item.path, item]));
+  const chosen = [
+    ...priorityPaths.map(path => byPath.get(path)).filter(Boolean),
+    ...staged.filter(item => !priorityPaths.includes(item.path)),
+  ];
+
+  const normalizedLimit = limit;
+  const baseLimit = Math.max(10_000, Math.min(68_000, Math.floor(normalizedLimit * 0.42)));
+  const base = String(baseContext || '');
+  const baseSlice = preserveTextEdges(
+    base,
+    baseLimit,
+    'base brief/context exceeded its budget; omitted middle text is not assumed to be satisfied'
+  );
+
+  const alreadyGenerated = stagedPaths.join('\n') || '(none yet)';
+  const generatedList = alreadyGenerated.length > Math.floor(limit * 0.12)
+    ? alreadyGenerated.slice(0, Math.floor(limit * 0.12)) + '\n… additional staged paths are preserved in the approved route manifest.'
+    : alreadyGenerated;
+
+  const repositoryPaths = unique([
+    ...(batch?.targetPaths || []),
+    homepagePath,
+    ...(batch?.allSharedPaths || []),
+  ]);
+  const stagedPathSet = new Set(stagedPaths);
+  const repositoryBudget = Math.max(0, Math.min(22_000, limit - baseSlice.length - sitemapText.length - generatedList.length - 38_000));
+  const repositoryParts = [];
+  let repositoryUsed = 0;
+  for (const path of repositoryPaths) {
+    if (stagedPathSet.has(path) || typeof repositoryFiles?.[path] !== 'string') continue;
+    if (repositoryUsed >= repositoryBudget) break;
+    const available = Math.min(9_000, repositoryBudget - repositoryUsed);
+    if (available < 500) break;
+    const content = String(repositoryFiles[path]);
+    const slice = content.length > available
+      ? content.slice(0, Math.max(0, available - 90)) + '\n/* Existing repository file context shortened; full file remains preserved. */'
+      : content;
+    const piece = '\n\nBASE FILE: ' + path + '\n' + slice;
+    repositoryParts.push(piece);
+    repositoryUsed += piece.length;
+  }
+  const repositoryText = repositoryParts.join('');
+
+  const fixedPrefix = [
+    'BASE REPOSITORY CONTEXT (read-only baseline):',
+    baseSlice,
+    '',
+    'FULL WEBSITE ROUTE MANIFEST (keep these paths and URLs consistent):',
+    sitemapText,
+    '',
+    'ROUTE COLLISION POLICY: If routeValidation reports conflicts, do not overwrite, merge or silently rename a requested page. Preserve all requested page intents and resolve the route conflict explicitly before finalizing the site.',
+    '',
+    'CURRENT BASE REPOSITORY FILES FOR THIS BATCH:',
+    repositoryText || '(No existing target files were needed from the base repository.)',
+    '',
+    'ALREADY GENERATED FILE PATHS:',
+    generatedList,
+    '',
+    'CURRENT BATCH TARGETS:',
+    (batch?.targetFiles || [])
+      .map(item => '- ' + item.kind + ': ' + item.path + ' — ' + item.title + (item.goal ? ' — ' + item.goal : ''))
+      .join('\n') || '(No explicit targets)',
+    '',
+    'STAGED FILE CONTENTS (the latest generated version of these files):',
+  ].join('\n') + '\n';
+  const stagedBudget = Math.max(0, limit - fixedPrefix.length - 1_500);
+  const stagedParts = [];
+  let used = 0;
+  for (const item of chosen) {
+    if (used >= stagedBudget) break;
+    const available = Math.min(16_000, stagedBudget - used);
+    if (available < 800) break;
+    const content = String(item.content);
+    const slice = content.length > available
+      ? content.slice(0, Math.max(0, available - 100)) + '\n/* Staged file context shortened; full file remains preserved by OVYX. */'
+      : content;
+    const piece = '\n\nFILE: ' + item.path + ' (' + item.action + ')\n' + slice;
+    stagedParts.push(piece);
+    used += piece.length;
+  }
+
+  const result = fixedPrefix + (stagedParts.join('') || '(No files have been staged yet)');
+  return result.length > limit ? result.slice(0, limit) : result;
+}
+
+export function selectSitePolishChanges(changes = [], siteMap, limit = 6) {
+  const changed = Array.isArray(changes) ? changes : [];
+  const byPath = new Map(changed.map(item => [item.path, item]));
+  const pages = Array.isArray(siteMap?.pages) ? siteMap.pages : [];
+  const shared = Array.isArray(siteMap?.sharedFiles) ? siteMap.sharedFiles : [];
+  const preferred = unique([
+    pages[0]?.path,
+    ...shared.map(file => file.path),
+    ...pages.slice(1).map(page => page.path),
+  ]);
+  const selected = preferred.map(path => byPath.get(path)).filter(Boolean);
+  for (const item of changed) {
+    if (selected.length >= limit) break;
+    if (!selected.some(existing => existing.path === item.path)) selected.push(item);
+  }
+  return selected.slice(0, Math.max(1, Math.floor(Number(limit) || 6)));
+}

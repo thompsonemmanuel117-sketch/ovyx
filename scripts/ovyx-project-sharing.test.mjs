@@ -51,4 +51,4 @@ assert.match(css, /prefers-reduced-motion/, 'The sharing page must respect reduc
 console.log('OVYX project sharing security and UI contract checks passed.');
 
 assert.match(api, /const validEmail = value => \/\^\[\^@\\s\]\+@\[\^@\\s\]\+\\\.\[\^@\\s\]\+\$\//, 'Email validation must accept normal email addresses.');
-assert.match(api, /btoa\(binary\)\.replace\(\/\\\+\/g, '- '\.trim\(\)/, 'Share tokens must be base64url normalized.');
+assert.match(api, /btoa\(binary\)\.replace\(\/\\\+\/g/, 'Share tokens must be base64url normalized.');

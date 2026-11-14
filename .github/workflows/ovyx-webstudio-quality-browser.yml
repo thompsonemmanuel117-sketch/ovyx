@@ -1,0 +1,310 @@
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'functions/_lib/website-file-graph.js'
+      - 'scripts/ovyx-website-file-graph.test.mjs'
+      - 'scripts/ovyx-webstudio-cross-browser.smoke.mjs'
+      - 'functions/_lib/design-system-contract.js'
+      - 'functions/_lib/experience-quality.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/site-integrity.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'scripts/ovyx-design-system-contract.test.mjs'
+      - 'scripts/ovyx-experience-quality.test.mjs'
+      - 'package.json'
+      - 'docs/OVYX-PHASE-3-DESIGN-FUNCTIONALITY.md'
+      - 'functions/_lib/design-system-contract.js'
+      - 'functions/_lib/experience-quality.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/site-integrity.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'scripts/ovyx-design-system-contract.test.mjs'
+      - 'scripts/ovyx-experience-quality.test.mjs'
+      - 'package.json'
+      - 'docs/OVYX-PHASE-3-DESIGN-FUNCTIONALITY.md'
+      - 'assets/ovyx-webstudio-quality.js'
+      - 'assets/ovyx-webstudio-navigation-polish.js'
+      - 'assets/ovyx-webstudio-code-search.js'
+      - 'assets/ovyx-webstudio-visual-editor.js'
+      - 'assets/ovyx-publishing-center.js'
+      - 'functions/api/publishing.js'
+      - 'functions/api/_middleware.js'
+      - 'functions/api/deploy.js'
+      - 'scripts/ovyx-publishing-center.test.mjs'
+      - 'scripts/ovyx-publishing-center.browser.test.mjs'
+      - 'docs/OVYX-STAGE-7-PUBLISHING.md'
+      - 'scripts/ovyx-webstudio-code-search.test.mjs'
+      - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
+      - 'scripts/ovyx-webstudio-visual-editor.test.mjs'
+      - 'scripts/ovyx-webstudio-visual-editor.browser.test.mjs'
+      - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
+      - 'scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs'
+      - 'scripts/ovyx-app-shell-favicon.browser.test.mjs'
+      - 'index.html'
+      - 'assets/ovyx-webstudio-cancel-safety.js'
+      - 'functions/_lib/cloudflare-free-ai.js'
+      - 'functions/api/ai/transcribe.js'
+      - 'functions/api/ai/assistant.js'
+      - 'scripts/ovyx-webstudio-pulse-composer.browser.test.mjs'
+      - 'scripts/ovyx-webstudio-pulse-composer.test.mjs'
+      - 'assets/ovyx-webstudio-project-branding.js'
+      - 'assets/ovyx-brand-mark.svg'
+      - 'assets/ovyx-shell-favicon-lock.js'
+      - 'assets/ovyx-brand-mark.png'
+      - '_headers'
+      - 'manifest.json'
+      - '_routes.json'
+      - 'functions/_middleware.js'
+      - 'assets/ovyx-account-notifications.js'
+      - 'scripts/ovyx-account-notifications.browser.test.mjs'
+      - 'scripts/ovyx-broadcast-notifications.test.mjs'
+      - 'assets/css/ovyx-platform-motion.css'
+      - 'assets/ovyx-platform-motion.js'
+      - 'scripts/ovyx-platform-motion.browser.test.mjs'
+      - 'functions/api/payments/opay-webhook.js'
+      - 'functions/api/payments/paystack-webhook.js'
+      - 'functions/_lib/fullstack-architecture.js'
+      - 'scripts/ovyx-fullstack-architecture.test.mjs'
+      - 'functions/_lib/website-engine.js'
+      - 'scripts/ovyx-website-engine.test.mjs'
+      - 'docs/OVYX-PHASE-4-FULL-STACK-CAPABILITIES.md'
+      - 'scripts/ovyx-payment-webhook-safety.test.mjs'
+      - 'scripts/ovyx-webstudio-quality.test.mjs'
+      - 'scripts/ovyx-webstudio-quality.browser.test.mjs'
+      - 'scripts/ovyx-stage6-website-coding.test.mjs'
+      - '.github/workflows/ovyx-webstudio-quality-browser.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'functions/_lib/website-file-graph.js'
+      - 'scripts/ovyx-website-file-graph.test.mjs'
+      - 'scripts/ovyx-webstudio-cross-browser.smoke.mjs'
+      - 'functions/_lib/design-system-contract.js'
+      - 'functions/_lib/experience-quality.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/site-integrity.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'scripts/ovyx-design-system-contract.test.mjs'
+      - 'scripts/ovyx-experience-quality.test.mjs'
+      - 'package.json'
+      - 'docs/OVYX-PHASE-3-DESIGN-FUNCTIONALITY.md'
+      - 'assets/ovyx-webstudio-quality.js'
+      - 'assets/ovyx-webstudio-navigation-polish.js'
+      - 'assets/ovyx-webstudio-code-search.js'
+      - 'assets/ovyx-webstudio-visual-editor.js'
+      - 'assets/ovyx-publishing-center.js'
+      - 'functions/api/publishing.js'
+      - 'functions/api/_middleware.js'
+      - 'functions/api/deploy.js'
+      - 'scripts/ovyx-publishing-center.test.mjs'
+      - 'scripts/ovyx-publishing-center.browser.test.mjs'
+      - 'docs/OVYX-STAGE-7-PUBLISHING.md'
+      - 'scripts/ovyx-webstudio-code-search.test.mjs'
+      - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
+      - 'scripts/ovyx-webstudio-visual-editor.test.mjs'
+      - 'scripts/ovyx-webstudio-visual-editor.browser.test.mjs'
+      - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
+      - 'scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs'
+      - 'scripts/ovyx-app-shell-favicon.browser.test.mjs'
+      - 'index.html'
+      - 'assets/ovyx-webstudio-project-branding.js'
+      - 'assets/ovyx-brand-mark.svg'
+      - 'assets/ovyx-shell-favicon-lock.js'
+      - 'assets/ovyx-brand-mark.png'
+      - '_headers'
+      - 'manifest.json'
+      - '_routes.json'
+      - 'functions/_middleware.js'
+      - 'assets/ovyx-account-notifications.js'
+      - 'scripts/ovyx-account-notifications.browser.test.mjs'
+      - 'scripts/ovyx-broadcast-notifications.test.mjs'
+      - 'assets/css/ovyx-platform-motion.css'
+      - 'assets/ovyx-platform-motion.js'
+      - 'scripts/ovyx-platform-motion.browser.test.mjs'
+      - 'functions/api/payments/opay-webhook.js'
+      - 'functions/api/payments/paystack-webhook.js'
+      - 'functions/_lib/fullstack-architecture.js'
+      - 'scripts/ovyx-fullstack-architecture.test.mjs'
+      - 'functions/_lib/website-engine.js'
+      - 'scripts/ovyx-website-engine.test.mjs'
+      - 'docs/OVYX-PHASE-4-FULL-STACK-CAPABILITIES.md'
+      - 'scripts/ovyx-payment-webhook-safety.test.mjs'
+      - 'functions/api/ai/assistant.js'
+      - 'scripts/ovyx-webstudio-pulse-composer.browser.test.mjs'
+      - 'scripts/ovyx-webstudio-quality.test.mjs'
+      - 'scripts/ovyx-webstudio-quality.browser.test.mjs'
+      - 'scripts/ovyx-stage6-website-coding.test.mjs'
+      - '.github/workflows/ovyx-webstudio-quality-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run full repository tests
+        id: full-repo-tests
+        continue-on-error: true
+        run: npm test
+      - name: Test payment webhook idempotency and signature safety
+        id: payment-webhook-tests
+        continue-on-error: true
+        run: node scripts/ovyx-payment-webhook-safety.test.mjs
+      - name: Test full-stack architecture contracts
+        id: fullstack-architecture-tests
+        continue-on-error: true
+        run: node scripts/ovyx-fullstack-architecture.test.mjs
+      - name: Test full-stack website generation and integration planning
+        id: website-engine-tests
+        continue-on-error: true
+        run: node scripts/ovyx-website-engine.test.mjs
+      - name: Run static validation
+        id: static-validation
+        continue-on-error: true
+        run: npm run validate
+      - name: Run production build validation
+        id: production-build
+        continue-on-error: true
+        run: npm run build
+      - name: Install browser test dependency
+        run: npm install --ignore-scripts --no-save playwright@^1.55.0
+
+      - name: Install Chromium, Firefox and WebKit
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Start local Cloudflare Pages app shell
+        run: |
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8789 > /tmp/ovyx-pages-dev.log 2>&1 &
+          echo $! > /tmp/ovyx-pages-dev.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8789/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ovyx-pages-dev.log
+          exit 1
+      # Collect evidence from every independent browser regression, even when
+      # one suite fails or stalls. The final summary step keeps the workflow red
+      # if any required test did not pass.
+      - name: Verify global notification bell removal and retained account sync
+        id: account-notifications
+        continue-on-error: true
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8789
+        run: node scripts/ovyx-account-notifications.browser.test.mjs
+      - name: Test OVYX platform motion and reduced-motion behavior in Chromium
+        id: platform-motion
+        continue-on-error: true
+        run: node scripts/ovyx-platform-motion.browser.test.mjs
+      - name: Test Web Studio static regression contract
+        id: quality-contract
+        continue-on-error: true
+        run: node scripts/ovyx-webstudio-quality.test.mjs
+      - name: Test Web Studio pulse composer in Chromium
+        id: pulse-composer
+        continue-on-error: true
+        run: node scripts/ovyx-webstudio-pulse-composer.browser.test.mjs
+      - name: Test app-shell favicon in Chromium against local Pages runtime
+        id: app-shell-favicon
+        continue-on-error: true
+        run: node scripts/ovyx-app-shell-favicon.browser.test.mjs
+      - name: Test generated-site responsive behavior in Chromium, Firefox and WebKit
+        id: cross-browser
+        continue-on-error: true
+        run: node scripts/ovyx-webstudio-cross-browser.smoke.mjs
+      - name: Test Web Studio quality inspector in Chromium
+        id: quality-browser
+        continue-on-error: true
+        run: node scripts/ovyx-webstudio-quality.browser.test.mjs
+      - name: Test code workspace search and sidebar logo in Chromium
+        id: code-search
+        continue-on-error: true
+        run: node scripts/ovyx-webstudio-code-search.browser.test.mjs
+      - name: Test Web Studio to App Studio to Code integration in Chromium
+        id: appstudio-code
+        continue-on-error: true
+        run: node scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs
+      - name: Test OVYX visual editor in Chromium
+        id: visual-editor
+        continue-on-error: true
+        run: node scripts/ovyx-webstudio-visual-editor.browser.test.mjs
+      - name: Test OVYX publishing center in Chromium
+        id: publishing-center
+        continue-on-error: true
+        run: node scripts/ovyx-publishing-center.browser.test.mjs
+      - name: Test desktop Code Workspace editing and dashboard route recovery in Chromium
+        id: workspace-recovery
+        if: always()
+        continue-on-error: true
+        run: node scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs
+      - name: Summarize Web Studio and repository regression results
+        if: always()
+        env:
+          OUTCOME_FULL_REPO: ${{ steps.full-repo-tests.outcome }}
+          OUTCOME_PAYMENT_WEBHOOK: ${{ steps.payment-webhook-tests.outcome }}
+          OUTCOME_FULLSTACK_ARCHITECTURE: ${{ steps.fullstack-architecture-tests.outcome }}
+          OUTCOME_WEBSITE_ENGINE: ${{ steps.website-engine-tests.outcome }}
+          OUTCOME_STATIC_VALIDATION: ${{ steps.static-validation.outcome }}
+          OUTCOME_PRODUCTION_BUILD: ${{ steps.production-build.outcome }}
+          OUTCOME_ACCOUNT_NOTIFICATIONS: ${{ steps.account-notifications.outcome }}
+          OUTCOME_PLATFORM_MOTION: ${{ steps.platform-motion.outcome }}
+          OUTCOME_QUALITY_CONTRACT: ${{ steps.quality-contract.outcome }}
+          OUTCOME_PULSE_COMPOSER: ${{ steps.pulse-composer.outcome }}
+          OUTCOME_APP_SHELL_FAVICON: ${{ steps.app-shell-favicon.outcome }}
+          OUTCOME_CROSS_BROWSER: ${{ steps.cross-browser.outcome }}
+          OUTCOME_QUALITY_BROWSER: ${{ steps.quality-browser.outcome }}
+          OUTCOME_CODE_SEARCH: ${{ steps.code-search.outcome }}
+          OUTCOME_APPSTUDIO_CODE: ${{ steps.appstudio-code.outcome }}
+          OUTCOME_VISUAL_EDITOR: ${{ steps.visual-editor.outcome }}
+          OUTCOME_PUBLISHING_CENTER: ${{ steps.publishing-center.outcome }}
+          OUTCOME_WORKSPACE_RECOVERY: ${{ steps.workspace-recovery.outcome }}
+        run: |
+          failed=0
+          report() {
+            label="$1"
+            outcome="$2"
+            if [ "$outcome" = "success" ]; then
+              echo "PASS: $label"
+            else
+              echo "::error::$label outcome: ${outcome:-skipped}"
+              failed=1
+            fi
+          }
+          report "Full repository tests" "$OUTCOME_FULL_REPO"
+          report "Payment webhook safety" "$OUTCOME_PAYMENT_WEBHOOK"
+          report "Full-stack architecture" "$OUTCOME_FULLSTACK_ARCHITECTURE"
+          report "Website engine" "$OUTCOME_WEBSITE_ENGINE"
+          report "Static validation" "$OUTCOME_STATIC_VALIDATION"
+          report "Production build" "$OUTCOME_PRODUCTION_BUILD"
+          report "Global notification bell removal browser" "$OUTCOME_ACCOUNT_NOTIFICATIONS"
+          report "Platform motion browser" "$OUTCOME_PLATFORM_MOTION"
+          report "Web Studio quality contract" "$OUTCOME_QUALITY_CONTRACT"
+          report "Pulse Composer browser" "$OUTCOME_PULSE_COMPOSER"
+          report "App shell favicon browser" "$OUTCOME_APP_SHELL_FAVICON"
+          report "Generated-site cross-browser" "$OUTCOME_CROSS_BROWSER"
+          report "Web Studio quality browser" "$OUTCOME_QUALITY_BROWSER"
+          report "Code workspace search browser" "$OUTCOME_CODE_SEARCH"
+          report "App Studio / Code integration browser" "$OUTCOME_APPSTUDIO_CODE"
+          report "Visual editor browser" "$OUTCOME_VISUAL_EDITOR"
+          report "Publishing center browser" "$OUTCOME_PUBLISHING_CENTER"
+          report "Workspace recovery browser" "$OUTCOME_WORKSPACE_RECOVERY"
+          exit "$failed"
+# Regression coverage: sidebar inline-SVG full-draw state, brand-mark favicon fallback, and project/app favicon isolation.

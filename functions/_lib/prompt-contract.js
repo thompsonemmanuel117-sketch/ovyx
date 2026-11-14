@@ -1,0 +1,516 @@
+/**
+ * Prompt contract for OVYX Web Studio.
+ *
+ * Keeps explicit user requirements visible to planning and build stages, detects
+ * critical missing public/business details before a new build, and avoids
+ * inventing contact data or claiming integrations are configured when they are not.
+ */
+
+export const WEB_STUDIO_PROMPT_MAX_CHARS = 80_000;
+const MAX_PROMPT_CHARS = WEB_STUDIO_PROMPT_MAX_CHARS;
+const MAX_REQUIREMENTS = 180;
+const MAX_MANIFEST_CLAUSE_CHARS = 280;
+const BOOKING_INTENT_PATTERN = /\b(?:bookings?|book\s+(?:a\s+)?(?:table|appointment|visit)|book\s+(?:online|now|today)|reserv(?:e|ation|ations|ing)|appointments?|schedule\s+(?:a\s+)?(?:visit|table|appointment))\b/i;
+const SHOPPING_CART_PATTERN = /\b(?:shopping\s+cart|cart|basket|add(?:ing)?\s+to\s+(?:the\s+)?cart|shopping\s+bag|add\s+to\s+(?:the\s+)?bag)\b/i;
+const BOOKING_ACTION_PATTERN = /\b(?:book\s+(?:(?:a|an|your)\s+)?(?:table|appointment|visit|room|seat|stay|slot|now|online|today)|reserve\s+(?:(?:a|an|your)\s+)?(?:table|appointment|room|seat|spot|place|time|now|online)|schedule\s+(?:(?:a|an|your)\s+)?(?:visit|appointment|consultation)|make\s+(?:a\s+)?reservation|check\s+availability|choose\s+(?:a\s+)?(?:time|slot|date))\b/i;
+const SHOPPING_CART_ACTION_PATTERN = /\b(?:add\s+(?:to\s+)?(?:the\s+)?(?:cart|bag|basket)|view\s+(?:your\s+)?cart|open\s+(?:your\s+)?cart|go\s+to\s+checkout|proceed\s+to\s+checkout|checkout)\b/i;
+const ADD_TO_CART_PATTERN = /\badd\s+(?:to\s+)?(?:the\s+)?(?:cart|bag|basket)\b/i;
+const NEWSLETTER_ACTION_PATTERN = /\b(?:subscribe|join\s+(?:the\s+)?(?:newsletter|mailing\s+list)|sign\s+up\s+for\s+(?:updates|news|the\s+newsletter)|get\s+(?:email\s+)?updates)\b/i;
+const AUTH_ACTION_PATTERN = /\b(?:log\s*in|login|sign\s*in|sign\s*up|register|create\s+account|continue\s+with\s+(?:google|apple|email))\b/i;
+const PAYMENT_ACTION_PATTERN = /\b(?:pay\s+now|pay\s+securely|complete\s+(?:your\s+)?payment|place\s+(?:your\s+)?order|proceed\s+to\s+checkout|go\s+to\s+checkout|checkout|continue\s+to\s+payment|confirm\s+purchase)\b/i;
+
+const PAGE_ALIASES = [
+  { title: 'Home', pattern: /\b(?:home(?:page)?|landing page)\b/i },
+  { title: 'About', pattern: /\b(?:about(?: us)?|our story)\b/i },
+  { title: 'Services', pattern: /\b(?:services?|what we do)\b/i },
+  { title: 'Features', pattern: /\bfeatures?\b/i },
+  { title: 'Pricing', pattern: /\b(?:pricing|plans|price list|rates)\b/i },
+  { title: 'Products', pattern: /\bproducts?\b/i },
+  { title: 'Shop', pattern: /\b(?:shop|store|catalogue|catalog)\b/i },
+  { title: 'Collections', pattern: /\bcollections?\b/i },
+  { title: 'Menu', pattern: /\bmenus?\b/i },
+  { title: 'Reservations', pattern: /\b(?:reservations?|bookings?)\b/i },
+  { title: 'Contact', pattern: /\b(?:contact(?: us)?|get in touch)\b/i },
+  { title: 'Location', pattern: /\b(?:locations?|find us)\b/i },
+  { title: 'Gallery', pattern: /\bgalleries\b|\bgallery\b/i },
+  { title: 'Portfolio', pattern: /\bportfolios?\b/i },
+  { title: 'Projects', pattern: /\bprojects?\b/i },
+  { title: 'Case Studies', pattern: /\bcase studies\b/i },
+  { title: 'Blog', pattern: /\bblogs?\b/i },
+  { title: 'FAQ', pattern: /\b(?:faqs?|frequently asked questions)\b/i },
+  { title: 'Team', pattern: /\b(?:team|our people|staff)\b/i },
+  { title: 'Testimonials', pattern: /\btestimonials?\b/i },
+  { title: 'Events', pattern: /\bevents?\b/i },
+  { title: 'Courses', pattern: /\b(?:courses?|programmes?|programs?)\b/i },
+  { title: 'Admissions', pattern: /\badmissions?\b/i },
+  { title: 'Resources', pattern: /\bresources?\b/i },
+  { title: 'Support', pattern: /\bsupport\b/i },
+  { title: 'Careers', pattern: /\bcareers?\b/i },
+  { title: 'Privacy', pattern: /\bprivacy(?: policy)?\b/i },
+  { title: 'Terms', pattern: /\b(?:terms|terms of service)\b/i },
+  { title: 'Login', pattern: /\b(?:login|log in|sign in)\b/i },
+  { title: 'Sign Up', pattern: /\b(?:sign ?up|register|create account)\b/i },
+  { title: 'Dashboard', pattern: /\bdashboards?\b/i },
+  { title: 'Cart', pattern: /\bcarts?\b/i },
+  { title: 'Checkout', pattern: /\bcheckouts?\b/i },
+  { title: 'Donations', pattern: /\b(?:donations?|donate)\b/i },
+  { title: 'Volunteer', pattern: /\bvolunteers?\b/i },
+];
+
+const NON_REAL_EMAIL_DOMAINS = new Set([
+  'example.com', 'example.org', 'example.net', 'test.com', 'domain.com',
+  'yourdomain.com', 'company.com', 'email.com', 'placeholder.com',
+]);
+
+function clean(value, max = MAX_PROMPT_CHARS) {
+  return String(value ?? '').replace(/\u0000/g, '').trim().slice(0, max);
+}
+
+function htmlAttribute(tag, name) {
+  const match = String(tag || '').match(new RegExp('\\b' + name + '\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27|([^\\s>]+))', 'i'));
+  return match ? String(match[1] ?? match[2] ?? match[3] ?? '').trim() : '';
+}
+
+function hasVisibleActionControl(htmlEntries, actionPattern) {
+  for (const [, html] of htmlEntries) {
+    for (const match of String(html || '').matchAll(/<(a|button)\b[^>]*>[\s\S]*?<\/\1\s*>/gi)) {
+      const tagEnd = match[0].indexOf('>') + 1;
+      const tag = match[0].slice(0, tagEnd);
+      const label = [
+        visibleHtmlText(match[0].slice(tagEnd, match[0].lastIndexOf('</'))),
+        htmlAttribute(tag, 'aria-label'),
+        htmlAttribute(tag, 'title'),
+      ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+      if (!actionPattern.test(label)) continue;
+
+      if (match[1].toLowerCase() === 'button') return true;
+
+      // A generic item in the main navigation is a route, not evidence of an
+      // actionable booking/cart journey. An explicit button remains actionable.
+      const before = String(html || '').slice(0, match.index).toLowerCase();
+      if (before.lastIndexOf('<nav') > before.lastIndexOf('</nav')) continue;
+      const href = htmlAttribute(tag, 'href');
+      if (href && href !== '#') return true;
+    }
+  }
+  return false;
+}
+
+function hasIntentForm(htmlEntries, kind) {
+  const patterns = {
+    booking: /\b(?:booking|reservation|appointment|select\s+(?:a\s+)?date|choose\s+(?:a\s+)?time|time\s+slot|party\s+size)\b/i,
+    cart: /\b(?:cart|checkout|order\s+summary|basket)\b/i,
+    newsletter: /\b(?:newsletter|subscribe|subscription|mailing\s+list|email\s+updates)\b/i,
+    contact: /\b(?:contact|inquir(?:y|ies)|enquir(?:y|ies)|message|send\s+(?:us\s+)?a\s+message|your\s+name)\b/i,
+    authentication: /\b(?:login|log\s*in|sign\s*in|sign\s*up|register|password|account|create\s+account)\b/i,
+    payments: /\b(?:payment|checkout|billing|card\s+details|paystack|flutterwave|stripe|paypal|order\s+summary|pay\s+now)\b/i,
+  };
+  const pattern = patterns[kind] || /$a/;
+  for (const [, html] of htmlEntries) {
+    for (const match of String(html || '').matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form\s*>/gi)) {
+      const opening = '<form ' + match[1] + '>';
+      const formContent = match[2];
+      const fields = [...formContent.matchAll(/<(?:input|select|textarea)\b[^>]*>/gi)]
+        .map(field => ({
+          tag: field[0],
+          type: htmlAttribute(field[0], 'type').toLowerCase(),
+          identity: [
+            htmlAttribute(field[0], 'id'),
+            htmlAttribute(field[0], 'name'),
+            htmlAttribute(field[0], 'aria-label'),
+            htmlAttribute(field[0], 'placeholder'),
+          ].join(' '),
+        }));
+      if (!fields.length) continue;
+
+      const evidence = [
+        htmlAttribute(opening, 'id'),
+        htmlAttribute(opening, 'name'),
+        htmlAttribute(opening, 'class'),
+        htmlAttribute(opening, 'action'),
+        visibleHtmlText(formContent),
+        fields.map(field => field.identity).join(' '),
+      ].join(' ');
+
+      if (!pattern.test(evidence)) continue;
+      if (kind === 'newsletter') {
+        if (fields.some(field => field.type === 'email' || /email/i.test(field.identity))) return true;
+        continue;
+      }
+      if (kind === 'contact') {
+        // A contact form needs a message field, or more than one relevant
+        // detail field. An email-only signup form is not a contact journey.
+        if (fields.some(field => /^<textarea\b/i.test(field.tag)) || fields.length >= 2) return true;
+        continue;
+      }
+      if (kind === 'authentication') {
+        if (fields.some(field => field.type === 'password') && fields.length >= 2) return true;
+        continue;
+      }
+      if (kind === 'payments') {
+        if (fields.some(field => /card|payment|billing|stripe|paystack|flutterwave|paypal/i.test(field.identity)) ||
+            fields.some(field => field.type === 'number' && /card|number/i.test(field.identity))) return true;
+        continue;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+function visibleHtmlText(html) {
+  let source = String(html || '')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(head|script|style|template)\b[\s\S]*?<\/\1\s*>/gi, ' ');
+  const accessibleLabels = [...source.matchAll(/\b(?:aria-label|title|alt|placeholder|value)\s*=\s*(?:"([^"]*)"|\x27([^\x27]*)\x27|([^\s>]+))/gi)]
+    .map(match => String(match[1] ?? match[2] ?? match[3] ?? '').trim())
+    .filter(Boolean);
+  const text = source.replace(/<[^>]+>/g, ' ');
+  return (text + ' ' + accessibleLabels.join(' '))
+    .replace(/&(?:nbsp|amp|lt|gt|quot|apos|#39);/gi, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+
+function normalizedKey(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function isRealPublicEmail(value) {
+  const matches = clean(value).match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/ig) || [];
+  return matches.some(email => {
+    const normalized = email.toLowerCase();
+    const domain = normalized.split('@')[1] || '';
+    return !NON_REAL_EMAIL_DOMAINS.has(domain) &&
+      !/^(?:your|name|email|hello|contact)@/i.test(normalized) &&
+      !/\+?\d{3,}@/.test(normalized);
+  });
+}
+
+function hasPhoneNumber(value) {
+  const matches = clean(value).match(/\+?\d[\d\s().-]{7,}\d/g) || [];
+  return matches.some(match => {
+    const digits = match.replace(/\D/g, '');
+    return digits.length >= 8 && digits.length <= 15 && !/^0+$/.test(digits);
+  });
+}
+
+function hasAddressValue(value) {
+  return /\b(?:address|located at|visit us at|find us at)\s*[:\-]\s*(?!\[|\(|your\b|add\b|provide\b|placeholder\b|tbd\b|coming soon\b)[\w\d][^\n;]{4,}/i.test(clean(value));
+}
+
+function splitRequirements(prompt) {
+  const source = clean(prompt);
+  const pieces = source
+    .split(/\n+|;\s*|(?<=[.!?])\s+/u)
+    .map(item => item.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').trim())
+    .filter(item => item.length >= 9);
+  const seen = new Set();
+  const output = [];
+  let omittedCount = 0;
+  for (const item of pieces) {
+    const key = normalizedKey(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    if (output.length >= MAX_REQUIREMENTS) {
+      omittedCount++;
+      continue;
+    }
+    output.push(item.slice(0, 900));
+  }
+  return { items: output, omittedCount };
+}
+
+export function extractExplicitPageNames(prompt) {
+  const source = clean(prompt);
+  const multiPageSignal = /\b(?:multi[-\s]?page|multiple\s+pages?|several\s+pages?|\d+\s*[- ]?pages?|two|three|four|five|six|seven|eight|nine|ten|twelve)\s*(?:website|site|app|pages?|websites?)?\b/i.test(source) ||
+    /\b(?:two|three|four|five|six|seven|eight|nine|ten|twelve)\s*[- ]?\s*pages?\b/i.test(source) ||
+    /\bpages?\s*(?:include|are|:|such as|named|will include)\b/i.test(source);
+  if (!multiPageSignal) return [];
+
+  const terms = [];
+  for (const item of PAGE_ALIASES) {
+    const match = item.pattern.exec(source);
+    if (match) terms.push({ title: item.title, index: match.index, length: match[0].length });
+  }
+  terms.sort((a, b) => a.index - b.index);
+
+  // Ignore page-like words used only in a "do not include" restriction.
+  const exclusions = source.match(/\b(?:do not|don't|dont|never|avoid|exclude|without)\b[^.!?\n]{0,180}/ig) || [];
+  const excludedNames = new Set();
+  for (const exclusion of exclusions) {
+    for (const item of PAGE_ALIASES) {
+      if (item.pattern.test(exclusion)) excludedNames.add(item.title);
+    }
+  }
+
+  const seen = new Set();
+  return terms
+    .filter(item => {
+      const key = normalizedKey(item.title);
+      if (seen.has(key) || excludedNames.has(item.title)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map(item => item.title);
+}
+
+function publicContextText(value, key = '', depth = 0) {
+  if (depth > 6 || value == null) return '';
+  if (/(?:token|secret|password|credential|private.?key|authorization|auth|owner|account|billing|useremail|api.?key)/i.test(key)) return '';
+  if (typeof value === 'string') {
+    if (/(?:email|phone|contact|address|location|hours|business|brand|project|file|source|content|html|text|website|url|social|booking)/i.test(key)) {
+      return value.slice(0, 12000);
+    }
+    return '';
+  }
+  if (Array.isArray(value)) {
+    return value.slice(0, 80).map(item => publicContextText(item, key, depth + 1)).filter(Boolean).join('\n');
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value).slice(0, 120);
+    return entries.map(([childKey, child]) => publicContextText(child, childKey, depth + 1)).filter(Boolean).join('\n').slice(0, 36000);
+  }
+  return '';
+}
+
+function hasExplicitContactOptOut(prompt) {
+  return /\b(?:do not|don't|dont|without)\s+(?:add|include|show|use|need)\s+(?:any\s+)?(?:contact|email|phone|address|booking|reservation|form)\b/i.test(prompt) ||
+    /\b(?:use|leave|keep)\s+(?:clear(?:ly)?\s+)?(?:editable\s+)?placeholders?\b/i.test(prompt) ||
+    /\b(?:placeholder|sample|demo|wireframe|prototype only|ui only|design only)\b/i.test(prompt) ||
+    /\bdo not ask me questions\b/i.test(prompt);
+}
+
+function hasConnectedIntegration(context, kind) {
+  const source = context && typeof context === 'object' ? context : {};
+  const records = [
+    source.connections, source.activeConnections, source.integrations,
+    source.connectionStatus, source.connectedServices,
+  ];
+  const flatten = value => {
+    if (Array.isArray(value)) return value.flatMap(flatten);
+    if (value && typeof value === 'object') return [
+      value,
+      ...Object.values(value).flatMap(flatten),
+    ];
+    return [];
+  };
+  return flatten(records).some(item => {
+    if (!item || typeof item !== 'object') return false;
+    const identity = clean(item.provider || item.name || item.id || item.type || item.service, 120).toLowerCase();
+    const connected = item.connected === true || item.status === 'connected' || item.state === 'connected' || item.isConnected === true;
+    const relevant = kind === 'payments'
+      ? /stripe|paypal|paystack|flutterwave|payment|checkout/.test(identity)
+      : kind === 'email'
+        ? /email|mailgun|sendgrid|resend|postmark|smtp/.test(identity)
+        : /firebase|supabase|database|backend|auth|cloudflare/.test(identity);
+    return connected && relevant;
+  });
+}
+
+function hasPositiveIntent(source, pattern) {
+  return splitRequirements(source).items.some(clause => {
+    const match = pattern.exec(clause);
+    if (!match) return false;
+    return !/\b(?:do not|don't|dont|never|avoid|exclude|without|no)\b/i.test(clause.slice(0, match.index));
+  });
+}
+
+export function buildPromptContract(prompt) {
+  const rawSource = String(prompt ?? '').replace(/\u0000/g, '').trim();
+  const source = clean(rawSource);
+  const split = splitRequirements(source);
+  const clauses = split.items;
+  const exclusions = clauses.filter(item => /\b(?:do not|don't|dont|never|avoid|exclude|without|no longer|only)\b/i.test(item));
+  const required = clauses.filter(item => /\b(?:must|make sure|ensure|include|add|needs? to|should|with|keep|preserve|use|exactly|every|all|don't forget)\b/i.test(item));
+  return {
+    version: 1,
+    sourceLength: rawSource.length,
+    sourceCharacterLimit: MAX_PROMPT_CHARS,
+    sourceWasTruncated: rawSource.length > MAX_PROMPT_CHARS,
+    requirementClauseCount: clauses.length,
+    omittedRequirementClauseCount: split.omittedCount,
+    requirementManifestComplete: !split.omittedCount && rawSource.length <= MAX_PROMPT_CHARS,
+    userRequirements: required.slice(0, 24).map(item => item.slice(0, MAX_MANIFEST_CLAUSE_CHARS)),
+    allBriefClauses: clauses.map((item, index) => 'R' + String(index + 1).padStart(3, '0') + ': ' + item.slice(0, MAX_MANIFEST_CLAUSE_CHARS)),
+    explicitConstraints: exclusions.slice(0, 20).map(item => item.slice(0, MAX_MANIFEST_CLAUSE_CHARS)),
+    explicitPages: extractExplicitPageNames(source),
+    contactSignals: {
+      contactForm: hasPositiveIntent(source, /\b(?:contact|enquiry|inquiry|quote|lead|message)\s+forms?\b|\bforms?\b.{0,40}\b(?:contact|email|message|enquiry|inquiry|quote)\b/i),
+      emailDelivery: hasPositiveIntent(source, /\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b.{0,55}\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b|\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b.{0,55}\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b/i),
+      bookings: hasPositiveIntent(source, BOOKING_INTENT_PATTERN),
+      newsletter: hasPositiveIntent(source, /\b(?:newsletter|mailing\s+list|email\s+updates|subscribe\s+(?:to\s+)?(?:the\s+)?(?:newsletter|mailing\s+list)|sign\s+up\s+for\s+(?:email\s+)?updates)\b/i),
+      payments: hasPositiveIntent(source, /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing|recurring billing)\b/i),
+      shoppingCart: hasPositiveIntent(source, SHOPPING_CART_PATTERN),
+      addToCart: hasPositiveIntent(source, ADD_TO_CART_PATTERN),
+      authentication: hasPositiveIntent(source, /\b(?:login|log in|sign in|sign up|user accounts?|authentication|register an account)\b/i),
+      backendData: hasPositiveIntent(source, /\b(?:save|store|persist|database|backend|customer records?|booking records?|order records?)\b/i),
+    },
+    fidelityRules: [
+      'Treat every explicit requirement and exclusion as a delivery contract, not optional inspiration.',
+      'Keep a private implementation checklist from the exact user brief; satisfy each item or clearly report what remains unresolved.',
+      'Preserve existing project architecture and unrelated working features when editing a site.',
+      'Never invent real contact details, prices, opening hours, addresses, testimonials, credentials, product claims or integration status.',
+      'Do not present non-working buttons, fake form success, or unconnected payment/booking integrations as functional.',
+      'If required factual details are missing, ask concise questions or use clearly editable placeholders only when the user authorizes placeholders.',
+      'Do not expose chain-of-thought; provide a concise plan, observable progress and verification results instead.',
+    ],
+  };
+}
+
+export function getWebStudioBuildClarification(prompt, context = {}) {
+  const source = clean(prompt);
+  const conversationText = clean(context && context.conversationText);
+  if (!source || hasExplicitContactOptOut(source) || hasExplicitContactOptOut(conversationText)) return null;
+
+  const publicContext = publicContextText(context);
+  const evidence = source + '\n' + conversationText + '\n' + publicContext;
+  const hasEmail = isRealPublicEmail(evidence);
+  const hasPhone = hasPhoneNumber(evidence);
+  const hasAddress = hasAddressValue(evidence);
+  const contract = buildPromptContract(source);
+  const contact = contract.contactSignals;
+
+  const specificEmailForm = contact.contactForm && contact.emailDelivery;
+  const wantsBusinessSite = /\b(?:restaurant|cafe|coffee shop|hotel|clinic|hospital|dentist|doctor|pharmacy|church|school|college|university|academy|agency|business|company|consultancy|salon|barbershop|gym|fitness studio|real estate|property|law firm|accounting firm|charity|nonprofit|ngo|portfolio|photographer|architect|contractor|plumber|electrician)\b/i.test(source);
+  const asksContactInfo = /\b(?:contact|email|phone|telephone|whatsapp|address|location|opening hours|business hours|reservation|appointment|booking|enquiry|inquiry|quote request|newsletter|subscribe)\b/i.test(source);
+  const asksPayment = contact.payments && !/\b(?:ui only|design only|mockup only|prototype only|no real payments|checkout mockup)\b/i.test(source);
+  const asksBackend = contact.backendData && /\b(?:real|working|live|actually|save|store|receive|send|connect|integrate)\b/i.test(source);
+  const explicitPlaceholder = /\b(?:use|leave|keep|put)\b.{0,35}\bplaceholders?\b/i.test(source);
+  const questions = [];
+
+  if (specificEmailForm && !hasEmail) {
+    questions.push('What public email address should receive messages from this form? Please share the address only, never a password or API key.');
+  } else if (specificEmailForm && hasEmail && !hasConnectedIntegration(context, 'email') &&
+      !/\b(?:mailto|email client|ui only|design only|prototype|placeholder|no email integration)\b/i.test(evidence)) {
+    questions.push('The public email is noted, but a website form cannot deliver messages from a static page by itself. Should I use a mailto action (opens the visitor’s email app), or do you want to connect an email service under OVYX Settings & Connections for server-backed delivery? I will not claim form delivery works until it is configured.');
+  } else if ((wantsBusinessSite || asksContactInfo) && !hasEmail && !hasPhone && !hasAddress && !explicitPlaceholder) {
+    questions.push('To make the contact section useful, share any public business email, phone/WhatsApp number, address, opening hours, or booking link you want visitors to see. Send only what applies; I will not invent missing details.');
+  }
+
+  if (asksPayment && !hasConnectedIntegration(context, 'payments')) {
+    const selectedProvider = /\b(paystack|flutterwave|stripe|paypal)\b/i.exec(evidence);
+    if (selectedProvider) {
+      const providerName = selectedProvider[1][0].toUpperCase() + selectedProvider[1].slice(1).toLowerCase();
+      questions.push('You selected ' + providerName + '. Connect it under OVYX Settings & Connections; do not paste secret keys into chat. I can prepare the checkout UI now, but I will not claim real payments work until the connection is active.');
+    } else {
+      questions.push('For real payments, which provider should the site use? Connect it under OVYX Settings & Connections; do not paste secret keys into chat. I can build the storefront now, but I will not pretend checkout works before the provider is connected.');
+    }
+  }
+
+  if ((contact.authentication || asksBackend) && !hasConnectedIntegration(context, 'backend') &&
+      /\b(?:real|working|live|save|store|customer accounts?|database|booking records?|order records?)\b/i.test(source)) {
+    questions.push('This request needs a real login/database/backend connection. Should I prepare the website UI now and mark the integration as pending, or do you want to connect a supported service in Settings & Connections first? Never send passwords or secret keys in chat.');
+  }
+
+  if (!questions.length) return null;
+  const limited = questions.slice(0, 3);
+  return {
+    type: 'build_readiness',
+    questions: limited,
+    message: 'Before I build this, I need a couple of details so the result matches your request and does not pretend missing services are connected.\n\n' +
+      limited.map((question, index) => (index + 1) + '. ' + question).join('\n\n') +
+      '\n\nReply with the details you have, or say “use editable placeholders” / “build the UI only” to continue without inventing facts.',
+  };
+}
+
+
+/**
+ * Deterministic, conservative post-build checks for requirements that can be
+ * verified from generated files without pretending to run a browser.
+ */
+export function verifyPromptContractOutput(prompt, files, siteMap = {}, options = {}) {
+  const contract = buildPromptContract(prompt);
+  const explicitPages = Array.isArray(options.explicitPages) ? options.explicitPages : contract.explicitPages;
+  const entries = Object.entries(files && typeof files === 'object' && !Array.isArray(files) ? files : {})
+    .filter(([, value]) => typeof value === 'string' && value.trim());
+  const htmlEntries = entries.filter(([path]) => /\.html?$/i.test(path));
+  const allText = entries.map(([, value]) => value).join('\n');
+  const htmlText = htmlEntries.map(([, value]) => value).join('\n');
+  const visibleText = htmlEntries.map(([, value]) => visibleHtmlText(value)).join(' ');
+  const pageEntries = Array.isArray(siteMap && siteMap.pages) ? siteMap.pages : [];
+  const pageKeys = new Set(pageEntries.map(page => normalizedKey(page && (page.title || page.name))).filter(Boolean));
+  for (const [path] of htmlEntries) {
+    const basename = path.split('/').pop().replace(/\.html?$/i, '').replace(/[-_]+/g, ' ');
+    if (/^(?:home|index)$/i.test(basename)) pageKeys.add('home');
+    pageKeys.add(normalizedKey(basename));
+  }
+
+  const issues = [];
+  const missingPages = explicitPages.filter(title => {
+    const key = normalizedKey(title);
+    return !pageKeys.has(key) && !(key === 'home' && pageKeys.has('index'));
+  });
+  if (missingPages.length) {
+    issues.push({
+      code: 'EXPLICIT_PAGES_MISSING',
+      message: 'The generated site is missing explicitly requested pages: ' + missingPages.join(', '),
+      missing: missingPages,
+    });
+  }
+
+  if (contract.contactSignals.contactForm && !hasIntentForm(htmlEntries, 'contact')) {
+    issues.push({
+      code: 'CONTACT_FORM_MISSING',
+      message: 'The brief explicitly asks for a contact/enquiry form, but the generated HTML has no form with a detectable message or contact-details path.',
+    });
+  }
+  if (contract.contactSignals.bookings &&
+      !hasVisibleActionControl(htmlEntries, BOOKING_ACTION_PATTERN) &&
+      !hasIntentForm(htmlEntries, 'booking')) {
+    issues.push({
+      code: 'BOOKING_FLOW_MISSING',
+      message: 'The brief asks for booking, reservation or appointment capability, but the generated HTML has no actionable booking control or booking-specific form. A navigation label alone does not satisfy this requirement.',
+    });
+  }
+  if (contract.contactSignals.shoppingCart &&
+      !hasVisibleActionControl(htmlEntries, SHOPPING_CART_ACTION_PATTERN) &&
+      !hasIntentForm(htmlEntries, 'cart')) {
+    issues.push({
+      code: 'SHOPPING_CART_MISSING',
+      message: 'The brief asks for a shopping cart, but the generated HTML has no actionable add-to-cart/cart/checkout control or cart-specific form.',
+    });
+  }
+  if (contract.contactSignals.addToCart &&
+      !hasVisibleActionControl(htmlEntries, ADD_TO_CART_PATTERN)) {
+    issues.push({
+      code: 'ADD_TO_CART_ACTION_MISSING',
+      message: 'The brief explicitly asks for Add to Cart behavior, but no button or non-navigation action link labeled Add to Cart (or equivalent) was generated.',
+    });
+  }
+  if (contract.contactSignals.newsletter &&
+      (!hasIntentForm(htmlEntries, 'newsletter') ||
+       !hasVisibleActionControl(htmlEntries, NEWSLETTER_ACTION_PATTERN))) {
+    issues.push({
+      code: 'NEWSLETTER_MISSING',
+      message: 'The brief asks for a newsletter, but the generated HTML lacks an email signup form with an actionable subscription control.',
+    });
+  }
+  if (contract.contactSignals.authentication &&
+      !hasVisibleActionControl(htmlEntries, AUTH_ACTION_PATTERN) &&
+      !hasIntentForm(htmlEntries, 'authentication')) {
+    issues.push({
+      code: 'AUTHENTICATION_UI_MISSING',
+      message: 'The brief asks for authentication, but the generated HTML has no actionable sign-in/register control or credential form.',
+    });
+  }
+  if (contract.contactSignals.payments &&
+      !hasVisibleActionControl(htmlEntries, PAYMENT_ACTION_PATTERN) &&
+      !hasIntentForm(htmlEntries, 'payments')) {
+    issues.push({
+      code: 'PAYMENT_FLOW_MISSING',
+      message: 'The brief asks for payments, but the generated HTML has no actionable payment/checkout control or payment-specific form.',
+    });
+  }
+
+  return {
+    ok: issues.length === 0,
+    requirementCount: contract.allBriefClauses.length,
+    explicitPages,
+    checkedFiles: entries.length,
+    checkedHtmlFiles: htmlEntries.length,
+    issues,
+  };
+}
