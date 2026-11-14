@@ -66,3 +66,7 @@ assert.match(asset, /data-member-inbox/, 'Recipients need an in-app request inbo
 assert.match(asset, /data-member-accept/, 'Recipients must be able to accept a direct request.');
 assert.match(asset, /data-member-decline/, 'Recipients must be able to decline a direct request.');
 assert.match(asset, /send-member-request/, 'The Sharing page must submit direct member requests.');
+
+assert.match(asset, /window\.ProjectStore\?\.list\?\.\(\)/, 'Sharing must read projects from the canonical ProjectStore inventory.');
+assert.match(asset, /function requireProject\(\)/, 'Sharing actions must explain when no project is selected instead of silently doing nothing.');
+assert.match(asset, /if \(!requireProject\(\)\) return;/, 'Link, email and direct-member actions must require a selected project with visible feedback.');

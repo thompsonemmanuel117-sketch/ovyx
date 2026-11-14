@@ -47,11 +47,33 @@
     host.dataset.error = error ? 'true' : 'false';
   }
   function projectOptions() {
-    const projects = Array.isArray(window.KernelState?.projects) ? window.KernelState.projects.filter(item => item?.sharingAccess?.owner !== false) : [];
+    // KernelState is the primary project inventory, but ProjectStore is the
+    // canonical store used by the dashboard and can be ready independently.
+    const kernelProjects = Array.isArray(window.KernelState?.projects) ? window.KernelState.projects : [];
+    let storedProjects = [];
+    try {
+      const listed = window.ProjectStore?.list?.();
+      if (Array.isArray(listed)) storedProjects = listed;
+      else if (Array.isArray(window.ProjectStore?.projects)) storedProjects = window.ProjectStore.projects;
+    } catch (error) {
+      console.warn('[OVYX SHARING] Could not read ProjectStore inventory.', error);
+    }
+    const byId = new Map();
+    [...storedProjects, ...kernelProjects].forEach(project => {
+      const id = String(project?.id || '');
+      if (id && project?.sharingAccess?.owner !== false) byId.set(id, project);
+    });
+    const projects = [...byId.values()];
     const active = activeProject();
     const selected = state.projectId || String(active?.id || '');
     if (active?.id && active?.sharingAccess?.owner !== false && !projects.some(item => String(item.id) === String(active.id))) projects.unshift(active);
     return { projects, selected };
+  }
+  function requireProject() {
+    if (state.projectId) return true;
+    notice('Choose a project above first. If your project is missing, refresh the page and try again.', true);
+    page()?.querySelector('[data-share-project]')?.focus();
+    return false;
   }
   function renderProjects() {
     const select = page()?.querySelector('#ovx-share-project');
@@ -127,7 +149,8 @@
     } finally { state.busy = false; }
   }
   async function createLink() {
-    if (!state.projectId || state.busy) return;
+    if (!requireProject()) return;
+    if (state.busy) { notice('Another sharing action is still processing. Please wait a moment.'); return; }
     state.busy = true;
     try {
       const data = await request('/api/project-sharing', { method: 'POST', body: JSON.stringify({ action: 'create-link', projectId: state.projectId }) });
@@ -145,7 +168,8 @@
   }
   async function invite(event) {
     event.preventDefault();
-    if (!state.projectId || state.busy) return;
+    if (!requireProject()) return;
+    if (state.busy) { notice('Another sharing action is still processing. Please wait a moment.'); return; }
     const form = event.currentTarget;
     const values = new FormData(form);
     state.busy = true;
@@ -159,7 +183,8 @@
   }
   async function sendMemberRequest(event) {
     event.preventDefault();
-    if (!state.projectId || state.busy) return;
+    if (!requireProject()) return;
+    if (state.busy) { notice('Another sharing action is still processing. Please wait a moment.'); return; }
     const form = event.currentTarget;
     const values = new FormData(form);
     state.busy = true;
