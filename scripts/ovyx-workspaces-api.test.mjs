@@ -41,6 +41,7 @@ console.log('OVYX workspace management contract tests passed.');
 import { generateKeyPairSync } from 'node:crypto';
 import { onRequest as handleWorkspaces } from '../functions/api/workspaces.js';
 import { onRequest as handleProjects } from '../functions/api/projects.js';
+import { onRequest as handleActivate } from '../functions/api/workspace/activate.js';
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const serviceAccount = {
@@ -140,6 +141,35 @@ async function invoke(handler, path, method = 'GET', body = null, user = integra
 }
 
 try {
+  // A Free account must receive its personal workspace during activation,
+  // without first visiting the workspace-list endpoint.
+  const freeActivationUser = {
+    uid: 'workspace-free-activation-user',
+    email: 'free-activation@example.test',
+    displayName: 'Free Activation User',
+  };
+  const activatedFree = await invoke(handleActivate, '/api/workspace/activate', 'POST', null, freeActivationUser);
+  assert.equal(activatedFree.status, 200, 'A verified Free account should activate successfully.');
+  assert.equal(activatedFree.body.workspaceActive, true);
+  assert.equal(activatedFree.body.personalWorkspace.id, 'personal');
+  assert.equal(
+    documents.has('users/' + freeActivationUser.uid + '/workspaces/personal'),
+    true,
+    'Account activation must create the personal workspace immediately.',
+  );
+  const activatedProfile = dataFrom(documents.get('users/' + freeActivationUser.uid));
+  assert.equal(activatedProfile.workspaceActive, true);
+  assert.equal(activatedProfile.planTier, 'free', 'New Free accounts must retain the Free plan.');
+  const activatedWorkspace = dataFrom(documents.get('users/' + freeActivationUser.uid + '/workspaces/personal'));
+  assert.equal(activatedWorkspace.ownerUid, freeActivationUser.uid);
+  assert.equal(activatedWorkspace.ownerEmail, freeActivationUser.email);
+
+  const missingEmail = await invoke(handleActivate, '/api/workspace/activate', 'POST', null, {
+    uid: 'workspace-missing-email-user',
+  });
+  assert.equal(missingEmail.status, 401, 'Workspace activation must not create an ownerless workspace.');
+  assert.equal(missingEmail.body.code, 'EMAIL_REQUIRED');
+
   const firstList = await invoke(handleWorkspaces, '/api/workspaces');
   assert.equal(firstList.status, 200);
   assert.equal(firstList.body.workspaces.length, 1, 'A first account visit should provision one personal workspace.');
@@ -203,6 +233,15 @@ try {
   assert.equal(inPersonal.status, 200);
   assert.equal(inPersonal.body.projects.length, 1, 'Legacy projects without workspaceId must remain in the personal workspace.');
   assert.equal(inPersonal.body.projects[0].id, 'stage6-legacy-project');
+
+  const restoredAfterSignIn = await invoke(handleProjects, '/api/projects?workspaceId=' + workspaceId, 'GET', null, integrationOwner);
+  assert.equal(restoredAfterSignIn.status, 200);
+  assert.equal(restoredAfterSignIn.body.projects.length, 1, 'The same owner must recover their saved projects after signing in again.');
+  assert.equal(restoredAfterSignIn.body.projects[0].id, 'stage6-workspace-project');
+
+  const switchedAccountProjects = await invoke(handleProjects, '/api/projects', 'GET', null, otherIdentity);
+  assert.equal(switchedAccountProjects.status, 200);
+  assert.equal(switchedAccountProjects.body.projects.length, 0, 'Switching to another Firebase UID must not expose the previous account projects.');
 
   const details = await invoke(handleProjects, '/api/projects?projectId=stage6-workspace-project');
   assert.equal(details.status, 200);
