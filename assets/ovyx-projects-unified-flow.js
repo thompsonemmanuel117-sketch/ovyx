@@ -4,6 +4,28 @@
   window.__OVYX_PROJECTS_UNIFIED_FLOW_V1__ = true;
 
   const STORE = () => window.ProjectStore;
+  function installStyles() {
+    if (document.getElementById('ovyx-projects-unified-flow-style')) return;
+    const style = document.createElement('style');
+    style.id = 'ovyx-projects-unified-flow-style';
+    style.textContent = `
+      #ovyx-projects-continue-panel{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 22px;padding:18px 20px;border:1px solid rgba(194,163,107,.22);border-radius:14px;background:radial-gradient(ellipse at 8% 0%,rgba(194,163,107,.10),transparent 58%),linear-gradient(115deg,rgba(255,255,255,.035),rgba(255,255,255,.012));}
+      #ovyx-projects-continue-panel .ovx-projects-continue-copy{display:grid;gap:5px;min-width:0}
+      #ovyx-projects-continue-panel .ovx-projects-continue-kicker{color:#C2A36B;font:800 8px/1.4 'JetBrains Mono',monospace;letter-spacing:.15em}
+      #ovyx-projects-continue-panel strong{overflow:hidden;color:#f4f4f2;font:800 17px/1.25 Inter,ui-sans-serif,sans-serif;text-overflow:ellipsis;white-space:nowrap}
+      #ovyx-projects-continue-panel .ovx-projects-continue-copy>span:last-child{color:#888990;font:500 10px/1.5 Inter,ui-sans-serif,sans-serif}
+      #ovyx-projects-continue-panel .ovx-projects-continue-action{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:40px;flex:0 0 auto;padding:0 14px;border:1px solid rgba(194,163,107,.42);border-radius:9px;background:#C2A36B;color:#090909;font:800 10px Inter,ui-sans-serif,sans-serif;cursor:pointer;transition:transform .16s ease,filter .16s ease}
+      #ovyx-projects-continue-panel .ovx-projects-continue-action:hover{filter:brightness(1.08);transform:translateY(-1px)}
+      #ovyx-projects-continue-panel .ovx-projects-continue-action:disabled{opacity:.65;cursor:wait;transform:none}
+      #ovyx-projects-continue-panel .ovx-projects-continue-action:focus-visible{outline:2px solid #e8c783;outline-offset:3px}
+      #ovyx-project-create-modal .ovx-create-status{margin:11px 0 0;color:#8b8b91;font:500 9px/1.5 Inter,ui-sans-serif,sans-serif}
+      #ovyx-project-create-modal [data-modal-create][aria-busy="true"]{opacity:.72;cursor:wait}
+      @media(max-width:767px){#ovyx-projects-continue-panel{align-items:stretch;flex-direction:column;gap:13px;margin-bottom:16px;padding:15px}#ovyx-projects-continue-panel strong{font-size:15px}#ovyx-projects-continue-panel .ovx-projects-continue-action{width:100%}}
+      @media(prefers-reduced-motion:reduce){#ovyx-projects-continue-panel *{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+    `;
+    document.head.appendChild(style);
+  }
+
   const escapeHtml = value => String(value == null ? '' : value).replace(/[&<>"']/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[char]);
