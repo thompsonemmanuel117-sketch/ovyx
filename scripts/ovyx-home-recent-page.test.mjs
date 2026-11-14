@@ -22,6 +22,6 @@ assert.match(source, /Your built websites/);
 assert.match(css, /#view-recent/);
 assert.match(css, /grid-template-columns:repeat\(3/);
 assert.match(css, /prefers-reduced-motion/);
-assert.match(middleware, /ovyx-home-recent-page\.js\?v=20261114-1/);
+assert.match(middleware, /ovyx-home-recent-page\.js\?v=20261114-2/);
 assert.match(middleware, /ovyx-home-recent-page\.css\?v=20261114-1/);
 console.log('OVYX Recent website page and dashboard declutter contract checks passed.');
