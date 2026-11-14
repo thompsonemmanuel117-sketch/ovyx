@@ -6,6 +6,8 @@ on:
     paths:
       - 'assets/css/ovyx-premium-experience.css'
       - 'assets/css/ovyx-platform-design-system.css'
+      - 'index.html'
+      - 'assets/ovyx-auth-routes.js'
       - 'package.json'
       - 'scripts/ovyx-premium-experience.test.mjs'
       - 'scripts/ovyx-premium-experience.browser.test.mjs'
@@ -14,6 +16,9 @@ on:
     branches: [main]
     paths:
       - 'assets/css/ovyx-premium-experience.css'
+      - 'index.html'
+      - 'assets/ovyx-auth-routes.js'
+      - 'scripts/ovyx-premium-experience.browser.test.mjs'
       - 'package.json'
       - 'scripts/ovyx-premium-experience.test.mjs'
       - 'scripts/ovyx-premium-experience.browser.test.mjs'
