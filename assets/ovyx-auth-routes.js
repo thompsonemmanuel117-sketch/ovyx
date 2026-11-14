@@ -36,6 +36,8 @@
   function setStatus(message, kind) {
     const node = $('ovyx-master-auth-status');
     if (node) { node.textContent = message; node.className = 'ovyx-master-auth-status ' + (kind || ''); }
+    const verifyStatus = $('ovyx-auth-verify-status');
+    if (verifyStatus) verifyStatus.textContent = message;
   }
   function hide(node, hidden) {
     if (!node) return;
@@ -115,7 +117,7 @@
       panel = document.createElement('div');
       panel.id = 'ovyx-auth-verify-panel';
       panel.className = 'ovyx-auth-verify-panel';
-      panel.innerHTML = '<p class="ovyx-auth-verify-copy"></p><button type="button" class="ovyx-auth-primary" id="ovyx-auth-resend-verification">Resend verification email</button><button type="button" class="ovyx-auth-verify-secondary" id="ovyx-auth-check-verification">I’ve verified my email</button>';
+      panel.innerHTML = '<p class="ovyx-auth-verify-copy"></p><div id="ovyx-auth-verify-status" class="ovyx-auth-verify-status" role="status" aria-live="polite"></div><button type="button" class="ovyx-auth-primary" id="ovyx-auth-resend-verification">Resend verification email</button><button type="button" class="ovyx-auth-verify-secondary" id="ovyx-auth-check-verification">I’ve verified my email</button><button type="button" class="ovyx-auth-verify-secondary" id="ovyx-auth-back-to-login">Back to login</button>';
       form.parentElement.insertBefore(panel, form);
       $('ovyx-auth-resend-verification')?.addEventListener('click', async () => {
         const current = window.firebase?.auth?.()?.currentUser;
@@ -123,6 +125,7 @@
         try { await current.sendEmailVerification(); setStatus('A new verification email has been sent.', 'ok'); }
         catch (_) { setStatus('We could not send the verification email. Check your connection and try again.', 'error'); }
       });
+      $('ovyx-auth-back-to-login')?.addEventListener('click', () => navigate('login', false));
       $('ovyx-auth-check-verification')?.addEventListener('click', async () => {
         const current = window.firebase?.auth?.()?.currentUser;
         if (!current) { setPath('login', true); renderRoute('login'); return; }
