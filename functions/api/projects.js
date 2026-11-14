@@ -120,11 +120,13 @@ export async function onRequest(context){
       let sharedMembership=null;
       if(!existing){
         sharedMembership=await sharedProjectMembership(context.env,uid,pid);
-        if(!sharedMembership||sharedMembership.role!=='editor')throw Object.assign(new Error('You need editor access to change this shared project.'),{status:403,code:'PROJECT_EDIT_FORBIDDEN'});
-        targetEmail=clean(sharedMembership.ownerEmail,320).toLowerCase();
-        writeUid=clean(sharedMembership.ownerUid,256);
-        existingDoc=await getFirestoreDocumentAtPath(context.env,['users',targetEmail,'projects',pid]);
-        existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',targetEmail,'projects',pid]):null;
+        if(sharedMembership){
+          if(sharedMembership.role!=='editor')throw Object.assign(new Error('You need editor access to change this shared project.'),{status:403,code:'PROJECT_EDIT_FORBIDDEN'});
+          targetEmail=clean(sharedMembership.ownerEmail,320).toLowerCase();
+          writeUid=clean(sharedMembership.ownerUid,256);
+          existingDoc=await getFirestoreDocumentAtPath(context.env,['users',targetEmail,'projects',pid]);
+          existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',targetEmail,'projects',pid]):null;
+        }
       }
       if(existing && (clean(existing.ownerUid)!==writeUid||clean(existing.ownerEmail).toLowerCase()!==targetEmail))throw Object.assign(new Error('This app cannot be saved under the current account.'),{status:409,code:'PROJECT_OWNERSHIP_CONFLICT'});
       const workspaceId=sharedMembership?projectWorkspaceId(existing):cleanWorkspaceId(body.workspaceId||project.workspaceId||existing?.workspaceId||DEFAULT_WORKSPACE_ID);
