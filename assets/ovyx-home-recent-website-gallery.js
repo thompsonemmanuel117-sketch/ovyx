@@ -1,6 +1,5 @@
-/* OVYX Home dashboard — visual website gallery.
-   Home-only presentation and local pin preferences; existing project ownership,
-   persistence, navigation, generation and Web Studio runtime remain authoritative. */
+/* OVYX Home dashboard — compact recent website previews.
+   Existing project ownership, persistence, navigation, generation and Web Studio runtime remain authoritative. */
 (() => {
   'use strict';
   if (window.__OVYX_HOME_RECENT_WEBSITE_GALLERY_V1__) return;
@@ -109,13 +108,12 @@
     const pins = readPins();
     return (Array.isArray(projects) ? projects : [])
       .filter(isWebsite)
-      .map((project, index) => ({ project, index, updated: timestamp(project), pinned: pins.has(String(project.id)) }))
-      .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updated - a.updated || a.index - b.index)
+      .map((project, index) => ({ project, index, updated: timestamp(project) }))
+      .sort((a, b) => b.updated - a.updated || a.index - b.index)
       .map(item => item.project);
   }
   function card(project) {
     const id = String(project.id || '');
-    const pinned = readPins().has(id);
     const name = escapeHtml(project.name || project.pages?.[0]?.name || 'Untitled website');
     const image = escapeHtml(previewImage(project));
     const date = formatDate(project);
@@ -125,23 +123,16 @@
       '<button class="v59-home-website-preview" type="button" data-ovyx-website-open="' + escapeHtml(id) + '" aria-label="Open ' + name + '">' +
       '<img src="' + image + '" alt="Preview of ' + name + '" loading="lazy" decoding="async">' +
       '<span class="v59-home-preview-open">Open website <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></span></button>' +
-      '<div class="v59-home-website-info"><div class="v59-home-website-title-row"><h3 title="' + name + '">' + name + '</h3>' +
-      '<button class="v59-home-pin' + (pinned ? ' is-pinned' : '') + '" type="button" data-ovyx-website-pin="' + escapeHtml(id) +
-      '" aria-pressed="' + (pinned ? 'true' : 'false') + '" aria-label="' + (pinned ? 'Unpin' : 'Pin') + ' ' + name +
-      '" title="' + (pinned ? 'Unpin website' : 'Pin website') + '"><i class="fa-solid fa-thumbtack" aria-hidden="true"></i></button></div>' +
-      '<time class="v59-home-website-date"' + (dateIso ? ' datetime="' + dateIso + '"' : '') + '>' + dateText + '</time>' +
-      '<div class="v59-home-website-actions"><button type="button" data-ovyx-website-open="' + escapeHtml(id) +
-      '"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i> Edit website</button></div></div></article>';
+      '<div class="v59-home-website-info"><h3 title="' + name + '">' + name + '</h3>' +
+      '<time class="v59-home-website-date"' + (dateIso ? ' datetime="' + dateIso + '"' : '') + '>' + dateText + '</time></div></article>';
   }
   function renderHome() {
     const host = byId('home-projects-grid');
     if (!host) return;
     const store = window.ProjectStore;
-    const items = sortWebsites(store?.list?.() || window.KernelState?.projects || []).slice(0, 3);
+    const items = sortWebsites(store?.list?.() || window.KernelState?.projects || []).slice(0, 5);
     if (!items.length) {
-      host.innerHTML = '<div class="v59-home-website-empty" role="status"><span class="v59-home-website-empty-mark" aria-hidden="true">◇</span>' +
-        '<div><strong>Your websites will appear here</strong><p>Build your first website and its visual preview will show up in Recent Projects.</p></div>' +
-        '<button type="button" data-ovyx-home-create>Start building <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></div>';
+      host.innerHTML = '<div class="v59-home-website-empty" role="status"><div><strong>No recent websites</strong></div></div>';
       return;
     }
     host.innerHTML = items.map(card).join('');
@@ -168,11 +159,6 @@
     window.showToast?.(wasPinned ? 'Website unpinned.' : 'Website pinned to the top of Recent Projects.', 'success');
   }
   function handleClick(event) {
-    const pin = event.target?.closest?.('[data-ovyx-website-pin]');
-    if (pin) {
-      event.preventDefault(); event.stopPropagation();
-      togglePin(pin.getAttribute('data-ovyx-website-pin')); return;
-    }
     const open = event.target?.closest?.('[data-ovyx-website-open]');
     if (open) {
       event.preventDefault(); event.stopPropagation();
