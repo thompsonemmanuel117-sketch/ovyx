@@ -53,7 +53,10 @@
       }
     } else {
       node.dataset.ovyxAvatarUrl = '';
-      node.replaceChildren(document.createTextNode(initials(name)));
+      const fallback = initials(name);
+      if (node.children.length || node.textContent !== fallback) {
+        node.replaceChildren(document.createTextNode(fallback));
+      }
     }
   }
 
