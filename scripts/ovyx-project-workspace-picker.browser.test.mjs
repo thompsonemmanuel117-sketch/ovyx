@@ -185,6 +185,10 @@ try {
     assert.equal(await createDialog.getAttribute('aria-hidden'), 'false',
       '[' + target.name + '] Create project must hand off to the existing project creation flow.');
     await page.keyboard.press('Escape');
+    await page.waitForFunction(() => {
+      const modal = document.getElementById('ovyx-project-create-modal');
+      return Boolean(modal?.hidden && getComputedStyle(modal).display === 'none');
+    }, null, { timeout: 3000 });
 
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.Router.go('projects'));
