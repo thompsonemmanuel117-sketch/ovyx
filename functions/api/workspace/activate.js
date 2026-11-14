@@ -1,5 +1,6 @@
 import { authenticateRequest } from '../../_lib/firebase.js';
 import { getFirestoreData, setFirestoreDocument } from '../../_lib/firebase-admin.js';
+import { ensurePersonalWorkspace } from '../workspaces.js';
 import { getGitHubToken } from '../../_lib/github.js';
 import { initializeQuotaProfile } from '../../_lib/token-quota.js';
 import { jsonResponse, requestId } from '../_lib/http.js';
@@ -10,7 +11,10 @@ export async function onRequestPost(context){
   try{
     const user=context.data?.user||await authenticateRequest(context.request,context.env);
     const uid=userId(user);
+    const email=String(user?.email||'').trim().toLowerCase();
     if(!uid)return jsonResponse({ok:false,error:'Authentication required.',code:'AUTH_REQUIRED'},401,{'X-OVYX-Request-ID':id});
+    if(!email)return jsonResponse({ok:false,error:'A verified account email is required to activate your personal workspace.',code:'EMAIL_REQUIRED'},401,{'X-OVYX-Request-ID':id});
+    const personalWorkspace=await ensurePersonalWorkspace(context.env,{...user,uid,email},uid,email);
     let githubReady=false;
     if(context.env.GITHUB_APP_ID&&context.env.GITHUB_APP_INSTALLATION_ID&&context.env.GITHUB_APP_PRIVATE_KEY){
       try{await getGitHubToken(context.env);githubReady=true;}catch{githubReady=false;}
@@ -23,7 +27,7 @@ export async function onRequestPost(context){
       'users',
       uid,
       {
-        email: String(user.email || existing.email || '').trim().toLowerCase() || null,
+        email: email || String(existing.email || '').trim().toLowerCase() || null,
         displayName: String(user.displayName || existing.displayName || '').trim() || null,
         photoUrl: String(user.photoUrl || existing.photoUrl || '').trim() || null,
         workspaceActive: true,
@@ -49,7 +53,7 @@ export async function onRequestPost(context){
         String(quotaError?.code || quotaError?.message || 'unknown error').slice(0, 240)
       );
     }
-    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,profile:{uid,email:String(user.email||existing.email||'').trim().toLowerCase()||null,displayName:String(user.displayName||existing.displayName||'').trim()||null},integrations:{
+    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,personalWorkspace:{id:'personal',name:String(personalWorkspace?.name||'Personal workspace')},profile:{uid,email:String(user.email||existing.email||'').trim().toLowerCase()||null,displayName:String(user.displayName||existing.displayName||'').trim()||null},integrations:{
       codeGateway:{enabled:true,basePath:'/api',aiGateway:'/api/ai/gateway',assistant:'/api/ai/assistant'},
       universalConnections:{enabled:true,route:'/api/settings/connections',serverAuthoritative:true,secretEncryptionConfigured:String(context.env.OVYX_CONNECTION_ENCRYPTION_KEY||'').trim().length>=32},
       github:{provider:'github-app-installation',connected:githubReady},
