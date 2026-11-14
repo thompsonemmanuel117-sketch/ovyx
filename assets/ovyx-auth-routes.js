@@ -24,7 +24,9 @@
     }
   }
   function showAuthSurface() {
-    try { window.Router?.go?.('master-auth', { force: true }); } catch (_) {}
+    // Keep the application route on Home: the existing guest-session observer
+    // intentionally redirects away from the internal master-auth route.
+    // The auth surface is an overlay and must not mutate the workspace route.
     try { window.OVYXMasterAuth?.openAuth?.(); } catch (_) {}
   }
   function setLoginMode(signup) {
