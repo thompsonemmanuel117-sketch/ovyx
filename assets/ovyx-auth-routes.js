@@ -99,7 +99,8 @@
   }
   function renderVerify() {
     const user = window.firebase?.auth?.()?.currentUser;
-    showAuthSurface();
+    try { window.Router?.go?.('home', { force: true }); } catch (_) {}
+    try { window.OVYXMasterAuth?.openAuth?.(); } catch (_) {}
     restoreForm();
     const form = $('ovyx-master-auth-form');
     if (form) form.dataset.authPage = 'verify';
@@ -183,6 +184,7 @@
         activeMode = next;
       } else if (target.id === 'ovyx-auth-forgot') {
         event.preventDefault();
+        event.stopImmediatePropagation();
         navigate('forgot', false);
       } else if (target.id === 'ovyx-auth-back') {
         event.preventDefault();
