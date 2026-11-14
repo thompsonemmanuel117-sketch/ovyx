@@ -32,5 +32,7 @@ jobs:
         run: node scripts/ovyx-auth-routes.test.mjs
       - name: Verify existing authentication experience
         run: node scripts/ovyx-auth-experience.test.mjs && node scripts/ovyx-auth-blocking.test.mjs && node scripts/ovyx-oauth-registration-policy.test.mjs
+      - name: Install project dependencies for integration regressions
+        run: npm install --no-audit --no-fund
       - name: Run the complete OVYX regression suite
         run: npm test
