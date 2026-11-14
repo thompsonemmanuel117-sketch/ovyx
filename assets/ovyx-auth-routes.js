@@ -35,6 +35,19 @@
     overlay.classList.remove('hidden', 'ovyx-auth-exit');
     overlay.setAttribute('aria-hidden', 'false');
     overlay.style.setProperty('display', 'flex', 'important');
+    // The legacy shell has delayed guest-surface cleanup repairs. Reassert the
+    // explicit URL intent after those one-time boot repairs, but never resurrect
+    // the screen after the user has authenticated or left the auth URL.
+    [80, 220, 480, 820].forEach(delay => setTimeout(() => {
+      if (!modeFromPath() || window.firebase?.auth?.()?.currentUser) return;
+      const currentOverlay = $('view-master-auth');
+      if (!currentOverlay) return;
+      document.body?.setAttribute('data-ovyx-auth-intent', '1');
+      document.body?.classList.add('ovyx-auth-lock');
+      currentOverlay.classList.remove('hidden', 'ovyx-auth-exit');
+      currentOverlay.setAttribute('aria-hidden', 'false');
+      currentOverlay.style.setProperty('display', 'flex', 'important');
+    }, delay));
   }
   function closeAuthSurface() {
     try { window.OVYXAuthAuthority?.close?.(); } catch (_) {}
