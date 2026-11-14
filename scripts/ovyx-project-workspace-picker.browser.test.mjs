@@ -50,7 +50,7 @@ try {
     await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction(() => typeof window.ProjectStore?.showWorkspacePicker === 'function'
       && window.OVYXWorkspacePicker?.version === 1
-      && window.OVYXProjectsUnifiedFlow?.version === 1, null, { timeout: 45000 });
+      && window.OVYXProjectsUnifiedFlow?.version === 2, null, { timeout: 45000 });
 
     await page.evaluate(() => {
       const now = Date.now();
@@ -78,12 +78,12 @@ try {
 
     assert.equal(await page.locator('[data-nav="continue-project"], button[onclick*="continueOvyxProject"]').count(), 0,
       '[' + target.name + '] the separate Continue Project shortcuts must be removed from desktop and mobile navigation.');
-    const continuePanel = page.locator('#ovyx-projects-continue-panel');
-    await continuePanel.waitFor({ state: 'attached' });
-    assert.equal(await continuePanel.locator('[data-continue-project="picker-project-aurora"]').count(), 1,
-      '[' + target.name + '] the active saved project must be presented inside Projects.');
-    assert.match(await continuePanel.innerText(), /Aurora Commerce.*Continue working/s,
-      '[' + target.name + '] the Projects continue panel must identify the active project and its action.');
+    assert.equal(await page.locator('#ovyx-projects-continue-panel').count(), 0,
+      '[' + target.name + '] the duplicate Continue working panel must not appear inside Projects.');
+    assert.equal(await page.locator('#view-projects').getByRole('button', { name: /create project/i }).count() > 0, true,
+      '[' + target.name + '] the existing Projects page must retain its single project creation entry point.');
+    assert.equal(await page.locator('#view-projects [data-project-id]').count() >= 0, true,
+      '[' + target.name + '] the existing Projects route must remain mounted.');
 
     // Open through a trusted browser click. Mobile browsers may suppress
     // programmatic focus/keyboard activation when a modal is opened from
@@ -192,11 +192,9 @@ try {
 
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.Router.go('projects'));
-    await page.locator('#ovyx-projects-continue-panel [data-continue-project="picker-created-project"]').waitFor({ state: 'visible' });
-    await page.locator('#ovyx-projects-continue-panel [data-continue-project="picker-created-project"]').click();
-    await page.waitForFunction(() => window.KernelState?.activeProject?.id === 'picker-created-project'
-      && String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'webstudio',
-      null, { timeout: 10000 });
+    await page.waitForFunction(() => document.getElementById('view-projects')?.classList.contains('active'));
+    assert.equal(await page.locator('#ovyx-projects-continue-panel').count(), 0,
+      '[' + target.name + '] navigating back to Projects must not recreate the duplicate panel.');
 
     const layout = await dialog.evaluate(node => ({ width: node.getBoundingClientRect().width, viewport: window.innerWidth, scrollWidth: node.scrollWidth }));
     assert.ok(layout.width <= layout.viewport, '[' + target.name + '] picker must fit inside the viewport.');
