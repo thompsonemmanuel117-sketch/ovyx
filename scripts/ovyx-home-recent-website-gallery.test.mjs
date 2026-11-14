@@ -40,25 +40,38 @@ const window = {
   firebase: { auth: () => ({ currentUser: { uid: 'test-user' } }) },
   ProjectStore: {
     list() { return state.projects.slice(); },
+    card(project) { return '<article><div class="ovyx-project-preview"><span>◇</span></div><div class="ovyx-project-foot"></div></article>'; },
+    renderProjects() {},
     open(id) { opened = id; },
     createPromptModal() {}
   },
-  showToast() {}
+  showToast() {},
+  dispatchEvent() {}
 };
-vm.runInNewContext(source, { window, document, localStorage, Intl, Date, encodeURIComponent, console });
+vm.runInNewContext(source, { window, document, localStorage, Intl, Date, encodeURIComponent, CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options?.detail; } }, console });
 
 const api = window.OVYXHomeRecentWebsiteGallery;
+assert.equal(api.previewImage(websiteA), '', 'No preview image should be invented when a project has no screenshot.');
+assert.match(window.ProjectStore.card(websiteA, false), /Preview appears after build/);
+assert.match(window.ProjectStore.card(websiteA, false), /data-ovyx-project-pin="site-a"/, 'The Projects page card must have a pin control.');
+api.togglePin('site-b');
+assert.equal(api.isPinned('site-b'), true, 'Pin state must be saved for the signed-in user.');
+assert.equal(api.sortWebsites([websiteA, websiteB])[0].id, 'site-b', 'Pinned websites must sort above recent unpinned websites.');
+assert.equal(window.ProjectStore.list()[0].id, 'site-b', 'The Projects inventory must also put pinned projects first.');
+assert.equal(localStorage.getItem('ovyx.home-pinned-websites.v1.test-user'), JSON.stringify(['site-b']));
+api.togglePin('site-b');
+assert.equal(api.isPinned('site-b'), false, 'Unpin must persist and restore normal ordering.');
 assert.equal(api.isWebsite(websiteA), true);
 assert.equal(api.isWebsite(appProject), false, 'Mobile apps must not appear in the website gallery.');
 assert.deepEqual(Array.from(api.sortWebsites(state.projects), p => p.id), ['site-a', 'site-b']);
-assert.match(host.innerHTML, /Preview of Studio Portfolio/);
-assert.match(host.innerHTML, /data:image\/svg\+xml/);
+assert.match(host.innerHTML, /Preview appears after build/, 'Unbuilt projects must use a placeholder instead of a fake preview.');
+assert.doesNotMatch(host.innerHTML, /data:image\/svg\+xml/, 'The gallery must not generate synthetic screenshot images.');
 assert.match(host.innerHTML, /Nov 13, 2026/);
 assert.match(host.innerHTML, /10:25/);
 assert.doesNotMatch(host.innerHTML, /THIS LONG BUILD PROMPT/);
 assert.doesNotMatch(host.innerHTML, /Coffee House.*THIS LONG BUILD PROMPT/);
 assert.match(host.innerHTML, /https:\/\/example\.com\/coffee-preview\.webp/);
-assert.doesNotMatch(host.innerHTML, /data-ovyx-website-pin=/, 'Recent cards should not expose pin-management controls.');
+assert.match(host.innerHTML, /data-ovyx-website-pin=/, 'Recent cards must expose a pin control.');
 assert.match(host.innerHTML, /data-ovyx-website-open="site-a"/);
 assert.equal(prompt.placeholder, 'Describe what you want to build with OVYX…', 'The familiar dashboard prompt copy must be restored.');
 assert.equal(prompt.attributes['aria-label'], 'Describe your project');
@@ -96,8 +109,8 @@ assert.match(css, /#view-home #home-projects-grid/);
 assert.match(css, /aspect-ratio:\s*16\s*\/\s*9/);
 assert.match(css, /min-height:\s*104px/, 'The prompt box should return to its familiar proportions.');
 assert.match(css, /prefers-reduced-motion/);
-assert.match(middleware, /ovyx-home-recent-website-gallery\.js\?v=20261114-1/);
-assert.match(middleware, /ovyx-home-recent-website-gallery\.css\?v=20261113-1/);
+assert.match(middleware, /ovyx-home-recent-website-gallery\.js\?v=20261114-2/);
+assert.match(middleware, /ovyx-home-recent-website-gallery\.css\?v=20261114-2/);
 assert.match(middleware, /ovyx-home-recent-page\.js\?v=20261114-2/);
 assert.match(middleware, /ovyx-home-recent-page\.css\?v=20261114-1/);
 console.log('OVYX Home recent website gallery, preview, date/time, pin and edit checks passed.');

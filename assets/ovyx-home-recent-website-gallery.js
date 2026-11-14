@@ -47,51 +47,30 @@
     if (/\b(app|mobile|ios|android|desktop|game)\b/.test(type)) return false;
     return Array.isArray(project.pages) && project.pages.length > 0;
   }
-  function safeImageUrl(value) {
+  function safeImageUrl(value, explicitImage = false) {
     const url = String(value || '').trim();
-    return /^(https?:\/\/|data:image\/(?:png|jpe?g|webp|gif|avif|svg\+xml);)/i.test(url) ? url : '';
+    if (/^data:image\/(?:png|jpe?g|webp|gif|avif|svg\+xml);/i.test(url)) return url;
+    if (!/^https?:\/\//i.test(url)) return '';
+    return explicitImage || /\.(?:png|jpe?g|webp|gif|avif|svg)(?:[?#]|$)/i.test(url) ? url : '';
   }
   function suppliedPreview(project) {
     const candidates = [
-      project.previewImage, project.previewUrl, project.thumbnailUrl, project.thumbnail,
-      project.screenshotUrl, project.screenshot, project.coverImage, project.ogImage,
-      project.preview?.image, project.preview?.url
+      [project.previewImage, true], [project.thumbnailUrl, true], [project.thumbnail, true],
+      [project.screenshotUrl, true], [project.screenshot, true], [project.coverImage, true],
+      [project.ogImage, true], [project.preview?.image, true],
+      [project.previewUrl, false], [project.preview?.url, false]
     ];
     const asset = Array.isArray(project.assets)
       ? project.assets.find(item => /image/i.test(String(item?.type || item?.mimeType || '')) && (item?.dataUrl || item?.url || item?.src))
       : null;
-    if (asset) candidates.push(asset.dataUrl, asset.url, asset.src);
-    for (const candidate of candidates) {
-      const valid = safeImageUrl(candidate);
+    if (asset) candidates.push([asset.dataUrl || asset.url || asset.src, true]);
+    for (const [candidate, explicitImage] of candidates) {
+      const valid = safeImageUrl(candidate, explicitImage);
       if (valid) return valid;
     }
     return '';
   }
-  function svgPreview(project) {
-    const page = project?.pages?.[0] || {};
-    const section = page?.sections?.[0] || {};
-    const content = section.content || {};
-    const styles = section.styles || {};
-    const title = String(content.heading || page.name || project.name || 'Your website').slice(0, 48);
-    const subtitle = String(content.subheading || content.description || 'A website created with OVYX').slice(0, 92);
-    const bg = /^#[0-9a-f]{3,8}$/i.test(String(styles.background || '')) ? styles.background : '#111827';
-    const fg = /^#[0-9a-f]{3,8}$/i.test(String(styles.color || '')) ? styles.color : '#f8fafc';
-    const esc = value => String(value).replace(/[&<>"']/g, char => ({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    })[char]);
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">' +
-      '<rect width="960" height="540" fill="#090b10"/><rect x="26" y="24" width="908" height="492" rx="18" fill="' + bg + '"/>' +
-      '<rect x="26" y="24" width="908" height="42" rx="18" fill="#080a0e" opacity=".92"/>' +
-      '<circle cx="52" cy="45" r="5" fill="#f87171"/><circle cx="72" cy="45" r="5" fill="#fbbf24"/><circle cx="92" cy="45" r="5" fill="#34d399"/>' +
-      '<rect x="350" y="35" width="260" height="18" rx="9" fill="#ffffff" opacity=".09"/>' +
-      '<rect x="78" y="130" width="804" height="310" rx="12" fill="#ffffff" opacity=".035"/>' +
-      '<text x="480" y="242" text-anchor="middle" font-family="Arial,sans-serif" font-size="44" font-weight="700" fill="' + fg + '">' + esc(title) + '</text>' +
-      '<text x="480" y="292" text-anchor="middle" font-family="Arial,sans-serif" font-size="19" fill="' + fg + '" opacity=".72">' + esc(subtitle) + '</text>' +
-      '<rect x="390" y="340" width="180" height="48" rx="10" fill="#c2a36b"/>' +
-      '<text x="480" y="370" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="700" fill="#101010">' + esc(content.cta || 'Explore') + '</text></svg>';
-    return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
-  }
-  function previewImage(project) { return suppliedPreview(project) || svgPreview(project); }
+  function previewImage(project) { return suppliedPreview(project); }
   function formatDate(project) {
     const value = timestamp(project);
     if (!value) return { iso: '', label: 'Date not available' };
@@ -104,26 +83,33 @@
       }).format(date)
     };
   }
-  function sortWebsites(projects) {
+  function isPinned(id) { return readPins().has(String(id)); }
+  function sortPinned(projects) {
     const pins = readPins();
     return (Array.isArray(projects) ? projects : [])
-      .filter(isWebsite)
       .map((project, index) => ({ project, index, updated: timestamp(project) }))
-      .sort((a, b) => b.updated - a.updated || a.index - b.index)
+      .sort((a, b) => Number(pins.has(String(b.project?.id))) - Number(pins.has(String(a.project?.id)))
+        || b.updated - a.updated || a.index - b.index)
       .map(item => item.project);
+  }
+  function sortWebsites(projects) {
+    return sortPinned((Array.isArray(projects) ? projects : []).filter(isWebsite));
   }
   function card(project) {
     const id = String(project.id || '');
     const name = escapeHtml(project.name || project.pages?.[0]?.name || 'Untitled website');
     const image = escapeHtml(previewImage(project));
+    const pinned = isPinned(id);
     const date = formatDate(project);
     const dateText = escapeHtml(date.label);
     const dateIso = escapeHtml(date.iso);
     return '<article class="v59-home-website-card" data-ovyx-website-card="' + escapeHtml(id) + '">' +
       '<button class="v59-home-website-preview" type="button" data-ovyx-website-open="' + escapeHtml(id) + '" aria-label="Open ' + name + '">' +
-      '<img src="' + image + '" alt="Preview of ' + name + '" loading="lazy" decoding="async">' +
-      '<span class="v59-home-preview-open">Open website <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></span></button>' +
-      '<div class="v59-home-website-info"><h3 title="' + name + '">' + name + '</h3>' +
+      (image ? '<img src="' + image + '" alt="Actual preview of ' + name + '" loading="lazy" decoding="async">' :
+        '<span class="v59-home-no-preview"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Preview appears after build</span></span>') +
+      '<span class="v59-home-preview-open">Open project <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></span></button>' +
+      '<div class="v59-home-website-info"><div class="v59-home-website-title-row"><h3 title="' + name + '">' + name + '</h3>' +
+      '<button class="v59-home-pin' + (pinned ? ' is-pinned' : '') + '" type="button" data-ovyx-website-pin="' + escapeHtml(id) + '" aria-label="' + (pinned ? 'Unpin ' : 'Pin ') + name + '" aria-pressed="' + (pinned ? 'true' : 'false') + '" title="' + (pinned ? 'Unpin project' : 'Pin project') + '"><i class="fa-solid fa-thumbtack" aria-hidden="true"></i></button></div>' +
       '<time class="v59-home-website-date"' + (dateIso ? ' datetime="' + dateIso + '"' : '') + '>' + dateText + '</time></div></article>';
   }
   function renderHome() {
@@ -138,7 +124,8 @@
     host.innerHTML = items.map(card).join('');
   }
   function projectById(id) {
-    return (window.KernelState?.projects || []).find(project => String(project?.id || '') === String(id)) || null;
+    const projects = window.KernelState?.projects || window.ProjectStore?.list?.() || [];
+    return projects.find(project => String(project?.id || '') === String(id)) || null;
   }
   function openProject(id) {
     if (!projectById(id)) {
@@ -156,9 +143,20 @@
     else pins.add(String(id));
     writePins(pins);
     renderHome();
-    window.showToast?.(wasPinned ? 'Website unpinned.' : 'Website pinned to the top of Recent Projects.', 'success');
+    try {
+      if (typeof window.ProjectStore?.renderProjects === 'function') window.ProjectStore.renderProjects();
+      else window.OvyxProjectsUI?.render?.();
+    } catch (_) {}
+    window.dispatchEvent?.(new CustomEvent('ovyx:project-pins-changed', { detail: { id: String(id), pinned: !wasPinned } }));
+    window.showToast?.(wasPinned ? 'Project unpinned.' : 'Project pinned to the top of Projects and Recent Projects.', 'success');
   }
   function handleClick(event) {
+    const pin = event.target?.closest?.('[data-ovyx-website-pin], [data-ovyx-project-pin]');
+    if (pin) {
+      event.preventDefault(); event.stopPropagation();
+      togglePin(pin.getAttribute('data-ovyx-website-pin') || pin.getAttribute('data-ovyx-project-pin'));
+      return;
+    }
     const open = event.target?.closest?.('[data-ovyx-website-open]');
     if (open) {
       event.preventDefault(); event.stopPropagation();
@@ -171,9 +169,40 @@
       else window.Router?.go?.('projects');
     }
   }
+  function installProjectCardEnhancements(store) {
+    if (!store || typeof store.card !== 'function' || store.__ovyxProjectPinCardV1) return;
+    const originalCard = store.card;
+    store.card = function (project, compact) {
+      let markup = originalCard.apply(this, arguments);
+      if (typeof markup !== 'string' || !project) return markup;
+      const id = String(project.id || '');
+      const name = escapeHtml(project.name || 'Untitled project');
+      const image = escapeHtml(previewImage(project));
+      const pinned = isPinned(id);
+      const preview = image
+        ? '<div class="ovyx-project-preview has-real-preview"><img src="' + image + '" alt="Actual preview of ' + name + '" loading="lazy" decoding="async"></div>'
+        : '<div class="ovyx-project-preview ovyx-project-no-preview"><span class="ovyx-project-no-preview-mark"><i class="fa-regular fa-image" aria-hidden="true"></i></span><span>Preview appears after build</span></div>';
+      markup = markup.replace(/<div class="ovyx-project-preview">[\s\S]*?<\/div>/, preview);
+      const pinButton = '<button type="button" class="ovyx-project-pin' + (pinned ? ' is-pinned' : '') + '" data-ovyx-project-pin="' + escapeHtml(id) + '" aria-label="' + (pinned ? 'Unpin ' : 'Pin ') + name + '" aria-pressed="' + (pinned ? 'true' : 'false') + '" title="' + (pinned ? 'Unpin project' : 'Pin project') + '"><i class="fa-solid fa-thumbtack" aria-hidden="true"></i><span>' + (pinned ? 'Pinned' : 'Pin') + '</span></button>';
+      markup = markup.replace('<div class="ovyx-project-foot">', '<div class="ovyx-project-foot">' + pinButton);
+      return markup;
+    };
+    store.card.__original = originalCard;
+    store.__ovyxProjectPinCardV1 = true;
+  }
+  function installProjectListSorting(store) {
+    if (!store || typeof store.list !== 'function' || store.__ovyxProjectPinSortV1) return;
+    const originalList = store.list;
+    store.list = function () { return sortPinned(originalList.apply(this, arguments)); };
+    store.list.__original = originalList;
+    store.__ovyxProjectPinSortV1 = true;
+  }
   function install() {
     const store = window.ProjectStore;
-    if (!store || store.__ovyxHomeRecentWebsiteGalleryV1) return false;
+    if (!store) return false;
+    installProjectCardEnhancements(store);
+    installProjectListSorting(store);
+    if (store.__ovyxHomeRecentWebsiteGalleryV1) return true;
     store.renderHome = renderHome;
     const prompt = byId('prompt-home-input');
     if (prompt) {
@@ -195,5 +224,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
-  window.OVYXHomeRecentWebsiteGallery = { isWebsite, sortWebsites, previewImage, formatDate, renderHome, togglePin };
+  window.OVYXHomeRecentWebsiteGallery = { isWebsite, isPinned, sortPinned, sortWebsites, previewImage, formatDate, renderHome, togglePin };
 })();
