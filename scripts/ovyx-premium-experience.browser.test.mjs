@@ -70,7 +70,7 @@ try{
   const authRouteErrors=[];
   authRoutesPage.on('pageerror',error=>authRouteErrors.push(String(error?.stack||error?.message||error)));
   await authRoutesPage.goto(baseURL+'/login',{waitUntil:'domcontentloaded',timeout:60000});
-  await authRoutesPage.waitForFunction(()=>window.OVYXAuthRoutes?.current()==='login',{timeout:30000});
+  await authRoutesPage.waitForFunction(()=>window.OVYXAuthRoutes?.current()==='login'&&document.body?.getAttribute('data-ovyx-auth-intent')==='1'&&!document.getElementById('view-master-auth')?.classList.contains('hidden'),{timeout:30000});
   assert.equal(await authRoutesPage.locator('#ovyx-master-auth-form').getAttribute('data-mode'),'signin','/login must render the existing sign-in mode.');
   await authRoutesPage.locator('#ovyx-auth-create').click();
   await authRoutesPage.waitForFunction(()=>location.pathname==='/signup'&&document.getElementById('ovyx-master-auth-form')?.dataset.mode==='signup');
