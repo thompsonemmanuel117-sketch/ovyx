@@ -149,6 +149,7 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('#ovx-picker-workspace-select option').length === 2);
     await dialog.locator('#ovx-picker-workspace-select').selectOption('ws-studio');
     await page.waitForFunction(() => window.__workspaceRenderCalls?.some(ids => ids.length === 1 && ids[0] === 'picker-project-northstar'));
+    await page.waitForFunction(() => document.getElementById('sidebar-workspace-label')?.textContent === 'Studio workspace');
     assert.equal(await dialog.locator('[data-project-id]').count(), 1, '[' + target.name + '] switching workspaces must filter the project inventory.');
     assert.equal(await page.evaluate(() => window.__workspaceRenderCalls.some(ids => ids.length === 1 && ids[0] === 'picker-project-northstar')), true,
       '[' + target.name + '] the existing Projects page renderer must receive only projects from the selected workspace.');
@@ -159,8 +160,10 @@ try {
     await dialog.locator('[data-workspace-rename-form] [name="name"]').fill('Studio HQ');
     await dialog.locator('[data-workspace-rename-form] [type="submit"]').click();
     await page.waitForFunction(() => Array.from(document.querySelectorAll('#ovx-picker-workspace-select option')).some(option => option.textContent === 'Studio HQ'));
+    await page.waitForFunction(() => document.getElementById('sidebar-workspace-label')?.textContent === 'Studio HQ');
     await dialog.locator('[data-workspace-archive]').click();
     await page.waitForFunction(() => document.querySelector('#ovx-picker-workspace-select')?.value === 'personal');
+    await page.waitForFunction(() => document.getElementById('sidebar-workspace-label')?.textContent === 'Personal workspace');
     await dialog.locator('#ovx-picker-workspace-select').selectOption('ws-studio');
     assert.equal(await dialog.locator('[data-project-id="picker-project-northstar"]').isDisabled(), true,
       '[' + target.name + '] archived workspace projects must remain visible but cannot be opened before restore.');
