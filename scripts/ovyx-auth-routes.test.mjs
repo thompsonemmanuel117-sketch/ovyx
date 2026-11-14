@@ -14,7 +14,8 @@ assert.match(routes, /If an OVYX account matches that email, password reset inst
 assert.match(routes, /sendEmailVerification\(\)/, 'The verification page must support resending Firebase verification email.');
 assert.match(routes, /current\.reload\(\)/, 'The verification page must refresh Firebase user state before checking verification.');
 assert.match(routes, /stopImmediatePropagation\(\)/, 'Standalone auth route handlers must prevent the legacy overlay handlers from also firing.');
-assert.match(routes, /window\.Router\?\.go\?\.\('master-auth'/, 'Authentication routes must reuse the existing master auth view.');
+assert.match(routes, /window\.OVYXMasterAuth\?\.openAuth\?\.\(\)/, 'Authentication routes must reuse the existing master auth overlay without changing the guest workspace route.');
+assert.doesNotMatch(routes, /Router\?\.go\?\.\('master-auth'/, 'Standalone auth URLs must not trigger the internal guest-route redirect.');
 assert.match(html, /ovyx-master-auth-form/, 'The existing Firebase auth form must remain in the shell.');
 assert.match(html, /popupSignIn\('google'\)/, 'Google sign-in must remain wired to the existing Firebase popup flow.');
 assert.match(html, /popupSignIn\('github'\)/, 'GitHub sign-in must remain wired to the existing Firebase popup flow.');
