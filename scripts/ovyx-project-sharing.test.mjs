@@ -47,8 +47,8 @@ assert.match(asset, /accept-invite/, 'Invitees need an authenticated acceptance 
 assert.match(html, /id="view-sharing"/, 'Sharing must be a dedicated routed page.');
 assert.match(html, /data-nav="sharing"/, 'Sharing must have its own sidebar navigation item.');
 assert.match(html, /data-mobile-nav="sharing"/, 'Sharing must also appear in the dedicated mobile drawer navigation.');
-assert.match(middleware, /ovyx-project-sharing\.js\?v=20261114-6/, 'The sharing runtime must load from the app shell.');
-assert.match(middleware, /ovyx-project-sharing\.css\?v=20261114-6/, 'The sharing page stylesheet must load from the app shell.');
+assert.match(middleware, /ovyx-project-sharing\.js\?v=20261114-7/, 'The sharing runtime must load from the app shell.');
+assert.match(middleware, /ovyx-project-sharing\.css\?v=20261114-7/, 'The sharing page stylesheet must load from the app shell.');
 assert.match(css, /prefers-reduced-motion/, 'The sharing page must respect reduced-motion preferences.');
 
 console.log('OVYX project sharing security and UI contract checks passed.');
