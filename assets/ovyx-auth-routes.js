@@ -217,9 +217,10 @@
       const target = event.target?.closest?.('#ovyx-auth-create,#ovyx-auth-forgot,#ovyx-auth-back');
       if (!target) return;
       if (target.id === 'ovyx-auth-create') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
         const next = window.isSignUpMode ? 'login' : 'signup';
-        setPath(next, false);
-        activeMode = next;
+        navigate(next, false);
       } else if (target.id === 'ovyx-auth-forgot') {
         event.preventDefault();
         event.stopImmediatePropagation();
