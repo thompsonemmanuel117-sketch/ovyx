@@ -21,7 +21,7 @@ assert.match(asset, /Creating…/, 'Creation must provide immediate feedback.');
 assert.match(asset, /ovyx-project-create-modal/, 'The existing project modal must be enhanced rather than replaced.');
 assert.match(asset, /#ovyx-project-create-modal\[hidden\]\{display:none!important\}/, 'A closed project modal must not intercept clicks after its opening animation frame.');
 assert.match(asset, /new MutationObserver/, 'Late-mounted project views and the create modal must be handled.');
-assert.match(middleware, /ovyx-projects-unified-flow\.js\?v=20261114-2/, 'The runtime must be loaded by the Pages shell.');
+assert.match(middleware, /ovyx-projects-unified-flow\.js\?v=20261114-3/, 'The runtime must be loaded by the Pages shell.');
 assert.match(browserTest, /Continue Project/, 'Browser coverage must verify the old shortcut is absent.');
 assert.match(browserTest, /data-continue-project/, 'Browser coverage must exercise the new in-Projects action.');
 
