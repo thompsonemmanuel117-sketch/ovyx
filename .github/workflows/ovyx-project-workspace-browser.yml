@@ -7,6 +7,7 @@ on:
       - 'assets/ovyx-project-workspace-picker.js'
       - 'assets/ovyx-projects-unified-flow.js'
       - 'functions/api/workspaces.js'
+      - 'functions/api/workspace/activate.js'
       - 'functions/api/projects.js'
       - 'scripts/ovyx-workspaces-api.test.mjs'
       - 'functions/_middleware.js'
@@ -19,6 +20,10 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'functions/api/workspaces.js'
+      - 'functions/api/workspace/activate.js'
+      - 'functions/api/projects.js'
+      - 'scripts/ovyx-workspaces-api.test.mjs'
       - 'assets/ovyx-project-workspace-picker.js'
       - 'assets/ovyx-projects-unified-flow.js'
       - 'functions/_middleware.js'
