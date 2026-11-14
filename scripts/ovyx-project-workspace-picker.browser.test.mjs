@@ -190,7 +190,7 @@ try {
 
     await page.keyboard.press('Escape');
     await page.evaluate(() => window.Router.go('projects'));
-    await page.waitForFunction(() => document.getElementById('view-projects')?.classList.contains('active'));
+    await page.locator('#view-projects').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#ovyx-projects-continue-panel').count(), 0,
       '[' + target.name + '] navigating back to Projects must not recreate the duplicate panel.');
 
