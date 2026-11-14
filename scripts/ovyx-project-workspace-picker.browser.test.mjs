@@ -49,7 +49,8 @@ try {
     });
     await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction(() => typeof window.ProjectStore?.showWorkspacePicker === 'function'
-      && window.OVYXWorkspacePicker?.version === 1, null, { timeout: 45000 });
+      && window.OVYXWorkspacePicker?.version === 1
+      && window.OVYXProjectsUnifiedFlow?.version === 1, null, { timeout: 45000 });
 
     await page.evaluate(() => {
       const now = Date.now();
