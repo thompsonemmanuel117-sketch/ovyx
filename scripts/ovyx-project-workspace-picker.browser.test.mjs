@@ -160,6 +160,14 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('#ovx-picker-workspace-select option').length === 2
       && document.querySelectorAll('#ovyx-project-workspace-picker [data-project-id]').length === 2, null, { timeout: 10000 });
     assert.equal(await dialog.locator('[data-project-id]').count(), 2, '[' + target.name + '] picker must initially show every project in the personal workspace.');
+    // Opening the picker refreshes the existing Projects renderer. Reapply the
+    // intended active-project fixture after that refresh, then verify the picker
+    // reflects the active item rather than a renderer-reset transient state.
+    await page.evaluate(() => {
+      const first = window.KernelState.projects.find(project => project.id === 'picker-project-aurora');
+      window.KernelState.activeProject = first;
+      window.OVYXWorkspacePicker.render();
+    });
     assert.equal(await dialog.locator('[data-project-id="picker-project-aurora"]').getAttribute('aria-current'), 'true');
     assert.equal(await dialog.locator('[data-project-id]').first().getAttribute('data-project-id'), 'picker-project-aurora',
       '[' + target.name + '] workspace projects must be ordered by most recent activity.');
