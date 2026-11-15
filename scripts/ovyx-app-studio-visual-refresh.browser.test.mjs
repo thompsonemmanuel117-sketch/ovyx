@@ -51,11 +51,19 @@ try {
  assert.notEqual(desktop.panelBackground,'none','Panels must retain a deliberate surface.');
  assert.notEqual(desktop.animation,'none','The workspace should keep its subtle entrance motion.');
  assert.equal(desktop.dashboardPosition,'static','Dashboard navigation must not be modified by the App Studio layer.');
+ const primaryStyle=await page.locator('.ovyx-ua-primary').evaluate(el=>({color:getComputedStyle(el).color,background:getComputedStyle(el).backgroundImage}));
+ assert.equal(primaryStyle.color,'rgb(23, 20, 14)','Primary action text must retain a readable ink colour.');
+ assert.match(primaryStyle.background,/linear-gradient/,'Primary actions must keep the high-contrast gold surface.');
+ const workspaceAction=await page.locator('.ovyx-as-workspace-action.is-primary').evaluate(el=>({color:getComputedStyle(el).color,background:getComputedStyle(el).backgroundImage}));
+ assert.equal(workspaceAction.color,'rgb(23, 20, 14)','The workspace primary action must not inherit a low-contrast theme text colour.');
  await page.evaluate(()=>{
   document.documentElement.style.setProperty('--bg','#090b10');document.documentElement.style.setProperty('--card','#151a22');document.documentElement.style.setProperty('--text','#f5f7fa');document.documentElement.style.setProperty('--muted','#b7c0cc');document.documentElement.style.setProperty('--border','#394351');
  });
  await page.waitForFunction(()=>getComputedStyle(document.querySelector('.ovyx-ua-panel')).color==='rgb(245, 247, 250)');
  assert.equal(await page.locator('.ovyx-ua-panel').evaluate(el=>getComputedStyle(el).color),'rgb(245, 247, 250)','Dark theme changes must update App Studio without a reload.');
+ const themedPrimary=await page.locator('.ovyx-ua-primary').evaluate(el=>({color:getComputedStyle(el).color,background:getComputedStyle(el).backgroundImage}));
+ assert.equal(themedPrimary.color,'rgb(23, 20, 14)','Custom themes must not override primary-action contrast.');
+ assert.match(themedPrimary.background,/linear-gradient/,'Primary-action surface must remain visible under custom themes.');
  const mobile=await browser.newPage({viewport:{width:390,height:844}});
  await mobile.emulateMedia({reducedMotion:'reduce'});await mobile.goto(base,{waitUntil:'load'});
  await mobile.waitForFunction(()=>document.getElementById('ovyx-app-studio-visual-refresh-style'));
