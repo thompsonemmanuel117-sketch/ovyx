@@ -107,6 +107,11 @@ try {
     assert.equal(layout.dockDisplay, 'none',
       '[' + target.name + '] the dashboard-only bottom dock must stay hidden on Templates.');
 
+    await page.evaluate(() => { document.documentElement.dataset.ovyxMode = 'light'; });
+    const lightThemeText = await page.locator('[data-ovyx-template-action="use"][data-template-id="tpl-saas"]').evaluate(button => getComputedStyle(button).color);
+    assert.equal(lightThemeText, 'rgb(248, 250, 252)', '[' + target.name + '] primary template actions must retain readable contrast in light mode.');
+    await page.evaluate(() => { document.documentElement.dataset.ovyxMode = 'dark'; });
+
     // Simulate the old Firestore/local TemplateStore renderer racing the public gallery.
     await page.evaluate(() => { document.getElementById('templates-catalog-feed').innerHTML = '<article class="v0-template-card">legacy renderer</article>'; });
     await page.waitForFunction(() => document.querySelectorAll('#templates-catalog-feed [data-template-card]').length === 3, null, { timeout: 10000 });
