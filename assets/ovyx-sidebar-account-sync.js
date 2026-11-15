@@ -137,7 +137,21 @@
       if (auth) return;
       const candidate = window.firebase?.auth?.();
       if (!candidate || typeof candidate.onAuthStateChanged !== 'function') return;
-      candidate.onAuthStateChanged(user => sync(user));
+      candidate.onAuthStateChanged(user => {
+        sync(user);
+        // Let the rest of Firebase's synchronous auth listeners settle first,
+        // then re-assert the active UID's profile on the next paint. This keeps
+        // late legacy account-label writers from restoring the previous user.
+        queueMicrotask(() => {
+          const active = currentUser();
+          if (String(active?.uid || '') !== String(user?.uid || '')) return;
+          sync(active);
+          requestAnimationFrame(() => {
+            const latest = currentUser();
+            if (String(latest?.uid || '') === String(user?.uid || '')) sync(latest);
+          });
+        });
+      });
       auth = candidate;
     } catch (error) {
       console.warn('[OVYX sidebar] account state could not be observed', error);
