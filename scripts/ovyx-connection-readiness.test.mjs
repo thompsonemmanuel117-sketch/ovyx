@@ -60,7 +60,7 @@ assert.match(ui, /<option value="tool">Tool<\/option>/);
 assert.match(ui, /<option value="database">Database<\/option>/);
 assert.match(ui, /<option value="http">Web service<\/option>/);
 
-assert.match(connectionManager, /function upgradePersonalConnectionsForm\(\)/, 'The Personal Connections page must upgrade the legacy generic form.');
+assert.match(connectionManager, /function upgradePersonalConnectionsForm\(root = document\)/, 'The Personal Connections page must upgrade the legacy generic form through scoped subtree enhancement.');
 assert.match(connectionManager, /Choose what you want to connect/, 'The connection type must be chosen before endpoint credentials are shown.');
 assert.match(connectionManager, /AI provider — personal API key/, 'AI providers must use the dedicated encrypted provider flow.');
 assert.match(connectionManager, /App or service — connect an endpoint/, 'App and service endpoints must be an explicit connection type.');

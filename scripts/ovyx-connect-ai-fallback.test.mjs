@@ -65,4 +65,14 @@ assert.match(center, /Successfully connected/);
 assert.match(center, /Connection saved securely/);
 assert.match(center, /setAttribute\('role','status'\)/);
 assert.ok(center.includes("window.addEventListener('ovyx-settings-rendered'"));
+// Project-grant decoration runs from a document-wide MutationObserver. Its
+// duplicate guard must find the button it just appended, preventing a mutation
+// loop from starving the rest of the deferred app-shell scripts.
+assert.match(ui, /row\.querySelector\('\[data-ovyx-project-grant\]'\)/);
+assert.doesNotMatch(ui, /row\.querySelector\(':scope > \[data-ovyx-project-grant\]'\)/);
+assert.match(ui, /function enhanceConnectionsNode\(node\)/, 'Dynamic connection controls must be enhanced from their inserted subtree.');
+assert.match(ui, /new MutationObserver\(records => \{[\s\S]*?for \(const node of record\.addedNodes\) enhanceConnectionsNode\(node\)/, 'The fallback observer must inspect only newly inserted nodes.');
+assert.match(ui, /function decorateProjectGrantActions\(root = document\)/, 'Grant controls must support scoped decoration.');
+assert.match(ui, /function bindPersonalAIButtons\(root = document\)/, 'AI actions must support scoped binding.');
+assert.doesNotMatch(ui, /new MutationObserver\(\(\) => \{\s*decorateProjectGrantActions\(\);/, 'Do not rescan the full document on every app-shell mutation.');
 console.log('OVYX Personal Connections checks passed: secure account centre, AI setup, service management, editing, health tests and project-level access are integrated into the existing app shell.');

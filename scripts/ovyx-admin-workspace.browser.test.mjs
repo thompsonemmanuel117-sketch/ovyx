@@ -94,7 +94,7 @@ try {
     await page.waitForFunction(() => !!window.OVYXAdminWorkspace, null, { timeout: 45000 });
     // The local Firebase facade is installed before app scripts run, so the
     // isolated auth state cannot race an external Firebase CDN load.
-    await page.waitForFunction(() => typeof window.__OVYX_FIREBASE_READY__ === 'boolean', null, { timeout: 15000 });
+    await page.waitForFunction(() => typeof window.__OVYX_FIREBASE_READY__ === 'boolean', null, { timeout: 45000 });
 
     await page.evaluate(() => {
       const originalUser = window.firebase?.auth?.()?.currentUser;

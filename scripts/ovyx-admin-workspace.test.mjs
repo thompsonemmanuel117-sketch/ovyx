@@ -6,6 +6,7 @@ import { resolveRole } from '../functions/api/admin/rbac.js';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const runtime = read('assets/ovyx-admin-workspace.js');
+const projectFlow = read('assets/ovyx-projects-unified-flow.js');
 const middleware = read('functions/_middleware.js');
 const apiMiddleware = read('functions/api/_middleware.js');
 const rbac = read('functions/api/admin/rbac.js');
@@ -62,5 +63,10 @@ assert.ok(middleware.includes('/assets/ovyx-admin-workspace.js?v=20261018-2'), '
 assert.ok(headers.includes('/assets/ovyx-admin-workspace.js') && headers.includes('Cache-Control: no-store, no-cache, must-revalidate'), 'The Admin Workspace runtime must not be served stale from cache.');
 assert.doesNotMatch(runtime, /localStorage\s*\.\s*getItem\([^)]*(?:role|owner|admin|entitlement)/i, 'Local storage must never be used as authority for admin access.');
 assert.doesNotMatch(runtime, /OVYX_ADMIN_UI_PREVIEW\s*=\s*true/, 'The runtime must not unlock admin UI through a browser preview flag.');
+
+assert.ok(projectFlow.includes('function modalFromAddedNode(node)'), 'Project creation must still detect a modal inserted after startup.');
+assert.ok(projectFlow.includes('for (const record of records)') && projectFlow.includes('for (const node of record.addedNodes)'), 'Late modal detection must inspect only newly inserted nodes.');
+assert.ok(projectFlow.includes('modalObserver.disconnect()'), 'The targeted modal observer must stop after the project-creation modal is found.');
+assert.doesNotMatch(projectFlow, /const observer = new MutationObserver/, 'Project creation must not retain the old broad document observer.');
 
 console.log('OVYX Admin Workspace contract tests passed: server-verified root access, desktop/mobile entry points, nine existing modules, same-origin uncached entitlement checks, and fail-closed UI.');

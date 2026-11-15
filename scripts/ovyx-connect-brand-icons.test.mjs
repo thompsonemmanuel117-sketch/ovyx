@@ -12,6 +12,11 @@ assert.match(asset, /cdn\.simpleicons\.org\//, 'Known apps must use official bra
 assert.match(asset, /google\.com\/s2\/favicons/, 'Arbitrary API hosts must resolve their real website favicon.');
 assert.match(asset, /referrerPolicy = 'no-referrer'/, 'Third-party icon requests must not receive the OVYX page referrer.');
 assert.match(asset, /MutationObserver/, 'Logos must also appear when the saved connections list is rendered later.');
+assert.match(asset, /row\.querySelector\('\.ovyx-connect-brand-icon'\)/, 'Decorating an existing row must detect nested icons and remain idempotent.');
+assert.match(asset, /new MutationObserver\(records => \{[\s\S]*?for \(const node of record\.addedNodes\)/, 'Dynamic decoration must inspect only newly inserted subtrees.');
+assert.match(asset, /decorate\(node\)/, 'New connection rows must still receive their brand icons.');
+assert.doesNotMatch(asset, /new MutationObserver\(decorate\)/, 'App-shell mutations must not trigger a full-document decoration scan.');
+
 assert.match(asset, /data-v91-test/);
 assert.match(asset, /data-conn-test/);
 assert.match(middleware, /ovyx-connect-brand-icons\.js/, 'The live Pages middleware must inject the Connect icon runtime.');

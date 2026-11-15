@@ -70,7 +70,7 @@
           const url = new URL(endpoint.value);
           if (url.protocol !== 'https:') throw new Error('The API endpoint must use HTTPS.');
           if (!model.value.trim()) throw new Error('Enter the exact model ID supported by your provider.');
-          if (!key.value.trim()) throw new Error('Paste your API key to continue.');
+          if (!key.value.trim()) throw new Error('Paste your provider API key to continue.');
           const saved = await api('/api/settings/connections', jsonOptions({ name: name.value.trim() || p.label, type: 'ai', protocol: p.protocol, endpoint: url.toString(), authMode: 'bearer', model: model.value.trim(), secret: key.value, active: true }));
           id = saved.connection && saved.connection.id;
           key.value = '';
@@ -142,15 +142,21 @@
     for (const value of values) if (value && /^[A-Za-z0-9_-]{1,100}$/.test(value)) return value;
     return '';
   }
-  function decorateProjectGrantActions() {
-    document.querySelectorAll('[data-v91-test], [data-v91-delete], [data-conn-test], [data-conn-delete]').forEach(action => {
+  function decorateProjectGrantActions(root = document) {
+    const actions = [];
+    if (root.matches?.('[data-v91-test], [data-v91-delete], [data-conn-test], [data-conn-delete]')) actions.push(root);
+    actions.push(...(root.querySelectorAll?.('[data-v91-test], [data-v91-delete], [data-conn-test], [data-conn-delete]') || []));
+    actions.forEach(action => {
       const id = connectionIdFromAction(action); if (!id) return;
       let row = action;
       for (let i = 0; row.parentElement && i < 6; i++) {
         row = row.parentElement;
         if (row.querySelector('[data-v91-test], [data-v91-delete], [data-conn-test], [data-conn-delete]')) break;
       }
-      if (row.querySelector(':scope > [data-ovyx-project-grant]')) return;
+      // Search descendants rather than relying on :scope. The grant button is
+      // appended to this row; this guard must find it on the observer's next
+      // pass or the mutation observer will keep inserting duplicate buttons.
+      if (row.querySelector('[data-ovyx-project-grant]')) return;
       const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Grant to project'; button.setAttribute('data-ovyx-project-grant', id);
       button.style.cssText = 'margin:6px 4px 4px 0;padding:7px 10px;border:1px solid rgba(255,255,255,.16);border-radius:9px;background:rgba(255,255,255,.05);color:#ddd;font-size:12px;cursor:pointer;';
       button.addEventListener('click', () => openProjectGrant(id)); row.appendChild(button);
@@ -162,8 +168,11 @@
   // Bind the action directly to its real button as soon as the Connections
   // renderer inserts it. Keep a delegated capture fallback for rerenders from
   // older Settings code, and mark each event so the dialog can never open twice.
-  function bindPersonalAIButtons() {
-    document.querySelectorAll('[data-ovyx-personal-ai-manager]').forEach(trigger => {
+  function bindPersonalAIButtons(root = document) {
+    const triggers = [];
+    if (root.matches?.('[data-ovyx-personal-ai-manager]')) triggers.push(root);
+    triggers.push(...(root.querySelectorAll?.('[data-ovyx-personal-ai-manager]') || []));
+    triggers.forEach(trigger => {
       if (trigger.dataset.ovyxPersonalAIActionBound === '1') return;
       trigger.dataset.ovyxPersonalAIActionBound = '1';
       trigger.addEventListener('click', event => {
@@ -184,8 +193,8 @@
     openAIManager();
   }, true);
 
-  function upgradePersonalConnectionsForm() {
-    const form = document.querySelector('.ovyx-v91-conn-form');
+  function upgradePersonalConnectionsForm(root = document) {
+    const form = root.matches?.('.ovyx-v91-conn-form') ? root : root.querySelector?.('.ovyx-v91-conn-form');
     const type = form && form.querySelector('#ovyx-v91-conn-type');
     if (!form || !type || form.dataset.personalFlowReady === '1') return;
     form.dataset.personalFlowReady = '1';
@@ -263,21 +272,21 @@
     showFor('');
   }
 
+  function enhanceConnectionsNode(node) {
+    if (!node || node.nodeType !== 1) return;
+    decorateProjectGrantActions(node);
+    bindPersonalAIButtons(node);
+    upgradePersonalConnectionsForm(node);
+  }
   function boot() {
-    decorateProjectGrantActions();
-    bindPersonalAIButtons();
-    upgradePersonalConnectionsForm();
-    const observer = new MutationObserver(() => {
-      decorateProjectGrantActions();
-      bindPersonalAIButtons();
-      upgradePersonalConnectionsForm();
+    enhanceConnectionsNode(document);
+    const observer = new MutationObserver(records => {
+      for (const record of records) {
+        for (const node of record.addedNodes) enhanceConnectionsNode(node);
+      }
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
-    window.addEventListener('ovyx:connections-updated', () => {
-      decorateProjectGrantActions();
-      bindPersonalAIButtons();
-      upgradePersonalConnectionsForm();
-    });
+    window.addEventListener('ovyx:connections-updated', () => enhanceConnectionsNode(document));
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true }); else boot();
 })();

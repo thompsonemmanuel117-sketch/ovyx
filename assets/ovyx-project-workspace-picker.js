@@ -386,6 +386,20 @@
       return workspaces.find(item => String(item.id) === selectedWorkspaceId) || workspaces.find(item => item.id === 'personal') || workspaces[0];
     }
 
+    // Keep the existing sidebar selector label in sync with the canonical
+    // Firebase-backed workspace selection. The Projects page and picker remain
+    // the only project inventories; this only updates the existing label.
+    function syncSidebarWorkspaceLabel() {
+      const active = currentWorkspace();
+      const name = String(active?.name || 'Personal workspace').trim() || 'Personal workspace';
+      const label = document.getElementById('sidebar-workspace-label');
+      if (!label) return;
+      if (label.textContent.trim() !== name) label.textContent = name;
+      label.title = name;
+      const trigger = label.closest('button');
+      if (trigger) trigger.setAttribute('aria-label', 'Switch workspace. Current workspace: ' + name);
+    }
+
     function projectWorkspace(project) {
       const value = String(project?.workspaceId || '').trim();
       return /^[A-Za-z0-9_-]{1,120}$/.test(value) ? value : 'personal';
@@ -461,6 +475,7 @@
     }
 
     function renderWorkspaceControls() {
+      syncSidebarWorkspaceLabel();
       workspaceSelect.replaceChildren();
       workspaces.forEach(workspace => {
         const option = document.createElement('option');

@@ -70,8 +70,12 @@
     return wrap;
   }
 
-  function decorate() {
-    const actions = document.querySelectorAll('[data-v91-test], [data-v91-delete], [data-conn-test], [data-conn-delete]');
+  const ACTION_SELECTOR = '[data-v91-test], [data-v91-delete], [data-conn-test], [data-conn-delete]';
+
+  function decorate(root = document) {
+    const actions = [];
+    if (root.nodeType === 1 && root.matches(ACTION_SELECTOR)) actions.push(root);
+    if (typeof root.querySelectorAll === 'function') actions.push(...root.querySelectorAll(ACTION_SELECTOR));
     const rows = new Set();
     actions.forEach(action => {
       let node = action;
@@ -95,7 +99,9 @@
       if (candidate) rows.add(candidate);
     });
     rows.forEach(row => {
-      if (row.querySelector(':scope > .ovyx-connect-brand-icon')) return;
+      // The icon is nested in the row's first child, so a direct-child-only guard
+      // misses it and causes the observer to decorate the same row forever.
+      if (row.querySelector('.ovyx-connect-brand-icon')) return;
       const icon = iconFor(row);
       const first = row.firstElementChild;
       if (first) {
@@ -110,7 +116,18 @@
 
   function boot() {
     decorate();
-    const observer = new MutationObserver(decorate);
+    // Inspect only newly inserted subtrees that actually contain connection
+    // actions. App-shell mutations elsewhere must not trigger a full-page scan.
+    const observer = new MutationObserver(records => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.matches?.(ACTION_SELECTOR) || node.querySelector?.(ACTION_SELECTOR)) {
+            decorate(node);
+          }
+        }
+      }
+    });
     observer.observe(document.documentElement, { childList: true, subtree: true });
     // The connection screen is rendered on demand; observe the same runtime
     // after settings navigation without repeatedly installing observers.
