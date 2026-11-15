@@ -32,6 +32,6 @@ function onOAuthMessage(event){if(event.origin!==window.location.origin||event.d
 function containsConnectionsPanel(node){if(!node||node.nodeType!==1)return false;return node.matches?.('[data-settings-panel="connections"]')===true||!!node.querySelector?.('[data-settings-panel="connections"]')}
 function watchConnectionsPanel(){const selector='[data-settings-panel="connections"]';if($(selector)){mount();return}const observer=new MutationObserver(records=>{for(const record of records){for(const node of record.addedNodes){if(containsConnectionsPanel(node)){mount();observer.disconnect();return}}}});observer.observe(document.documentElement,{childList:true,subtree:true})}
 function onSettingsRendered(){if($('[data-settings-panel="connections"]'))mount();else watchConnectionsPanel()}
-function boot(){watchConnectionsPanel();window.addEventListener('ovyx-settings-rendered',onSettingsRendered);window.addEventListener('ovyx:connections-updated',load);window.addEventListener('ovyx-connection-oauth-start',event=>startOAuth(String(event.detail?.service||'')));window.addEventListener('message',onOAuthMessage)}
+function boot(){watchConnectionsPanel();window.addEventListener('ovyx-settings-rendered',onSettingsRendered);window.addEventListener('ovyx:connections-updated',load);window.addEventListener('ovyx:connection-oauth-start',event=>startOAuth(String(event.detail?.service||'')));window.addEventListener('message',onOAuthMessage)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
