@@ -115,7 +115,7 @@
     const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
     const blackContrast = (luminance + 0.05) / 0.05;
     const whiteContrast = 1.05 / (luminance + 0.05);
-    return blackContrast >= whiteContrast ? '#090909' : '#FFFFFF';
+    return blackContrast >= whiteContrast ? '#090909' : '#F8FAFC';
   }
 
   function syncThemeAccent() {
@@ -168,7 +168,7 @@
       #view-templates .ovyx-template-card-stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;color:var(--muted,#94a3b8);font:650 8px/1.4 ui-monospace,monospace}
       #view-templates .ovyx-template-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}
       #view-templates .ovyx-template-action{min-height:38px;padding:0 10px;border:1px solid var(--border,rgba(255,255,255,.14));border-radius:9px;background:transparent;color:var(--text,#fff);font-size:10px;font-weight:800;cursor:pointer}
-      #view-templates .ovyx-template-action.primary{border-color:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));background:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));color:var(--ovyx-template-action-ink,#090909)}
+      #view-templates .ovyx-template-action.primary{border-color:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));background:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));color:var(--ovyx-template-action-ink,#090909)!important}
       #view-templates .ovyx-template-action:disabled{opacity:.55;cursor:not-allowed}
       #view-templates .ovyx-template-empty{grid-column:1/-1;padding:54px 18px;border:1px dashed var(--border,rgba(255,255,255,.14));border-radius:16px;text-align:center;background:var(--card,#0b0d10)}
       #view-templates .ovyx-template-empty h4{margin:0;color:var(--text,#fff);font-size:15px;font-weight:850}
