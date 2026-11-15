@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const runtime = read('assets/ovyx-app-studio-visual-redesign.js');
+const visualRefresh = read('assets/ovyx-app-studio-visual-refresh.js');
 const middleware = read('functions/_middleware.js');
 const headers = read('_headers');
 const workflow = read('.github/workflows/ovyx-assistant-workspace-browser.yml');
@@ -18,6 +19,7 @@ for (const id of ['ovyx-app-studio-url-analyzer-panel','ovyx-app-studio-link-bui
 }
 assert.ok(runtime.includes('hero.after(dock)'), 'The guided flow must lead and the project overview must follow.');
 assert.ok(runtime.includes('Analyze. Build. Verify. Release.'), 'The hero copy must be short and immediately scannable.');
+assert.ok(visualRefresh.includes("description.textContent !== 'Analyze. Build. Verify. Release.'") && visualRefresh.includes("description.textContent = 'Analyze. Build. Verify. Release.'"), 'Both App Studio visual layers must agree on the hero copy to prevent a MutationObserver feedback loop.');
 assert.ok(runtime.includes("status.textContent.trim() === 'Project status updates as you build.'"), 'Only the initial status hint may be shortened; live action feedback must be preserved.');
 assert.ok(runtime.includes('prefers-reduced-motion:reduce'), 'The redesign must respect reduced-motion settings.');
 assert.ok(runtime.includes('var(--as-text') && runtime.includes('var(--as-surface') && runtime.includes('var(--as-border'), 'Surfaces and text must use the active theme tokens.');
