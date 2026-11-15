@@ -43,7 +43,7 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = [
-      '#view-appstudio.ovyx-as-visual-redesign{display:flex!important;flex-direction:column!important;gap:clamp(12px,1.5vw,18px)!important;min-height:0!important;height:auto!important;padding-bottom:max(12px,env(safe-area-inset-bottom))!important;scroll-padding-block:16px}',
+      '#view-appstudio.ovyx-as-visual-redesign{color:var(--as-text,var(--text,#f4f6f8))!important;background:var(--as-canvas,var(--bg,#080b11))!important;--as-surface:var(--card,#11161f);--as-border:var(--border,rgba(255,255,255,.12));display:flex!important;flex-direction:column!important;gap:clamp(12px,1.5vw,18px)!important;min-height:0!important;height:auto!important;padding-bottom:max(12px,env(safe-area-inset-bottom))!important;scroll-padding-block:16px}',
       '#view-appstudio.ovyx-as-visual-redesign>*{flex:0 0 auto!important;min-height:0!important;max-width:none!important;box-sizing:border-box!important}',
       '#view-appstudio .ovyx-as-hero{padding:clamp(18px,2.4vw,30px)!important;border-radius:22px!important;border:1px solid color-mix(in srgb,var(--as-border,rgba(255,255,255,.12)) 72%,var(--as-accent,#c2a36b) 28%)!important}',
       '#view-appstudio .ovyx-as-hero__top{align-items:center!important;gap:20px!important}',
