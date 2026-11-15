@@ -210,7 +210,7 @@ try {
   await desktop.locator('#ovyx-app-studio-link-builder [data-lb-generate]').waitFor();
   await desktop.locator('#ovyx-app-studio-url-analyzer-panel .ovyx-as-report-details').waitFor();
   assert.equal(await desktop.locator('#ovyx-app-studio-url-analyzer-panel .ovyx-as-report-details').evaluate(el => el.open), false, 'Detailed sitemap/assets/limitations are collapsed until needed.');
-  assert.match(await desktop.locator('#ovyx-app-studio-link-builder').innerText(), /Create an app from a website/);
+  assert.match(await desktop.locator('#ovyx-app-studio-link-builder').innerText(), /Create your app/);
   await desktop.locator('#ovyx-app-studio-url-analyzer-panel [data-ua-palette], #ovyx-app-studio-url-analyzer-panel .ovyx-ua-secondary').first().click();
   assert.equal(await desktop.locator('#ovyx-as-identity-details').evaluate(el => el.open), true, 'Palette transfer opens Brand DNA so users can review the change.');
   await desktop.locator('#ovyx-as-identity-details > summary').click();
