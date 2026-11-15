@@ -17,7 +17,10 @@ assert.match(runtime, /state\.pageToken/, 'The catalogue must support server pag
 assert.match(runtime, /v57-templates-ready/, 'The public gallery must be explicitly made visible despite legacy preboot hiding rules.');
 assert.match(runtime, /new MutationObserver/, 'Legacy gallery writes must not replace the server-backed catalogue.');
 assert.match(runtime, /item\.previewUrl/, 'The gallery must use the published preview media.');
-assert.match(runtime, /color:var\(--app-bg/, 'Primary template actions must preserve contrast across the canonical light/dark theme variables.');
+assert.match(runtime, /function contrastInk/, 'Primary template action text must choose a readable ink color for the active accent.');
+assert.match(runtime, /--ovyx-platform-accent/, 'Template surfaces must use the canonical ThemeContext accent token.');
+assert.match(runtime, /--ovyx-template-action-ink/, 'Primary template actions must use the computed contrast color.');
+assert.match(runtime, /ovyx:theme-applied/, 'Template action contrast must refresh when the user changes themes.');
 assert.match(runtime, /data-ovyx-template-action="preview"/, 'Every template must expose a working preview action.');
 assert.match(runtime, /function openPreview/, 'The preview action must open an accessible details surface.');
 assert.match(runtime, /store\.save\(\)/, 'Using a template must use the canonical project save path.');
