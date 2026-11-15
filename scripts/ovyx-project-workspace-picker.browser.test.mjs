@@ -28,6 +28,16 @@ try {
       { id: 'personal', name: 'Personal workspace', description: 'Private projects', status: 'active', isDefault: true, collaboration: { supported: false } },
       { id: 'ws-studio', name: 'Studio workspace', description: 'Client work', status: 'active', isDefault: false, collaboration: { supported: false } },
     ];
+    const projectFixtures = [
+      { id: 'picker-project-aurora', name: 'Aurora Commerce', description: 'Commerce project', status: 'draft', workspaceId: 'personal', updatedAt: Date.now(), pages: [{ name: 'Home' }, { name: 'Products' }], ownerUid: 'ovyx-project-picker-user', ownerEmail: 'project-picker@example.test' },
+      { id: 'picker-project-northstar', name: 'Northstar Studio', description: 'Studio website', status: 'published', workspaceId: 'ws-studio', updatedAt: Date.now() - 60000, pages: [{ name: 'Home' }], ownerUid: 'ovyx-project-picker-user', ownerEmail: 'project-picker@example.test' },
+      { id: 'picker-project-meridian', name: 'Meridian Portfolio', description: 'Portfolio website', status: 'draft', workspaceId: 'personal', updatedAt: Date.now() - 120000, pages: [{ name: 'Home' }], ownerUid: 'ovyx-project-picker-user', ownerEmail: 'project-picker@example.test' },
+    ];
+    await page.route('**/api/projects**', async route => {
+      const uid = await page.evaluate(() => window.firebase?.auth?.()?.currentUser?.uid || null).catch(() => null);
+      const projects = uid === 'ovyx-project-picker-user' ? projectFixtures : [];
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify({ ok: true, projects, owner: { uid, email: uid === 'ovyx-project-picker-user' ? 'project-picker@example.test' : 'second-account@example.test' } }) });
+    });
     await page.route('**/api/workspaces', async route => {
       const request = route.request();
       workspaceRequests.push({ method: request.method(), url: request.url(), uid: await page.evaluate(() => window.firebase?.auth?.()?.currentUser?.uid || null).catch(() => null) });
