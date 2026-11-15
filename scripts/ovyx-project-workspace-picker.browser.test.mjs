@@ -271,3 +271,20 @@ try {
       const modal = document.getElementById('ovyx-project-create-modal');
       return Boolean(modal?.hidden && getComputedStyle(modal).display === 'none');
     }, null, { timeout: 3000 });
+
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => window.Router.go('projects'));
+    await page.locator('#view-projects').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#ovyx-projects-continue-panel').count(), 0,
+      '[' + target.name + '] navigating back to Projects must not recreate the duplicate panel.');
+
+    const layout = await dialog.evaluate(node => ({ width: node.getBoundingClientRect().width, viewport: window.innerWidth, scrollWidth: node.scrollWidth }));
+    assert.ok(layout.width <= layout.viewport, '[' + target.name + '] picker must fit inside the viewport.');
+    assert.ok(layout.scrollWidth <= layout.width + 1, '[' + target.name + '] picker must not overflow horizontally.');
+    assert.deepEqual(errors, [], '[' + target.name + '] project picker must not throw browser errors.');
+    console.log('OVYX project workspace picker passed on ' + target.name + '.');
+    await context.close();
+  }
+} finally {
+  await browser.close();
+}
