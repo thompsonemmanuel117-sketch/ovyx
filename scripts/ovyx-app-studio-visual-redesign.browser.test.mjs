@@ -37,6 +37,8 @@ try{
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto(base,{waitUntil:'load'});
  await page.waitForFunction(()=>document.getElementById('ovyx-app-studio-visual-redesign-style'));
+ await page.evaluate(()=>{const status=document.querySelector('.ovyx-as-workspace-status');status.textContent='Saved to Projects';document.getElementById('view-appstudio').appendChild(document.createElement('span'));});
+ await page.waitForFunction(()=>document.querySelector('.ovyx-as-workspace-status')?.textContent==='Saved to Projects');
  const desktop=await page.evaluate(()=>{
   const root=document.getElementById('view-appstudio'),hero=document.getElementById('ovyx-app-studio-experience'),dock=document.getElementById('ovyx-app-studio-workspace-dock');
   return {order:hero.nextElementSibling?.id,copy:document.querySelector('.ovyx-as-hero__desc').textContent,projectTitle:document.querySelector('.ovyx-as-workspace-dock h2').textContent,gap:getComputedStyle(root).rowGap,paddingBottom:getComputedStyle(root).paddingBottom,heroColumns:getComputedStyle(document.querySelector('.ovyx-as-flow')).gridTemplateColumns,primaryColor:getComputedStyle(document.querySelector('.ovyx-ua-primary')).color,featureCount:['#ovyx-app-studio-url-analyzer-panel','#ovyx-app-studio-link-builder','#ovyx-app-studio-project-brain','#ovyx-app-studio-release','#ovyx-app-studio-brand-dna-panel','#app-studio-clean-canvas'].filter(s=>document.querySelector(s)).length};
