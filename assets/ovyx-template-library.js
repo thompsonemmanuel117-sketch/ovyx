@@ -392,12 +392,6 @@
       window.TemplateStore.render = render;
       window.TemplateStore.use = useTemplate;
     }
-    const hub = window.OVYXTemplateHub;
-    if (hub && !hub.__ovyxPublishedLibrary) {
-      const originalRender = typeof hub.render === 'function' ? hub.render.bind(hub) : null;
-      hub.render = function() { return isTemplatesView() ? render() : originalRender?.(); };
-      hub.__ovyxPublishedLibrary = true;
-    }
     if (window.OVYXV655) {
       window.OVYXV655.fetchPublishedTemplates = () => loadTemplates(false);
       window.OVYXV655.getPublished = () => state.items.slice();
