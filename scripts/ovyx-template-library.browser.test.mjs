@@ -124,8 +124,14 @@ try {
       '[' + target.name + '] the dashboard-only bottom dock must stay hidden on Templates.');
 
     await page.evaluate(() => window.ThemeContext.preview({ mode: 'light', backgroundColor: '#F8FAFC', sidebarColor: '#F8FAFC', cardColor: '#FFFFFF', borderColor: '#CBD5E1', textColor: '#111827', mutedColor: '#475569', accentColor: '#6F5428' }));
+    await page.waitForFunction(() => {
+      const button = document.querySelector('[data-ovyx-template-action="use"][data-template-id="tpl-saas"]');
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--ovyx-template-action-accent').trim().toLowerCase();
+      return button?.isConnected && accent === '#6f5428' && getComputedStyle(button).backgroundColor === 'rgb(111, 84, 40)';
+    }, null, { timeout: 8000 });
     const themeDiagnostics = await page.evaluate(() => ({ theme: window.ThemeContext?.get?.(), mode: document.documentElement.dataset.ovyxMode,
       platformAccent: getComputedStyle(document.documentElement).getPropertyValue('--ovyx-platform-accent').trim(),
+      templateActionAccent: getComputedStyle(document.documentElement).getPropertyValue('--ovyx-template-action-accent').trim(),
       actionInk: getComputedStyle(document.documentElement).getPropertyValue('--ovyx-template-action-ink').trim() }));
     const lightThemeColors = await page.locator('[data-ovyx-template-action="use"][data-template-id="tpl-saas"]').evaluate(button => ({ text: getComputedStyle(button).color, background: getComputedStyle(button).backgroundColor }));
     console.log('[' + target.name + '] theme diagnostics ' + JSON.stringify({ ...themeDiagnostics, button: lightThemeColors }));
