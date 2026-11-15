@@ -71,9 +71,14 @@ try {
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
     await page.waitForFunction(() => !!window.OVYXTemplateLibrary && typeof window.__OVYX_FIREBASE_READY__ === 'boolean', null, { timeout: 45000 });
     await page.waitForFunction(() => !!window.ProjectCloudSync, null, { timeout: 30000 });
+    const authState = await page.evaluate(() => {
+      const user = window.firebase?.auth?.().currentUser || null;
+      window.dispatchEvent(new CustomEvent('firebase-auth-state-ready', { detail: { user } }));
+      return { uid: user?.uid || null };
+    });
+    assert.equal(authState.uid, 'ovyx-template-browser-user', '[' + target.name + '] the Firebase browser fixture must be authenticated.');
     await page.waitForFunction(() => window.ProjectCloudSync.activeUid === 'ovyx-template-browser-user', null, { timeout: 20000 });
     const routeState = await page.evaluate(() => {
-      window.dispatchEvent(new Event('firebase-auth-state-ready'));
       const result = window.Router?.go?.('templates');
       const view = document.getElementById('view-templates');
       const feed = document.getElementById('templates-catalog-feed');
