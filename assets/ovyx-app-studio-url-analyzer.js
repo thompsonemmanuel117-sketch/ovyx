@@ -206,7 +206,7 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok !== true || !data.report) throw new Error(String(data.message || data.error || 'OVYX could not analyze this website.'));
       renderReport(data.report);
-      setStatus('Website review complete. Check the pages, branding, images, and any notes before continuing.', 'success');
+      setStatus('Website review complete. Review the pages, brand and assets before building.', 'success');
     } catch (error) {
       const results = panel && $(panel, '[data-ua-results]');
       if (results) results.replaceChildren();
@@ -225,8 +225,8 @@
     panel.setAttribute('aria-labelledby', 'ovyx-ua-title');
     const header = node('div', 'ovyx-ua-header');
     const title = node('div', '');
-    title.append(node('p', 'ovyx-ua-eyebrow', 'APP STUDIO / WEBSITE ANALYSIS'), node('h3', '', 'URL Analyzer'),
-      node('p', 'ovyx-ua-muted', 'Inspect a public website to identify its structure, branding and relevant assets.'));
+    title.append(node('p', 'ovyx-ua-eyebrow', 'APP STUDIO / WEBSITE ANALYSIS'), node('h3', '', 'Analyze a website'),
+      node('p', 'ovyx-ua-muted', 'Enter a public website address. OVYX maps its pages, brand and useful assets.'));
     header.append(title, node('span', 'ovyx-ua-chip', 'SOURCE ANALYSIS'));
     panel.appendChild(header);
     const form = node('form', 'ovyx-ua-form');
@@ -241,7 +241,7 @@
     form.append(label, button);
     form.addEventListener('submit', event => { event.preventDefault(); analyze(); });
     panel.appendChild(form);
-    const statusNode = node('p', 'ovyx-ua-status', 'Enter a public website URL. OVYX respects access controls and does not run source scripts or copy assets automatically.');
+    const statusNode = node('p', 'ovyx-ua-status', 'Enter a public website URL. OVYX only reviews pages it can access publicly; it does not run the site’s scripts or copy its assets.');
     statusNode.setAttribute('role', 'status'); statusNode.setAttribute('aria-live', 'polite'); statusNode.setAttribute('data-ua-status', '');
     panel.appendChild(statusNode);
     const results = node('div', 'ovyx-ua-results');
