@@ -278,7 +278,7 @@
         '<h4>' + escapeHtml(item.title) + '</h4><p>' + escapeHtml(item.description || 'A published OVYX website foundation.') + '</p>' +
         '<div class="ovyx-template-card-stats"><span>' + pageCount + (pageCount === 1 ? ' page' : ' pages') + '</span><span>' + sectionCount + (sectionCount === 1 ? ' section' : ' sections') + '</span></div>' +
         '<div class="ovyx-template-card-actions"><button type="button" class="ovyx-template-action" data-ovyx-template-action="preview" data-template-id="' + escapeHtml(item.id) + '">Preview</button>' +
-        '<button type="button" class="ovyx-template-action primary" data-ovyx-template-action="use" data-template-id="' + escapeHtml(item.id) + '">' + (locked ? 'View plans' : 'Use template') + '</button></div></div></article>';
+        '<button type="button" class="ovyx-template-action primary" style="background:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f))!important;border-color:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f))!important;color:var(--ovyx-template-action-ink,#090909)!important" data-ovyx-template-action="use" data-template-id="' + escapeHtml(item.id) + '">' + (locked ? 'View plans' : 'Use template') + '</button></div></div></article>';
     }).join('') + '</div>' +
       (state.pageToken ? '<div class="ovyx-template-more"><button type="button" class="ovyx-template-action" data-ovyx-template-action="more">Load more templates</button></div>' : '');
   }
