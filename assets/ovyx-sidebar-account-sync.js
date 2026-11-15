@@ -110,21 +110,26 @@
   }, true);
 
   function observeAccountSurfaces() {
-    const mobile = $('ovyx-v52-mobile-account');
-    if (mobile && !mobile.dataset.ovyxAccountSyncObserved) {
-      mobile.dataset.ovyxAccountSyncObserved = '1';
-      new MutationObserver(() => sync()).observe(mobile, { childList: true, subtree: true });
-    }
-    const desktopName = $('sidebar-user-display-name');
-    if (desktopName && !desktopName.dataset.ovyxAccountSyncObserved) {
-      desktopName.dataset.ovyxAccountSyncObserved = '1';
-      new MutationObserver(() => {
-        // Older shell/account routines may write their guest placeholder after
-        // Firebase has already emitted its initial state. Re-apply the canonical
-        // authenticated identity when that legacy DOM update lands.
-        sync(currentUser());
-      }).observe(desktopName, { childList: true, characterData: true, subtree: true });
-    }
+    // Watch only for account surfaces being mounted. Do not observe their
+    // descendants: sync() itself updates avatar/name nodes, and older shell
+    // routines may write those same nodes. Watching internal edits can create
+    // an observer feedback loop that stalls unrelated app startup.
+    const body = document.body;
+    if (!body || body.dataset.ovyxAccountSurfaceMountObserved) return;
+    body.dataset.ovyxAccountSurfaceMountObserved = '1';
+    const selector = '#ovyx-v52-mobile-account,#sidebar-user-display-name,#sidebar-avatar-initials,#v52-account-avatar';
+    const containsAccountSurface = node => {
+      if (!node || node.nodeType !== 1) return false;
+      return (node.matches && node.matches(selector)) ||
+        (node.querySelector && Boolean(node.querySelector(selector)));
+    };
+    const observer = new MutationObserver(records => {
+      const mounted = records.some(record =>
+        Array.prototype.some.call(record.addedNodes || [], containsAccountSurface)
+      );
+      if (mounted) sync(currentUser());
+    });
+    observer.observe(body, { childList: true, subtree: true });
   }
 
   function installAuthListener() {
@@ -150,11 +155,8 @@
     window.addEventListener('ovyx:view-changed', () => { sync(); observeAccountSurfaces(); }, { passive: true });
     window.addEventListener('ovyx:profile-updated', () => sync(), { passive: true });
     window.addEventListener('ovyx:workspace-changed', () => sync(), { passive: true });
-    const bodyObserver = new MutationObserver(() => {
-      observeAccountSurfaces();
-      if (!auth) installAuthListener();
-    });
-    if (document.body) bodyObserver.observe(document.body, { childList: true, subtree: true });
+    observeAccountSurfaces();
+    if (!auth) installAuthListener();
     window.OVYXSidebarAccountSync = Object.freeze({ refresh: () => sync(), version: 1 });
   }
 
