@@ -223,7 +223,7 @@
       return;
     }
     if (!state.items.length) {
-      feed.innerHTML = renderEmpty('No published templates yet', 'New OVYX templates will appear here as they are reviewed and published.');
+      feed.innerHTML = renderEmpty('No published templates yet', 'New OVYX templates will appear here as they are published.');
       return;
     }
     if (!items.length) {
