@@ -408,6 +408,9 @@ try {
   assert.equal(requests.releaseHealth.length, 2, 'The production release must get its own post-release health check.');
   assert.equal(requests.releaseHealth[1].query.deploymentId, 'deployment-2');
 
+  const mobileDisclosure = desktop.locator('.ovyx-lb-mobile-details');
+  assert.equal(await mobileDisclosure.evaluate(el => el.open), false, 'Mobile build settings should stay collapsed until needed.');
+  await mobileDisclosure.locator(':scope > summary').click();
   const mobileStartButton = desktop.locator('[data-lb-mobile-build]');
   const mobileStartWasDisabled = await mobileStartButton.isDisabled();
   await mobileStartButton.click();
