@@ -96,7 +96,7 @@
     const style = document.createElement('style');
     style.id = 'ovyx-template-library-styles';
     style.textContent = `
-      #view-templates.ovyx-template-library-ready{width:100%;max-width:1480px!important;margin:0 auto;padding:clamp(20px,3vw,42px)!important;min-height:calc(100dvh - 60px)}
+      #view-templates.ovyx-template-library-ready{width:100%;max-width:1480px!important;margin:0 auto;padding:clamp(20px,3vw,42px)!important;min-height:calc(100dvh - 60px);background:var(--app-bg,#050607)!important;color:var(--app-text,#f8fafc)!important}
       #view-templates .ovyx-template-library-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:14px}
       #view-templates .ovyx-template-library-head h3{margin:8px 0 0;color:var(--app-text,#f8fafc);font-size:clamp(24px,3vw,36px);font-weight:850;letter-spacing:-.045em;line-height:1.05}
       #view-templates .ovyx-template-library-description{max-width:660px;margin:10px 0 0;color:var(--app-muted,#94a3b8);font-size:12px;line-height:1.65}
@@ -300,11 +300,12 @@
       '<div class="ovyx-template-preview-actions"><button type="button" data-close-preview>Close</button>' +
       '<button type="button" class="primary" data-preview-use="' + escapeHtml(item.id) + '">' + (item.locked ? 'View plans' : 'Use template') + '</button></div></div></div></section>';
     document.body.appendChild(backdrop);
-    const close = () => { backdrop.remove(); trigger?.focus?.(); };
+    let onKey;
+    const close = () => { backdrop.remove(); if (onKey) document.removeEventListener('keydown', onKey); trigger?.focus?.(); };
     backdrop.querySelectorAll('[data-close-preview]').forEach(button => button.addEventListener('click', close));
     backdrop.querySelector('[data-preview-use]')?.addEventListener('click', () => { close(); useTemplate(item.id); });
     backdrop.addEventListener('click', event => { if (event.target === backdrop) close(); });
-    const onKey = event => { if (event.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); } };
+    onKey = event => { if (event.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);
     $('ovyx-template-preview-dialog')?.focus();
   }
@@ -348,16 +349,26 @@
       })),
       assets: [], revisions: [], templateSource: { id: item.id, title: item.title }
     };
+    const store = window.ProjectStore;
+    if (!store || typeof store.save !== 'function') {
+      window.showToast?.('Project saving is unavailable right now. Please try again.', 'error');
+      return false;
+    }
     const projects = window.KernelState.projects = Array.isArray(window.KernelState.projects) ? window.KernelState.projects : [];
+    const previousActive = window.KernelState.activeProject || null;
     projects.unshift(project);
     window.KernelState.activeProject = project;
-    try { window.ProjectStore?.save?.(); } catch (error) {
+    try {
+      const saved = store.save();
+      if (saved === false) throw new Error('The project save was not accepted.');
+    } catch (error) {
+      window.KernelState.projects = projects.filter(existing => existing?.id !== project.id);
+      window.KernelState.activeProject = previousActive;
       console.warn('[OVYX template library] Project save failed:', error);
-      window.showToast?.('The template was prepared, but the project could not be saved. Try again.', 'error');
+      window.showToast?.('The template could not be saved to your Projects. Please try again.', 'error');
       return false;
     }
     window.ProjectCloudSync?.scheduleSyncActive?.(320);
-    window.OVYXProjectCloudSync?.save?.(project);
     window.showToast?.('Template added to Projects. Cloud sync is starting.', 'success');
     window.Router?.go?.('webstudio');
     window.WebStudio?.render?.();
@@ -399,8 +410,8 @@
     if (String(event.detail?.view || '').replace(/^view-/, '') === 'templates') loadTemplates(false);
   }, { passive: true });
   window.addEventListener('firebase-auth-state-ready', () => {
-    state.items = []; state.pageToken = null; state.error = '';
-    if (isTemplatesView()) loadTemplates(false);
+    state.generation++; state.loading = false; state.items = []; state.pageToken = null; state.error = '';
+    if (isTemplatesView()) loadTemplates(false); else render();
   }, { passive: true });
   window.addEventListener('ovyx:templates-changed', () => {
     if (isTemplatesView()) loadTemplates(false);
