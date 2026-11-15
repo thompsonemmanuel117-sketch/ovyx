@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
+const visualRefresh = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-visual-refresh.js', import.meta.url)), 'utf8');
 const runtime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-visual-redesign.js', import.meta.url)), 'utf8');
 const html = [
 '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>',
@@ -22,10 +23,11 @@ const html = [
 '<section class="ovyx-lb-brain" id="ovyx-app-studio-project-brain"><h4>Verify</h4><button class="ovyx-lb-brain-run">Run checks</button></section>',
 '<section class="ovyx-lb-release" id="ovyx-app-studio-release"><h4>Release</h4><button class="ovyx-lb-release-btn" data-lb-publish>Publish</button><details data-lb-mobile-build><summary>Build for Android or iOS</summary></details></section>',
 '<section id="ovyx-app-studio-brand-dna-panel">Brand DNA controls</section><section id="app-studio-clean-canvas">Existing conversion flow</section>',
-'</main><script src="/redesign.js"></script></body></html>'
+'</main><script>window.__ovyxVisualMutationCount=0;new MutationObserver(records=>{window.__ovyxVisualMutationCount+=records.length;}).observe(document.getElementById("view-appstudio"),{childList:true,subtree:true});</script><script src="/visual-refresh.js"></script><script src="/redesign.js"></script></body></html>'
 ].join('');
 const server=createServer((req,res)=>{
  if(req.url==='/'){res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});return res.end(html);}
+ if(req.url==='/visual-refresh.js'){res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'no-store'});return res.end(visualRefresh);}
  if(req.url==='/redesign.js'){res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'no-store'});return res.end(runtime);}
  res.writeHead(404);res.end();
 });
@@ -37,6 +39,9 @@ try{
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto(base,{waitUntil:'load'});
  await page.waitForFunction(()=>document.getElementById('ovyx-app-studio-visual-redesign-style'));
+ await page.waitForTimeout(300);
+ const stableMutations=await page.evaluate(()=>window.__ovyxVisualMutationCount);
+ assert.ok(stableMutations<40,'The existing and new App Studio visual layers must settle instead of repeatedly mutating each other: '+stableMutations+' DOM mutations.');
  await page.evaluate(()=>{const status=document.querySelector('.ovyx-as-workspace-status');status.textContent='Saved to Projects';document.getElementById('view-appstudio').appendChild(document.createElement('span'));});
  await page.waitForFunction(()=>document.querySelector('.ovyx-as-workspace-status')?.textContent==='Saved to Projects');
  const desktop=await page.evaluate(()=>{
