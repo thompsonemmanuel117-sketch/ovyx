@@ -23,7 +23,8 @@ assert.ok(runtime.includes('More actions') && runtime.includes('ovyx-as-workspac
 assert.ok(runtime.includes('details.forEach(item => { item.open = true; })') && runtime.includes('details.forEach(item => { item.open = false; })'), 'Expand and collapse must update actual disclosures.');
 assert.ok(runtime.includes('navigator.clipboard.writeText') && runtime.includes('Clipboard access is unavailable'), 'Copy summary must report real clipboard success or failure.');
 assert.ok(runtime.includes('savedToProjects === true') && runtime.includes('runtimeChecked === true'), 'The workspace must distinguish cloud-saved and runtime-verified projects.');
-assert.ok(runtime.includes('Device / preview only'), 'The workspace must not imply that an unsaved project is cloud-persisted.');
+assert.ok(runtime.includes('Only on this device') && runtime.includes('Not saved yet'), 'The workspace must not imply that an unsaved project is cloud-persisted.');
+assert.ok(runtime.includes('friendlyStatus') && runtime.includes('Not checked yet') && runtime.includes('Not started yet'), 'Internal status codes must be presented as plain-language labels.');
 assert.ok(runtime.includes('MutationObserver') && runtime.includes('ovyx:link-app-generated'), 'The workspace must refresh when existing App Studio state changes.');
 assert.ok(runtime.includes('prefers-reduced-motion:reduce'), 'The workspace must respect reduced-motion preferences.');
 assert.ok(!runtime.includes('Switch workspace') && !runtime.includes('Open Assistant'), 'Duplicate workspace-switching and assistant shortcuts must not appear in the App Studio dock.');
