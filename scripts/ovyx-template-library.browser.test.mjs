@@ -75,8 +75,11 @@ try {
       window.dispatchEvent(new Event('firebase-auth-state-ready'));
       const result = window.Router?.go?.('templates');
       const view = document.getElementById('view-templates');
+      const feed = document.getElementById('templates-catalog-feed');
       return { result, activeView: window.KernelState?.activeView || null, hidden: view?.classList.contains('hidden') ?? null,
-        parentIsViewport: view?.parentElement?.id === 'view-router-viewport', canonical: window.Router?.__v659Canonical === true };
+        parentIsViewport: view?.parentElement?.id === 'view-router-viewport', canonical: window.Router?.__v659Canonical === true,
+        viewDisplay: view ? getComputedStyle(view).display : null, feedVisibility: feed ? getComputedStyle(feed).visibility : null,
+        feedInlineVisibility: feed?.style.visibility || null, viewClasses: view?.className || null };
     });
     console.log('[' + target.name + '] Templates route diagnostics ' + JSON.stringify(routeState));
     assert.equal(routeState.result, true, '[' + target.name + '] the canonical router must open the Templates page.');
