@@ -132,7 +132,11 @@ try {
 
   aliases = ['https://coastal-preview.pages.dev'];
   deploymentStatus = 'active';
-  console.log('OVYX Stage 6 release health checks passed: provider-authenticated deployment lookup, bounded public URL probe, failure diagnosis, SSRF boundary and server-side entitlement enforcement.');
+  const linkBuilderRuntime = read('assets/ovyx-app-studio-link-builder.js');
+assert.ok(linkBuilderRuntime.includes('ovyx-lb-mobile-details') && linkBuilderRuntime.includes('Build for Android or iOS'), 'Mobile build controls must be progressively disclosed without removing the workflow.');
+assert.ok(linkBuilderRuntime.includes('data-lb-mobile-build') && linkBuilderRuntime.includes('data-lb-mobile-refresh'), 'The mobile build and refresh actions must remain wired.');
+
+console.log('OVYX Stage 6 release health checks passed: provider-authenticated deployment lookup, bounded public URL probe, failure diagnosis, SSRF boundary and server-side entitlement enforcement.');
 } finally {
   globalThis.fetch = originalFetch;
 }
