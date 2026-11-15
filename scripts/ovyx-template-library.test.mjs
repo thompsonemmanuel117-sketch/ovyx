@@ -19,6 +19,8 @@ assert.match(runtime, /new MutationObserver/, 'Legacy gallery writes must not re
 assert.match(runtime, /item\.previewUrl/, 'The gallery must use the published preview media.');
 assert.match(runtime, /function contrastInk/, 'Primary template action text must choose a readable ink color for the active accent.');
 assert.match(runtime, /--ovyx-platform-accent/, 'Template surfaces must use the canonical ThemeContext accent token.');
+assert.match(runtime, /--ovyx-template-action-accent/, 'Template action surfaces must use the active ThemeContext accent.');
+assert.match(runtime, /ThemeContext\?\.get\?\.\(\)/, 'Contrast calculation must read the current ThemeContext palette.');
 assert.match(runtime, /--ovyx-template-action-ink/, 'Primary template actions must use the computed contrast color.');
 assert.match(runtime, /ovyx:theme-applied/, 'Template action contrast must refresh when the user changes themes.');
 assert.match(runtime, /data-ovyx-template-action="preview"/, 'Every template must expose a working preview action.');
