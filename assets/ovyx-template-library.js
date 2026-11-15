@@ -70,6 +70,13 @@
       sort.dataset.ovyxBound = '1';
       sort.addEventListener('change', () => { state.sort = sort.value === 'az' ? 'az' : 'newest'; render(); });
     }
+    if (!feed.dataset.ovyxTemplateObserver && typeof MutationObserver === 'function') {
+      const observer = new MutationObserver(() => {
+        if (!feed.querySelector('.ovyx-template-cards, .ovyx-template-empty')) render();
+      });
+      observer.observe(feed, { childList: true });
+      feed.dataset.ovyxTemplateObserver = '1';
+    }
     if (!feed.dataset.ovyxTemplateLibraryBound) {
       feed.dataset.ovyxTemplateLibraryBound = '1';
       feed.addEventListener('click', event => {
@@ -382,6 +389,12 @@
       window.TemplateStore.filter = setCategory;
       window.TemplateStore.render = render;
       window.TemplateStore.use = useTemplate;
+    }
+    const hub = window.OVYXTemplateHub;
+    if (hub && !hub.__ovyxPublishedLibrary) {
+      const originalRender = typeof hub.render === 'function' ? hub.render.bind(hub) : null;
+      hub.render = function() { return isTemplatesView() ? render() : originalRender?.(); };
+      hub.__ovyxPublishedLibrary = true;
     }
     if (window.OVYXV655) {
       window.OVYXV655.fetchPublishedTemplates = () => loadTemplates(false);
