@@ -20,3 +20,8 @@ assert.match(picker, /function syncSidebarWorkspaceLabel/, 'The existing sidebar
 assert.match(picker, /syncSidebarWorkspaceLabel\(\);/, 'Workspace selection, rename and account reload must refresh the sidebar label.');
 assert.match(middleware, /ovyx-sidebar-account-sync\.js\?v=20261114-4/, 'The account synchronizer must load in the production Pages shell.');
 console.log('OVYX sidebar account and workspace synchronization contracts passed.');
+
+assert.match(asset, /Watch only for account surfaces being mounted/, 'Account synchronization must not observe its own internal DOM updates.');
+assert.match(asset, /records\.some\(record =>[\s\S]*?record\.addedNodes[\s\S]*?containsAccountSurface/, 'Late account surfaces must be detected only from inserted nodes.');
+assert.doesNotMatch(asset, /new MutationObserver\(\(\) => sync\(\)\)\.observe\(mobile/, 'Do not watch all mobile account descendants and resync on every edit.');
+assert.doesNotMatch(asset, /new MutationObserver\(\(\) => \{[\s\S]*?sync\(currentUser\(\)\);[\s\S]*?\}\)\.observe\(desktopName/, 'Do not watch desktop name text mutations and rewrite the same node.');
