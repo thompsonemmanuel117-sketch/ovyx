@@ -20,6 +20,23 @@
     return node;
   };
 
+  function friendlyStatus(value, fallback) {
+    const raw = text(value).trim().toLowerCase().replace(/\\s+/g, '-');
+    if (!raw) return fallback;
+    const labels = {
+      'not-run': 'Not checked yet', 'not-started': 'Not started yet',
+      'in-progress': 'In progress', running: 'Checking', building: 'Building',
+      deploying: 'Publishing', queued: 'Queued', pending: 'In progress',
+      passed: 'Passed', success: 'Successful', complete: 'Complete', completed: 'Complete',
+      failed: 'Needs attention', error: 'Needs attention', warning: 'Review needed',
+      partial: 'Partially checked', healthy: 'Healthy', active: 'Live',
+      published: 'Published', ready: 'Ready', cancelled: 'Cancelled', canceled: 'Cancelled',
+      unknown: 'Status unavailable'
+    };
+    if (labels[raw]) return labels[raw];
+    return raw.replace(/[_-]+/g, ' ').replace(/^./, first => first.toUpperCase());
+  }
+
   function projectSnapshot() {
     const project = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__ || {};
     const brain = window.__OVYX_PROJECT_BRAIN_REPORT__ || {};
@@ -35,8 +52,8 @@
       generated: !!project.id,
       saved: project.savedToProjects === true,
       verified: brain.summary?.runtimeChecked === true,
-      quality: text(brain.status || 'not-run'),
-      release: text(releaseRecord?.status || mobile.status || 'not-started'),
+      quality: friendlyStatus(brain.status, 'Not checked yet'),
+      release: friendlyStatus(releaseRecord?.status || mobile.status, 'Not started yet'),
       checkedAt: text(brain.checkedAt || '')
     };
   }
@@ -94,10 +111,10 @@
     const lines = [
       'OVYX App Studio project summary',
       'Project: ' + snapshot.name,
-      'Project ID: ' + (snapshot.id || 'Not generated'),
+      'Project ID: ' + (snapshot.id || 'Not created yet'),
       'Generated files: ' + snapshot.files,
-      'Saved to OVYX Projects: ' + (snapshot.saved ? 'Yes' : 'No'),
-      'Live preview verified: ' + (snapshot.verified ? 'Yes' : 'No'),
+      'Saved to Projects: ' + (snapshot.saved ? 'Yes' : 'No'),
+      'Preview check passed: ' + (snapshot.verified ? 'Yes' : 'No'),
       'Quality status: ' + snapshot.quality,
       'Release status: ' + snapshot.release
     ];
@@ -150,9 +167,9 @@
       overview.insertBefore(summary, overview.firstChild);
     }
     const states = [
-      ['Project', snapshot.generated ? snapshot.name : 'Not generated'],
+      ['Project', snapshot.generated ? snapshot.name : 'Not created yet'],
       ['Quality', snapshot.quality],
-      ['Cloud save', snapshot.saved ? 'Saved' : 'Device / preview only'],
+      ['Save status', snapshot.saved ? 'In Projects' : snapshot.generated ? 'Only on this device' : 'Not saved yet'],
       ['Release', snapshot.release]
     ];
     const signature = JSON.stringify(states);
