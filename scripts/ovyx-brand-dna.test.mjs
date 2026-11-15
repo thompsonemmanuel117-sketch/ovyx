@@ -113,7 +113,7 @@ assert.ok(appBrandRuntime.includes('imageFileToPngDataUrl') && appBrandRuntime.i
 assert.ok(testBrowserSource.includes('visibleColors >= 5') && testBrowserSource.includes('Every generated screen must display the same original full-colour logo'), 'The Chromium test must inspect the rendered full-colour logo across generated screens.');
 assert.ok(appBrandRuntime.includes('appBrandId:id'), 'Generated requests must carry an app-scoped profile ID.');
 assert.ok(appBrandRuntime.includes('generation was paused'), 'Failure to persist App Brand DNA must stop the generation attempt.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-brand-dna.js?v=20261018-2'), 'The real Pages shell must load the App Studio Brand DNA runtime.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-brand-dna.js?v=20261115-1'), 'The real Pages shell must load the App Studio Brand DNA runtime.');
 assert.ok(gateway.includes('applyBrandDNAToGeneratedOutput'), 'App Studio HTML/file outputs must be branded after generation.');
 assert.ok(gateway.includes('brandDNA: isAppStudio ? { ...brandDNAClientSummary(brandDNA), applied: brandDNAApplied, applyError: brandDNAApplyError || null } : null'), 'The response must expose the resolved brand profile and clearly report whether it was applied.');
 assert.ok(mobileBuild.includes("['users', userEmail, 'brand_profile', 'config']"), 'The mobile build handoff must continue to carry the canonical saved brand profile.');
