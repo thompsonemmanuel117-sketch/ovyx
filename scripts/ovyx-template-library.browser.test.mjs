@@ -82,6 +82,14 @@ try {
     assert.equal(await page.locator('#templates-catalog-feed [data-template-card]').count(), 3,
       '[' + target.name + '] all published templates should appear.');
 
+    // Simulate the old Firestore/local TemplateStore renderer racing the public gallery.
+    await page.evaluate(() => { document.getElementById('templates-catalog-feed').innerHTML = '<article class="v0-template-card">legacy renderer</article>'; });
+    await page.waitForFunction(() => document.querySelectorAll('#templates-catalog-feed [data-template-card]').length === 3, null, { timeout: 10000 });
+    assert.equal(await page.locator('#templates-catalog-feed').getByText('legacy renderer').count(), 0,
+      '[' + target.name + '] a legacy renderer must not replace the server-backed public catalogue.');
+    await page.evaluate(() => window.OVYXTemplateHub?.render?.());
+    await page.waitForFunction(() => document.querySelectorAll('#templates-catalog-feed [data-template-card]').length === 3, null, { timeout: 10000 });
+
     await page.locator('#template-filters [data-template-filter="SaaS"]').click();
     assert.equal(await page.locator('#templates-catalog-feed [data-template-card]').count(), 1,
       '[' + target.name + '] SaaS filter must return only SaaS templates.');
