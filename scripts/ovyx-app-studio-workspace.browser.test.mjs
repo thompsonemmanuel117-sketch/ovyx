@@ -47,7 +47,7 @@ try{
  });
  await desktop.waitForFunction(()=>document.querySelector('[data-ovyx-as-project-state]')?.innerText.includes('Coastal App'));
  const state=await desktop.locator('[data-ovyx-as-project-state]').innerText();
- assert.match(state,/Saved/);assert.match(state,/passed/);assert.match(state,/active/);
+ assert.match(state,/Saved/);assert.match(state,/Passed/);assert.match(state,/Live/);
  await desktop.evaluate(()=>{const release=document.getElementById('ovyx-app-studio-release');release.remove();window.__lateRelease=release;});
  await desktop.evaluate(()=>document.getElementById('view-appstudio').appendChild(window.__lateRelease));
  await desktop.waitForFunction(()=>document.getElementById('ovyx-app-studio-release')?.isConnected===true);
