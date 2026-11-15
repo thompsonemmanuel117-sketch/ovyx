@@ -25,6 +25,7 @@ assert.ok(runtime.includes('color:#17140e!important'), 'Gold primary actions mus
 assert.ok(!runtime.includes('fetch(') && !runtime.includes('OVYXAIService') && !runtime.includes('switchView('), 'The visual layer must not replace APIs, AI routing or application navigation.');
 assert.ok(!runtime.includes('remove()') && !runtime.includes('.hidden = true'), 'The redesign must not remove or hide existing features.');
 assert.ok(middleware.includes('/assets/ovyx-app-studio-visual-redesign.js?v=20261115-1'), 'The Pages shell must load the new visual layer after the existing App Studio runtimes.');
+assert.ok(middleware.includes('ovyx-app-studio-visual-refresh.js?v=20261115-2"></script><script defer src="/assets/ovyx-app-studio-visual-redesign.js'), 'The existing visual refresh script tag must remain valid and load before the new layer.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-visual-redesign.js') && headers.includes('Cache-Control: no-store'), 'The visual asset must not be trapped behind stale caching.');
 assert.ok(workflow.includes('ovyx-app-studio-visual-redesign.browser.test.mjs') && workflow.includes('ovyx-app-studio-visual-redesign.test.mjs'), 'CI must run static and desktop/mobile browser coverage.');
 console.log('OVYX App Studio visual redesign source checks passed: concise hierarchy, theme tokens, reduced motion and preserved feature boundaries.');
