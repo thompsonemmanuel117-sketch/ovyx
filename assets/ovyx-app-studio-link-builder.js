@@ -92,8 +92,8 @@
     section.setAttribute('aria-labelledby', 'ovyx-lb-title');
     const heading = node('div', 'ovyx-lb-heading');
     heading.append(node('p', 'ovyx-lb-eyebrow', 'APP STUDIO / APP CREATION'),
-      node('h4', '', 'Create an app from a website'),
-      node('p', 'ovyx-lb-muted', 'Use the website structure and detected branding to create a tailored app. Review the interactive preview before publishing.'));
+      node('h4', '', 'Create your app'),
+      node('p', 'ovyx-lb-muted', 'Use the pages and brand found in the website review. Preview your app before saving or publishing.'));
     section.appendChild(heading);
 
     const form = node('form', 'ovyx-lb-form');
@@ -103,12 +103,12 @@
     name.value = reportBrand(report).name || 'Link App';
     name.setAttribute('data-lb-name', '');
     label.appendChild(name);
-    const button = node('button', 'ovyx-lb-generate', 'Generate first app');
+    const button = node('button', 'ovyx-lb-generate', 'Create app');
     button.type = 'submit'; button.setAttribute('data-lb-generate', '');
     form.append(label, button);
     section.appendChild(form);
 
-    const state = node('p', 'ovyx-lb-status', 'Ready to create your app using the selected brand settings.');
+    const state = node('p', 'ovyx-lb-status', 'Ready to build from the website review above.');
     state.setAttribute('role', 'status'); state.setAttribute('aria-live', 'polite'); state.setAttribute('data-lb-status', '');
     section.appendChild(state);
 
@@ -134,11 +134,11 @@
     section.appendChild(preview);
 
     const actionBar = node('div', 'ovyx-lb-project-actions');
-    const saveButton = node('button', 'ovyx-lb-save', 'Save app to OVYX Projects');
+    const saveButton = node('button', 'ovyx-lb-save', 'Save to Projects');
     saveButton.type = 'button';
     saveButton.disabled = true;
     saveButton.setAttribute('data-lb-save', '');
-    const saveStatus = node('p', 'ovyx-lb-status', 'Sign in to OVYX and confirm to save this app to your account.');
+    const saveStatus = node('p', 'ovyx-lb-status', 'Create your app first, then sign in to save it to Projects.');
     saveStatus.setAttribute('role', 'status');
     saveStatus.setAttribute('aria-live', 'polite');
     saveStatus.setAttribute('data-lb-save-status', '');
@@ -153,15 +153,15 @@
     brain.setAttribute('aria-labelledby', 'ovyx-lb-brain-title');
     const brainHeading = node('div', 'ovyx-lb-brain-heading');
     brainHeading.append(node('p', 'ovyx-lb-eyebrow', 'APP QUALITY / TESTS'),
-      node('h5', '', 'Dependencies, links and control checks'),
-      node('p', 'ovyx-lb-muted', 'Checks app dependencies, navigation, controls and the live preview. Unknown controls and external services are not tested automatically.'));
-    const brainRun = node('button', 'ovyx-lb-brain-run', 'Run checks again');
+      node('h5', '', 'Check your app'),
+      node('p', 'ovyx-lb-muted', 'Check links, files, controls and the live preview. External services still need a manual test.'));
+    const brainRun = node('button', 'ovyx-lb-brain-run', 'Run checks');
     brainRun.type = 'button';
     brainRun.disabled = true;
     brainRun.setAttribute('data-lb-brain-run', '');
     brainHeading.appendChild(brainRun);
     brain.appendChild(brainHeading);
-    const brainStatus = node('p', 'ovyx-lb-status', 'Create an app to run quality and behaviour checks.');
+    const brainStatus = node('p', 'ovyx-lb-status', 'Create your app to check its links, controls and preview.');
     brainStatus.setAttribute('role', 'status');
     brainStatus.setAttribute('aria-live', 'polite');
     brainStatus.setAttribute('data-lb-brain-status', '');
@@ -197,8 +197,8 @@
     const releaseHeading = node('div', 'ovyx-lb-release-heading');
     releaseHeading.append(
       node('p', 'ovyx-lb-eyebrow', 'APP STUDIO / RELEASE'),
-      node('h5', '', 'Export, publish and maintain'),
-      node('p', 'ovyx-lb-muted', 'Validate your app, export a deployable package, publish when you’re ready, or prepare Android/iOS builds.')
+      node('h5', '', 'Prepare for release'),
+      node('p', 'ovyx-lb-muted', 'Check your app, download its files, publish your website or prepare a mobile build.')
     );
     release.appendChild(releaseHeading);
 
@@ -211,14 +211,14 @@
     release.appendChild(exportActions);
 
     const webHeading = node('div', 'ovyx-lb-release-subheading');
-    webHeading.append(node('h6', '', 'Web publish'), node('p', 'ovyx-lb-muted', 'A preview is separate from your live website. Publishing updates the live site. Both actions require your confirmation and publishing access.'));
+    webHeading.append(node('h6', '', 'Website publishing'), node('p', 'ovyx-lb-muted', 'Deploy a preview first. Publishing updates your live website and always asks for confirmation.'));
     release.appendChild(webHeading);
     const webActions = node('div', 'ovyx-lb-release-actions');
     const webDeploy = node('button', 'ovyx-lb-release-btn', 'Deploy preview');
     webDeploy.type = 'button'; webDeploy.disabled = true; webDeploy.setAttribute('data-lb-deploy-preview', '');
-    const webPublish = node('button', 'ovyx-lb-release-btn publish', 'Publish production');
+    const webPublish = node('button', 'ovyx-lb-release-btn publish', 'Publish website');
     webPublish.type = 'button'; webPublish.disabled = true; webPublish.setAttribute('data-lb-publish', '');
-    const webHealth = node('button', 'ovyx-lb-release-btn secondary', 'Check release health');
+    const webHealth = node('button', 'ovyx-lb-release-btn secondary', 'Check website health');
     webHealth.type = 'button'; webHealth.disabled = true; webHealth.setAttribute('data-lb-release-health', '');
     webActions.append(webDeploy, webPublish, webHealth);
     release.appendChild(webActions);
@@ -229,13 +229,17 @@
     releaseLink.href = '#'; releaseLink.target = '_blank'; releaseLink.rel = 'noopener noreferrer'; releaseLink.hidden = true;
     releaseLink.setAttribute('data-lb-release-link', '');
     release.appendChild(releaseLink);
-    const savedRelease = node('button', 'ovyx-lb-release-btn secondary', 'Save release record');
+    const savedRelease = node('button', 'ovyx-lb-release-btn secondary', 'Save release details');
     savedRelease.type = 'button'; savedRelease.disabled = true; savedRelease.setAttribute('data-lb-save-release', '');
     release.appendChild(savedRelease);
 
+    const mobileDetails = node('details', 'ovyx-lb-mobile-details');
+    const mobileSummary = node('summary', '', 'Build for Android or iOS');
+    const mobileBody = node('div', 'ovyx-lb-mobile-details__body');
+    mobileDetails.append(mobileSummary, mobileBody);
     const mobileHeading = node('div', 'ovyx-lb-release-subheading');
-    mobileHeading.append(node('h6', '', 'Android / iOS builds'), node('p', 'ovyx-lb-muted', 'Mobile builds require mobile-build setup and a square PNG app icon. App data stays on the device; account-connected features are available only in the signed-in OVYX preview.'));
-    release.appendChild(mobileHeading);
+    mobileHeading.append(node('h6', '', 'Mobile app builds'), node('p', 'ovyx-lb-muted', 'Optional. Mobile builds need a configured build service and a square PNG app icon. Account features work only in the signed-in OVYX preview.'));
+    mobileBody.appendChild(mobileHeading);
     const mobileGrid = node('div', 'ovyx-lb-mobile-grid');
     const iconLabel = node('label', 'ovyx-lb-label', 'App icon (square PNG)');
     const iconInput = node('input', 'ovyx-lb-input');
@@ -252,24 +256,25 @@
       platformGroup.appendChild(choice);
     }
     mobileGrid.append(iconLabel, platformGroup);
-    release.appendChild(mobileGrid);
+    mobileBody.appendChild(mobileGrid);
     const mobileActions = node('div', 'ovyx-lb-release-actions');
     const mobileBuild = node('button', 'ovyx-lb-release-btn', 'Start mobile build');
     mobileBuild.type = 'button'; mobileBuild.disabled = true; mobileBuild.setAttribute('data-lb-mobile-build', '');
-    const mobileRefresh = node('button', 'ovyx-lb-release-btn secondary', 'Refresh mobile status');
+    const mobileRefresh = node('button', 'ovyx-lb-release-btn secondary', 'Refresh build status');
     mobileRefresh.type = 'button'; mobileRefresh.disabled = true; mobileRefresh.setAttribute('data-lb-mobile-refresh', '');
     mobileActions.append(mobileBuild, mobileRefresh);
-    release.appendChild(mobileActions);
-    const mobileStatus = node('p', 'ovyx-lb-status', 'No mobile build has been started yet.');
+    mobileBody.appendChild(mobileActions);
+    const mobileStatus = node('p', 'ovyx-lb-status', 'No mobile build yet.');
     mobileStatus.setAttribute('role', 'status'); mobileStatus.setAttribute('aria-live', 'polite'); mobileStatus.setAttribute('data-lb-mobile-status', '');
-    release.appendChild(mobileStatus);
+    mobileBody.appendChild(mobileStatus);
     const mobileLinks = node('div', 'ovyx-lb-mobile-links');
     mobileLinks.setAttribute('data-lb-mobile-links', '');
-    release.appendChild(mobileLinks);
+    mobileBody.appendChild(mobileLinks);
+    release.appendChild(mobileDetails);
     const releaseDiagnostics = node('ul', 'ovyx-lb-release-diagnostics');
     releaseDiagnostics.setAttribute('data-lb-release-diagnostics', '');
     release.appendChild(releaseDiagnostics);
-    const releaseNote = node('p', 'ovyx-lb-capabilities', 'A successful publish request does not guarantee every feature is working. The website health check confirms whether the public site responds. Mobile builds can take time; refresh the status to see progress and downloads. Form submissions and app preferences stay on this device. Sign-in, account services, payments, email, and file uploads require separate setup.');
+    const releaseNote = node('p', 'ovyx-lb-capabilities', 'A deployment request is not a full feature test. Run the website health check after publishing. App form data stays in this browser. Sign-in, payments, email and file uploads need separate setup.');
     releaseNote.setAttribute('role', 'note');
     release.appendChild(releaseNote);
     section.appendChild(release);
@@ -297,6 +302,7 @@
     style.textContent = [
       '.ovyx-lb-panel{grid-column:1/-1;box-sizing:border-box;padding:16px;border:1px solid rgba(214,180,103,.42);border-radius:15px;background:linear-gradient(145deg,rgba(214,180,103,.09),rgba(7,10,15,.94));color:#f3f4f6;min-width:0}',
       '.ovyx-lb-panel *{box-sizing:border-box;min-width:0}.ovyx-lb-eyebrow{margin:0 0 7px;color:#d6b467;font-size:10px;font-weight:850;letter-spacing:.14em}.ovyx-lb-heading h4{margin:0 0 6px;color:#fff;font-size:17px}.ovyx-lb-muted{margin:0;color:#a7afbd;font-size:11px;line-height:1.55}.ovyx-lb-form{display:flex;align-items:flex-end;gap:10px;margin-top:13px}.ovyx-lb-label{display:flex;flex:1;flex-direction:column;gap:6px;color:#dce1e9;font-size:11px;font-weight:700}.ovyx-lb-input{width:100%;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:11px 12px;background:#080a0f;color:#fff;font:inherit}.ovyx-lb-generate{border:1px solid #d6b467;border-radius:9px;background:#d6b467;color:#16130d;padding:12px 14px;font-size:11px;font-weight:850;cursor:pointer;white-space:nowrap}.ovyx-lb-generate:disabled{opacity:.65;cursor:wait}.ovyx-lb-status{margin:10px 0 0;color:#a7afbd;font-size:11px;line-height:1.5;overflow-wrap:anywhere}.ovyx-lb-status[data-kind=error]{color:#fca5a5}.ovyx-lb-status[data-kind=success]{color:#86efac}.ovyx-lb-status[data-kind=busy]{color:#fcd34d}.ovyx-lb-preview{margin-top:14px;padding:10px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#080a0f}.ovyx-lb-preview[hidden]{display:none}.ovyx-lb-preview-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 9px;color:#f1f1ef;font-size:10px;font-weight:850;letter-spacing:.05em}.ovyx-lb-preview-header span{color:#929baa;font-size:9px;font-weight:600}.ovyx-lb-frame{display:block;width:100%;height:min(72vh,720px);min-height:420px;border:1px solid #29313d;border-radius:9px;background:#fff}.ovyx-lb-files{margin-top:10px;color:#d5d9df;font-size:11px}.ovyx-lb-files summary{cursor:pointer;padding:5px 0;color:#dfc580;font-weight:750}.ovyx-lb-source-list{display:grid;gap:8px}.ovyx-lb-source-file{border:1px solid rgba(255,255,255,.1);border-radius:8px;overflow:hidden}.ovyx-lb-source-file strong{display:block;padding:7px 9px;background:rgba(255,255,255,.04);font-size:10px}.ovyx-lb-source-file pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:9px;margin:0;color:#cbd5e1;font:10px/1.5 ui-monospace,monospace}.ovyx-lb-brain{margin-top:15px;padding:13px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.22)}.ovyx-lb-brain-heading h5{margin:0 0 6px;color:#fff;font-size:14px}.ovyx-lb-brain-run{margin-top:10px;border:1px solid rgba(214,180,103,.45);border-radius:8px;padding:8px 10px;background:#18150d;color:#efcf86;font-size:10px;font-weight:800;cursor:pointer}.ovyx-lb-brain-run:disabled{opacity:.55;cursor:wait}.ovyx-lb-brain-summary{color:#d1d5db;font-size:10px;line-height:1.6;overflow-wrap:anywhere}.ovyx-lb-brain-graph,.ovyx-lb-brain-findings{margin-top:8px;color:#cbd5e1;font-size:10px}.ovyx-lb-brain-graph summary,.ovyx-lb-brain-findings summary{cursor:pointer;padding:7px 0;color:#dfc580;font-weight:800}.ovyx-lb-brain-list{display:grid;gap:8px;margin:5px 0 0;padding-left:20px}.ovyx-lb-brain-finding{display:grid;gap:4px;color:#cbd5e1;overflow-wrap:anywhere}.ovyx-lb-brain-severity{font-size:9px;letter-spacing:.04em}.ovyx-lb-brain-file{color:#929baa;font:9px ui-monospace,monospace;overflow-wrap:anywhere}.ovyx-lb-brain-evidence{display:block;color:#fca5a5;font:9px/1.5 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.ovyx-lb-project-actions{display:flex;align-items:flex-start;gap:11px;flex-wrap:wrap;margin-top:12px}.ovyx-lb-save{border:1px solid rgba(110,231,183,.45);border-radius:9px;background:#104b3d;color:#d1fae5;padding:11px 13px;font-size:11px;font-weight:800;cursor:pointer}.ovyx-lb-save:disabled{opacity:.55;cursor:not-allowed}.ovyx-lb-capabilities{margin:9px 0 0;color:#858e9c;font-size:10px;line-height:1.55}.ovyx-lb-panel :is(input,button,summary):focus-visible{outline:2px solid #d6b467;outline-offset:3px}.ovyx-lb-release{margin-top:15px;padding:14px;border:1px solid rgba(110,231,183,.24);border-radius:12px;background:rgba(4,16,14,.34)}.ovyx-lb-release-heading h5,.ovyx-lb-release-subheading h6{margin:0 0 6px;color:#f7faf9;font-size:14px}.ovyx-lb-release-subheading{margin-top:15px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1)}.ovyx-lb-release-subheading h6{font-size:12px}.ovyx-lb-release-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ovyx-lb-release-btn{border:1px solid rgba(110,231,183,.38);border-radius:8px;padding:10px 12px;background:#104b3d;color:#d1fae5;font-size:10px;font-weight:850;cursor:pointer}.ovyx-lb-release-btn.secondary{border-color:rgba(255,255,255,.18);background:#11151b;color:#d1d5db}.ovyx-lb-release-btn.publish{border-color:rgba(214,180,103,.55);background:#4b3410;color:#fde68a}.ovyx-lb-release-btn:disabled{opacity:.45;cursor:not-allowed}.ovyx-lb-release-link{display:inline-block;margin-top:8px;color:#86efac;font-size:11px;overflow-wrap:anywhere}.ovyx-lb-release-link[hidden]{display:none}.ovyx-lb-mobile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:10px}.ovyx-lb-platforms{display:flex;align-items:flex-start;gap:8px;flex-direction:column;min-width:0;margin:0;padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:8px;color:#d5d9df;font-size:10px}.ovyx-lb-platforms legend{padding:0 4px;color:#aeb7c5;font-size:10px}.ovyx-lb-platform{display:flex;align-items:center;gap:5px;font-size:10px}.ovyx-lb-platform input,.ovyx-lb-label input[type=file]{max-width:100%}.ovyx-lb-release-diagnostics{display:grid;gap:6px;margin:10px 0 0;padding-left:18px;color:#cbd5e1;font-size:10px;line-height:1.5;overflow-wrap:anywhere}.ovyx-lb-mobile-links{display:grid;gap:6px;margin-top:8px}.ovyx-lb-mobile-links a{color:#86efac;font-size:10px;overflow-wrap:anywhere}.ovyx-lb-release .ovyx-lb-status{overflow-wrap:anywhere}@media(max-width:620px){.ovyx-lb-form{align-items:stretch;flex-direction:column}.ovyx-lb-generate,.ovyx-lb-save,.ovyx-lb-release-btn{width:100%}.ovyx-lb-project-actions,.ovyx-lb-release-actions{flex-direction:column}.ovyx-lb-mobile-grid{grid-template-columns:1fr}.ovyx-lb-frame{min-height:440px;height:68vh}.ovyx-lb-preview{padding:7px}}'
+      '.ovyx-lb-mobile-details{margin-top:15px;border:1px solid rgba(255,255,255,.1);border-radius:13px;background:rgba(255,255,255,.018);overflow:hidden}.ovyx-lb-mobile-details>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:11px 13px;color:#e8edf4;font-size:12px;font-weight:750;cursor:pointer;list-style:none}.ovyx-lb-mobile-details>summary::-webkit-details-marker{display:none}.ovyx-lb-mobile-details>summary:after{content:"+";display:grid;place-items:center;width:23px;height:23px;border:1px solid rgba(255,255,255,.14);border-radius:50%;color:#d5bd8a}.ovyx-lb-mobile-details[open]>summary:after{content:"−"}.ovyx-lb-mobile-details__body{padding:0 13px 13px}.ovyx-lb-mobile-details .ovyx-lb-release-subheading{margin-top:0}',
     ].join('\n');
     document.head.appendChild(style);
   }
