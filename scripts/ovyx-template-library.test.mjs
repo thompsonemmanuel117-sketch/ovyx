@@ -17,7 +17,7 @@ assert.match(runtime, /state\.pageToken/, 'The catalogue must support server pag
 assert.match(runtime, /item\.previewUrl/, 'The gallery must use the published preview media.');
 assert.match(runtime, /data-ovyx-template-action="preview"/, 'Every template must expose a working preview action.');
 assert.match(runtime, /function openPreview/, 'The preview action must open an accessible details surface.');
-assert.match(runtime, /window\.ProjectStore\?\.save\?\.\(\)/, 'Using a template must use the canonical project save path.');
+assert.match(runtime, /store\.save\(\)/, 'Using a template must use the canonical project save path.');
 assert.match(runtime, /ProjectCloudSync\?\.scheduleSyncActive/, 'Using a template must schedule authenticated cloud sync.');
 assert.doesNotMatch(runtime, /localStorage\.setItem\(['"]ovyx\.projects\.v21/, 'The Templates page must not write projects directly to the retired local-storage key.');
 assert.match(runtime, /The template library could not load/, 'API failures must be distinguishable from an empty catalogue.');
