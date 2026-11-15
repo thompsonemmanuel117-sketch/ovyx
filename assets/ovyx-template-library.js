@@ -72,7 +72,7 @@
     }
     if (!feed.dataset.ovyxTemplateObserver && typeof MutationObserver === 'function') {
       const observer = new MutationObserver(() => {
-        if (!feed.querySelector('.ovyx-template-cards, .ovyx-template-empty')) render();
+        if (isTemplatesView() && !feed.querySelector('.ovyx-template-cards, .ovyx-template-empty')) render();
       });
       observer.observe(feed, { childList: true });
       feed.dataset.ovyxTemplateObserver = '1';
@@ -98,64 +98,92 @@
     return { view, feed };
   }
 
+  function parseColor(value) {
+    const input = clean(value);
+    const hex = input.match(/^#([0-9a-f]{6})$/i);
+    if (hex) return [0, 2, 4].map(index => parseInt(hex[1].slice(index, index + 2), 16));
+    const rgb = input.match(/rgba?\\(\\s*(\\d{1,3})\\s*,\\s*(\\d{1,3})\\s*,\\s*(\\d{1,3})/i);
+    return rgb ? [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])] : null;
+  }
+
+  function contrastInk(value) {
+    const rgb = parseColor(value) || [232, 182, 79];
+    const channels = rgb.map(channel => {
+      const normalized = channel / 255;
+      return normalized <= 0.04045 ? normalized / 12.92 : Math.pow((normalized + 0.055) / 1.055, 2.4);
+    });
+    const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+    const blackContrast = (luminance + 0.05) / 0.05;
+    const whiteContrast = 1.05 / (luminance + 0.05);
+    return blackContrast >= whiteContrast ? '#090909' : '#FFFFFF';
+  }
+
+  function syncThemeAccent() {
+    const root = document.documentElement;
+    const computed = getComputedStyle(root);
+    const accent = computed.getPropertyValue('--ovyx-platform-accent').trim() ||
+      computed.getPropertyValue('--accent').trim() || '#E8B64F';
+    root.style.setProperty('--ovyx-template-action-ink', contrastInk(accent));
+  }
+
   function styles() {
     if ($('ovyx-template-library-styles')) return;
     const style = document.createElement('style');
     style.id = 'ovyx-template-library-styles';
     style.textContent = `
-      #view-templates.ovyx-template-library-ready{width:100%;max-width:1480px!important;margin:0 auto;padding:clamp(20px,3vw,42px)!important;min-height:calc(100dvh - 60px);background:var(--app-bg,#050607)!important;color:var(--app-text,#f8fafc)!important}
+      #view-templates.ovyx-template-library-ready{width:100%;max-width:1480px!important;margin:0 auto;padding:clamp(20px,3vw,42px)!important;min-height:calc(100dvh - 60px);background:var(--bg,#050607)!important;color:var(--text,#f8fafc)!important}
       #view-templates .ovyx-template-library-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:14px}
-      #view-templates .ovyx-template-library-head h3{margin:8px 0 0;color:var(--app-text,#f8fafc);font-size:clamp(24px,3vw,36px);font-weight:850;letter-spacing:-.045em;line-height:1.05}
-      #view-templates .ovyx-template-library-description{max-width:660px;margin:10px 0 0;color:var(--app-muted,#94a3b8);font-size:12px;line-height:1.65}
+      #view-templates .ovyx-template-library-head h3{margin:8px 0 0;color:var(--text,#f8fafc);font-size:clamp(24px,3vw,36px);font-weight:850;letter-spacing:-.045em;line-height:1.05}
+      #view-templates .ovyx-template-library-description{max-width:660px;margin:10px 0 0;color:var(--muted,#94a3b8);font-size:12px;line-height:1.65}
       #view-templates #template-filters{gap:7px!important;align-items:center}
-      #view-templates [data-template-filter]{min-height:34px;padding:0 13px!important;border:1px solid var(--app-border,rgba(255,255,255,.12))!important;border-radius:999px!important;background:var(--app-card,#0b0d10)!important;color:var(--app-muted,#94a3b8)!important;font:750 10px/1 Inter,system-ui,sans-serif!important;transition:border-color .16s ease,background .16s ease,color .16s ease}
-      #view-templates [data-template-filter].v0-filter-active{border-color:color-mix(in srgb,var(--app-accent,#e8b64f) 48%,var(--app-border))!important;background:color-mix(in srgb,var(--app-accent,#e8b64f) 10%,var(--app-card))!important;color:var(--app-text,#fff)!important}
+      #view-templates [data-template-filter]{min-height:34px;padding:0 13px!important;border:1px solid var(--border,rgba(255,255,255,.12))!important;border-radius:999px!important;background:var(--card,#0b0d10)!important;color:var(--muted,#94a3b8)!important;font:750 10px/1 Inter,system-ui,sans-serif!important;transition:border-color .16s ease,background .16s ease,color .16s ease}
+      #view-templates [data-template-filter].v0-filter-active{border-color:color-mix(in srgb,var(--ovyx-platform-accent,#e8b64f) 48%,var(--border))!important;background:color-mix(in srgb,var(--ovyx-platform-accent,#e8b64f) 10%,var(--card))!important;color:var(--text,#fff)!important}
       #view-templates .ovyx-template-library-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 18px}
-      #view-templates .ovyx-template-search{display:flex;align-items:center;gap:10px;flex:1 1 280px;min-width:0;min-height:44px;padding:0 13px;border:1px solid var(--app-border,rgba(255,255,255,.12));border-radius:12px;background:var(--app-card,#0b0d10);color:var(--app-muted,#94a3b8)}
-      #view-templates .ovyx-template-search:focus-within{border-color:var(--app-accent,#e8b64f);box-shadow:0 0 0 3px color-mix(in srgb,var(--app-accent,#e8b64f) 12%,transparent)}
-      #view-templates .ovyx-template-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--app-text,#fff);font-size:12px}
-      #view-templates .ovyx-template-search input::placeholder{color:var(--app-muted,#94a3b8)}
-      #view-templates .ovyx-template-sort{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 11px;border:1px solid var(--app-border,rgba(255,255,255,.12));border-radius:12px;background:var(--app-card,#0b0d10);color:var(--app-muted,#94a3b8);font-size:10px}
-      #view-templates .ovyx-template-sort select{max-width:155px;border:0;outline:0;background:transparent;color:var(--app-text,#fff);font-size:11px}
-      #view-templates .ovyx-template-sort option{background:var(--app-card,#0b0d10);color:var(--app-text,#fff)}
-      #view-templates .ovyx-template-result-count{margin-left:auto;color:var(--app-muted,#94a3b8);font:700 9px/1.4 ui-monospace,monospace}
+      #view-templates .ovyx-template-search{display:flex;align-items:center;gap:10px;flex:1 1 280px;min-width:0;min-height:44px;padding:0 13px;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:12px;background:var(--card,#0b0d10);color:var(--muted,#94a3b8)}
+      #view-templates .ovyx-template-search:focus-within{border-color:var(--ovyx-platform-accent,#e8b64f);box-shadow:0 0 0 3px color-mix(in srgb,var(--ovyx-platform-accent,#e8b64f) 12%,transparent)}
+      #view-templates .ovyx-template-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--text,#fff);font-size:12px}
+      #view-templates .ovyx-template-search input::placeholder{color:var(--muted,#94a3b8)}
+      #view-templates .ovyx-template-sort{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 11px;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:12px;background:var(--card,#0b0d10);color:var(--muted,#94a3b8);font-size:10px}
+      #view-templates .ovyx-template-sort select{max-width:155px;border:0;outline:0;background:transparent;color:var(--text,#fff);font-size:11px}
+      #view-templates .ovyx-template-sort option{background:var(--card,#0b0d10);color:var(--text,#fff)}
+      #view-templates .ovyx-template-result-count{margin-left:auto;color:var(--muted,#94a3b8);font:700 9px/1.4 ui-monospace,monospace}
       #view-templates .ovyx-template-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
-      #view-templates .ovyx-template-card{min-width:0;overflow:hidden;border:1px solid var(--app-border,rgba(255,255,255,.12));border-radius:17px;background:var(--app-card,#0b0d10);color:var(--app-text,#f8fafc);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
-      #view-templates .ovyx-template-card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--app-accent,#e8b64f) 42%,var(--app-border));box-shadow:0 18px 45px rgba(0,0,0,.18)}
-      #view-templates .ovyx-template-card-media{position:relative;display:grid;place-items:center;aspect-ratio:16/10;overflow:hidden;border-bottom:1px solid var(--app-border,rgba(255,255,255,.1));background:linear-gradient(135deg,var(--app-bg,#050607),var(--app-card,#0b0d10))}
+      #view-templates .ovyx-template-card{min-width:0;overflow:hidden;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:17px;background:var(--card,#0b0d10);color:var(--text,#f8fafc);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+      #view-templates .ovyx-template-card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--ovyx-platform-accent,#e8b64f) 42%,var(--border));box-shadow:0 18px 45px rgba(0,0,0,.18)}
+      #view-templates .ovyx-template-card-media{position:relative;display:grid;place-items:center;aspect-ratio:16/10;overflow:hidden;border-bottom:1px solid var(--border,rgba(255,255,255,.1));background:linear-gradient(135deg,var(--bg,#050607),var(--card,#0b0d10))}
       #view-templates .ovyx-template-card-media img,#view-templates .ovyx-template-card-media video{width:100%;height:100%;object-fit:cover;display:block}
-      #view-templates .ovyx-template-placeholder{width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:22px;background:radial-gradient(circle at 80% 12%,color-mix(in srgb,var(--template-accent,#e8b64f) 20%,transparent),transparent 48%),linear-gradient(135deg,var(--template-background,#050607),var(--app-card,#0b0d10))}
+      #view-templates .ovyx-template-placeholder{width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:22px;background:radial-gradient(circle at 80% 12%,color-mix(in srgb,var(--template-accent,#e8b64f) 20%,transparent),transparent 48%),linear-gradient(135deg,var(--template-background,#050607),var(--card,#0b0d10))}
       #view-templates .ovyx-template-placeholder-mark{width:36px;height:36px;border:1px solid color-mix(in srgb,var(--template-accent,#e8b64f) 45%,transparent);border-radius:11px;display:grid;place-items:center;color:var(--template-accent,#e8b64f);font-size:18px}
       #view-templates .ovyx-template-placeholder-line{height:7px;border-radius:99px;background:rgba(255,255,255,.28);max-width:72%}
       #view-templates .ovyx-template-placeholder-line.short{max-width:42%;opacity:.55}
       #view-templates .ovyx-template-card-content{padding:15px}
-      #view-templates .ovyx-template-card-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;color:var(--app-muted,#94a3b8);font:750 8px/1.4 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.08em}
-      #view-templates .ovyx-template-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 7px;border:1px solid var(--app-border,rgba(255,255,255,.1));border-radius:999px;background:color-mix(in srgb,var(--app-card,#0b0d10) 85%,transparent);color:var(--app-muted,#94a3b8)}
-      #view-templates .ovyx-template-card h4{margin:0;color:var(--app-text,#fff);font-size:14px;font-weight:800;letter-spacing:-.02em;overflow-wrap:anywhere}
-      #view-templates .ovyx-template-card p{margin:7px 0 0;color:var(--app-muted,#94a3b8);font-size:11px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-      #view-templates .ovyx-template-card-stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;color:var(--app-muted,#94a3b8);font:650 8px/1.4 ui-monospace,monospace}
+      #view-templates .ovyx-template-card-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;color:var(--muted,#94a3b8);font:750 8px/1.4 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.08em}
+      #view-templates .ovyx-template-pill{display:inline-flex;align-items:center;gap:5px;padding:5px 7px;border:1px solid var(--border,rgba(255,255,255,.1));border-radius:999px;background:color-mix(in srgb,var(--card,#0b0d10) 85%,transparent);color:var(--muted,#94a3b8)}
+      #view-templates .ovyx-template-card h4{margin:0;color:var(--text,#fff);font-size:14px;font-weight:800;letter-spacing:-.02em;overflow-wrap:anywhere}
+      #view-templates .ovyx-template-card p{margin:7px 0 0;color:var(--muted,#94a3b8);font-size:11px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+      #view-templates .ovyx-template-card-stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;color:var(--muted,#94a3b8);font:650 8px/1.4 ui-monospace,monospace}
       #view-templates .ovyx-template-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}
-      #view-templates .ovyx-template-action{min-height:38px;padding:0 10px;border:1px solid var(--app-border,rgba(255,255,255,.14));border-radius:9px;background:transparent;color:var(--app-text,#fff);font-size:10px;font-weight:800;cursor:pointer}
-      #view-templates .ovyx-template-action.primary{border-color:var(--app-accent,#e8b64f);background:var(--app-accent,#e8b64f);color:var(--app-bg,#090909)}
+      #view-templates .ovyx-template-action{min-height:38px;padding:0 10px;border:1px solid var(--border,rgba(255,255,255,.14));border-radius:9px;background:transparent;color:var(--text,#fff);font-size:10px;font-weight:800;cursor:pointer}
+      #view-templates .ovyx-template-action.primary{border-color:var(--ovyx-platform-accent,#e8b64f);background:var(--ovyx-platform-accent,#e8b64f);color:var(--ovyx-template-action-ink,#090909)}
       #view-templates .ovyx-template-action:disabled{opacity:.55;cursor:not-allowed}
-      #view-templates .ovyx-template-empty{grid-column:1/-1;padding:54px 18px;border:1px dashed var(--app-border,rgba(255,255,255,.14));border-radius:16px;text-align:center;background:var(--app-card,#0b0d10)}
-      #view-templates .ovyx-template-empty h4{margin:0;color:var(--app-text,#fff);font-size:15px;font-weight:850}
-      #view-templates .ovyx-template-empty p{max-width:520px;margin:8px auto 0;color:var(--app-muted,#94a3b8);font-size:11px;line-height:1.6}
-      #view-templates .ovyx-template-empty button{margin-top:14px;min-height:36px;padding:0 13px;border:1px solid var(--app-border);border-radius:9px;background:transparent;color:var(--app-text);font-size:10px;font-weight:800}
+      #view-templates .ovyx-template-empty{grid-column:1/-1;padding:54px 18px;border:1px dashed var(--border,rgba(255,255,255,.14));border-radius:16px;text-align:center;background:var(--card,#0b0d10)}
+      #view-templates .ovyx-template-empty h4{margin:0;color:var(--text,#fff);font-size:15px;font-weight:850}
+      #view-templates .ovyx-template-empty p{max-width:520px;margin:8px auto 0;color:var(--muted,#94a3b8);font-size:11px;line-height:1.6}
+      #view-templates .ovyx-template-empty button{margin-top:14px;min-height:36px;padding:0 13px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-size:10px;font-weight:800}
       #ovyx-template-preview-backdrop{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.78);backdrop-filter:blur(14px)}
-      #ovyx-template-preview-dialog{width:min(1050px,100%);max-height:min(90dvh,900px);overflow:auto;border:1px solid var(--app-border,rgba(255,255,255,.16));border-radius:18px;background:var(--app-card,#0b0d10);color:var(--app-text,#fff);box-shadow:0 28px 100px rgba(0,0,0,.55)}
-      #ovyx-template-preview-dialog header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 17px;border-bottom:1px solid var(--app-border,rgba(255,255,255,.1));background:var(--app-card,#0b0d10)}
+      #ovyx-template-preview-dialog{width:min(1050px,100%);max-height:min(90dvh,900px);overflow:auto;border:1px solid var(--border,rgba(255,255,255,.16));border-radius:18px;background:var(--card,#0b0d10);color:var(--text,#fff);box-shadow:0 28px 100px rgba(0,0,0,.55)}
+      #ovyx-template-preview-dialog header{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 17px;border-bottom:1px solid var(--border,rgba(255,255,255,.1));background:var(--card,#0b0d10)}
       #ovyx-template-preview-dialog header h3{margin:0;font-size:14px;font-weight:850}
-      #ovyx-template-preview-dialog header button{width:34px;height:34px;border:1px solid var(--app-border);border-radius:9px;background:transparent;color:var(--app-text);font-size:18px}
+      #ovyx-template-preview-dialog header button{width:34px;height:34px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-size:18px}
       #ovyx-template-preview-dialog .ovyx-template-preview-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(220px,.8fr);gap:16px;padding:16px}
-      #ovyx-template-preview-dialog .ovyx-template-preview-visual{min-height:260px;overflow:hidden;border:1px solid var(--app-border);border-radius:12px;background:var(--app-bg,#050607)}
+      #ovyx-template-preview-dialog .ovyx-template-preview-visual{min-height:260px;overflow:hidden;border:1px solid var(--border);border-radius:12px;background:var(--bg,#050607)}
       #ovyx-template-preview-dialog .ovyx-template-preview-visual img,#ovyx-template-preview-dialog .ovyx-template-preview-visual video{width:100%;height:auto;max-height:65dvh;object-fit:contain;display:block}
       #ovyx-template-preview-dialog .ovyx-template-preview-details h4{margin:0 0 9px;font-size:12px;font-weight:850}
-      #ovyx-template-preview-dialog .ovyx-template-preview-details p,#ovyx-template-preview-dialog .ovyx-template-preview-details li{color:var(--app-muted,#94a3b8);font-size:10px;line-height:1.65}
+      #ovyx-template-preview-dialog .ovyx-template-preview-details p,#ovyx-template-preview-dialog .ovyx-template-preview-details li{color:var(--muted,#94a3b8);font-size:10px;line-height:1.65}
       #ovyx-template-preview-dialog .ovyx-template-preview-details ul{padding-left:17px}
       #ovyx-template-preview-dialog .ovyx-template-preview-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-      #ovyx-template-preview-dialog .ovyx-template-preview-actions button{min-height:38px;padding:0 12px;border:1px solid var(--app-border);border-radius:9px;background:transparent;color:var(--app-text);font-size:10px;font-weight:800}
-      #ovyx-template-preview-dialog .ovyx-template-preview-actions button.primary{background:var(--app-accent,#e8b64f);border-color:var(--app-accent,#e8b64f);color:var(--app-bg,#090909)}
+      #ovyx-template-preview-dialog .ovyx-template-preview-actions button{min-height:38px;padding:0 12px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-size:10px;font-weight:800}
+      #ovyx-template-preview-dialog .ovyx-template-preview-actions button.primary{background:var(--ovyx-platform-accent,#e8b64f);border-color:var(--ovyx-platform-accent,#e8b64f);color:var(--bg,#090909)}
       @media(max-width:900px){#view-templates .ovyx-template-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
       @media(max-width:640px){#view-templates.ovyx-template-library-ready{padding:18px 14px 90px!important}#view-templates .ovyx-template-library-head{align-items:flex-start;display:block}#view-templates #template-filters{margin-top:16px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}#view-templates #template-filters button{flex:none}#view-templates .ovyx-template-library-toolbar{align-items:stretch}#view-templates .ovyx-template-search{flex-basis:100%}#view-templates .ovyx-template-sort{flex:1}#view-templates .ovyx-template-result-count{margin-left:0}#view-templates .ovyx-template-cards{grid-template-columns:1fr}#ovyx-template-preview-dialog .ovyx-template-preview-layout{grid-template-columns:1fr;padding:12px}#ovyx-template-preview-dialog .ovyx-template-preview-visual{min-height:160px}}
       @media(prefers-reduced-motion:reduce){#view-templates .ovyx-template-card{transition:none}#view-templates .ovyx-template-card:hover{transform:none}}
@@ -200,6 +228,7 @@
     const surface = ensureSurface();
     if (!surface) return;
     styles();
+    syncThemeAccent();
     const { feed, view } = surface;
     view.classList.add('v57-templates-ready');
     feed.style.setProperty('visibility', 'visible', 'important');
@@ -402,6 +431,7 @@
 
   function boot() {
     styles();
+    syncThemeAccent();
     ensureSurface();
     patchLegacyStore();
     if (isTemplatesView()) loadTemplates(false);
@@ -423,6 +453,7 @@
     state.generation++; state.loading = false; state.items = []; state.pageToken = null; state.error = '';
     if (isTemplatesView()) loadTemplates(false); else render();
   }, { passive: true });
+  document.addEventListener('ovyx:theme-applied', syncThemeAccent, { passive: true });
   window.addEventListener('ovyx:templates-changed', () => {
     if (isTemplatesView()) loadTemplates(false);
   }, { passive: true });
