@@ -83,6 +83,30 @@ try {
     assert.equal(await page.locator('#templates-catalog-feed [data-template-card]').count(), 3,
       '[' + target.name + '] all published templates should appear.');
 
+    const layout = await page.evaluate(() => {
+      const feed = document.getElementById('templates-catalog-feed');
+      const cards = feed?.querySelector('.ovyx-template-cards');
+      const card = feed?.querySelector('[data-template-card]');
+      const bounds = card?.getBoundingClientRect();
+      const dock = document.getElementById('ovyx-v52-bottom-bar');
+      return {
+        viewport: window.innerWidth,
+        feedWidth: feed?.clientWidth || 0,
+        feedScrollWidth: feed?.scrollWidth || 0,
+        cardWidth: bounds?.width || 0,
+        columns: cards ? getComputedStyle(cards).gridTemplateColumns.split(' ').length : 0,
+        dockDisplay: dock ? getComputedStyle(dock).display : 'none'
+      };
+    });
+    assert.ok(layout.feedScrollWidth <= layout.feedWidth + 1,
+      '[' + target.name + '] the template gallery must not create horizontal page overflow.');
+    assert.ok(layout.cardWidth <= layout.viewport - 24,
+      '[' + target.name + '] template cards must fit the viewport.');
+    assert.equal(layout.columns, target.name === 'mobile' ? 1 : 3,
+      '[' + target.name + '] the template grid must adapt to the viewport.');
+    assert.equal(layout.dockDisplay, 'none',
+      '[' + target.name + '] the dashboard-only bottom dock must stay hidden on Templates.');
+
     // Simulate the old Firestore/local TemplateStore renderer racing the public gallery.
     await page.evaluate(() => { document.getElementById('templates-catalog-feed').innerHTML = '<article class="v0-template-card">legacy renderer</article>'; });
     await page.waitForFunction(() => document.querySelectorAll('#templates-catalog-feed [data-template-card]').length === 3, null, { timeout: 10000 });
