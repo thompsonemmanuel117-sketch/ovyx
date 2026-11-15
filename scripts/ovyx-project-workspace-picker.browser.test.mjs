@@ -126,6 +126,10 @@ try {
       });
       window.ProjectStore.renderHome();
       window.ProjectStore.renderProjects();
+      // The app's renderers may reconcile active-project state while building
+      // their views. Set the fixture's active project after those renders so
+      // the picker assertion measures its own active-state presentation.
+      window.KernelState.activeProject = first;
     });
 
     assert.equal(await page.locator('[data-nav="continue-project"], button[onclick*="continueOvyxProject"]').count(), 0,
