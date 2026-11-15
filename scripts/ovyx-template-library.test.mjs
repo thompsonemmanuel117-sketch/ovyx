@@ -14,6 +14,7 @@ assert.match(runtime, /cache:\s*'no-store'/, 'Template entitlement data must not
 assert.match(runtime, /state\.category === 'All' \|\| item\.category === state\.category/, 'Category filters must apply to the server catalogue.');
 assert.match(runtime, /state\.query/, 'The catalogue must support search.');
 assert.match(runtime, /state\.pageToken/, 'The catalogue must support server pagination.');
+assert.match(runtime, /new MutationObserver/, 'Legacy gallery writes must not replace the server-backed catalogue.');
 assert.match(runtime, /item\.previewUrl/, 'The gallery must use the published preview media.');
 assert.match(runtime, /data-ovyx-template-action="preview"/, 'Every template must expose a working preview action.');
 assert.match(runtime, /function openPreview/, 'The preview action must open an accessible details surface.');
