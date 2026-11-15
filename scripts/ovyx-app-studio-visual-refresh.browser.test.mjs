@@ -17,7 +17,7 @@ const html = [
 '<a data-ovyx-as-step="generate"><span class="ovyx-as-flow__copy"><b>Generate</b><small>Create your app</small></span></a>',
 '<a data-ovyx-as-step="verify"><span class="ovyx-as-flow__copy"><b>Verify</b><small>Test real behaviour</small></span></a>',
 '<a data-ovyx-as-step="release"><span class="ovyx-as-flow__copy"><b>Release</b><small>Save, export or publish</small></span></a></nav></section>',
-'<section class="ovyx-as-workspace-dock"><h2>Workspace</h2><button class="ovyx-as-workspace-action">Projects</button></section>',
+'<section class="ovyx-as-workspace-dock"><h2>Workspace</h2><button class="ovyx-as-workspace-action is-primary">Projects</button></section>',
 '<section class="ovyx-as-disclosure"><summary class="ovyx-as-disclosure__summary"><span class="ovyx-as-disclosure__copy">Brand identity</span></summary></section>',
 '<section class="ovyx-ua-panel"><h3>Analyze</h3><p>Inspect your website.</p><input placeholder="Website URL"><button class="ovyx-ua-primary">Analyze website</button></section>',
 '<section class="ovyx-lb-panel"><div class="ovyx-lb-heading"><h4>Build</h4></div><p class="ovyx-lb-muted">Create your app.</p><input placeholder="App name"><button class="ovyx-lb-generate">Generate app</button></section>',
@@ -44,7 +44,7 @@ try {
   const root=document.getElementById('view-appstudio'),panel=document.querySelector('.ovyx-ua-panel'),hero=document.querySelector('.ovyx-as-hero');
   return {paddingBottom:getComputedStyle(root).paddingBottom,text:getComputedStyle(panel).color,heroTitle:document.getElementById('ovyx-as-title').textContent,description:document.querySelector('.ovyx-as-hero__desc').textContent,panelBackground:getComputedStyle(panel).backgroundImage,animation:getComputedStyle(hero).animationName,dashboardPosition:getComputedStyle(document.getElementById('ovyx-v52-bottom-bar')).position};
  });
- assert.equal(desktop.paddingBottom,'22px','The excessive App Studio bottom runway must be removed.');
+ assert.equal(desktop.paddingBottom,'16px','App Studio should end with a compact bottom inset instead of a large blank runway.');
  assert.equal(desktop.text,'rgb(24, 24, 24)','App Studio text must use the active light-theme text colour.');
  assert.equal(desktop.heroTitle,'Build apps, beautifully.');
  assert.equal(desktop.description,'Analyze a site. Build, verify and release your app.');
