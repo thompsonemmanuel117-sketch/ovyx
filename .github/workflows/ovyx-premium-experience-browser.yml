@@ -13,8 +13,6 @@ on:
       - 'assets/ovyx-auth-routes.js'
       - 'package.json'
       - 'scripts/ovyx-premium-experience.test.mjs'
-      - 'scripts/ovyx-app-studio-design-system.test.mjs'
-      - 'scripts/ovyx-app-studio-design-system.browser.test.mjs'
       - 'scripts/ovyx-premium-experience.browser.test.mjs'
       - '.github/workflows/ovyx-premium-experience-browser.yml'
   pull_request:
@@ -26,7 +24,6 @@ on:
       - 'scripts/ovyx-premium-experience.browser.test.mjs'
       - 'package.json'
       - 'scripts/ovyx-premium-experience.test.mjs'
-      - 'scripts/ovyx-premium-experience.browser.test.mjs'
       - 'assets/ovyx-app-studio-design-system.js'
       - 'scripts/ovyx-app-studio-design-system.test.mjs'
       - 'scripts/ovyx-app-studio-design-system.browser.test.mjs'

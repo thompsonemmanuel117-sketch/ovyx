@@ -95,10 +95,6 @@
     simplifyVisibleCopy();
     const root = document.querySelector(ROOT);
     if (root && !root.dataset.ovyxDesignSystem) root.dataset.ovyxDesignSystem = 'v1';
-    if (document.documentElement && !window.__OVYX_APP_STUDIO_DESIGN_OBSERVER__) {
-      window.__OVYX_APP_STUDIO_DESIGN_OBSERVER__ = new MutationObserver(() => simplifyVisibleCopy());
-      window.__OVYX_APP_STUDIO_DESIGN_OBSERVER__.observe(document.documentElement, { childList: true, subtree: true });
-    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });

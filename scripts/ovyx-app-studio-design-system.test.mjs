@@ -14,6 +14,7 @@ assert.match(runtime, /max-width:360px/);
 assert.match(runtime, /#view-appstudio/);
 assert.match(runtime, /--as-text:var\(--text/);
 assert.match(runtime, /type=color/);
+assert.doesNotMatch(runtime, /new MutationObserver/, 'The presentation layer must not install a document-wide observer.');
 assert.match(middleware, /ovyx-app-studio-design-system\.js\?v=20261115-1/);
 assert.ok(middleware.indexOf('ovyx-app-studio-workspace.js') < middleware.indexOf('ovyx-app-studio-design-system.js'), 'The visual layer must load after the existing App Studio runtimes.');
 assert.ok(packageJson.scripts.test.includes('ovyx-app-studio-design-system.test.mjs'), 'The App Studio design-system contract must run in the main test suite.');
