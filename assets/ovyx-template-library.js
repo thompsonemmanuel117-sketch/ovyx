@@ -121,8 +121,12 @@
   function syncThemeAccent() {
     const root = document.documentElement;
     const computed = getComputedStyle(root);
-    const accent = computed.getPropertyValue('--ovyx-platform-accent').trim() ||
+    const theme = window.ThemeContext?.get?.() || null;
+    let accent = clean(theme?.accentColor);
+    if (/^#f59e0b$/i.test(accent)) accent = root.dataset.ovyxMode === 'light' ? '#806331' : '#C2A36B';
+    if (!/^#[0-9a-f]{6}$/i.test(accent)) accent = computed.getPropertyValue('--ovyx-platform-accent').trim() ||
       computed.getPropertyValue('--accent').trim() || '#E8B64F';
+    root.style.setProperty('--ovyx-template-action-accent', accent);
     root.style.setProperty('--ovyx-template-action-ink', contrastInk(accent));
   }
 
@@ -137,10 +141,10 @@
       #view-templates .ovyx-template-library-description{max-width:660px;margin:10px 0 0;color:var(--muted,#94a3b8);font-size:12px;line-height:1.65}
       #view-templates #template-filters{gap:7px!important;align-items:center}
       #view-templates [data-template-filter]{min-height:34px;padding:0 13px!important;border:1px solid var(--border,rgba(255,255,255,.12))!important;border-radius:999px!important;background:var(--card,#0b0d10)!important;color:var(--muted,#94a3b8)!important;font:750 10px/1 Inter,system-ui,sans-serif!important;transition:border-color .16s ease,background .16s ease,color .16s ease}
-      #view-templates [data-template-filter].v0-filter-active{border-color:color-mix(in srgb,var(--ovyx-platform-accent,#e8b64f) 48%,var(--border))!important;background:color-mix(in srgb,var(--ovyx-platform-accent,#e8b64f) 10%,var(--card))!important;color:var(--text,#fff)!important}
+      #view-templates [data-template-filter].v0-filter-active{border-color:color-mix(in srgb,var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f)) 48%,var(--border))!important;background:color-mix(in srgb,var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f)) 10%,var(--card))!important;color:var(--text,#fff)!important}
       #view-templates .ovyx-template-library-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 18px}
       #view-templates .ovyx-template-search{display:flex;align-items:center;gap:10px;flex:1 1 280px;min-width:0;min-height:44px;padding:0 13px;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:12px;background:var(--card,#0b0d10);color:var(--muted,#94a3b8)}
-      #view-templates .ovyx-template-search:focus-within{border-color:var(--ovyx-platform-accent,#e8b64f);box-shadow:0 0 0 3px color-mix(in srgb,var(--ovyx-platform-accent,#e8b64f) 12%,transparent)}
+      #view-templates .ovyx-template-search:focus-within{border-color:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));box-shadow:0 0 0 3px color-mix(in srgb,var(--ovyx-platform-accent,#e8b64f) 12%,transparent)}
       #view-templates .ovyx-template-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--text,#fff);font-size:12px}
       #view-templates .ovyx-template-search input::placeholder{color:var(--muted,#94a3b8)}
       #view-templates .ovyx-template-sort{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 11px;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:12px;background:var(--card,#0b0d10);color:var(--muted,#94a3b8);font-size:10px}
@@ -164,7 +168,7 @@
       #view-templates .ovyx-template-card-stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;color:var(--muted,#94a3b8);font:650 8px/1.4 ui-monospace,monospace}
       #view-templates .ovyx-template-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}
       #view-templates .ovyx-template-action{min-height:38px;padding:0 10px;border:1px solid var(--border,rgba(255,255,255,.14));border-radius:9px;background:transparent;color:var(--text,#fff);font-size:10px;font-weight:800;cursor:pointer}
-      #view-templates .ovyx-template-action.primary{border-color:var(--ovyx-platform-accent,#e8b64f);background:var(--ovyx-platform-accent,#e8b64f);color:var(--ovyx-template-action-ink,#090909)}
+      #view-templates .ovyx-template-action.primary{border-color:var(--ovyx-platform-accent,#e8b64f);background:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));color:var(--ovyx-template-action-ink,#090909)}
       #view-templates .ovyx-template-action:disabled{opacity:.55;cursor:not-allowed}
       #view-templates .ovyx-template-empty{grid-column:1/-1;padding:54px 18px;border:1px dashed var(--border,rgba(255,255,255,.14));border-radius:16px;text-align:center;background:var(--card,#0b0d10)}
       #view-templates .ovyx-template-empty h4{margin:0;color:var(--text,#fff);font-size:15px;font-weight:850}
