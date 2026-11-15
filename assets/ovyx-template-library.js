@@ -136,7 +136,7 @@
       #view-templates .ovyx-template-card-stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;color:var(--app-muted,#94a3b8);font:650 8px/1.4 ui-monospace,monospace}
       #view-templates .ovyx-template-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}
       #view-templates .ovyx-template-action{min-height:38px;padding:0 10px;border:1px solid var(--app-border,rgba(255,255,255,.14));border-radius:9px;background:transparent;color:var(--app-text,#fff);font-size:10px;font-weight:800;cursor:pointer}
-      #view-templates .ovyx-template-action.primary{border-color:var(--app-accent,#e8b64f);background:var(--app-accent,#e8b64f);color:#090909}
+      #view-templates .ovyx-template-action.primary{border-color:var(--app-accent,#e8b64f);background:var(--app-accent,#e8b64f);color:var(--app-bg,#090909)}
       #view-templates .ovyx-template-action:disabled{opacity:.55;cursor:not-allowed}
       #view-templates .ovyx-template-empty{grid-column:1/-1;padding:54px 18px;border:1px dashed var(--app-border,rgba(255,255,255,.14));border-radius:16px;text-align:center;background:var(--app-card,#0b0d10)}
       #view-templates .ovyx-template-empty h4{margin:0;color:var(--app-text,#fff);font-size:15px;font-weight:850}
@@ -155,7 +155,7 @@
       #ovyx-template-preview-dialog .ovyx-template-preview-details ul{padding-left:17px}
       #ovyx-template-preview-dialog .ovyx-template-preview-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
       #ovyx-template-preview-dialog .ovyx-template-preview-actions button{min-height:38px;padding:0 12px;border:1px solid var(--app-border);border-radius:9px;background:transparent;color:var(--app-text);font-size:10px;font-weight:800}
-      #ovyx-template-preview-dialog .ovyx-template-preview-actions button.primary{background:var(--app-accent,#e8b64f);border-color:var(--app-accent,#e8b64f);color:#090909}
+      #ovyx-template-preview-dialog .ovyx-template-preview-actions button.primary{background:var(--app-accent,#e8b64f);border-color:var(--app-accent,#e8b64f);color:var(--app-bg,#090909)}
       @media(max-width:900px){#view-templates .ovyx-template-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
       @media(max-width:640px){#view-templates.ovyx-template-library-ready{padding:18px 14px 90px!important}#view-templates .ovyx-template-library-head{align-items:flex-start;display:block}#view-templates #template-filters{margin-top:16px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}#view-templates #template-filters button{flex:none}#view-templates .ovyx-template-library-toolbar{align-items:stretch}#view-templates .ovyx-template-search{flex-basis:100%}#view-templates .ovyx-template-sort{flex:1}#view-templates .ovyx-template-result-count{margin-left:0}#view-templates .ovyx-template-cards{grid-template-columns:1fr}#ovyx-template-preview-dialog .ovyx-template-preview-layout{grid-template-columns:1fr;padding:12px}#ovyx-template-preview-dialog .ovyx-template-preview-visual{min-height:160px}}
       @media(prefers-reduced-motion:reduce){#view-templates .ovyx-template-card{transition:none}#view-templates .ovyx-template-card:hover{transform:none}}
