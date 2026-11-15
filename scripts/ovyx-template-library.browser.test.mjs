@@ -71,10 +71,17 @@ try {
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
     await page.waitForFunction(() => !!window.OVYXTemplateLibrary && typeof window.__OVYX_FIREBASE_READY__ === 'boolean', null, { timeout: 45000 });
     await page.waitForFunction(() => !!window.ProjectCloudSync, null, { timeout: 30000 });
-    await page.evaluate(() => {
+    const routeState = await page.evaluate(() => {
       window.dispatchEvent(new Event('firebase-auth-state-ready'));
-      window.Router?.go?.('templates');
+      const result = window.Router?.go?.('templates');
+      const view = document.getElementById('view-templates');
+      return { result, activeView: window.KernelState?.activeView || null, hidden: view?.classList.contains('hidden') ?? null,
+        parentIsViewport: view?.parentElement?.id === 'view-router-viewport', canonical: window.Router?.__v659Canonical === true };
     });
+    console.log('[' + target.name + '] Templates route diagnostics ' + JSON.stringify(routeState));
+    assert.equal(routeState.result, true, '[' + target.name + '] the canonical router must open the Templates page.');
+    assert.equal(routeState.activeView, 'templates', '[' + target.name + '] Templates must be the active route.');
+    assert.equal(routeState.hidden, false, '[' + target.name + '] the Templates section must be visible.');
     await page.waitForFunction(() => document.querySelectorAll('#templates-catalog-feed [data-template-card]').length === 3, null, { timeout: 20000 });
     await page.locator('#templates-catalog-feed').waitFor({ state: 'visible' });
 
