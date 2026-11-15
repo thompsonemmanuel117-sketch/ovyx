@@ -21,7 +21,7 @@
   };
 
   function friendlyStatus(value, fallback) {
-    const raw = text(value).trim().toLowerCase().replace(/\\s+/g, '-');
+    const raw = text(value).trim().toLowerCase().replace(/\s+/g, '-');
     if (!raw) return fallback;
     const labels = {
       'not-run': 'Not checked yet', 'not-started': 'Not started yet',
