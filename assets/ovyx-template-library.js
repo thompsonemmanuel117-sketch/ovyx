@@ -200,7 +200,9 @@
     const surface = ensureSurface();
     if (!surface) return;
     styles();
-    const { feed } = surface;
+    const { feed, view } = surface;
+    view.classList.add('v57-templates-ready');
+    feed.style.setProperty('visibility', 'visible', 'important');
     const items = visibleItems();
     const count = $('ovyx-template-result-count');
     if (count) count.textContent = state.loading ? 'Updating…' : items.length + (items.length === 1 ? ' template' : ' templates');
