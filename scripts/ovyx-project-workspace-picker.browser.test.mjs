@@ -167,6 +167,9 @@ try {
         uid: window.firebase?.auth?.()?.currentUser?.uid || null,
         workspaceOptions: Array.from(document.querySelectorAll('#ovx-picker-workspace-select option')).map(option => ({ value: option.value, label: option.textContent })),
         projectRows: document.querySelectorAll('#ovyx-project-workspace-picker [data-project-id]').length,
+        kernelProjectIds: Array.isArray(window.KernelState?.projects) ? window.KernelState.projects.map(project => project.id) : null,
+        storeProjectIds: typeof window.ProjectStore?.list === 'function' ? window.ProjectStore.list().map(project => project.id) : null,
+        activeProjectId: window.KernelState?.activeProject?.id || null,
         workspaceNote: document.querySelector('[data-workspace-note]')?.textContent || null,
         dialogOpen: !!document.getElementById('ovyx-project-workspace-picker')?.open,
       }));
