@@ -71,6 +71,7 @@ try {
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error.');
     await page.waitForFunction(() => !!window.OVYXTemplateLibrary && typeof window.__OVYX_FIREBASE_READY__ === 'boolean', null, { timeout: 45000 });
     await page.waitForFunction(() => !!window.ProjectCloudSync, null, { timeout: 30000 });
+    await page.waitForFunction(() => window.ProjectCloudSync.activeUid === 'ovyx-template-browser-user', null, { timeout: 20000 });
     const routeState = await page.evaluate(() => {
       window.dispatchEvent(new Event('firebase-auth-state-ready'));
       const result = window.Router?.go?.('templates');
@@ -154,7 +155,6 @@ try {
       '[' + target.name + '] preview must show the actual included page list.');
     await page.locator('#ovyx-template-preview-dialog [data-close-preview]').first().click();
 
-    await page.waitForFunction(() => window.ProjectCloudSync.activeUid === 'ovyx-template-browser-user', null, { timeout: 20000 });
     const saveResponse = page.waitForResponse(response =>
       new URL(response.url()).pathname === '/api/projects' && response.request().method() === 'POST', { timeout: 20000 });
     await page.locator('[data-ovyx-template-action="use"][data-template-id="tpl-saas"]').click();
