@@ -48,7 +48,9 @@
     dock.setAttribute('aria-labelledby', 'ovyx-as-workspace-title');
     const heading = element('div', 'ovyx-as-workspace-dock__heading');
     const copy = element('div', '');
-    copy.append(element('p', 'ovyx-as-kicker', 'APP WORKSPACE'), element('h2', '', 'Workspace overview'));
+    const title = element('h2', '', 'Workspace overview');
+    title.id = 'ovyx-as-workspace-title';
+    copy.append(element('p', 'ovyx-as-kicker', 'APP WORKSPACE'), title);
     heading.append(copy);
     const overview = element('div', 'ovyx-as-workspace-overview');
     overview.setAttribute('data-ovyx-as-workspace-overview', '');
