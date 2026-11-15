@@ -6,6 +6,9 @@ on:
     paths:
       - 'assets/css/ovyx-premium-experience.css'
       - 'assets/css/ovyx-platform-design-system.css'
+      - 'assets/ovyx-app-studio-design-system.js'
+      - 'scripts/ovyx-app-studio-design-system.test.mjs'
+      - 'scripts/ovyx-app-studio-design-system.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-auth-routes.js'
       - 'package.json'
@@ -21,7 +24,9 @@ on:
       - 'scripts/ovyx-premium-experience.browser.test.mjs'
       - 'package.json'
       - 'scripts/ovyx-premium-experience.test.mjs'
-      - 'scripts/ovyx-premium-experience.browser.test.mjs'
+      - 'assets/ovyx-app-studio-design-system.js'
+      - 'scripts/ovyx-app-studio-design-system.test.mjs'
+      - 'scripts/ovyx-app-studio-design-system.browser.test.mjs'
       - '.github/workflows/ovyx-premium-experience-browser.yml'
   workflow_dispatch:
 
@@ -63,6 +68,10 @@ jobs:
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8796
         run: node scripts/ovyx-premium-experience.browser.test.mjs
+      - name: Verify App Studio visual redesign and preserved features
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8796
+        run: node scripts/ovyx-app-studio-design-system.browser.test.mjs
       - name: Verify mobile dock geometry and light-theme contrast
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8796
