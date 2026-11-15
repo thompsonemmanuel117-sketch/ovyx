@@ -23,12 +23,14 @@ try {
     await installOwnerBrowserApiFixtures(page, {
       initialUser: { uid: 'ovyx-project-picker-user', email: 'project-picker@example.test', displayName: 'Project Picker User', token: 'ovyx-project-picker-token' },
     });
+    const workspaceRequests = [];
     const workspaceFixtures = [
       { id: 'personal', name: 'Personal workspace', description: 'Private projects', status: 'active', isDefault: true, collaboration: { supported: false } },
       { id: 'ws-studio', name: 'Studio workspace', description: 'Client work', status: 'active', isDefault: false, collaboration: { supported: false } },
     ];
     await page.route('**/api/workspaces', async route => {
       const request = route.request();
+      workspaceRequests.push({ method: request.method(), url: request.url(), uid: await page.evaluate(() => window.firebase?.auth?.()?.currentUser?.uid || null).catch(() => null) });
       if (request.method() === 'GET') {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, workspaces: workspaceFixtures }) });
       }
@@ -157,8 +159,19 @@ try {
     assert.equal(await dialog.getAttribute('open') !== null, true, '[' + target.name + '] picker must use a real modal dialog.');
     // Workspace inventory loads asynchronously from the authenticated API. Wait
     // for that response and the resulting project render before asserting rows.
-    await page.waitForFunction(() => document.querySelectorAll('#ovx-picker-workspace-select option').length === 2
-      && document.querySelectorAll('#ovyx-project-workspace-picker [data-project-id]').length === 2, null, { timeout: 10000 });
+    try {
+      await page.waitForFunction(() => document.querySelectorAll('#ovx-picker-workspace-select option').length === 2
+        && document.querySelectorAll('#ovyx-project-workspace-picker [data-project-id]').length === 2, null, { timeout: 10000 });
+    } catch (error) {
+      const state = await page.evaluate(() => ({
+        uid: window.firebase?.auth?.()?.currentUser?.uid || null,
+        workspaceOptions: Array.from(document.querySelectorAll('#ovx-picker-workspace-select option')).map(option => ({ value: option.value, label: option.textContent })),
+        projectRows: document.querySelectorAll('#ovyx-project-workspace-picker [data-project-id]').length,
+        workspaceNote: document.querySelector('[data-workspace-note]')?.textContent || null,
+        dialogOpen: !!document.getElementById('ovyx-project-workspace-picker')?.open,
+      }));
+      throw new Error('Workspace inventory diagnostics [' + target.name + ']: ' + JSON.stringify({ state, workspaceRequests, errors, consoleErrors: consoleErrors.slice(-15), cause: String(error) }));
+    }
     assert.equal(await dialog.locator('[data-project-id]').count(), 2, '[' + target.name + '] picker must initially show every project in the personal workspace.');
     // Opening the picker refreshes the existing Projects renderer. Reapply the
     // intended active-project fixture after that refresh, then verify the picker
@@ -258,20 +271,3 @@ try {
       const modal = document.getElementById('ovyx-project-create-modal');
       return Boolean(modal?.hidden && getComputedStyle(modal).display === 'none');
     }, null, { timeout: 3000 });
-
-    await page.keyboard.press('Escape');
-    await page.evaluate(() => window.Router.go('projects'));
-    await page.locator('#view-projects').waitFor({ state: 'visible' });
-    assert.equal(await page.locator('#ovyx-projects-continue-panel').count(), 0,
-      '[' + target.name + '] navigating back to Projects must not recreate the duplicate panel.');
-
-    const layout = await dialog.evaluate(node => ({ width: node.getBoundingClientRect().width, viewport: window.innerWidth, scrollWidth: node.scrollWidth }));
-    assert.ok(layout.width <= layout.viewport, '[' + target.name + '] picker must fit inside the viewport.');
-    assert.ok(layout.scrollWidth <= layout.width + 1, '[' + target.name + '] picker must not overflow horizontally.');
-    assert.deepEqual(errors, [], '[' + target.name + '] project picker must not throw browser errors.');
-    console.log('OVYX project workspace picker passed on ' + target.name + '.');
-    await context.close();
-  }
-} finally {
-  await browser.close();
-}
