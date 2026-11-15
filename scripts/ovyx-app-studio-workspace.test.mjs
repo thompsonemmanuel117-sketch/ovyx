@@ -17,6 +17,7 @@ for (const id of ['ovyx-app-studio-url-analyzer-panel','ovyx-app-studio-link-bui
 }
 assert.ok(!runtime.includes('data-ovyx-as-workspace-target') && !runtime.includes('scrollToSection'), 'The workspace card must not repeat the four-step navigation already provided by the guided flow.');
 assert.ok(runtime.includes('aria-live') && runtime.includes('aria-labelledby'), 'Workspace status and heading must remain accessible.');
+assert.ok(runtime.includes("title.id = 'ovyx-as-workspace-title'"), 'The workspace heading must satisfy its aria-labelledby reference.');
 assert.ok(runtime.includes("dataset.ovyxAsWorkspaceAction = 'expand'") && runtime.includes("dataset.ovyxAsWorkspaceAction = 'collapse'"), 'Expand and collapse must remain available as secondary actions.');
 assert.ok(runtime.includes('More actions') && runtime.includes('ovyx-as-workspace-more'), 'Less-used controls must be grouped under a native More actions disclosure.');
 assert.ok(runtime.includes('details.forEach(item => { item.open = true; })') && runtime.includes('details.forEach(item => { item.open = false; })'), 'Expand and collapse must update actual disclosures.');
