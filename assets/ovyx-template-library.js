@@ -102,7 +102,7 @@
     const input = clean(value);
     const hex = input.match(/^#([0-9a-f]{6})$/i);
     if (hex) return [0, 2, 4].map(index => parseInt(hex[1].slice(index, index + 2), 16));
-    const rgb = input.match(/rgba?\\(\\s*(\\d{1,3})\\s*,\\s*(\\d{1,3})\\s*,\\s*(\\d{1,3})/i);
+    const rgb = input.match(/rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/i);
     return rgb ? [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])] : null;
   }
 
