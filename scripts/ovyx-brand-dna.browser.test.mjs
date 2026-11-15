@@ -102,7 +102,7 @@ try {
   await desktop.locator('[data-brand-logo-file]').setInputFiles({ name:'velora-logo.png', mimeType:'image/png', buffer:logoBuffer });
   await desktop.waitForFunction(() => document.querySelector('[data-brand-logo-preview]')?.src.startsWith('data:image/png;base64,'));
   await desktop.locator('[data-brand-save]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-brand-status]')?.textContent.includes('Branding saved successfully.'));
+  await desktop.waitForFunction(() => document.querySelector('[data-brand-status]')?.textContent.includes('Identity saved.'));
   const saved = profiles.get('velora-homes');
   assert.ok(saved, 'The real UI must create an owner/app-scoped profile.');
   assert.ok(saved.logoDataUrl.startsWith('data:image/png;base64,'), 'The original PNG data must be persisted.');
@@ -195,7 +195,7 @@ try {
   const newDefaultPrimary = await mobile.locator('[data-brand-color="primary"]').inputValue();
   assert.notEqual(newDefaultPrimary, oldDefaultPrimary, 'Entering a different app name must derive a fresh palette when the user has not manually overridden colours.');
   await mobile.locator('[data-brand-save]').click();
-  await mobile.waitForFunction(() => document.querySelector('[data-brand-status]')?.textContent.includes('Branding saved successfully.'));
+  await mobile.waitForFunction(() => document.querySelector('[data-brand-status]')?.textContent.includes('Identity saved.'));
   assert.ok(profiles.has('nova-health'), 'A second app name must store a separate profile.');
   assert.notEqual(profiles.get('nova-health').colors.primary, profiles.get('velora-homes').colors.primary, 'New apps get their own default palette instead of inheriting a previous app palette.');
   assert.equal(profiles.get('nova-health').logoDataUrl, null, 'A second app must not inherit the first app uploaded logo.');
