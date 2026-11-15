@@ -15,13 +15,14 @@
       ['.ovyx-as-hero__desc', 'Analyze. Build. Verify. Release.'],
       ['.ovyx-as-hero__helper', 'Start with a website URL.'],
       ['.ovyx-as-workspace-dock .ovyx-as-kicker', 'PROJECT'],
-      ['.ovyx-as-workspace-dock h2', 'Your project'],
-      ['.ovyx-as-workspace-status', 'Project status updates here.']
+      ['.ovyx-as-workspace-dock h2', 'Your project']
     ];
     for (const [selector, value] of copy) {
       const node = $(root, selector);
       if (node && node.textContent.trim() !== value) node.textContent = value;
     }
+    const status = $(root, '.ovyx-as-workspace-status');
+    if (status && status.textContent.trim() === 'Project status updates as you build.') status.textContent = 'Project status';
     const openProjects = $(root, '[data-ovyx-as-workspace-action="projects"]');
     if (openProjects && openProjects.textContent.trim() !== 'Projects') openProjects.textContent = 'Projects';
     const more = $(root, '.ovyx-as-workspace-more > summary');
