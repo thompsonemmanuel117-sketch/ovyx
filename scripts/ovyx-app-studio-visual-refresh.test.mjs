@@ -11,7 +11,7 @@ assert.ok(runtime.includes('Build apps, beautifully.') && runtime.includes('Anal
 assert.ok(runtime.includes('ovyx-as-flow__copy small') && runtime.includes('Run quality checks'), 'The four build steps must have concise descriptions.');
 assert.ok(!runtime.includes('fetch(') && !runtime.includes('OVYXAIService') && !runtime.includes('switchView('), 'The visual layer must not replace or duplicate existing application services.');
 assert.ok(runtime.includes('#view-appstudio') && !runtime.includes('#view-webstudio'), 'The visual refresh must remain scoped to App Studio and never restyle Web Studio.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-visual-refresh.js?v=20261115-1'), 'The real Pages shell must load the visual refresh after the existing App Studio and shell runtimes.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-visual-refresh.js?v=20261115-2'), 'The real Pages shell must load the visual refresh after the existing App Studio and shell runtimes.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-visual-refresh.js') && headers.includes('Cache-Control: no-store'), 'The new visual asset must not be trapped behind stale browser caching.');
 assert.ok(workflow.includes('ovyx-app-studio-visual-refresh.browser.test.mjs') && workflow.includes('ovyx-app-studio-visual-refresh.test.mjs'), 'CI must run source and desktop/mobile browser coverage for the refresh.');
 assert.ok(runtime.includes('.ovyx-as-workspace-action.is-primary') && runtime.includes('color:#17140e!important'), 'Primary actions must retain readable text against the gold surface across themes.');
