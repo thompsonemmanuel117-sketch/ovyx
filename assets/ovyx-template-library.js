@@ -144,7 +144,7 @@
       #view-templates [data-template-filter].v0-filter-active{border-color:color-mix(in srgb,var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f)) 48%,var(--border))!important;background:color-mix(in srgb,var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f)) 10%,var(--card))!important;color:var(--text,#fff)!important}
       #view-templates .ovyx-template-library-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 18px}
       #view-templates .ovyx-template-search{display:flex;align-items:center;gap:10px;flex:1 1 280px;min-width:0;min-height:44px;padding:0 13px;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:12px;background:var(--card,#0b0d10);color:var(--muted,#94a3b8)}
-      #view-templates .ovyx-template-search:focus-within{border-color:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));box-shadow:0 0 0 3px color-mix(in srgb,var(--ovyx-platform-accent,#e8b64f) 12%,transparent)}
+      #view-templates .ovyx-template-search:focus-within{border-color:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));box-shadow:0 0 0 3px color-mix(in srgb,var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f)) 12%,transparent)}
       #view-templates .ovyx-template-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--text,#fff);font-size:12px}
       #view-templates .ovyx-template-search input::placeholder{color:var(--muted,#94a3b8)}
       #view-templates .ovyx-template-sort{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 11px;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:12px;background:var(--card,#0b0d10);color:var(--muted,#94a3b8);font-size:10px}
@@ -153,7 +153,7 @@
       #view-templates .ovyx-template-result-count{margin-left:auto;color:var(--muted,#94a3b8);font:700 9px/1.4 ui-monospace,monospace}
       #view-templates .ovyx-template-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
       #view-templates .ovyx-template-card{min-width:0;overflow:hidden;border:1px solid var(--border,rgba(255,255,255,.12));border-radius:17px;background:var(--card,#0b0d10);color:var(--text,#f8fafc);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
-      #view-templates .ovyx-template-card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--ovyx-platform-accent,#e8b64f) 42%,var(--border));box-shadow:0 18px 45px rgba(0,0,0,.18)}
+      #view-templates .ovyx-template-card:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f)) 42%,var(--border));box-shadow:0 18px 45px rgba(0,0,0,.18)}
       #view-templates .ovyx-template-card-media{position:relative;display:grid;place-items:center;aspect-ratio:16/10;overflow:hidden;border-bottom:1px solid var(--border,rgba(255,255,255,.1));background:linear-gradient(135deg,var(--bg,#050607),var(--card,#0b0d10))}
       #view-templates .ovyx-template-card-media img,#view-templates .ovyx-template-card-media video{width:100%;height:100%;object-fit:cover;display:block}
       #view-templates .ovyx-template-placeholder{width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:22px;background:radial-gradient(circle at 80% 12%,color-mix(in srgb,var(--template-accent,#e8b64f) 20%,transparent),transparent 48%),linear-gradient(135deg,var(--template-background,#050607),var(--card,#0b0d10))}
@@ -168,7 +168,7 @@
       #view-templates .ovyx-template-card-stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;color:var(--muted,#94a3b8);font:650 8px/1.4 ui-monospace,monospace}
       #view-templates .ovyx-template-card-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px}
       #view-templates .ovyx-template-action{min-height:38px;padding:0 10px;border:1px solid var(--border,rgba(255,255,255,.14));border-radius:9px;background:transparent;color:var(--text,#fff);font-size:10px;font-weight:800;cursor:pointer}
-      #view-templates .ovyx-template-action.primary{border-color:var(--ovyx-platform-accent,#e8b64f);background:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));color:var(--ovyx-template-action-ink,#090909)}
+      #view-templates .ovyx-template-action.primary{border-color:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));background:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));color:var(--ovyx-template-action-ink,#090909)}
       #view-templates .ovyx-template-action:disabled{opacity:.55;cursor:not-allowed}
       #view-templates .ovyx-template-empty{grid-column:1/-1;padding:54px 18px;border:1px dashed var(--border,rgba(255,255,255,.14));border-radius:16px;text-align:center;background:var(--card,#0b0d10)}
       #view-templates .ovyx-template-empty h4{margin:0;color:var(--text,#fff);font-size:15px;font-weight:850}
@@ -187,7 +187,7 @@
       #ovyx-template-preview-dialog .ovyx-template-preview-details ul{padding-left:17px}
       #ovyx-template-preview-dialog .ovyx-template-preview-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
       #ovyx-template-preview-dialog .ovyx-template-preview-actions button{min-height:38px;padding:0 12px;border:1px solid var(--border);border-radius:9px;background:transparent;color:var(--text);font-size:10px;font-weight:800}
-      #ovyx-template-preview-dialog .ovyx-template-preview-actions button.primary{background:var(--ovyx-platform-accent,#e8b64f);border-color:var(--ovyx-platform-accent,#e8b64f);color:var(--bg,#090909)}
+      #ovyx-template-preview-dialog .ovyx-template-preview-actions button.primary{background:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));border-color:var(--ovyx-template-action-accent,var(--ovyx-platform-accent,#e8b64f));color:var(--ovyx-template-action-ink,#090909)}
       @media(max-width:900px){#view-templates .ovyx-template-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
       @media(max-width:640px){#view-templates.ovyx-template-library-ready{padding:18px 14px 90px!important}#view-templates .ovyx-template-library-head{align-items:flex-start;display:block}#view-templates #template-filters{margin-top:16px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}#view-templates #template-filters button{flex:none}#view-templates .ovyx-template-library-toolbar{align-items:stretch}#view-templates .ovyx-template-search{flex-basis:100%}#view-templates .ovyx-template-sort{flex:1}#view-templates .ovyx-template-result-count{margin-left:0}#view-templates .ovyx-template-cards{grid-template-columns:1fr}#ovyx-template-preview-dialog .ovyx-template-preview-layout{grid-template-columns:1fr;padding:12px}#ovyx-template-preview-dialog .ovyx-template-preview-visual{min-height:160px}}
       @media(prefers-reduced-motion:reduce){#view-templates .ovyx-template-card{transition:none}#view-templates .ovyx-template-card:hover{transform:none}}
