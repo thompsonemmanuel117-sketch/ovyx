@@ -243,9 +243,10 @@
 
   async function loadTemplates(append = false) {
     const surface = ensureSurface();
-    if (!surface || state.loading) return;
+    if (!surface) return;
     const user = currentUser();
-    if (!user) { state.items = []; state.error = ''; state.pageToken = null; render(); return; }
+    if (!user) { state.generation++; state.loading = false; state.items = []; state.error = ''; state.pageToken = null; render(); return; }
+    if (state.loading) return;
     const generation = ++state.generation;
     state.loading = true;
     state.error = '';
@@ -398,7 +399,7 @@
     const auth = (() => { try { return window.firebase?.auth?.(); } catch (_) { return null; } })();
     try {
       auth?.onAuthStateChanged?.(user => {
-        state.items = []; state.pageToken = null; state.error = '';
+        state.generation++; state.loading = false; state.items = []; state.pageToken = null; state.error = '';
         if (isTemplatesView() && user) loadTemplates(false);
         else render();
       });
