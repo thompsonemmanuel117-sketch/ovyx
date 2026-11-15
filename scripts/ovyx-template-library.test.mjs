@@ -24,6 +24,7 @@ assert.match(runtime, /The template library could not load/, 'API failures must 
 assert.match(publicRoute, /resolveEntitlements/);
 assert.match(publicRoute, /adaptTemplateForUser/);
 assert.match(publicRoute, /if \(!locked\) result\.pages = legacyPages/, 'Locked templates must not disclose deployable page content.');
-assert.match(projectRoute, /onRequestPost/, 'Template-created projects must persist through the existing authenticated Projects API.');
+assert.match(projectRoute, /method==='POST'/, 'Template-created projects must persist through the existing authenticated Projects API.');
+assert.match(projectRoute, /setFirestoreDocumentAtPath/, 'Project writes must use the existing server-owned Firestore path.');
 
 console.log('OVYX template library contract passed: server-owned catalogue, search/filter/pagination, preview media, honest error states, and canonical project persistence.');
