@@ -77,4 +77,7 @@ assert.ok(browserTest.includes('do-not-store-this'), 'Browser tests must verify 
 assert.ok(browserTest.includes('requests.cloudSave'), 'Browser tests must verify a confirmed authenticated cloud save.');
 assert.ok(browserTest.includes('not-allowed'), 'Browser tests must verify direct arbitrary network calls are blocked.');
 
+assert.ok(runtime.includes('ovyx-lb-mobile-details') && runtime.includes('Build for Android or iOS') && runtime.includes('mobileBody.appendChild(mobileGrid)'), 'Mobile build settings must remain available in a clearly labelled progressive disclosure.');
+assert.ok(runtime.includes('data-lb-mobile-build') && runtime.includes('data-lb-mobile-refresh') && runtime.includes('data-lb-mobile-links'), 'Mobile build, refresh and returned download links must remain connected inside the disclosure.');
+
 console.log('OVYX Stage 4/5 source checks passed: real generated-app actions, bounded persistence, Project Brain wiring, dependency graph and source/runtime test coverage.');
