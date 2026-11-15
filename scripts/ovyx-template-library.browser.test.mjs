@@ -76,6 +76,7 @@ try {
       window.Router?.go?.('templates');
     });
     await page.waitForFunction(() => document.querySelectorAll('#templates-catalog-feed [data-template-card]').length === 3, null, { timeout: 20000 });
+    await page.locator('#templates-catalog-feed').waitFor({ state: 'visible' });
 
     assert.equal(await page.locator('#view-templates h3').first().textContent(), 'Find your next starting point',
       '[' + target.name + '] Templates page must show the upgraded library heading.');
