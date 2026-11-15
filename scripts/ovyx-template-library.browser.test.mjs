@@ -124,13 +124,32 @@ try {
       '[' + target.name + '] the dashboard-only bottom dock must stay hidden on Templates.');
 
     await page.evaluate(() => window.ThemeContext.preview({ mode: 'light', backgroundColor: '#F8FAFC', sidebarColor: '#F8FAFC', cardColor: '#FFFFFF', borderColor: '#CBD5E1', textColor: '#111827', mutedColor: '#475569', accentColor: '#6F5428' }));
+    await page.waitForFunction(() => {
+      const button = document.querySelector('[data-ovyx-template-action="use"][data-template-id="tpl-saas"]');
+      const accent = getComputedStyle(document.documentElement).getPropertyValue('--ovyx-template-action-accent').trim().toLowerCase();
+      return button?.isConnected && accent === '#6f5428' && getComputedStyle(button).backgroundColor === 'rgb(111, 84, 40)';
+    }, null, { timeout: 8000 });
     const themeDiagnostics = await page.evaluate(() => ({ theme: window.ThemeContext?.get?.(), mode: document.documentElement.dataset.ovyxMode,
       platformAccent: getComputedStyle(document.documentElement).getPropertyValue('--ovyx-platform-accent').trim(),
+      templateActionAccent: getComputedStyle(document.documentElement).getPropertyValue('--ovyx-template-action-accent').trim(),
       actionInk: getComputedStyle(document.documentElement).getPropertyValue('--ovyx-template-action-ink').trim() }));
-    const lightThemeColors = await page.locator('[data-ovyx-template-action="use"][data-template-id="tpl-saas"]').evaluate(button => ({ text: getComputedStyle(button).color, background: getComputedStyle(button).backgroundColor }));
+    const lightThemeColors = await page.locator('[data-ovyx-template-action="use"][data-template-id="tpl-saas"]').evaluate(button => {
+      const text = getComputedStyle(button).color;
+      const background = getComputedStyle(button).backgroundColor;
+      const luminance = value => {
+        const channels = value.match(/[0-9.]+/g).slice(0, 3).map(Number).map(channel => {
+          const normalized = channel / 255;
+          return normalized <= 0.04045 ? normalized / 12.92 : Math.pow((normalized + 0.055) / 1.055, 2.4);
+        });
+        return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+      };
+      const foreground = luminance(text);
+      const surface = luminance(background);
+      return { text, background, contrast: (Math.max(foreground, surface) + 0.05) / (Math.min(foreground, surface) + 0.05) };
+    });
     console.log('[' + target.name + '] theme diagnostics ' + JSON.stringify({ ...themeDiagnostics, button: lightThemeColors }));
     assert.equal(lightThemeColors.background, 'rgb(111, 84, 40)', '[' + target.name + '] primary template actions must use the selected light-theme accent.');
-    assert.equal(lightThemeColors.text, 'rgb(248, 250, 252)', '[' + target.name + '] primary template actions must retain readable contrast in light mode.');
+    assert.ok(lightThemeColors.contrast >= 4.5, '[' + target.name + '] primary template action text must meet WCAG AA contrast in light mode; ratio=' + lightThemeColors.contrast);
     await page.evaluate(() => window.ThemeContext.cancel());
 
     // Simulate the old Firestore/local TemplateStore renderer racing the public gallery.

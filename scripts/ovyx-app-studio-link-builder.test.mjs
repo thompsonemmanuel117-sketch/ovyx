@@ -52,7 +52,7 @@ assert.ok(runtime.includes('.ovyx-lb-panel :is(input,button,summary):focus-visib
 assert.ok(!runtime.includes('}..ovyx-lb-panel :is(input,button,summary):focus-visible'), 'The malformed CSS selector must not return.');
 assert.ok(!runtime.includes('window.KernelState.activeProject ='), 'Link generation must not replace the user’s currently open project.');
 assert.ok(brandDNA.includes('appBrandId') && brandDNA.includes('isAppStudioRequest'), 'Stage 1 must continue scoping identity and generation requests per app.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-link-builder.js?v=20261018-9'), 'The real OVYX Pages shell must load the Stage 3 runtime.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-link-builder.js?v=20261115-2'), 'The real OVYX Pages shell must load the Stage 3 runtime.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-link-builder.js') && headers.includes('Cache-Control: no-store'), 'The live Stage 3 runtime must not be stuck behind stale asset caching.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-app-studio-link-builder.test.mjs'), 'The Stage 3 regression test must run under npm test.');
 assert.ok(workflow.includes('scripts/ovyx-app-studio-link-builder.browser.test.mjs'), 'The desktop/mobile browser integration test must be wired into CI.');
@@ -76,5 +76,8 @@ assert.ok(browserTest.includes('Saved on this device only'), 'Browser tests must
 assert.ok(browserTest.includes('do-not-store-this'), 'Browser tests must verify password values are not stored.');
 assert.ok(browserTest.includes('requests.cloudSave'), 'Browser tests must verify a confirmed authenticated cloud save.');
 assert.ok(browserTest.includes('not-allowed'), 'Browser tests must verify direct arbitrary network calls are blocked.');
+
+assert.ok(runtime.includes('ovyx-lb-mobile-details') && runtime.includes('Build for Android or iOS') && runtime.includes('mobileBody.appendChild(mobileGrid)'), 'Mobile build settings must remain available in a clearly labelled progressive disclosure.');
+assert.ok(runtime.includes('data-lb-mobile-build') && runtime.includes('data-lb-mobile-refresh') && runtime.includes('data-lb-mobile-links'), 'Mobile build, refresh and returned download links must remain connected inside the disclosure.');
 
 console.log('OVYX Stage 4/5 source checks passed: real generated-app actions, bounded persistence, Project Brain wiring, dependency graph and source/runtime test coverage.');

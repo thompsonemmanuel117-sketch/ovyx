@@ -5,13 +5,17 @@ const middleware = fs.readFileSync(new URL('../functions/_middleware.js', import
 const headers = fs.readFileSync(new URL('../_headers', import.meta.url), 'utf8');
 const workflow = fs.readFileSync(new URL('../.github/workflows/ovyx-assistant-workspace-browser.yml', import.meta.url), 'utf8');
 assert.ok(runtime.includes('--as-canvas:var(--bg') && runtime.includes('--as-surface:var(--card') && runtime.includes('--as-text:var(--text') && runtime.includes('--as-muted:var(--muted'), 'App Studio surfaces and text must follow the active Appearance theme.');
-assert.ok(runtime.includes('padding-bottom:22px!important'), 'App Studio must not reserve the old excessive bottom gap.');
+assert.ok(runtime.includes('padding-bottom:max(16px,env(safe-area-inset-bottom))!important'), 'App Studio should use a compact safe-area-aware bottom inset.');
 assert.ok(runtime.includes('prefers-reduced-motion:reduce'), 'Decorative motion must respect reduced-motion preferences.');
 assert.ok(runtime.includes('Build apps, beautifully.') && runtime.includes('Analyze a site. Build, verify and release your app.'), 'The App Studio introduction must use concise, clear copy.');
 assert.ok(runtime.includes('ovyx-as-flow__copy small') && runtime.includes('Run quality checks'), 'The four build steps must have concise descriptions.');
 assert.ok(!runtime.includes('fetch(') && !runtime.includes('OVYXAIService') && !runtime.includes('switchView('), 'The visual layer must not replace or duplicate existing application services.');
 assert.ok(runtime.includes('#view-appstudio') && !runtime.includes('#view-webstudio'), 'The visual refresh must remain scoped to App Studio and never restyle Web Studio.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-visual-refresh.js?v=20261110-1'), 'The real Pages shell must load the visual refresh after the existing App Studio and shell runtimes.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-visual-refresh.js?v=20261115-2'), 'The real Pages shell must load the visual refresh after the existing App Studio and shell runtimes.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-visual-refresh.js') && headers.includes('Cache-Control: no-store'), 'The new visual asset must not be trapped behind stale browser caching.');
 assert.ok(workflow.includes('ovyx-app-studio-visual-refresh.browser.test.mjs') && workflow.includes('ovyx-app-studio-visual-refresh.test.mjs'), 'CI must run source and desktop/mobile browser coverage for the refresh.');
+assert.ok(runtime.includes('.ovyx-as-workspace-action.is-primary') && runtime.includes('color:#17140e!important'), 'Primary actions must retain readable text against the gold surface across themes.');
+assert.ok(runtime.includes('.ovyx-lb-mobile-details>summary{color:var(--as-text'), 'Progressive disclosures must follow the active Appearance theme.');
+assert.ok(runtime.includes('focus-visible') && runtime.includes('min-height:42px!important'), 'App Studio controls must retain visible focus and comfortable target sizes.');
+
 console.log('OVYX App Studio visual refresh source checks passed: scoped theme tokens, compact spacing, concise copy, motion accessibility and preserved runtime boundaries.');

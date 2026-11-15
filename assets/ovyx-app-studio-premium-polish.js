@@ -286,8 +286,8 @@
 
   function enhanceStages(root) {
     const stages = [
-      { id: 'ovyx-app-studio-url-analyzer-panel', number: '01', label: 'SOURCE', title: 'Understand the website', status: () => window.__OVYX_URL_ANALYZER_LAST_REPORT__ ? 'Reviewed' : 'Waiting' },
-      { id: 'ovyx-app-studio-link-builder', number: '02', label: 'CREATE', title: 'Build your app', status: () => window.__OVYX_APP_STUDIO_GENERATED_PROJECT__ ? 'App created' : window.__OVYX_URL_ANALYZER_LAST_REPORT__ ? 'Ready to build' : 'Waiting' },
+      { id: 'ovyx-app-studio-url-analyzer-panel', number: '01', label: 'ANALYZE', title: 'Analyze the website', status: () => window.__OVYX_URL_ANALYZER_LAST_REPORT__ ? 'Reviewed' : 'Waiting' },
+      { id: 'ovyx-app-studio-link-builder', number: '02', label: 'BUILD', title: 'Build your app', status: () => window.__OVYX_APP_STUDIO_GENERATED_PROJECT__ ? 'App created' : window.__OVYX_URL_ANALYZER_LAST_REPORT__ ? 'Ready to build' : 'Waiting' },
       { id: 'ovyx-app-studio-project-brain', number: '03', label: 'QUALITY', title: 'Check app behaviour', status: () => {
         const report = window.__OVYX_PROJECT_BRAIN_REPORT__;
         return !report ? 'Not checked' : report.status === 'failed' ? 'Failed checks' : report.status === 'needs-attention' ? 'Review needed' : report.summary?.runtimeChecked ? 'Verified' : 'Source checked';
@@ -324,9 +324,9 @@
 
   function refinePanelCopy(root) {
     const copy = [
-      ['.ovyx-ua-panel .ovyx-ua-muted', 'Scan a public site for its pages, brand and useful assets.'],
-      ['.ovyx-lb-panel > .ovyx-lb-heading > .ovyx-lb-muted', 'Create an app from the site structure and brand. Preview it before release.'],
-      ['.ovyx-app-brand-dna__intro', 'Set the logo, colours and design rules for this app.']
+      ['.ovyx-ua-panel .ovyx-ua-muted', 'Enter a public website address. OVYX maps its pages, brand and useful assets.'],
+      ['.ovyx-lb-panel > .ovyx-lb-heading > .ovyx-lb-muted', 'Create your app from the pages and brand found in the review. Preview it before saving or publishing.'],
+      ['.ovyx-app-brand-dna__intro', 'Set this app’s name, logo, colours and design guidance.']
     ];
     for (const [selector, value] of copy) {
       const target = $(root, selector);

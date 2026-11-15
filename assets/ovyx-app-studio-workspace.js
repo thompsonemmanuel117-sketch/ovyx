@@ -20,6 +20,23 @@
     return node;
   };
 
+  function friendlyStatus(value, fallback) {
+    const raw = text(value).trim().toLowerCase().replace(/\s+/g, '-');
+    if (!raw) return fallback;
+    const labels = {
+      'not-run': 'Not checked yet', 'not-started': 'Not started yet',
+      'in-progress': 'In progress', running: 'Checking', building: 'Building',
+      deploying: 'Publishing', queued: 'Queued', pending: 'In progress',
+      passed: 'Passed', success: 'Successful', complete: 'Complete', completed: 'Complete',
+      failed: 'Needs attention', error: 'Needs attention', warning: 'Review needed',
+      partial: 'Partially checked', healthy: 'Healthy', active: 'Live',
+      published: 'Published', ready: 'Ready', cancelled: 'Cancelled', canceled: 'Cancelled',
+      unknown: 'Status unavailable'
+    };
+    if (labels[raw]) return labels[raw];
+    return raw.replace(/[_-]+/g, ' ').replace(/^./, first => first.toUpperCase());
+  }
+
   function projectSnapshot() {
     const project = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__ || {};
     const brain = window.__OVYX_PROJECT_BRAIN_REPORT__ || {};
@@ -35,8 +52,8 @@
       generated: !!project.id,
       saved: project.savedToProjects === true,
       verified: brain.summary?.runtimeChecked === true,
-      quality: text(brain.status || 'not-run'),
-      release: text(releaseRecord?.status || mobile.status || 'not-started'),
+      quality: friendlyStatus(brain.status, 'Not checked yet'),
+      release: friendlyStatus(releaseRecord?.status || mobile.status, 'Not started yet'),
       checkedAt: text(brain.checkedAt || '')
     };
   }
@@ -48,37 +65,32 @@
     dock.setAttribute('aria-labelledby', 'ovyx-as-workspace-title');
     const heading = element('div', 'ovyx-as-workspace-dock__heading');
     const copy = element('div', '');
-    copy.append(element('p', 'ovyx-as-kicker', 'PROJECT WORKSPACE'), element('h2', '', 'Your app workspace'));
+    const title = element('h2', '', 'Workspace overview');
+    title.id = 'ovyx-as-workspace-title';
+    copy.append(element('p', 'ovyx-as-kicker', 'APP WORKSPACE'), title);
     heading.append(copy);
     const overview = element('div', 'ovyx-as-workspace-overview');
     overview.setAttribute('data-ovyx-as-workspace-overview', '');
-    const nav = element('nav', 'ovyx-as-workspace-nav');
-    nav.setAttribute('aria-label', 'App workspace sections');
-    for (const section of SECTIONS) {
-      const target = document.getElementById(section.id);
-      if (!target || !root.contains(target)) continue;
-      const button = element('button', 'ovyx-as-workspace-nav__item');
-      button.type = 'button';
-      button.dataset.ovyxAsWorkspaceTarget = section.id;
-      button.setAttribute('aria-controls', section.id);
-      button.append(element('span', 'ovyx-as-workspace-nav__label', section.label), element('small', '', section.hint));
-      nav.appendChild(button);
-    }
     const actions = element('div', 'ovyx-as-workspace-actions');
-    const expand = element('button', 'ovyx-as-workspace-action', 'Expand details');
-    expand.type = 'button'; expand.dataset.ovyxAsWorkspaceAction = 'expand';
-    const collapse = element('button', 'ovyx-as-workspace-action', 'Collapse details');
-    collapse.type = 'button'; collapse.dataset.ovyxAsWorkspaceAction = 'collapse';
-    const openProjects = element('button', 'ovyx-as-workspace-action', 'Open Projects');
+    const openProjects = element('button', 'ovyx-as-workspace-action is-primary', 'Open Projects');
     openProjects.type = 'button'; openProjects.dataset.ovyxAsWorkspaceAction = 'projects';
+    const more = element('details', 'ovyx-as-workspace-more');
+    const moreSummary = element('summary', '', 'More actions');
+    const morePanel = element('div', 'ovyx-as-workspace-more__panel');
+    const expand = element('button', 'ovyx-as-workspace-action', 'Expand all details');
+    expand.type = 'button'; expand.dataset.ovyxAsWorkspaceAction = 'expand';
+    const collapse = element('button', 'ovyx-as-workspace-action', 'Collapse all details');
+    collapse.type = 'button'; collapse.dataset.ovyxAsWorkspaceAction = 'collapse';
     const copySummary = element('button', 'ovyx-as-workspace-action', 'Copy project summary');
     copySummary.type = 'button'; copySummary.dataset.ovyxAsWorkspaceAction = 'copy';
-    actions.append(openProjects, expand, collapse, copySummary);
-    const status = element('p', 'ovyx-as-workspace-status', 'Workspace ready. Choose a section or a project action.');
+    morePanel.append(expand, collapse, copySummary);
+    more.append(moreSummary, morePanel);
+    actions.append(openProjects, more);
+    const status = element('p', 'ovyx-as-workspace-status', 'Project status updates as you build.');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
     status.dataset.ovyxAsWorkspaceStatus = '';
-    overview.append(nav, actions, status);
+    overview.append(actions, status);
     dock.append(heading, overview);
     // Keep the existing App Workspace as the first App Studio element.
     // This is a presentation-only move; all underlying sections and state remain untouched.
@@ -94,33 +106,15 @@
     status.dataset.kind = kind || 'info';
   }
 
-  function scrollToSection(root, dock, id) {
-    const section = document.getElementById(id);
-    if (!section || !root.contains(section)) {
-      announce(dock, 'That workspace section is not available yet.', 'warning');
-      return;
-    }
-    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    section.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
-    section.setAttribute('tabindex', '-1');
-    try { section.focus({ preventScroll: true }); } catch (_) { section.focus(); }
-    const buttons = Array.from(dock.querySelectorAll('[data-ovyx-as-workspace-target]'));
-    buttons.forEach(item => item.removeAttribute('aria-current'));
-    const button = $(dock, '[data-ovyx-as-workspace-target="' + id + '"]');
-    if (button) button.setAttribute('aria-current', 'location');
-    announce(dock, 'Opened ' + (SECTIONS.find(item => item.id === id)?.label || 'workspace') + '.', 'success');
-    refresh(root);
-  }
-
   async function copySummary(dock) {
     const snapshot = projectSnapshot();
     const lines = [
       'OVYX App Studio project summary',
       'Project: ' + snapshot.name,
-      'Project ID: ' + (snapshot.id || 'Not generated'),
+      'Project ID: ' + (snapshot.id || 'Not created yet'),
       'Generated files: ' + snapshot.files,
-      'Saved to OVYX Projects: ' + (snapshot.saved ? 'Yes' : 'No'),
-      'Live preview verified: ' + (snapshot.verified ? 'Yes' : 'No'),
+      'Saved to Projects: ' + (snapshot.saved ? 'Yes' : 'No'),
+      'Preview check passed: ' + (snapshot.verified ? 'Yes' : 'No'),
       'Quality status: ' + snapshot.quality,
       'Release status: ' + snapshot.release
     ];
@@ -135,12 +129,6 @@
 
   function handleClick(event) {
     const dock = event.currentTarget;
-    const target = event.target && event.target.closest && event.target.closest('[data-ovyx-as-workspace-target]');
-    if (target) {
-      const root = dock.closest(ROOT);
-      scrollToSection(root, dock, target.dataset.ovyxAsWorkspaceTarget);
-      return;
-    }
     const action = event.target && event.target.closest && event.target.closest('[data-ovyx-as-workspace-action]');
     if (!action) return;
     const root = dock.closest(ROOT);
@@ -179,9 +167,9 @@
       overview.insertBefore(summary, overview.firstChild);
     }
     const states = [
-      ['Project', snapshot.generated ? snapshot.name : 'Not generated'],
+      ['Project', snapshot.generated ? snapshot.name : 'Not created yet'],
       ['Quality', snapshot.quality],
-      ['Cloud save', snapshot.saved ? 'Saved' : 'Device / preview only'],
+      ['Save status', snapshot.saved ? 'In Projects' : snapshot.generated ? 'Only on this device' : 'Not saved yet'],
       ['Release', snapshot.release]
     ];
     const signature = JSON.stringify(states);
@@ -193,24 +181,6 @@
       item.append(element('span', '', pair[0]), element('strong', '', pair[1]));
         summary.appendChild(item);
       }
-    }
-    const nav = $(dock, '[aria-label="App workspace sections"]');
-    if (nav) {
-      for (const sectionInfo of SECTIONS) {
-        const section = document.getElementById(sectionInfo.id);
-        if (!section || !root.contains(section) || $(nav, '[data-ovyx-as-workspace-target="' + sectionInfo.id + '"]')) continue;
-        const button = element('button', 'ovyx-as-workspace-nav__item');
-        button.type = 'button';
-        button.dataset.ovyxAsWorkspaceTarget = sectionInfo.id;
-        button.setAttribute('aria-controls', sectionInfo.id);
-        button.append(element('span', 'ovyx-as-workspace-nav__label', sectionInfo.label), element('small', '', sectionInfo.hint));
-        nav.appendChild(button);
-      }
-    }
-    const buttons = Array.from(dock.querySelectorAll('[data-ovyx-as-workspace-target]'));
-    for (const button of buttons) {
-      const section = document.getElementById(button.dataset.ovyxAsWorkspaceTarget);
-      button.disabled = !section || !root.contains(section);
     }
   }
 
@@ -242,13 +212,13 @@
     const style = element('style', '');
     style.id = 'ovyx-app-studio-workspace-style';
     style.textContent = [
-      '.ovyx-as-workspace-dock{width:100%;box-sizing:border-box;padding:18px 20px;border:1px solid rgba(214,180,103,.2);border-radius:18px;background:linear-gradient(145deg,rgba(18,23,32,.94),rgba(8,11,17,.96));box-shadow:0 14px 38px rgba(0,0,0,.16)}',
+      '.ovyx-as-workspace-dock{width:100%;box-sizing:border-box;padding:15px 17px;border:1px solid rgba(214,180,103,.2);border-radius:17px;background:linear-gradient(145deg,rgba(18,23,32,.94),rgba(8,11,17,.96));box-shadow:0 12px 30px rgba(0,0,0,.14)}',
       '.ovyx-as-workspace-dock__heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}.ovyx-as-workspace-dock__heading h2{margin:0;color:#f1f3f6;font-size:16px;letter-spacing:-.02em}',
       '.ovyx-as-project-state{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px}.ovyx-as-project-state__item{display:grid;gap:5px;min-width:0;padding:10px 12px;border:1px solid rgba(255,255,255,.075);border-radius:11px;background:rgba(255,255,255,.025)}.ovyx-as-project-state__item span{color:#8995a5;font-size:10px}.ovyx-as-project-state__item strong{overflow-wrap:anywhere;color:#e5eaf1;font-size:11px;font-weight:700}',
-      '.ovyx-as-workspace-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.ovyx-as-workspace-nav__item{display:grid;gap:5px;min-width:0;padding:10px 12px;text-align:left;border:1px solid rgba(255,255,255,.09);border-radius:11px;background:rgba(255,255,255,.025);color:#edf0f5;cursor:pointer}.ovyx-as-workspace-nav__item:hover:not(:disabled){border-color:rgba(214,180,103,.42);background:rgba(214,180,103,.06)}.ovyx-as-workspace-nav__item:focus-visible,.ovyx-as-workspace-action:focus-visible{outline:2px solid #e0c47d;outline-offset:3px}.ovyx-as-workspace-nav__item:disabled{opacity:.42;cursor:not-allowed}.ovyx-as-workspace-nav__label{font-size:12px;font-weight:750}.ovyx-as-workspace-nav__item small{color:#8d99a9;font-size:10px;line-height:1.4}',
-      '.ovyx-as-workspace-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.ovyx-as-workspace-action{padding:8px 11px;border:1px solid rgba(255,255,255,.1);border-radius:9px;background:rgba(255,255,255,.035);color:#cbd3df;font-size:10px;font-weight:700;cursor:pointer}.ovyx-as-workspace-status{min-height:16px;margin:10px 1px 0;color:#91a0b2;font-size:10px;line-height:1.5}.ovyx-as-workspace-status[data-kind="success"]{color:#86efac}.ovyx-as-workspace-status[data-kind="warning"]{color:#f5cf80}',
+      '.ovyx-as-workspace-action:focus-visible,.ovyx-as-workspace-more>summary:focus-visible{outline:2px solid #e0c47d;outline-offset:3px}',
+      '.ovyx-as-workspace-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:2px}.ovyx-as-workspace-action{min-height:36px;padding:8px 12px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:rgba(255,255,255,.035);color:#cbd3df;font-size:11px;font-weight:700;cursor:pointer}.ovyx-as-workspace-action.is-primary{border-color:#c2a36b;background:linear-gradient(135deg,#d5bd8a,#b89a60);color:#17140e}.ovyx-as-workspace-more{position:relative}.ovyx-as-workspace-more>summary{display:flex;align-items:center;justify-content:center;min-height:36px;padding:7px 12px;border:1px solid rgba(255,255,255,.12);border-radius:9px;background:rgba(255,255,255,.035);color:#cbd3df;font-size:11px;font-weight:700;cursor:pointer;list-style:none}.ovyx-as-workspace-more>summary::-webkit-details-marker{display:none}.ovyx-as-workspace-more__panel{display:flex;flex-wrap:wrap;gap:7px;margin-top:7px;padding:9px;border:1px solid rgba(255,255,255,.1);border-radius:11px;background:#0b1018}.ovyx-as-workspace-status{min-height:16px;margin:8px 1px 0;color:#91a0b2;font-size:11px;line-height:1.5}.ovyx-as-workspace-status[data-kind="success"]{color:#86efac}.ovyx-as-workspace-status[data-kind="warning"]{color:#f5cf80}',
       '#view-appstudio:has(#ovyx-app-studio-workspace-dock) #ovyx-app-studio-workspace-dock{scroll-margin-top:16px}',
-      '@media(max-width:720px){.ovyx-as-workspace-dock{padding:14px}.ovyx-as-project-state{grid-template-columns:repeat(2,minmax(0,1fr))}.ovyx-as-workspace-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.ovyx-as-workspace-actions>*{flex:1 1 130px}}',
+      '@media(max-width:720px){.ovyx-as-workspace-dock{padding:13px}.ovyx-as-project-state{grid-template-columns:repeat(2,minmax(0,1fr))}.ovyx-as-workspace-actions>*{flex:1 1 130px}.ovyx-as-workspace-more__panel>*{flex:1 1 130px}}',
       '@media(prefers-reduced-motion:reduce){.ovyx-as-workspace-dock *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}'
     ].join('\n');
     document.head.appendChild(style);

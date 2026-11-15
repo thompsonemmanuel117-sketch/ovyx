@@ -151,7 +151,7 @@
     setStatus('Saving branding for '+draft.appName+'…','busy');
     const data=await api(API+'?id='+encodeURIComponent(id),{method:'PUT',body:JSON.stringify({appId:id,appName:draft.appName,logoDataUrl:draft.logoDataUrl,colors:draft.colors,layoutRules:draft.layoutRules})});
     state.appId=id;state.boundId=id;state.hasProfile=true;state.dirty=false;
-    setStatus('Branding saved successfully. It will be applied to this app’s generated screens.','success');
+    setStatus('Identity saved. It will be used in this app’s generated screens.','success');
     return data.profile;
   }
   function applyAnalyzedColors(payload) {
@@ -187,13 +187,13 @@
     const panel=document.createElement('section');panel.id=PANEL_ID;panel.className='ovyx-app-brand-dna';
     panel.setAttribute('aria-labelledby','ovyx-app-brand-dna-title');
     panel.innerHTML=[
-      '<div class="ovyx-app-brand-dna__heading"><div><p class="ovyx-app-brand-dna__eyebrow">APP STUDIO / BRAND IDENTITY</p><h3 id="ovyx-app-brand-dna-title">Brand DNA</h3><p class="ovyx-app-brand-dna__intro">Define a consistent visual identity with your app logo, colour palette and layout guidance.</p></div><span class="ovyx-app-brand-dna__version">PER APP</span></div>',
+      '<div class="ovyx-app-brand-dna__heading"><div><p class="ovyx-app-brand-dna__eyebrow">APP STUDIO / BRAND IDENTITY</p><h3 id="ovyx-app-brand-dna-title">Brand DNA</h3><p class="ovyx-app-brand-dna__intro">Set this app’s name, logo, colours and design guidance.</p></div><span class="ovyx-app-brand-dna__version">PER APP</span></div>',
       '<div class="ovyx-app-brand-dna__grid"><label class="ovyx-app-brand-dna__field">App name<input data-brand-app-name maxlength="100" type="text" placeholder="e.g. Velora Homes" autocomplete="organization" required></label>',
       '<div class="ovyx-app-brand-dna__field"><span>App logo</span><div class="ovyx-app-brand-dna__logo-row"><div class="ovyx-app-brand-dna__logo-preview"><img data-brand-logo-preview alt="App logo preview" hidden><span data-brand-logo-fallback>LOGO</span></div><div class="ovyx-app-brand-dna__upload"><input data-brand-logo-file type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"><small>PNG, JPEG or WebP · up to 5 MB. Fitted without cropping.</small><button type="button" data-brand-remove-logo>Remove logo</button></div></div></div></div>',
       '<div class="ovyx-app-brand-dna__colors" aria-label="App brand palette">',
       ...keys.map(key=>'<label class="ovyx-app-brand-dna__color"><span>'+key.charAt(0).toUpperCase()+key.slice(1)+'</span><span class="ovyx-app-brand-dna__swatch" data-brand-swatch="'+key+'"></span><input data-brand-color="'+key+'" type="color" aria-label="'+key+' brand colour"></label>'),
       '</div><label class="ovyx-app-brand-dna__field ovyx-app-brand-dna__rules"><span>Design guidance <small>(optional)</small></span><textarea data-brand-layout-rules rows="2" maxlength="20000" placeholder="e.g. generous logo spacing, rounded cards, subtle gradients"></textarea></label>',
-      '<div class="ovyx-app-brand-dna__footer"><p data-brand-status role="status" aria-live="polite">Choose an app name and its own identity. Brand edits are saved before generation.</p><div class="ovyx-app-brand-dna__actions"><button type="button" data-brand-load>Load saved brand</button><button type="button" data-brand-defaults>New palette</button><button type="button" data-brand-save>Save Brand DNA</button></div></div>'
+      '<div class="ovyx-app-brand-dna__footer"><p data-brand-status role="status" aria-live="polite">Set the identity for this app. Changes are saved before generation.</p><div class="ovyx-app-brand-dna__actions"><button type="button" data-brand-load>Load saved identity</button><button type="button" data-brand-defaults>Reset colours</button><button type="button" data-brand-save>Save identity</button></div></div>'
     ].join('');
     return panel;
   }
@@ -229,8 +229,8 @@
     });
     q(panel,'[data-brand-remove-logo]').addEventListener('click',()=>{state.logoDataUrl=null;q(panel,'[data-brand-logo-file]').value='';state.dirty=true;renderLogo();setStatus('Logo removed from this app draft.','info');});
     q(panel,'[data-brand-defaults]').addEventListener('click',()=>{const name=clean(q(panel,'[data-brand-app-name]').value,100)||'My App';const palette=defaults(name);for(const key of keys)q(panel,'[data-brand-color="'+key+'"]').value=palette[key];state.paletteCustomized=false;state.dirty=true;renderPalette();setStatus('A distinct app-specific palette is ready.','info');});
-    q(panel,'[data-brand-load]').addEventListener('click',async()=>{const name=clean(q(panel,'[data-brand-app-name]').value,100);if(!name){setStatus('Enter an app name before loading saved branding.','error');return;}try{const profile=await loadProfile(slug(name),name,false);if(!profile)setStatus('No saved brand exists for this app yet.','info');}catch(error){setStatus(error.message||'Saved branding could not be loaded.','error');}});
-    q(panel,'[data-brand-save]').addEventListener('click',async()=>{const name=clean(q(panel,'[data-brand-app-name]').value,100);if(!name){setStatus('Enter an app name before saving its brand.','error');return;}try{await saveProfile(slug(name));}catch(error){setStatus(error.message||'Branding could not be saved.','error');}});
+    q(panel,'[data-brand-load]').addEventListener('click',async()=>{const name=clean(q(panel,'[data-brand-app-name]').value,100);if(!name){setStatus('Enter an app name to load its saved identity.','error');return;}try{const profile=await loadProfile(slug(name),name,false);if(!profile)setStatus('No saved brand exists for this app yet.','info');}catch(error){setStatus(error.message||'Saved branding could not be loaded.','error');}});
+    q(panel,'[data-brand-save]').addEventListener('click',async()=>{const name=clean(q(panel,'[data-brand-app-name]').value,100);if(!name){setStatus('Enter an app name before saving its identity.','error');return;}try{await saveProfile(slug(name));}catch(error){setStatus(error.message||'Branding could not be saved.','error');}});
   }
   function renderPanel() {
     if(document.getElementById(PANEL_ID))return;
