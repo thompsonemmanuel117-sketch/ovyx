@@ -25,6 +25,13 @@ try {
     const context = await browser.newContext({ viewport: target.viewport });
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
+    await page.addInitScript(() => {
+      let session = {};
+      try { session = JSON.parse(localStorage.getItem('ovyx.runtime.session.v4') || '{}'); } catch (_) {}
+      localStorage.setItem('ovyx.runtime.route.v18', 'settings');
+      localStorage.setItem('ovyx.settings.last-view.v1', 'settings');
+      localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ ...session, route: 'settings' }));
+    });
     const errors = [];
     page.on('pageerror', error => {
       if (/ProjectStore|OVYXSettings|WebStudio|undo|redo|shortcut/i.test(error.message)) errors.push(error.message);
@@ -49,8 +56,12 @@ try {
     );
     await waitForRouteRestore(page);
 
-    await page.evaluate(() => window.Router.go('settings'));
-    // Verify the visible route instead of depending on an internal state mirror.
+    await page.waitForFunction(
+      () => window.__OVYX_BOOT_ROUTE === 'settings' && window.KernelState?.activeView === 'settings',
+      null,
+      { timeout: 45000 },
+    );
+    // Boot directly into Settings so late route restoration cannot race this shortcut test.
     await page.locator('#view-settings').waitFor({ state: 'visible', timeout: 15000 });
     await page.evaluate(() => window.OVYXSettings.show('shortcuts'));
     const panel = page.locator('[data-settings-panel="shortcuts"]');

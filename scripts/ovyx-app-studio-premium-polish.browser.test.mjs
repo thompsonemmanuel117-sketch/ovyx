@@ -11,6 +11,8 @@ const runtime = runtimeSource.replace(
 );
 assert.notEqual(runtime, runtimeSource, 'The stage-enhancement instrumentation point must remain available.');
 const appShellRuntime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-shell-polish.js', import.meta.url)), 'utf8');
+const workspaceRuntime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-workspace.js', import.meta.url)), 'utf8');
+const visualRefreshRuntime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-visual-refresh.js', import.meta.url)), 'utf8');
 const requests = [];
 const report = {
   source: { inputUrl: 'https://coastal.example/', canonicalUrl: 'https://coastal.example/', analyzedAt: '2026-10-18T00:00:00Z' },
@@ -64,7 +66,9 @@ window.OVYXThemeLab={
 };
 </script>
 <script src="/assets/ovyx-app-studio-premium-polish.js"></script>
+<script src="/assets/ovyx-app-studio-workspace.js"></script>
 <script src="/assets/ovyx-app-shell-polish.js"></script>
+<script src="/assets/ovyx-app-studio-visual-refresh.js"></script>
 </body></html>`;
 
 function send(res, status, body, type='application/json; charset=utf-8') {
@@ -75,6 +79,8 @@ const server = createServer((req, res) => {
   if (req.url === '/') return send(res, 200, html, 'text/html; charset=utf-8');
   if (req.url === '/assets/ovyx-app-studio-premium-polish.js') return send(res, 200, runtime, 'text/javascript; charset=utf-8');
   if (req.url === '/assets/ovyx-app-shell-polish.js') return send(res, 200, appShellRuntime, 'text/javascript; charset=utf-8');
+  if (req.url === '/assets/ovyx-app-studio-workspace.js') return send(res, 200, workspaceRuntime, 'text/javascript; charset=utf-8');
+  if (req.url === '/assets/ovyx-app-studio-visual-refresh.js') return send(res, 200, visualRefreshRuntime, 'text/javascript; charset=utf-8');
   if (req.url === '/favicon.ico') { res.writeHead(204); return res.end(); }
   requests.push(req.url);
   return send(res, 404, { ok: false });
@@ -131,7 +137,9 @@ try {
       mutedContrast: Math.min(ratio(effective.mutedColor,effective.backgroundColor),ratio(effective.mutedColor,effective.cardColor)),
       accentContrast: Math.min(ratio(effective.accentColor,effective.backgroundColor),ratio(effective.accentColor,effective.cardColor)),
       borderContrast: ratio(effective.borderColor,effective.cardColor),
-      bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom
+      bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom,
+      workbenchClass: document.getElementById('view-appstudio').classList.contains('ovyx-as-visual-redesign'),
+      flowColumns: getComputedStyle(document.querySelector('.ovyx-as-flow')).gridTemplateColumns
     };
   });
   assert.ok(desktopPolish.textContrast >= 4.5, 'Theme text must remain readable against both canvas and cards: ' + JSON.stringify(desktopPolish));
@@ -140,10 +148,13 @@ try {
   assert.ok(desktopPolish.borderContrast >= 1.5, 'Theme borders must remain visible against cards: ' + JSON.stringify(desktopPolish));
   assert.equal(desktopPolish.theme.textColor, '#111111', 'Contrast protection must not overwrite the user-selected color stored for export.');
   assert.equal(desktopPolish.theme.accentColor, '#010101', 'Contrast protection must not rewrite the original Theme Lab accent in saved/exported theme data.');
-  assert.equal(desktopPolish.bottomPadding, '22px', 'App Studio should not reserve the old excessive 72px bottom gap.');
+  assert.equal(desktopPolish.bottomPadding, '12px', 'The integrated workbench should not reserve an excessive bottom runway.');
+  assert.equal(desktopPolish.workbenchClass, true, 'Premium Polish must own and apply the stable workbench layout class.');
+  assert.equal(desktopPolish.flowColumns.split(' ').length, 4, 'The integrated workbench must show a compact four-step rail on desktop.');
 
   assert.equal(await desktop.locator('#view-appstudio > #ovyx-app-studio-experience').count(), 1, 'The new guided workspace header must be mounted once at the top.');
-  assert.match(await desktop.locator('#ovyx-as-title').innerText(), /From website to working app/);
+  assert.equal(await desktop.locator('#view-appstudio').evaluate(root => root.firstElementChild?.id), 'ovyx-app-studio-workspace-dock', 'The existing project dock must remain the first App Studio element when all live runtimes run together.');
+  assert.equal(await desktop.locator('#ovyx-as-title').innerText(), 'Build apps, beautifully.', 'The integrated App Shell copy must remain the final visible heading.');
   assert.equal(await desktop.locator('[data-ovyx-as-step]').count(), 4, 'The workspace should present one clear analyze → generate → verify → release path.');
   assert.ok(await desktop.locator('[data-ovyx-as-step="analyze"]').evaluate(el => el.classList.contains('is-complete')));
   assert.ok(await desktop.locator('[data-ovyx-as-step="generate"]').evaluate(el => el.classList.contains('is-current')));
@@ -236,6 +247,15 @@ try {
   assert.equal(mobileShell.height, 64, 'The integrated dock must preserve the established 64px navigation height.');
   assert.equal(mobileShell.shellPadding, '108px', 'The dashboard must keep a modest scroll clearance so its final card can clear the fixed dock without restoring the old oversized 190px runway.');
   assert.match(mobileShell.viewportPadding, /76px/, 'The scroll viewport must reserve only enough room for the attached dock.');
+  const mobileWorkbench = await mobile.evaluate(() => ({
+    workbenchClass: document.getElementById('view-appstudio').classList.contains('ovyx-as-visual-redesign'),
+    flowColumns: getComputedStyle(document.querySelector('.ovyx-as-flow')).gridTemplateColumns,
+    bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom
+  }));
+  assert.equal(mobileWorkbench.workbenchClass, true, 'The mobile screen must keep the integrated workbench class.');
+  assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 4, 'Mobile must retain all four compact workflow steps.');
+  assert.equal(mobileWorkbench.flowColumns.split(' ').length, 2, 'Mobile workflow steps should use a readable two-column grid.');
+  assert.equal(mobileWorkbench.bottomPadding, '12px', 'Mobile must not reserve an unnecessary blank bottom runway.');
   const animation = await mobile.locator('#ovyx-app-studio-experience').evaluate(el => getComputedStyle(el).animationDuration);
   assert.ok(['1e-05s', '0.00001s', '0.01ms'].includes(animation) || parseFloat(animation) <= 0.00001,
     'Reduced-motion users must not receive decorative entrance animation; got ' + animation);

@@ -92,8 +92,8 @@
     status.dataset.ovyxAsWorkspaceStatus = '';
     overview.append(actions, status);
     dock.append(heading, overview);
-    // Keep the existing App Workspace as the first App Studio element.
-    // This is a presentation-only move; all underlying sections and state remain untouched.
+    // Preserve the established App Workspace-first hierarchy. The workbench
+    // styling changes presentation only and must not move this live feature.
     root.insertBefore(dock, root.firstChild);
     dock.addEventListener('click', handleClick);
     refresh(root);
