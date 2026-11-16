@@ -80,6 +80,7 @@ try {
     await page.waitForFunction(() => window.ProjectCloudSync.activeUid === 'ovyx-template-browser-user', null, { timeout: 20000 });
     const routeState = await page.evaluate(() => {
       const result = window.Router?.go?.('templates');
+      window.OVYXTemplateLibrary?.load?.();
       const view = document.getElementById('view-templates');
       const feed = document.getElementById('templates-catalog-feed');
       return { result, activeView: window.KernelState?.activeView || null, hidden: view?.classList.contains('hidden') ?? null,
