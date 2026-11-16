@@ -21,6 +21,7 @@ assert.ok(premium.includes('padding-bottom:max(12px,env(safe-area-inset-bottom))
 assert.ok(premium.includes('prefers-reduced-motion:reduce'), 'The integrated workbench must respect reduced motion.');
 assert.ok(workspace.includes('root.insertBefore(dock, root.firstChild)'), 'The workspace dock must mount after the guided hero, not compete for first position.');
 assert.ok(!middleware.includes('ovyx-app-studio-visual-redesign.js'), 'The competing standalone redesign observer must not be injected by the Pages shell.');
+assert.ok(middleware.indexOf('ovyx-app-studio-visual-refresh.js') < middleware.indexOf('ovyx-app-studio-premium-polish.js'), 'Theme tokens must load before the Premium Polish workbench so its layout and contrast rules win the CSS cascade.');
 assert.ok(middleware.includes('ovyx-app-studio-premium-polish.js') && middleware.includes('ovyx-app-studio-workspace.js'), 'The established feature owners must remain loaded.');
 assert.ok(headers.includes('Cache-Control: no-store'), 'The app shell must retain no-store caching.');
 assert.ok(workflow.includes('ovyx-app-studio-premium-polish.browser.test.mjs') && workflow.includes('ovyx-app-studio-visual-redesign.test.mjs'), 'CI must run integrated desktop/mobile and static regression coverage.');
