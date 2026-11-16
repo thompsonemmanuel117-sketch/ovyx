@@ -1379,6 +1379,8 @@
     return record;
   }
   async function checkReleaseHealth(panel) {
+    // Health checks also update status/link controls in the separately mounted Release stage.
+    panel = document.getElementById('ovyx-app-studio-release') || panel;
     const artifact = currentArtifact();
     const slot = artifact?.releaseState?.latestWebKey;
     const record = artifact?.releaseState?.web?.[slot];
