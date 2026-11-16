@@ -65,7 +65,9 @@ try{
  await mobile.goto(base,{waitUntil:'load'});
  const metrics=await mobile.evaluate(()=>({viewport:document.documentElement.clientWidth,document:document.documentElement.scrollWidth,root:document.getElementById('view-appstudio').scrollWidth,width:document.getElementById('view-appstudio').clientWidth,flowColumns:getComputedStyle(document.querySelector('.ovyx-as-flow')).gridTemplateColumns,animation:getComputedStyle(document.querySelector('.ovyx-as-hero')).animationDuration}));
  assert.ok(metrics.document<=metrics.viewport+1&&metrics.root<=metrics.width+1,'Mobile App Studio must not overflow horizontally: '+JSON.stringify(metrics));
- assert.equal(metrics.flowColumns.split(' ').length,2,'Mobile step navigation should use a readable two-column layout.');
+ assert.equal(metrics.flowColumns.split(' ').length,4,'Mobile step navigation should use a compact four-step rail.');
+ const stepLabels=await mobile.locator('.ovyx-as-flow__copy b').allTextContents();
+ assert.deepEqual(stepLabels,['Analyze','Build','Verify','Release'],'All four existing workflow destinations must remain visible.');
  assert.ok(parseFloat(metrics.animation)<=0.00001,'Reduced motion must disable animations.');
  assert.deepEqual(errors,[],'The redesign must not introduce browser errors.');
  console.log('OVYX App Studio visual redesign browser checks passed: hierarchy, all features retained, live theme contrast, compact spacing and mobile layout.');
