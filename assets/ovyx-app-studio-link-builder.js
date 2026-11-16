@@ -326,9 +326,10 @@
   }
   function renderProjectBrainReport(panel, report) {
     if (!report) return;
-    // The workbench reparents live feature panels. Resolve the connected panel at
-    // render time so preview callbacks cannot update a detached, stale panel.
-    panel = document.getElementById(PANEL_ID) || panel;
+    // The workbench moves the Project Brain section out of the generator panel
+    // into its own Verify slot. Resolve that live section independently; querying
+    // it as a descendant of the generator silently misses the real controls.
+    panel = document.getElementById('ovyx-app-studio-project-brain') || panel;
     if (!panel) return;
     window.__OVYX_PROJECT_BRAIN_REPORT__ = report;
     const statusNode = $(panel, '[data-lb-brain-status]');
