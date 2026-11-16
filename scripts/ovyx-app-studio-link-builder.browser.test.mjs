@@ -447,7 +447,12 @@ try {
   assert.equal(requests.mobileStatus.length, 2, 'Manual refresh must re-query the mobile build status endpoint exactly once.');
 
   await desktop.locator('[data-lb-save-release]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Release details saved to OVYX Projects'), null, { timeout: 10000 });
+  await desktop.waitForFunction(() => {
+    const target = document.querySelector('[data-lb-web-status]');
+    return target && (target.dataset.kind === 'error' || target.textContent.includes('Release details saved to OVYX Projects'));
+  }, null, { timeout: 15000 });
+  const releaseSaveStatus = await desktop.locator('[data-lb-web-status]').innerText();
+  assert.match(releaseSaveStatus, /Release details saved to OVYX Projects/, 'Release details did not save; status=' + releaseSaveStatus + '; cloud-save requests=' + requests.cloudSave.length + '; page errors=' + JSON.stringify(errors));
   assert.equal(requests.cloudSave.length, 2, 'The release record action must save through the existing OVYX Projects API.');
   const releaseSave = requests.cloudSave[1];
   assert.equal(releaseSave.auth, 'Bearer test-id-token');
