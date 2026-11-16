@@ -92,12 +92,9 @@
     status.dataset.ovyxAsWorkspaceStatus = '';
     overview.append(actions, status);
     dock.append(heading, overview);
-    // Keep the existing App Workspace directly after the guided hero when it
-    // exists. Premium Polish owns hero creation; this avoids two runtimes
-    // repeatedly moving the same dock to competing positions during startup.
-    const hero = root.querySelector('#ovyx-app-studio-experience');
-    if (hero) hero.after(dock);
-    else root.appendChild(dock);
+    // Preserve the established App Workspace-first hierarchy. The workbench
+    // styling changes presentation only and must not move this live feature.
+    root.insertBefore(dock, root.firstChild);
     dock.addEventListener('click', handleClick);
     refresh(root);
   }
