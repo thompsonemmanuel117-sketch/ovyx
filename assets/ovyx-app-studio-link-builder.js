@@ -1303,6 +1303,10 @@
     return data;
   }
   async function deployGeneratedProject(panel, action) {
+    // Release is a live DOM node moved into the workbench's separate Release stage.
+    // Resolve that stage before reading controls or writing status so the original
+    // generator container is never used as a stale ancestor after reparenting.
+    panel = document.getElementById('ovyx-app-studio-release') || panel;
     const button = $(panel, action === 'publish' ? '[data-lb-publish]' : '[data-lb-deploy-preview]');
     try {
       const validation = validateForRelease(panel);
