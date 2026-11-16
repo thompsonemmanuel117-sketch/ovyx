@@ -26,6 +26,10 @@ assert.ok(!runtime.includes("['.ovyx-as-hero__helper'"), 'The live project-aware
 assert.ok(runtime.includes('prefers-reduced-motion:reduce'), 'The redesign must respect reduced-motion settings.');
 assert.ok(runtime.includes('var(--as-text') && runtime.includes('var(--as-surface') && runtime.includes('var(--as-border'), 'Surfaces and text must use the active theme tokens.');
 assert.ok(runtime.includes('color:#17140e!important'), 'Gold primary actions must retain readable dark text.');
+assert.ok(runtime.includes('/* Workbench redesign: change the composition, not just the decoration. */'), 'The workbench must have a distinct layout pass, not only copy and spacing changes.');
+assert.ok(runtime.includes('grid-template-columns:repeat(4,minmax(0,1fr))!important') && runtime.includes('.ovyx-as-stage-meta__title{display:none!important}'), 'The guided steps must become a compact mobile step rail and duplicate stage titles must be removed.');
+assert.ok(runtime.includes('var(--as-canvas') && runtime.includes('var(--as-muted') && runtime.includes('::placeholder'), 'Theme-aware surfaces, muted text and input placeholders must remain readable.');
+assert.ok(runtime.includes('.ovyx-as-project-state__item{gap:3px!important;padding:8px!important'), 'Project status must be condensed into a compact workbench summary.');
 assert.ok(!runtime.includes('fetch(') && !runtime.includes('OVYXAIService') && !runtime.includes('switchView('), 'The visual layer must not replace APIs, AI routing or application navigation.');
 assert.ok(!runtime.includes('remove()') && !runtime.includes('.hidden = true'), 'The redesign must not remove or hide existing features.');
 assert.ok(middleware.includes('/assets/ovyx-app-studio-visual-redesign.js?v=20261115-1'), 'The Pages shell must load the new visual layer after the existing App Studio runtimes.');
