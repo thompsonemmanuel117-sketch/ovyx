@@ -1522,6 +1522,8 @@
     }
   }
   async function refreshMobileBuildStatus(panel) {
+    // The refresh button retains its original generator callback after Release is moved.
+    panel = document.getElementById('ovyx-app-studio-release') || panel;
     const artifact = currentArtifact();
     const mobile = artifact?.releaseState?.mobile;
     if (!mobile?.jobId) {
