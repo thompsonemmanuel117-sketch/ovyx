@@ -61,8 +61,8 @@
     const title = document.querySelector('#view-appstudio #ovyx-as-title');
     if (title && title.textContent !== 'Build apps, beautifully.') title.textContent = 'Build apps, beautifully.';
     const description = document.querySelector('#view-appstudio .ovyx-as-hero__desc');
-    if (description && description.textContent !== 'Analyze a site. Build, verify and release your app.') {
-      description.textContent = 'Analyze a site. Build, verify and release your app.';
+    if (description && description.textContent !== 'Analyze. Build. Verify. Release.') {
+      description.textContent = 'Analyze. Build. Verify. Release.';
     }
     const generate = document.querySelector('#view-appstudio [data-ovyx-as-step="generate"] .ovyx-as-flow__copy b');
     if (generate && generate.textContent !== 'Build') generate.textContent = 'Build';

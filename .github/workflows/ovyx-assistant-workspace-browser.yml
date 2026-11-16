@@ -41,6 +41,9 @@ on:
       - 'assets/ovyx-app-studio-visual-refresh.js'
       - 'scripts/ovyx-app-studio-visual-refresh.test.mjs'
       - 'scripts/ovyx-app-studio-visual-refresh.browser.test.mjs'
+      - 'assets/ovyx-app-studio-visual-redesign.js'
+      - 'scripts/ovyx-app-studio-visual-redesign.test.mjs'
+      - 'scripts/ovyx-app-studio-visual-redesign.browser.test.mjs'
       - 'assets/ovyx-app-shell-polish.js'
       - 'assets/ovyx-app-studio-workspace.js'
       - 'scripts/ovyx-app-studio-workspace.test.mjs'
@@ -63,6 +66,9 @@ on:
       - 'assets/ovyx-app-studio-visual-refresh.js'
       - 'scripts/ovyx-app-studio-visual-refresh.test.mjs'
       - 'scripts/ovyx-app-studio-visual-refresh.browser.test.mjs'
+      - 'assets/ovyx-app-studio-visual-redesign.js'
+      - 'scripts/ovyx-app-studio-visual-redesign.test.mjs'
+      - 'scripts/ovyx-app-studio-visual-redesign.browser.test.mjs'
       - 'assets/ovyx-app-shell-polish.js'
       - 'assets/ovyx-app-studio-workspace.js'
       - 'scripts/ovyx-app-studio-workspace.test.mjs'
@@ -122,6 +128,9 @@ on:
       - 'assets/ovyx-app-studio-visual-refresh.js'
       - 'scripts/ovyx-app-studio-visual-refresh.test.mjs'
       - 'scripts/ovyx-app-studio-visual-refresh.browser.test.mjs'
+      - 'assets/ovyx-app-studio-visual-redesign.js'
+      - 'scripts/ovyx-app-studio-visual-redesign.test.mjs'
+      - 'scripts/ovyx-app-studio-visual-redesign.browser.test.mjs'
       - 'assets/ovyx-app-shell-polish.js'
       - 'scripts/ovyx-app-studio-premium-polish.test.mjs'
       - 'assets/ovyx-app-studio-project-brain.js'
@@ -211,6 +220,7 @@ jobs:
           npm run validate
           npm test
           node scripts/ovyx-app-studio-visual-refresh.test.mjs
+          node scripts/ovyx-app-studio-visual-redesign.test.mjs
           npm run build
 
       - name: Validate separate Sentinel Worker configuration without deploying
@@ -259,6 +269,7 @@ jobs:
             ovyx-url-analyzer.browser.test.mjs \
             ovyx-app-studio-premium-polish.browser.test.mjs \
             ovyx-app-studio-visual-refresh.browser.test.mjs \
+            ovyx-app-studio-visual-redesign.browser.test.mjs \
             ovyx-app-studio-link-builder.browser.test.mjs \
             ovyx-app-studio-workspace.browser.test.mjs \
             ovyx-app-studio-release-health.test.mjs \
