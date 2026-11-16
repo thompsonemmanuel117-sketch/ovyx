@@ -873,7 +873,11 @@
   }
 
   function setReleaseStatus(panel, selector, message, kind) {
-    const target = $(panel, selector);
+    // The responsive workbench reparents the live Release panel outside the
+    // generator section. Resolve release status nodes from their live owner so
+    // asynchronous publish/build/save actions update the visible UI.
+    const releasePanel = document.getElementById('ovyx-app-studio-release');
+    const target = $(releasePanel || panel, selector) || $(panel, selector);
     if (!target) return;
     target.textContent = text(message);
     target.dataset.kind = kind || 'info';
