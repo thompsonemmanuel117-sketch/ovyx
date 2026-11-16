@@ -84,7 +84,17 @@
   function mount(report) {
     const analyzer = document.getElementById('ovyx-app-studio-url-analyzer-panel');
     const results = analyzer && $(analyzer, '[data-ua-results]');
-    if (!analyzer || !results || !report || attachedReport === report || $(results, '#' + PANEL_ID)) return;
+    if (!analyzer || !results || !report) return;
+    // The workbench moves this live panel out of the analyzer results. Check the
+    // whole document before mounting: searching only inside results creates a
+    // second panel with the same ID after every analyzer refresh.
+    const existingPanel = document.getElementById(PANEL_ID);
+    if (existingPanel) {
+      attachedReport = report;
+      if (existingPanel.isConnected && window.__OVYX_APP_STUDIO_GENERATED_PROJECT__) runProjectBrain(existingPanel, true);
+      return;
+    }
+    if (attachedReport === report) return;
     attachedReport = report;
 
     const section = node('section', 'ovyx-lb-panel');
@@ -294,6 +304,14 @@
     });
     results.appendChild(section);
     addStyles();
+    // The analyzer can refresh its report while a generated project is already open.
+    // In that case mount() creates a fresh quality panel; reconnect it to the existing
+    // artifact immediately so the Run checks control is not left permanently disabled.
+    const existingArtifact = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
+    if (existingArtifact) {
+      brainRun.disabled = false;
+      runProjectBrain(section, true);
+    }
   }
   function addStyles() {
     if (document.getElementById('ovyx-link-builder-style')) return;
@@ -307,7 +325,12 @@
     document.head.appendChild(style);
   }
   function renderProjectBrainReport(panel, report) {
-    if (!panel || !report) return;
+    if (!report) return;
+    // The workbench moves the Project Brain section out of the generator panel
+    // into its own Verify slot. Resolve that live section independently; querying
+    // it as a descendant of the generator silently misses the real controls.
+    panel = document.getElementById('ovyx-app-studio-project-brain') || panel;
+    if (!panel) return;
     window.__OVYX_PROJECT_BRAIN_REPORT__ = report;
     const statusNode = $(panel, '[data-lb-brain-status]');
     const summaryNode = $(panel, '[data-lb-brain-summary]');
@@ -355,6 +378,8 @@
     }
   }
   function runProjectBrain(panel, attachLive) {
+    // Always bind quality results to the live panel after workbench composition.
+    panel = document.getElementById(PANEL_ID) || panel;
     const artifact = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
     const frame = $(panel, '[data-lb-preview]');
     const brain = window.OVYXProjectBrain;
@@ -848,7 +873,11 @@
   }
 
   function setReleaseStatus(panel, selector, message, kind) {
-    const target = $(panel, selector);
+    // The responsive workbench reparents the live Release panel outside the
+    // generator section. Resolve release status nodes from their live owner so
+    // asynchronous publish/build/save actions update the visible UI.
+    const releasePanel = document.getElementById('ovyx-app-studio-release');
+    const target = $(releasePanel || panel, selector) || $(panel, selector);
     if (!target) return;
     target.textContent = text(message);
     target.dataset.kind = kind || 'info';
@@ -1162,6 +1191,9 @@
     if (!artifact.releaseState.web || typeof artifact.releaseState.web !== 'object') artifact.releaseState.web = {};
   }
   function setReleaseControls(panel) {
+    // The responsive workbench reparents Release outside the generator panel.
+    // Always update the connected Release controls, not the old generator subtree.
+    panel = document.getElementById('ovyx-app-studio-release') || panel;
     const artifact = currentArtifact();
     for (const selector of ['[data-lb-deploy-preview]', '[data-lb-publish]', '[data-lb-mobile-build]']) {
       const button = $(panel, selector); if (button) button.disabled = !artifact;
@@ -1275,6 +1307,10 @@
     return data;
   }
   async function deployGeneratedProject(panel, action) {
+    // Release is a live DOM node moved into the workbench's separate Release stage.
+    // Resolve that stage before reading controls or writing status so the original
+    // generator container is never used as a stale ancestor after reparenting.
+    panel = document.getElementById('ovyx-app-studio-release') || panel;
     const button = $(panel, action === 'publish' ? '[data-lb-publish]' : '[data-lb-deploy-preview]');
     try {
       const validation = validateForRelease(panel);
@@ -1347,6 +1383,8 @@
     return record;
   }
   async function checkReleaseHealth(panel) {
+    // Health checks also update status/link controls in the separately mounted Release stage.
+    panel = document.getElementById('ovyx-app-studio-release') || panel;
     const artifact = currentArtifact();
     const slot = artifact?.releaseState?.latestWebKey;
     const record = artifact?.releaseState?.web?.[slot];
@@ -1439,6 +1477,8 @@
     return normalized;
   }
   async function startMobileBuild(panel) {
+    // Release is mounted as its own workbench stage, outside the generator panel.
+    panel = document.getElementById('ovyx-app-studio-release') || panel;
     const button = $(panel, '[data-lb-mobile-build]');
          try {
       const { artifact } = validateForRelease(panel);
@@ -1486,6 +1526,8 @@
     }
   }
   async function refreshMobileBuildStatus(panel) {
+    // The refresh button retains its original generator callback after Release is moved.
+    panel = document.getElementById('ovyx-app-studio-release') || panel;
     const artifact = currentArtifact();
     const mobile = artifact?.releaseState?.mobile;
     if (!mobile?.jobId) {

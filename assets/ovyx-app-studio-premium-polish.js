@@ -7,6 +7,7 @@
   const HERO_ID = 'ovyx-app-studio-experience';
   const IDENTITY_ID = 'ovyx-as-identity-details';
   const LEGACY_ID = 'ovyx-as-existing-conversion';
+  const DOCK_ID = 'ovyx-app-studio-workspace-dock';
   let observer;
   let refreshQueued = false;
 
@@ -373,6 +374,100 @@
     document.head.appendChild(style);
   }
 
+
+  // Compose a real workbench from the existing feature panels. The panels are
+  // moved as live DOM nodes (not cloned), so their listeners, state, forms,
+  // preview iframe and authenticated API integrations remain attached.
+  function composeWorkbench(root) {
+    let workbench = root.querySelector(':scope > .ovyx-as-workbench');
+    if (!workbench) {
+      workbench = el('section', 'ovyx-as-workbench');
+      workbench.id = 'ovyx-app-studio-workbench';
+      workbench.innerHTML =
+        '<header class="ovyx-as-workbench__header"><div><p class="ovyx-as-kicker">THE WORKBENCH</p><h2>Your app, from first scan to launch.</h2><p>One clear path. Every tool stays connected.</p></div><span class="ovyx-as-workbench__live"><i></i> Workspace</span></header>' +
+        '<div class="ovyx-as-workbench__grid">' +
+          '<div class="ovyx-as-workbench__primary">' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="analyze"><header><span>01</span><div><h3>Analyze your website</h3><p>Start with a link to your website.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="build"><header><span>02</span><div><h3>Build your app</h3><p>Generate, preview and shape your app.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
+          '</div>' +
+          '<aside class="ovyx-as-workbench__secondary">' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="verify"><header><span>03</span><div><h3>Check your app</h3><p>Review quality and live behaviour.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="release"><header><span>04</span><div><h3>Prepare to launch</h3><p>Save, export or publish when ready.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
+          '</aside>' +
+        '</div>' +
+        '<div class="ovyx-as-workbench__advanced" data-ovyx-as-advanced><p class="ovyx-as-kicker">MORE TOOLS</p><div class="ovyx-as-workbench__advanced-grid"></div></div>';
+      const anchor = root.querySelector('#' + HERO_ID) || root.querySelector('#' + DOCK_ID) || root.firstElementChild;
+      if (anchor && anchor.parentNode === root) anchor.insertAdjacentElement('afterend', workbench);
+      else root.insertBefore(workbench, root.firstChild);
+    }
+
+    const place = (id, slotName) => {
+      const node = document.getElementById(id);
+      const slot = workbench.querySelector('[data-ovyx-as-slot="' + slotName + '"]');
+      if (!node || !slot || !root.contains(node)) return;
+      const body = slot.querySelector('.ovyx-as-workbench__body');
+      if (node.parentNode !== body) body.appendChild(node);
+      slot.hidden = false;
+    };
+    place('ovyx-app-studio-url-analyzer-panel', 'analyze');
+    place('ovyx-app-studio-link-builder', 'build');
+    place('ovyx-app-studio-project-brain', 'verify');
+    place('ovyx-app-studio-release', 'release');
+
+    const advanced = workbench.querySelector('.ovyx-as-workbench__advanced-grid');
+    const moveAdvanced = node => {
+      if (node && root.contains(node) && node.parentNode !== advanced) advanced.appendChild(node);
+    };
+    moveAdvanced(document.getElementById(IDENTITY_ID));
+    moveAdvanced(document.getElementById(LEGACY_ID));
+    const advancedSection = workbench.querySelector('[data-ovyx-as-advanced]');
+    if (advancedSection) advancedSection.hidden = !advanced.children.length;
+  }
+
+  function addWorkbenchLayoutStyles() {
+    if (document.getElementById('ovyx-app-studio-workbench-layout-style')) return;
+    const style = el('style', '');
+    style.id = 'ovyx-app-studio-workbench-layout-style';
+    style.textContent = [
+      '#view-appstudio.ovyx-as-visual-redesign{display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:14px!important;height:auto!important;min-height:0!important;max-height:none!important;overflow-x:hidden!important;overflow-y:visible!important;padding:clamp(12px,2vw,26px)!important;padding-bottom:max(12px,env(safe-area-inset-bottom))!important}',
+      '#view-appstudio.ovyx-as-visual-redesign>*{flex:0 0 auto!important;width:100%!important;min-height:0!important;max-width:none!important;margin-block:0!important}',
+      '#view-appstudio .ovyx-as-workbench{display:grid;gap:16px;width:100%;min-width:0;color:var(--as-text,#f4f6f8)}',
+      '#view-appstudio .ovyx-as-workbench__header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:4px 2px 2px}',
+      '#view-appstudio .ovyx-as-workbench__header h2{margin:3px 0 5px;color:var(--as-text,#f4f6f8);font-size:clamp(20px,2.5vw,27px);line-height:1.15;letter-spacing:-.04em;font-weight:760}',
+      '#view-appstudio .ovyx-as-workbench__header p:not(.ovyx-as-kicker){margin:0;color:var(--as-muted,#aeb8c7);font-size:12px;line-height:1.5}',
+      '#view-appstudio .ovyx-as-workbench__live{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;padding:7px 10px;border:1px solid var(--as-border,rgba(255,255,255,.12));border-radius:99px;color:var(--as-muted,#aeb8c7);font-size:10px}',
+      '#view-appstudio .ovyx-as-workbench__live i{width:7px;height:7px;border-radius:50%;background:#53d69a;box-shadow:0 0 10px rgba(83,214,154,.45)}',
+      '#view-appstudio .ovyx-as-workbench__grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(280px,.85fr);align-items:start;gap:14px}',
+      '#view-appstudio .ovyx-as-workbench__primary,#view-appstudio .ovyx-as-workbench__secondary{display:grid;align-content:start;gap:14px;min-width:0}',
+      '#view-appstudio .ovyx-as-workbench__stage{min-width:0;overflow:visible;padding:clamp(13px,1.8vw,19px);border:1px solid var(--as-border,rgba(255,255,255,.11));border-radius:17px;background:linear-gradient(150deg,color-mix(in srgb,var(--as-surface,#11161f) 96%,white 4%),var(--as-surface,#11161f));box-shadow:0 12px 30px rgba(0,0,0,.13)}',
+      '#view-appstudio .ovyx-as-workbench__stage[hidden],#view-appstudio .ovyx-as-workbench__advanced[hidden]{display:none!important}',
+      '#view-appstudio .ovyx-as-workbench__stage>header{display:flex;align-items:center;gap:11px;margin:0 0 13px;padding:0 0 12px;border-bottom:1px solid var(--as-border,rgba(255,255,255,.1))}',
+      '#view-appstudio .ovyx-as-workbench__stage>header>span{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;border:1px solid rgba(194,163,107,.38);border-radius:9px;background:rgba(194,163,107,.09);color:#d8bd83;font:750 10px/1 ui-monospace,monospace}',
+      '#view-appstudio .ovyx-as-workbench__stage h3{margin:0;color:var(--as-text,#f4f6f8);font-size:14px;font-weight:730;letter-spacing:-.02em}',
+      '#view-appstudio .ovyx-as-workbench__stage>header p{margin:3px 0 0;color:var(--as-muted,#aeb8c7);font-size:10px;line-height:1.45}',
+      '#view-appstudio .ovyx-as-workbench__body{min-width:0}#view-appstudio .ovyx-as-workbench__body>*{max-width:100%;min-width:0}',
+      '#view-appstudio .ovyx-as-workbench__body>:is(.ovyx-ua-panel,.ovyx-lb-panel,.ovyx-lb-brain,.ovyx-lb-release){width:100%!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}',
+      '#view-appstudio .ovyx-as-workbench__body .ovyx-as-stage-meta{margin-top:0!important}',
+      '#view-appstudio .ovyx-as-workbench__advanced{display:grid;gap:10px;padding:14px;border:1px solid var(--as-border,rgba(255,255,255,.1));border-radius:15px;background:color-mix(in srgb,var(--as-surface,#11161f) 82%,transparent)}',
+      '#view-appstudio .ovyx-as-workbench__advanced-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}',
+      '#view-appstudio .ovyx-as-workbench__advanced-grid>:is(.ovyx-as-disclosure){margin:0!important;min-width:0}',
+      '#view-appstudio .ovyx-as-workbench__advanced-grid .ovyx-as-disclosure__summary{min-height:46px;padding:11px 13px!important;border-radius:11px!important}',
+      '#view-appstudio .ovyx-as-workbench__advanced-grid .ovyx-as-disclosure__hint{display:none!important}',
+      '#view-appstudio .ovyx-as-workbench :is(h1,h2,h3,h4,p,span,label,small,strong,li){overflow-wrap:anywhere}',
+      '#view-appstudio .ovyx-as-workbench :is(button,a,summary,input,textarea,select){max-width:100%;font-family:inherit}',
+      '#view-appstudio .ovyx-as-workbench :is(input:not([type=color]):not([type=checkbox]):not([type=radio]),textarea,select){min-height:44px!important;color:var(--as-text,#f4f6f8)!important;background:var(--as-canvas,#080b11)!important;border:1px solid var(--as-border,rgba(255,255,255,.2))!important;border-radius:10px!important}',
+      '#view-appstudio .ovyx-as-workbench :is(input,textarea,select)::placeholder{color:var(--as-muted,#aeb8c7)!important;opacity:.9}',
+      '#view-appstudio .ovyx-as-workbench :is(button,a,summary,input,textarea,select):focus-visible{outline:2px solid #e8c879!important;outline-offset:3px!important}',
+      '#view-appstudio .ovyx-as-workbench :is(.ovyx-ua-primary,.ovyx-lb-generate,.ovyx-lb-brain-run,.ovyx-lb-release-btn.publish){min-height:43px!important;background:linear-gradient(135deg,#e8c879,#b99655)!important;color:#17140e!important;border:1px solid #c7a86c!important;font-weight:780!important}',
+      '#view-appstudio .ovyx-as-workbench :is(.ovyx-ua-secondary,.ovyx-lb-save,.ovyx-lb-release-btn.secondary){min-height:41px!important;background:var(--as-surface,#11161f)!important;color:var(--as-text,#f4f6f8)!important;border:1px solid var(--as-border,rgba(255,255,255,.18))!important}',
+      '@media(max-width:900px){#view-appstudio .ovyx-as-workbench__grid{grid-template-columns:minmax(0,1fr) minmax(245px,.82fr)}}',
+      '@media(max-width:720px){#view-appstudio.ovyx-as-visual-redesign{gap:11px!important;padding:11px!important;padding-bottom:max(10px,env(safe-area-inset-bottom))!important}#view-appstudio .ovyx-as-workbench{gap:11px}#view-appstudio .ovyx-as-workbench__grid{grid-template-columns:minmax(0,1fr);gap:11px}#view-appstudio .ovyx-as-workbench__primary,#view-appstudio .ovyx-as-workbench__secondary{gap:11px}#view-appstudio .ovyx-as-workbench__stage{padding:13px;border-radius:14px}#view-appstudio .ovyx-as-workbench__header{align-items:flex-start}#view-appstudio .ovyx-as-workbench__live{margin-top:5px}#view-appstudio .ovyx-as-workbench__advanced-grid{grid-template-columns:minmax(0,1fr)}}',
+      '@media(max-width:380px){#view-appstudio .ovyx-as-workbench__live{font-size:0;padding:7px}#view-appstudio .ovyx-as-workbench__live i{width:8px;height:8px}}',
+      '@media(prefers-reduced-motion:reduce){#view-appstudio .ovyx-as-workbench *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}'
+    ].join('\n');
+    document.head.appendChild(style);
+  }
+
   function polish() {
     const root = document.querySelector(ROOT);
     if (!root || !root.isConnected) return;
@@ -392,6 +487,8 @@
     }
     addStyles();
     addWorkbenchStyles();
+    composeWorkbench(root);
+    addWorkbenchLayoutStyles();
     refreshFlow();
   }
 

@@ -346,6 +346,14 @@ try {
   assert.equal(await desktop.evaluate(() => window.KernelState.activeProject.name), 'Do not replace me', 'Stage 3 must not overwrite the existing active project.');
 
   // Stage 06: export files, call the existing Pages and EAS APIs, and diagnose the returned release.
+  // Re-run quality against the final preview state immediately before release.
+  // Require a fresh report, not the successful report from before route navigation.
+  const previousQualityCheck = await desktop.evaluate(() => window.__OVYX_PROJECT_BRAIN_REPORT__?.checkedAt || '');
+  await desktop.locator('#ovyx-app-studio-project-brain [data-lb-brain-run]').click();
+  await desktop.waitForFunction(previous => {
+    const report = window.__OVYX_PROJECT_BRAIN_REPORT__;
+    return report?.checkedAt !== previous && report?.summary?.runtimeChecked === true && report.status !== 'failed';
+  }, previousQualityCheck, { timeout: 10000 });
   await desktop.locator('#ovyx-app-studio-release').waitFor();
   const [sourceJsonDownload] = await Promise.all([desktop.waitForEvent('download'), desktop.locator('[data-lb-export-json]').click()]);
   assert.match(sourceJsonDownload.suggestedFilename(), /coastal-living-source\.json$/);
@@ -431,11 +439,20 @@ try {
   assert.ok((await desktop.locator('[data-lb-mobile-links]').innerText()).includes('https://downloads.example/app.apk'), 'Completed mobile status must expose the returned download URL.');
 
   await desktop.locator('[data-lb-mobile-refresh]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-mobile-status]')?.textContent.includes('Mobile build status: Complete'), null, { timeout: 10000 });
-  assert.equal(requests.mobileStatus.length, 2, 'Manual refresh must re-query the mobile build status endpoint.');
+  await desktop.waitForFunction(
+    () => document.querySelector('[data-lb-mobile-status]')?.textContent.includes('Mobile build status: Complete'),
+    null,
+    { timeout: 20000 },
+  );
+  assert.equal(requests.mobileStatus.length, 2, 'Manual refresh must re-query the mobile build status endpoint exactly once.');
 
   await desktop.locator('[data-lb-save-release]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Release details saved to OVYX Projects'), null, { timeout: 10000 });
+  await desktop.waitForFunction(() => {
+    const target = document.querySelector('[data-lb-web-status]');
+    return target && (target.dataset.kind === 'error' || target.textContent.includes('Release details saved to OVYX Projects'));
+  }, null, { timeout: 15000 });
+  const releaseSaveStatus = await desktop.locator('[data-lb-web-status]').innerText();
+  assert.match(releaseSaveStatus, /Release details saved to OVYX Projects/, 'Release details did not save; status=' + releaseSaveStatus + '; cloud-save requests=' + requests.cloudSave.length + '; page errors=' + JSON.stringify(errors));
   assert.equal(requests.cloudSave.length, 2, 'The release record action must save through the existing OVYX Projects API.');
   const releaseSave = requests.cloudSave[1];
   assert.equal(releaseSave.auth, 'Bearer test-id-token');

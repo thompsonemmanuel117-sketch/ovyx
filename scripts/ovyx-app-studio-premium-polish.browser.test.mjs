@@ -104,11 +104,30 @@ try {
   const wideLayout = await desktop.evaluate(() => {
     const root = document.getElementById('view-appstudio');
     const hero = document.getElementById('ovyx-app-studio-experience');
-    const canvas = document.getElementById('app-studio-clean-canvas');
-    return { viewport: document.documentElement.clientWidth, root: root.getBoundingClientRect().width, hero: hero.getBoundingClientRect().width, canvas: canvas.getBoundingClientRect().width };
+    const workbench = document.getElementById('ovyx-app-studio-workbench');
+    const grid = workbench?.querySelector('.ovyx-as-workbench__grid');
+    const primary = grid?.querySelector('.ovyx-as-workbench__primary');
+    const secondary = grid?.querySelector('.ovyx-as-workbench__secondary');
+    const advanced = workbench?.querySelector('[data-ovyx-as-advanced]');
+    const legacyCanvas = document.getElementById('app-studio-clean-canvas');
+    return {
+      viewport: document.documentElement.clientWidth,
+      root: root.getBoundingClientRect().width,
+      hero: hero.getBoundingClientRect().width,
+      workbench: workbench?.getBoundingClientRect().width || 0,
+      grid: grid?.getBoundingClientRect().width || 0,
+      primary: primary?.getBoundingClientRect().width || 0,
+      secondary: secondary?.getBoundingClientRect().width || 0,
+      advanced: advanced?.getBoundingClientRect().width || 0,
+      legacyCanvasPreserved: Boolean(legacyCanvas && advanced?.contains(legacyCanvas))
+    };
   });
-  assert.ok(wideLayout.root > 1300 && wideLayout.hero > 1200 && wideLayout.canvas > 1200,
-    'Desktop App Studio sections must use the full available screen width rather than the former 1120px cap: ' + JSON.stringify(wideLayout));
+  assert.ok(wideLayout.root > 1300 && wideLayout.hero > 1200 && wideLayout.workbench > 1200 && wideLayout.grid > 1200,
+    'The redesigned desktop workbench must use the full available screen width: ' + JSON.stringify(wideLayout));
+  assert.ok(wideLayout.primary > 600 && wideLayout.secondary > 280,
+    'The Analyze/Build area and Verify/Release rail must both remain usable at desktop width: ' + JSON.stringify(wideLayout));
+  assert.ok(wideLayout.advanced > 1200 && wideLayout.legacyCanvasPreserved,
+    'Advanced tools must span the workbench width and retain the existing Web Studio conversion canvas: ' + JSON.stringify(wideLayout));
 
   const desktopPolish = await desktop.evaluate(() => {
     window.OVYXThemeLab.set('custom_test');
@@ -177,7 +196,11 @@ try {
   assert.match(await reportDetails.locator('summary').innerText(), /3 pages reviewed/);
   assert.equal(await desktop.locator('[data-ua-results] > .ovyx-ua-stats').count(), 1);
   assert.equal(await desktop.locator('[data-ua-results] > .ovyx-ua-section').count(), 1, 'The key detected identity remains visible above the detailed report.');
-  assert.equal(await desktop.locator('[data-ua-results] > #ovyx-app-studio-link-builder').count(), 1, 'The generator stays prominent beside the summary, not hidden in detailed scan output.');
+  const generator = desktop.locator('#ovyx-app-studio-link-builder');
+  assert.equal(await generator.count(), 1, 'The existing generator must remain mounted exactly once.');
+  assert.equal(await generator.evaluate(el => el.closest('[data-ovyx-as-slot="build"]') !== null), true,
+    'The generator belongs in the dedicated Build stage of the new workbench, separate from detailed scan output.');
+  assert.equal(await generator.isVisible(), true, 'The generator must remain visible in the Build stage, not hidden in detailed scan output.');
 
   await desktop.locator('[data-ua-palette]').click();
   assert.equal(await identity.evaluate(el => el.open), true, 'Palette transfer must open Brand DNA before asking the user to review it.');
@@ -256,7 +279,7 @@ try {
   assert.ok(await mobile.evaluate(() => { const style = document.getElementById('ovyx-app-studio-workbench-style'); return Boolean(style?.sheet && style.sheet.cssRules.length > 10); }), 'The workbench stylesheet must parse into real CSS rules, not merely add its marker class.');
   assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 4, 'Mobile must retain all four compact workflow steps.');
   assert.equal(mobileWorkbench.flowColumns.split(' ').length, 2, 'Mobile workflow steps should use a readable two-column grid.');
-  assert.equal(mobileWorkbench.bottomPadding, '12px', 'Mobile must not reserve an unnecessary blank bottom runway.');
+  assert.equal(mobileWorkbench.bottomPadding, '10px', 'Mobile must not reserve an unnecessary blank bottom runway.');
   const animation = await mobile.locator('#ovyx-app-studio-experience').evaluate(el => getComputedStyle(el).animationDuration);
   assert.ok(['1e-05s', '0.00001s', '0.01ms'].includes(animation) || parseFloat(animation) <= 0.00001,
     'Reduced-motion users must not receive decorative entrance animation; got ' + animation);
