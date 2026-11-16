@@ -104,11 +104,30 @@ try {
   const wideLayout = await desktop.evaluate(() => {
     const root = document.getElementById('view-appstudio');
     const hero = document.getElementById('ovyx-app-studio-experience');
-    const canvas = document.getElementById('app-studio-clean-canvas');
-    return { viewport: document.documentElement.clientWidth, root: root.getBoundingClientRect().width, hero: hero.getBoundingClientRect().width, canvas: canvas.getBoundingClientRect().width };
+    const workbench = document.getElementById('ovyx-app-studio-workbench');
+    const grid = workbench?.querySelector('.ovyx-as-workbench__grid');
+    const primary = grid?.querySelector('.ovyx-as-workbench__primary');
+    const secondary = grid?.querySelector('.ovyx-as-workbench__secondary');
+    const advanced = workbench?.querySelector('[data-ovyx-as-advanced]');
+    const legacyCanvas = document.getElementById('app-studio-clean-canvas');
+    return {
+      viewport: document.documentElement.clientWidth,
+      root: root.getBoundingClientRect().width,
+      hero: hero.getBoundingClientRect().width,
+      workbench: workbench?.getBoundingClientRect().width || 0,
+      grid: grid?.getBoundingClientRect().width || 0,
+      primary: primary?.getBoundingClientRect().width || 0,
+      secondary: secondary?.getBoundingClientRect().width || 0,
+      advanced: advanced?.getBoundingClientRect().width || 0,
+      legacyCanvasPreserved: Boolean(legacyCanvas && advanced?.contains(legacyCanvas))
+    };
   });
-  assert.ok(wideLayout.root > 1300 && wideLayout.hero > 1200 && wideLayout.canvas > 1200,
-    'Desktop App Studio sections must use the full available screen width rather than the former 1120px cap: ' + JSON.stringify(wideLayout));
+  assert.ok(wideLayout.root > 1300 && wideLayout.hero > 1200 && wideLayout.workbench > 1200 && wideLayout.grid > 1200,
+    'The redesigned desktop workbench must use the full available screen width: ' + JSON.stringify(wideLayout));
+  assert.ok(wideLayout.primary > 600 && wideLayout.secondary > 280,
+    'The Analyze/Build area and Verify/Release rail must both remain usable at desktop width: ' + JSON.stringify(wideLayout));
+  assert.ok(wideLayout.advanced > 1200 && wideLayout.legacyCanvasPreserved,
+    'Advanced tools must span the workbench width and retain the existing Web Studio conversion canvas: ' + JSON.stringify(wideLayout));
 
   const desktopPolish = await desktop.evaluate(() => {
     window.OVYXThemeLab.set('custom_test');
