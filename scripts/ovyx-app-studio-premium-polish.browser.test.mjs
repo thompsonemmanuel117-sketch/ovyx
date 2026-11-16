@@ -253,7 +253,8 @@ try {
     bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom
   }));
   assert.equal(mobileWorkbench.workbenchClass, true, 'The mobile screen must keep the integrated workbench class.');
-  assert.equal(mobileWorkbench.flowColumns.split(' ').length, 4, 'Mobile must retain all four compact workflow steps.');
+  assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 4, 'Mobile must retain all four compact workflow steps.');
+  assert.equal(mobileWorkbench.flowColumns.split(' ').length, 2, 'Mobile workflow steps should use a readable two-column grid.');
   assert.equal(mobileWorkbench.bottomPadding, '12px', 'Mobile must not reserve an unnecessary blank bottom runway.');
   const animation = await mobile.locator('#ovyx-app-studio-experience').evaluate(el => getComputedStyle(el).animationDuration);
   assert.ok(['1e-05s', '0.00001s', '0.01ms'].includes(animation) || parseFloat(animation) <= 0.00001,
