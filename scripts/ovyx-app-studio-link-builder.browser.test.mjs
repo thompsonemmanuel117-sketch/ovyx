@@ -347,13 +347,13 @@ try {
 
   // Stage 06: export files, call the existing Pages and EAS APIs, and diagnose the returned release.
   // Re-run quality against the final preview state immediately before release.
-  // Earlier checks predate route navigation and app interactions, so they are not
-  // sufficient evidence for the publishing safety gate.
+  // Require a fresh report, not the successful report from before route navigation.
+  const previousQualityCheck = await desktop.evaluate(() => window.__OVYX_PROJECT_BRAIN_REPORT__?.checkedAt || '');
   await desktop.locator('#ovyx-app-studio-project-brain [data-lb-brain-run]').click();
-  await desktop.waitForFunction(() => {
+  await desktop.waitForFunction(previous => {
     const report = window.__OVYX_PROJECT_BRAIN_REPORT__;
-    return report?.summary?.runtimeChecked === true && report.status !== 'failed';
-  }, null, { timeout: 10000 });
+    return report?.checkedAt !== previous && report?.summary?.runtimeChecked === true && report.status !== 'failed';
+  }, previousQualityCheck, { timeout: 10000 });
   await desktop.locator('#ovyx-app-studio-release').waitFor();
   const [sourceJsonDownload] = await Promise.all([desktop.waitForEvent('download'), desktop.locator('[data-lb-export-json]').click()]);
   assert.match(sourceJsonDownload.suggestedFilename(), /coastal-living-source\.json$/);
