@@ -154,7 +154,7 @@ try {
 
   assert.equal(await desktop.locator('#view-appstudio > #ovyx-app-studio-experience').count(), 1, 'The new guided workspace header must be mounted once at the top.');
   assert.equal(await desktop.locator('#view-appstudio').evaluate(root => root.firstElementChild?.id), 'ovyx-app-studio-workspace-dock', 'The existing project dock must remain the first App Studio element when all live runtimes run together.');
-  assert.match(await desktop.locator('#ovyx-as-title').innerText(), /From website to working app/);
+  assert.equal(await desktop.locator('#ovyx-as-title').innerText(), 'Build apps, beautifully.', 'The integrated App Shell copy must remain the final visible heading.');
   assert.equal(await desktop.locator('[data-ovyx-as-step]').count(), 4, 'The workspace should present one clear analyze → generate → verify → release path.');
   assert.ok(await desktop.locator('[data-ovyx-as-step="analyze"]').evaluate(el => el.classList.contains('is-complete')));
   assert.ok(await desktop.locator('[data-ovyx-as-step="generate"]').evaluate(el => el.classList.contains('is-current')));
