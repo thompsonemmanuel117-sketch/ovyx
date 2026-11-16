@@ -110,7 +110,7 @@
       '#view-appstudio .ovyx-as-workspace-actions{margin:0!important;gap:7px!important}',
       '#view-appstudio .ovyx-as-workspace-action,#view-appstudio .ovyx-as-workspace-more>summary{min-height:34px!important;padding:7px 11px!important}',
       '#view-appstudio .ovyx-as-workspace-status{margin:0!important;min-height:0!important;font-size:10px!important}',
-      '#view-appstudio .ovyx-as-stage-meta{display:flex!important;align-items:center!important;gap:8px!important;margin:0 0 10px!important;padding:0 0 9px!important;border-bottom:1px solid var(--as-border,rgba(255,255,255,.12))!important}',
+      '#view-appstudio .ovyx-as-stage-meta{display:grid!important;grid-template-columns:auto auto minmax(0,1fr) auto!important;align-items:center!important;gap:8px!important;margin:0 0 10px!important;padding:0 0 9px!important;border-bottom:1px solid var(--as-border,rgba(255,255,255,.12))!important}',
       '#view-appstudio .ovyx-as-stage-meta__title{display:none!important}',
       '#view-appstudio .ovyx-as-stage-meta__index{width:27px!important;height:27px!important;flex:0 0 27px!important;border-radius:8px!important}',
       '#view-appstudio .ovyx-as-stage-meta__label{font-size:10px!important;letter-spacing:.14em!important;color:var(--as-accent,#c2a36b)!important}',
