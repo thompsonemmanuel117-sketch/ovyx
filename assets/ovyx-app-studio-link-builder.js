@@ -1473,6 +1473,8 @@
     return normalized;
   }
   async function startMobileBuild(panel) {
+    // Release is mounted as its own workbench stage, outside the generator panel.
+    panel = document.getElementById('ovyx-app-studio-release') || panel;
     const button = $(panel, '[data-lb-mobile-build]');
          try {
       const { artifact } = validateForRelease(panel);
