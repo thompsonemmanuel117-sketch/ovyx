@@ -65,10 +65,10 @@ window.OVYXThemeLab={
   set(id){this.state.active=id;return id}
 };
 </script>
+<script src="/assets/ovyx-app-studio-visual-refresh.js"></script>
 <script src="/assets/ovyx-app-studio-premium-polish.js"></script>
 <script src="/assets/ovyx-app-studio-workspace.js"></script>
 <script src="/assets/ovyx-app-shell-polish.js"></script>
-<script src="/assets/ovyx-app-studio-visual-refresh.js"></script>
 </body></html>`;
 
 function send(res, status, body, type='application/json; charset=utf-8') {
