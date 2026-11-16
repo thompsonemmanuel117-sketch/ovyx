@@ -4,37 +4,24 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
-const runtime = read('assets/ovyx-app-studio-visual-redesign.js');
-const visualRefresh = read('assets/ovyx-app-studio-visual-refresh.js');
+const premium = read('assets/ovyx-app-studio-premium-polish.js');
+const workspace = read('assets/ovyx-app-studio-workspace.js');
 const middleware = read('functions/_middleware.js');
 const headers = read('_headers');
 const workflow = read('.github/workflows/ovyx-assistant-workspace-browser.yml');
-execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../assets/ovyx-app-studio-visual-redesign.js', import.meta.url))], { stdio: 'pipe' });
+execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../assets/ovyx-app-studio-premium-polish.js', import.meta.url))], { stdio: 'pipe' });
+execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../assets/ovyx-app-studio-workspace.js', import.meta.url))], { stdio: 'pipe' });
 
-for (const id of ['ovyx-app-studio-experience','ovyx-app-studio-workspace-dock']) {
-  assert.ok(runtime.includes(id), 'The redesign must compose existing App Studio elements: ' + id);
-}
-for (const id of ['ovyx-app-studio-url-analyzer-panel','ovyx-app-studio-link-builder','ovyx-app-studio-project-brain','ovyx-app-studio-release','ovyx-app-studio-brand-dna-panel','app-studio-clean-canvas']) {
-  assert.ok(runtime.includes(id) || read('assets/ovyx-app-studio-premium-polish.js').includes(id), 'Existing App Studio feature must remain in the experience: ' + id);
-}
-assert.ok(runtime.includes('hero.after(dock)'), 'The guided flow must lead and the project overview must follow.');
-assert.ok(!runtime.includes('display:flex!important'), 'The App Studio visual layer must not override the shell display state or expose a hidden view.');
-assert.ok(runtime.includes('Analyze. Build. Verify. Release.'), 'The hero copy must be short and immediately scannable.');
-assert.ok(visualRefresh.includes("description.textContent !== 'Analyze. Build. Verify. Release.'") && visualRefresh.includes("description.textContent = 'Analyze. Build. Verify. Release.'"), 'Both App Studio visual layers must agree on the hero copy to prevent a MutationObserver feedback loop.');
-assert.ok(runtime.includes("status.textContent.trim() === 'Project status updates as you build.'"), 'Only the initial status hint may be shortened; live action feedback must be preserved.');
-assert.ok(!runtime.includes("['.ovyx-as-hero__helper'"), 'The live project-aware helper copy must remain owned by Premium Polish to prevent competing MutationObservers.');
-assert.ok(runtime.includes('prefers-reduced-motion:reduce'), 'The redesign must respect reduced-motion settings.');
-assert.ok(runtime.includes('var(--as-text') && runtime.includes('var(--as-surface') && runtime.includes('var(--as-border'), 'Surfaces and text must use the active theme tokens.');
-assert.ok(runtime.includes('color:#17140e!important'), 'Gold primary actions must retain readable dark text.');
-assert.ok(runtime.includes('/* Workbench redesign: change the composition, not just the decoration. */'), 'The workbench must have a distinct layout pass, not only copy and spacing changes.');
-assert.ok(runtime.includes('grid-template-columns:repeat(4,minmax(0,1fr))!important') && runtime.includes('.ovyx-as-stage-meta__title{display:none!important}'), 'The guided steps must become a compact mobile step rail and duplicate stage titles must be removed.');
-assert.ok(runtime.includes('var(--as-canvas') && runtime.includes('var(--as-muted') && runtime.includes('::placeholder'), 'Theme-aware surfaces, muted text and input placeholders must remain readable.');
-assert.ok(runtime.includes('.ovyx-as-project-state__item{gap:3px!important;padding:8px!important'), 'Project status must be condensed into a compact workbench summary.');
-assert.ok(runtime.includes('#view-appstudio.ovyx-as-visual-redesign{gap:14px!important;padding:clamp(12px,2vw,24px)!important;padding-bottom:12px!important'), 'Desktop and mobile workbench must not add an unnecessary blank bottom runway.');
-assert.ok(!runtime.includes('fetch(') && !runtime.includes('OVYXAIService') && !runtime.includes('switchView('), 'The visual layer must not replace APIs, AI routing or application navigation.');
-assert.ok(!runtime.includes('remove()') && !runtime.includes('.hidden = true'), 'The redesign must not remove or hide existing features.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-visual-redesign.js?v=20261116-1'), 'The Pages shell must load the new visual layer after the existing App Studio runtimes.');
-assert.ok(middleware.includes('ovyx-app-studio-visual-refresh.js?v=20261115-2"></script><script defer src="/assets/ovyx-app-studio-visual-redesign.js'), 'The existing visual refresh script tag must remain valid and load before the new layer.');
-assert.ok(headers.includes('/assets/ovyx-app-studio-visual-redesign.js') && headers.includes('Cache-Control: no-store'), 'The visual asset must not be trapped behind stale caching.');
-assert.ok(workflow.includes('ovyx-app-studio-visual-redesign.browser.test.mjs') && workflow.includes('ovyx-app-studio-visual-redesign.test.mjs'), 'CI must run static and desktop/mobile browser coverage.');
-console.log('OVYX App Studio visual redesign source checks passed: concise hierarchy, theme tokens, reduced motion and preserved feature boundaries.');
+assert.ok(premium.includes("root.classList.add('ovyx-as-visual-redesign')"), 'The stable Premium Polish owner must apply the workbench class.');
+assert.ok(premium.includes("ovyx-app-studio-workbench-style"), 'The workbench stylesheet must be installed by the single Premium Polish owner.');
+assert.ok(premium.includes('grid-template-columns:repeat(4,minmax(0,1fr))!important'), 'The mobile workbench must use the compact four-step rail.');
+assert.ok(premium.includes('.ovyx-as-stage-meta__title{display:none!important}'), 'Duplicate stage titles must be removed from the compact stage headers.');
+assert.ok(premium.includes('var(--as-text') && premium.includes('var(--as-surface') && premium.includes('var(--as-border') && premium.includes('::placeholder'), 'Theme-aware surfaces, text, borders and placeholders must remain readable.');
+assert.ok(premium.includes('padding-bottom:max(12px,env(safe-area-inset-bottom))'), 'The workbench must preserve only safe-area bottom clearance.');
+assert.ok(premium.includes('prefers-reduced-motion:reduce'), 'The integrated workbench must respect reduced motion.');
+assert.ok(workspace.includes("const hero = root.querySelector('#ovyx-app-studio-experience')") && workspace.includes('if (hero) hero.after(dock)'), 'The workspace dock must mount after the guided hero, not compete for first position.');
+assert.ok(!middleware.includes('ovyx-app-studio-visual-redesign.js'), 'The competing standalone redesign observer must not be injected by the Pages shell.');
+assert.ok(middleware.includes('ovyx-app-studio-premium-polish.js') && middleware.includes('ovyx-app-studio-workspace.js'), 'The established feature owners must remain loaded.');
+assert.ok(headers.includes('Cache-Control: no-store'), 'The app shell must retain no-store caching.');
+assert.ok(workflow.includes('ovyx-app-studio-premium-polish.browser.test.mjs') && workflow.includes('ovyx-app-studio-visual-redesign.test.mjs'), 'CI must run integrated desktop/mobile and static regression coverage.');
+console.log('OVYX App Studio runtime ownership checks passed: one layout owner, stable dock placement, theme-aware compact workbench and preserved feature runtimes.');
