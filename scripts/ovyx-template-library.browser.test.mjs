@@ -138,7 +138,13 @@ try {
       const text = getComputedStyle(button).color;
       const background = getComputedStyle(button).backgroundColor;
       const luminance = value => {
-        const channels = value.match(/[0-9.]+/g).slice(0, 3).map(Number).map(channel => {
+        // Canvas normalizes modern CSS Color 4 values (rgb(), oklch(), color()) to sRGB bytes.
+        const canvas = document.createElement('canvas');
+        canvas.width = 1; canvas.height = 1;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        context.fillStyle = value;
+        context.fillRect(0, 0, 1, 1);
+        const channels = Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3).map(channel => {
           const normalized = channel / 255;
           return normalized <= 0.04045 ? normalized / 12.92 : Math.pow((normalized + 0.055) / 1.055, 2.4);
         });
