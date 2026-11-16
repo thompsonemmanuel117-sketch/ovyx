@@ -196,7 +196,11 @@ try {
   assert.match(await reportDetails.locator('summary').innerText(), /3 pages reviewed/);
   assert.equal(await desktop.locator('[data-ua-results] > .ovyx-ua-stats').count(), 1);
   assert.equal(await desktop.locator('[data-ua-results] > .ovyx-ua-section').count(), 1, 'The key detected identity remains visible above the detailed report.');
-  assert.equal(await desktop.locator('[data-ua-results] > #ovyx-app-studio-link-builder').count(), 1, 'The generator stays prominent beside the summary, not hidden in detailed scan output.');
+  const generator = desktop.locator('#ovyx-app-studio-link-builder');
+  assert.equal(await generator.count(), 1, 'The existing generator must remain mounted exactly once.');
+  assert.equal(await generator.evaluate(el => el.closest('[data-ovyx-as-slot="build"]') !== null), true,
+    'The generator belongs in the dedicated Build stage of the new workbench, separate from detailed scan output.');
+  assert.equal(await generator.isVisible(), true, 'The generator must remain visible in the Build stage, not hidden in detailed scan output.');
 
   await desktop.locator('[data-ua-palette]').click();
   assert.equal(await identity.evaluate(el => el.open), true, 'Palette transfer must open Brand DNA before asking the user to review it.');
