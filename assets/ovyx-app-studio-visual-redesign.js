@@ -11,9 +11,10 @@
   const $ = (root, selector) => root && root.querySelector(selector);
 
   function refineCopy(root) {
+    // The Premium Polish runtime owns the helper's live, project-aware guidance.
+    // Do not rewrite it here: competing observers would continuously undo each other.
     const copy = [
       ['.ovyx-as-hero__desc', 'Analyze. Build. Verify. Release.'],
-      ['.ovyx-as-hero__helper', 'Start with a website URL.'],
       ['.ovyx-as-workspace-dock .ovyx-as-kicker', 'PROJECT'],
       ['.ovyx-as-workspace-dock h2', 'Your project']
     ];
