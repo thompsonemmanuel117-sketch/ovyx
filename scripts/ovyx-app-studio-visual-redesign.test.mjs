@@ -18,6 +18,7 @@ for (const id of ['ovyx-app-studio-url-analyzer-panel','ovyx-app-studio-link-bui
   assert.ok(runtime.includes(id) || read('assets/ovyx-app-studio-premium-polish.js').includes(id), 'Existing App Studio feature must remain in the experience: ' + id);
 }
 assert.ok(runtime.includes('hero.after(dock)'), 'The guided flow must lead and the project overview must follow.');
+assert.ok(!runtime.includes('display:flex!important'), 'The App Studio visual layer must not override the shell display state or expose a hidden view.');
 assert.ok(runtime.includes('Analyze. Build. Verify. Release.'), 'The hero copy must be short and immediately scannable.');
 assert.ok(visualRefresh.includes("description.textContent !== 'Analyze. Build. Verify. Release.'") && visualRefresh.includes("description.textContent = 'Analyze. Build. Verify. Release.'"), 'Both App Studio visual layers must agree on the hero copy to prevent a MutationObserver feedback loop.');
 assert.ok(runtime.includes("status.textContent.trim() === 'Project status updates as you build.'"), 'Only the initial status hint may be shortened; live action feedback must be preserved.');
