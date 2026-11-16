@@ -47,7 +47,7 @@ try {
  assert.equal(desktop.paddingBottom,'16px','App Studio should end with a compact bottom inset instead of a large blank runway.');
  assert.equal(desktop.text,'rgb(24, 24, 24)','App Studio text must use the active light-theme text colour.');
  assert.equal(desktop.heroTitle,'Build apps, beautifully.');
- assert.equal(desktop.description,'Analyze a site. Build, verify and release your app.');
+ assert.equal(desktop.description,'Analyze. Build. Verify. Release.');
  assert.notEqual(desktop.panelBackground,'none','Panels must retain a deliberate surface.');
  assert.notEqual(desktop.animation,'none','The workspace should keep its subtle entrance motion.');
  assert.equal(desktop.dashboardPosition,'static','Dashboard navigation must not be modified by the App Studio layer.');
