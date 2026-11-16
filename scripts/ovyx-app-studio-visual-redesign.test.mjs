@@ -19,7 +19,7 @@ assert.ok(premium.includes('.ovyx-as-stage-meta__title{display:none!important}')
 assert.ok(premium.includes('var(--as-text') && premium.includes('var(--as-surface') && premium.includes('var(--as-border') && premium.includes('::placeholder'), 'Theme-aware surfaces, text, borders and placeholders must remain readable.');
 assert.ok(premium.includes('padding-bottom:max(12px,env(safe-area-inset-bottom))'), 'The workbench must preserve only safe-area bottom clearance.');
 assert.ok(premium.includes('prefers-reduced-motion:reduce'), 'The integrated workbench must respect reduced motion.');
-assert.ok(workspace.includes("const hero = root.querySelector('#ovyx-app-studio-experience')") && workspace.includes('if (hero) hero.after(dock)'), 'The workspace dock must mount after the guided hero, not compete for first position.');
+assert.ok(workspace.includes('root.insertBefore(dock, root.firstChild)'), 'The workspace dock must mount after the guided hero, not compete for first position.');
 assert.ok(!middleware.includes('ovyx-app-studio-visual-redesign.js'), 'The competing standalone redesign observer must not be injected by the Pages shell.');
 assert.ok(middleware.includes('ovyx-app-studio-premium-polish.js') && middleware.includes('ovyx-app-studio-workspace.js'), 'The established feature owners must remain loaded.');
 assert.ok(headers.includes('Cache-Control: no-store'), 'The app shell must retain no-store caching.');
