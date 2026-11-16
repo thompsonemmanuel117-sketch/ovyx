@@ -11,6 +11,8 @@ const runtime = runtimeSource.replace(
 );
 assert.notEqual(runtime, runtimeSource, 'The stage-enhancement instrumentation point must remain available.');
 const appShellRuntime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-shell-polish.js', import.meta.url)), 'utf8');
+const workspaceRuntime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-workspace.js', import.meta.url)), 'utf8');
+const visualRefreshRuntime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-visual-refresh.js', import.meta.url)), 'utf8');
 const requests = [];
 const report = {
   source: { inputUrl: 'https://coastal.example/', canonicalUrl: 'https://coastal.example/', analyzedAt: '2026-10-18T00:00:00Z' },
@@ -64,7 +66,9 @@ window.OVYXThemeLab={
 };
 </script>
 <script src="/assets/ovyx-app-studio-premium-polish.js"></script>
+<script src="/assets/ovyx-app-studio-workspace.js"></script>
 <script src="/assets/ovyx-app-shell-polish.js"></script>
+<script src="/assets/ovyx-app-studio-visual-refresh.js"></script>
 </body></html>`;
 
 function send(res, status, body, type='application/json; charset=utf-8') {
@@ -75,6 +79,8 @@ const server = createServer((req, res) => {
   if (req.url === '/') return send(res, 200, html, 'text/html; charset=utf-8');
   if (req.url === '/assets/ovyx-app-studio-premium-polish.js') return send(res, 200, runtime, 'text/javascript; charset=utf-8');
   if (req.url === '/assets/ovyx-app-shell-polish.js') return send(res, 200, appShellRuntime, 'text/javascript; charset=utf-8');
+  if (req.url === '/assets/ovyx-app-studio-workspace.js') return send(res, 200, workspaceRuntime, 'text/javascript; charset=utf-8');
+  if (req.url === '/assets/ovyx-app-studio-visual-refresh.js') return send(res, 200, visualRefreshRuntime, 'text/javascript; charset=utf-8');
   if (req.url === '/favicon.ico') { res.writeHead(204); return res.end(); }
   requests.push(req.url);
   return send(res, 404, { ok: false });
@@ -147,6 +153,7 @@ try {
   assert.equal(desktopPolish.flowColumns.split(' ').length, 4, 'The integrated workbench must show a compact four-step rail on desktop.');
 
   assert.equal(await desktop.locator('#view-appstudio > #ovyx-app-studio-experience').count(), 1, 'The new guided workspace header must be mounted once at the top.');
+  assert.equal(await desktop.locator('#ovyx-app-studio-experience + #ovyx-app-studio-workspace-dock').count(), 1, 'The existing project dock must remain directly after the guided hero when all live runtimes run together.');
   assert.match(await desktop.locator('#ovyx-as-title').innerText(), /From website to working app/);
   assert.equal(await desktop.locator('[data-ovyx-as-step]').count(), 4, 'The workspace should present one clear analyze → generate → verify → release path.');
   assert.ok(await desktop.locator('[data-ovyx-as-step="analyze"]').evaluate(el => el.classList.contains('is-complete')));
