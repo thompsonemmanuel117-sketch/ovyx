@@ -22,6 +22,7 @@ assert.ok(!runtime.includes('display:flex!important'), 'The App Studio visual la
 assert.ok(runtime.includes('Analyze. Build. Verify. Release.'), 'The hero copy must be short and immediately scannable.');
 assert.ok(visualRefresh.includes("description.textContent !== 'Analyze. Build. Verify. Release.'") && visualRefresh.includes("description.textContent = 'Analyze. Build. Verify. Release.'"), 'Both App Studio visual layers must agree on the hero copy to prevent a MutationObserver feedback loop.');
 assert.ok(runtime.includes("status.textContent.trim() === 'Project status updates as you build.'"), 'Only the initial status hint may be shortened; live action feedback must be preserved.');
+assert.ok(!runtime.includes("['.ovyx-as-hero__helper'"), 'The live project-aware helper copy must remain owned by Premium Polish to prevent competing MutationObservers.');
 assert.ok(runtime.includes('prefers-reduced-motion:reduce'), 'The redesign must respect reduced-motion settings.');
 assert.ok(runtime.includes('var(--as-text') && runtime.includes('var(--as-surface') && runtime.includes('var(--as-border'), 'Surfaces and text must use the active theme tokens.');
 assert.ok(runtime.includes('color:#17140e!important'), 'Gold primary actions must retain readable dark text.');
