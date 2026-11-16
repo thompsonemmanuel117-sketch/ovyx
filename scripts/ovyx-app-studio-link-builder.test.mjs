@@ -55,6 +55,7 @@ assert.ok(brandDNA.includes('appBrandId') && brandDNA.includes('isAppStudioReque
 assert.ok(middleware.includes('/assets/ovyx-app-studio-link-builder.js?v=20261116-4'), 'The real OVYX Pages shell must load the Stage 3 runtime.');
 assert.ok(runtime.includes('const existingPanel = document.getElementById(PANEL_ID);') && runtime.includes('if (existingPanel) {'), 'Analyzer refreshes must recognize the generator after the workbench moves it out of the results container.');
 assert.ok(runtime.includes("panel = document.getElementById('ovyx-app-studio-project-brain') || panel;"), 'Project Brain reports must target the live Verify panel after the workbench reparents it outside the generator panel.');
+assert.ok(runtime.includes("panel = document.getElementById('ovyx-app-studio-release') || panel;"), 'Release controls must target the live Release panel after the workbench reparents it outside the generator panel.');
 assert.ok(runtime.includes('panel = document.getElementById(PANEL_ID) || panel;'), 'Quality report callbacks must update the connected live workbench panel after DOM reparenting.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-link-builder.js') && headers.includes('Cache-Control: no-store'), 'The live Stage 3 runtime must not be stuck behind stale asset caching.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-app-studio-link-builder.test.mjs'), 'The Stage 3 regression test must run under npm test.');
