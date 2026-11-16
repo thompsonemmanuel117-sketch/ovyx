@@ -325,7 +325,11 @@
     document.head.appendChild(style);
   }
   function renderProjectBrainReport(panel, report) {
-    if (!panel || !report) return;
+    if (!report) return;
+    // The workbench reparents live feature panels. Resolve the connected panel at
+    // render time so preview callbacks cannot update a detached, stale panel.
+    panel = document.getElementById(PANEL_ID) || panel;
+    if (!panel) return;
     window.__OVYX_PROJECT_BRAIN_REPORT__ = report;
     const statusNode = $(panel, '[data-lb-brain-status]');
     const summaryNode = $(panel, '[data-lb-brain-summary]');
@@ -373,6 +377,8 @@
     }
   }
   function runProjectBrain(panel, attachLive) {
+    // Always bind quality results to the live panel after workbench composition.
+    panel = document.getElementById(PANEL_ID) || panel;
     const artifact = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
     const frame = $(panel, '[data-lb-preview]');
     const brain = window.OVYXProjectBrain;
