@@ -7,6 +7,7 @@
   const HERO_ID = 'ovyx-app-studio-experience';
   const IDENTITY_ID = 'ovyx-as-identity-details';
   const LEGACY_ID = 'ovyx-as-existing-conversion';
+  const DOCK_ID = 'ovyx-app-studio-workspace-dock';
   let observer;
   let refreshQueued = false;
 
