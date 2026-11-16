@@ -294,6 +294,14 @@
     });
     results.appendChild(section);
     addStyles();
+    // The analyzer can refresh its report while a generated project is already open.
+    // In that case mount() creates a fresh quality panel; reconnect it to the existing
+    // artifact immediately so the Run checks control is not left permanently disabled.
+    const existingArtifact = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
+    if (existingArtifact) {
+      brainRun.disabled = false;
+      runProjectBrain(section, true);
+    }
   }
   function addStyles() {
     if (document.getElementById('ovyx-link-builder-style')) return;
