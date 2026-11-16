@@ -439,10 +439,11 @@ try {
   assert.ok((await desktop.locator('[data-lb-mobile-links]').innerText()).includes('https://downloads.example/app.apk'), 'Completed mobile status must expose the returned download URL.');
 
   await desktop.locator('[data-lb-mobile-refresh]').click();
-  await desktop.waitForFunction(() => {
-    const status = document.querySelector('[data-lb-mobile-status]');
-    return requests.mobileStatus.length >= 2 && status?.textContent.includes('Mobile build status: Complete');
-  }, null, { timeout: 20000 });
+  await desktop.waitForFunction(
+    () => document.querySelector('[data-lb-mobile-status]')?.textContent.includes('Mobile build status: Complete'),
+    null,
+    { timeout: 20000 },
+  );
   assert.equal(requests.mobileStatus.length, 2, 'Manual refresh must re-query the mobile build status endpoint exactly once.');
 
   await desktop.locator('[data-lb-save-release]').click();
