@@ -279,7 +279,7 @@ try {
   assert.ok(await mobile.evaluate(() => { const style = document.getElementById('ovyx-app-studio-workbench-style'); return Boolean(style?.sheet && style.sheet.cssRules.length > 10); }), 'The workbench stylesheet must parse into real CSS rules, not merely add its marker class.');
   assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 4, 'Mobile must retain all four compact workflow steps.');
   assert.equal(mobileWorkbench.flowColumns.split(' ').length, 2, 'Mobile workflow steps should use a readable two-column grid.');
-  assert.equal(mobileWorkbench.bottomPadding, '12px', 'Mobile must not reserve an unnecessary blank bottom runway.');
+  assert.equal(mobileWorkbench.bottomPadding, '10px', 'Mobile must not reserve an unnecessary blank bottom runway.');
   const animation = await mobile.locator('#ovyx-app-studio-experience').evaluate(el => getComputedStyle(el).animationDuration);
   assert.ok(['1e-05s', '0.00001s', '0.01ms'].includes(animation) || parseFloat(animation) <= 0.00001,
     'Reduced-motion users must not receive decorative entrance animation; got ' + animation);
