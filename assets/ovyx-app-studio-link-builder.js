@@ -1187,6 +1187,9 @@
     if (!artifact.releaseState.web || typeof artifact.releaseState.web !== 'object') artifact.releaseState.web = {};
   }
   function setReleaseControls(panel) {
+    // The responsive workbench reparents Release outside the generator panel.
+    // Always update the connected Release controls, not the old generator subtree.
+    panel = document.getElementById('ovyx-app-studio-release') || panel;
     const artifact = currentArtifact();
     for (const selector of ['[data-lb-deploy-preview]', '[data-lb-publish]', '[data-lb-mobile-build]']) {
       const button = $(panel, selector); if (button) button.disabled = !artifact;
