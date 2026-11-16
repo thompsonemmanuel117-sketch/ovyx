@@ -84,7 +84,17 @@
   function mount(report) {
     const analyzer = document.getElementById('ovyx-app-studio-url-analyzer-panel');
     const results = analyzer && $(analyzer, '[data-ua-results]');
-    if (!analyzer || !results || !report || attachedReport === report || $(results, '#' + PANEL_ID)) return;
+    if (!analyzer || !results || !report) return;
+    // The workbench moves this live panel out of the analyzer results. Check the
+    // whole document before mounting: searching only inside results creates a
+    // second panel with the same ID after every analyzer refresh.
+    const existingPanel = document.getElementById(PANEL_ID);
+    if (existingPanel) {
+      attachedReport = report;
+      if (existingPanel.isConnected && window.__OVYX_APP_STUDIO_GENERATED_PROJECT__) runProjectBrain(existingPanel, true);
+      return;
+    }
+    if (attachedReport === report) return;
     attachedReport = report;
 
     const section = node('section', 'ovyx-lb-panel');
