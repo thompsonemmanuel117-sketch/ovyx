@@ -26,7 +26,7 @@ function normalizeAnnouncement(row) {
 }
 
 async function loadAnnouncements(env, pageToken = null) {
-  const result = await listFirestoreDocuments(env, ANNOUNCEMENTS, 100, pageToken);
+  const result = await listFirestoreDocuments(env, ANNOUNCEMENTS, 100, pageToken, 'createdAt desc');
   return {
     notifications: (result.documents || [])
       .map(normalizeAnnouncement)
