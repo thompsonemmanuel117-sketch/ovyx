@@ -6,8 +6,8 @@ import { chromium } from 'playwright';
 
 const runtimeSource = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-premium-polish.js', import.meta.url)), 'utf8');
 const runtime = runtimeSource.replace(
-  'function composeWorkbench(root) { window.__OVYX_APP_STUDIO_COMPOSE_COUNT__ = (window.__OVYX_APP_STUDIO_COMPOSE_COUNT__ || 0) + 1;',
-  'function enhanceStages(root) { window.__OVYX_APP_STUDIO_COMPOSE_COUNT__ = (window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ || 0) + 1;'
+  'function composeWorkbench(root) {',
+  'function composeWorkbench(root) { window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ = (window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ || 0) + 1;'
 );
 assert.notEqual(runtime, runtimeSource, 'The stage-enhancement instrumentation point must remain available.');
 const appShellRuntime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-shell-polish.js', import.meta.url)), 'utf8');
