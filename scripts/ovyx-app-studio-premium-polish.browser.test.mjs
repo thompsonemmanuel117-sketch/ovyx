@@ -157,6 +157,11 @@ try {
       accentContrast: Math.min(ratio(effective.accentColor,effective.backgroundColor),ratio(effective.accentColor,effective.cardColor)),
       borderContrast: ratio(effective.borderColor,effective.cardColor),
       bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom,
+      rootOverflowY: getComputedStyle(document.getElementById('view-appstudio')).overflowY,
+      rootHeight: getComputedStyle(document.getElementById('view-appstudio')).height,
+      rootTouchAction: getComputedStyle(document.getElementById('view-appstudio')).touchAction,
+      stagePointerEvents: getComputedStyle(document.querySelector('.ovyx-as-workbench__stage')).pointerEvents,
+      stageTouchAction: getComputedStyle(document.querySelector('.ovyx-as-workbench__stage')).touchAction,
       workbenchClass: document.getElementById('view-appstudio').classList.contains('ovyx-as-visual-redesign'),
       flowColumns: getComputedStyle(document.querySelector('.ovyx-as-flow')).gridTemplateColumns
     };
@@ -168,6 +173,17 @@ try {
   assert.equal(desktopPolish.theme.textColor, '#111111', 'Contrast protection must not overwrite the user-selected color stored for export.');
   assert.equal(desktopPolish.theme.accentColor, '#010101', 'Contrast protection must not rewrite the original Theme Lab accent in saved/exported theme data.');
   assert.equal(desktopPolish.bottomPadding, '12px', 'The integrated workbench should not reserve an excessive bottom runway.');
+  assert.equal(desktopPolish.rootOverflowY, 'visible', 'App Studio must not create a nested scroll trap; the app shell owns page scrolling.');
+  assert.equal(desktopPolish.rootHeight, 'auto', 'App Studio must grow with its content instead of being locked to the viewport height.');
+  assert.match(desktopPolish.rootTouchAction, /pan-y/, 'Touch scrolling must remain native and available on the App Studio surface.');
+  assert.equal(desktopPolish.stagePointerEvents, 'auto', 'Workbench stages must not block pointer or drag interactions.');
+  assert.match(desktopPolish.stageTouchAction, /pan-y/, 'Touch gestures must pass through the workbench stages without locking page movement.');
+  const scrollProbe = await desktop.evaluate(() => {
+    window.scrollTo(0, document.documentElement.scrollHeight);
+    return { scrollY: window.scrollY, maxScroll: document.documentElement.scrollHeight - window.innerHeight };
+  });
+  assert.ok(scrollProbe.maxScroll > 0 && scrollProbe.scrollY > 0, 'The full App Studio page must scroll through the document instead of trapping movement inside a panel: ' + JSON.stringify(scrollProbe));
+  await desktop.evaluate(() => window.scrollTo(0, 0));
   assert.equal(desktopPolish.workbenchClass, true, 'Premium Polish must own and apply the stable workbench layout class.');
   assert.equal(desktopPolish.flowColumns.split(' ').length, 4, 'The integrated workbench must show a compact four-step rail on desktop.');
 
