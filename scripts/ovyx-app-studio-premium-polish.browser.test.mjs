@@ -179,6 +179,10 @@ try {
   assert.equal(desktopPolish.stagePointerEvents, 'auto', 'Workbench stages must not block pointer or drag interactions.');
   assert.match(desktopPolish.stageTouchAction, /pan-y/, 'Touch gestures must pass through the workbench stages without locking page movement.');
   const scrollProbe = await desktop.evaluate(() => {
+    // The isolated fixture is intentionally compact; give the App Studio surface
+    // realistic page height so this assertion tests document scrolling, not fixture length.
+    const appStudio = document.getElementById('view-appstudio');
+    appStudio.style.minHeight = (window.innerHeight + 240) + 'px';
     window.scrollTo(0, document.documentElement.scrollHeight);
     return { scrollY: window.scrollY, maxScroll: document.documentElement.scrollHeight - window.innerHeight };
   });
