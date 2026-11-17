@@ -43,4 +43,4 @@ assert.ok(packageJson.scripts.test.includes('scripts/ovyx-app-studio-premium-pol
 assert.ok(workflow.includes('scripts/ovyx-app-studio-premium-polish.browser.test.mjs'), 'The responsive progressive-disclosure browser test must run in CI.');
 assert.ok(browserTest.includes('390') && browserTest.includes("emulateMedia({ reducedMotion: 'reduce' })") && runtime.includes('Detailed inspection report'), 'Browser coverage must include mobile layout, reduced motion and report disclosure.');
 
-console.log('OVYX App Studio premium polish source checks passed: lean functional layout, progressive disclosure, preserved release/conversion actions, reduced-motion support and CI wiring.');
+// Keep this source contract aligned with the compact, refresh-stable App Studio workbench.\nconsole.log('OVYX App Studio premium polish source checks passed: lean functional layout, progressive disclosure, preserved release/conversion actions, reduced-motion support and CI wiring.');
