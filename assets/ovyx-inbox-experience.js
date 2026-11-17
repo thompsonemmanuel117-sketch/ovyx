@@ -632,19 +632,29 @@
       return Promise.resolve();
     };
     legacy.markAll = markAllRead;
-    legacy.renderHistory = () => {
+    legacy.renderHistory = async () => {
       const host = $('#v34-broadcast-history');
       if (!host) return;
-      host.replaceChildren();
-      items.slice(0, 20).forEach(item => {
-        const entry = make('div', 'v34-history-item');
-        const content = make('div');
-        content.append(make('b', '', clean(item.title || 'OVYX update', 120)));
-        content.append(make('small', '', clean(item.body || '', 240)));
-        const date = dateFor(item);
-        entry.append(content, make('time', '', date ? date.toLocaleString() : 'Just announced'));
-        host.appendChild(entry);
-      });
+      try {
+        const result = await api('/api/admin/broadcasts');
+        const broadcasts = Array.isArray(result.broadcasts) ? result.broadcasts : [];
+        host.replaceChildren();
+        if (!broadcasts.length) {
+          host.appendChild(make('div', 'v34-history-empty', 'No published broadcasts yet.'));
+          return;
+        }
+        broadcasts.slice(0, 20).forEach(item => {
+          const entry = make('div', 'v34-history-item');
+          const content = make('div');
+          content.append(make('b', '', clean(item.title || 'OVYX update', 120)));
+          content.append(make('small', '', clean(item.body || '', 240)));
+          const date = dateFor(item);
+          entry.append(content, make('time', '', date ? date.toLocaleString() : 'Just announced'));
+          host.appendChild(entry);
+        });
+      } catch (_) {
+        host.replaceChildren(make('div', 'v34-history-empty', 'Broadcast history is temporarily unavailable.'));
+      }
     };
   }
 
