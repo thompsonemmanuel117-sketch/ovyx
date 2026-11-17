@@ -1,4 +1,4 @@
-import { jsonResponse, errorResponse, requestId, readJson } from './_lib/http.js';
+import { jsonResponse, errorResponse, requestId, readJson, enforceSameOrigin } from './_lib/http.js';
 import { verifyFirebaseIdToken } from '../_lib/auth.js';
 import {
   listFirestoreDocuments,
@@ -56,6 +56,7 @@ async function loadReadMap(env, uid) {
 export async function onRequestGet(context) {
   const id = requestId(context.request);
   try {
+    if (!enforceSameOrigin(context.request)) return errorResponse(403, 'ORIGIN_REJECTED', 'Cross-origin notification requests are not permitted.', id);
     const auth = await verifyFirebaseIdToken(context.request, context.env);
     if (!auth.ok) return auth.response;
 
@@ -94,6 +95,7 @@ export async function onRequestGet(context) {
 export async function onRequestPost(context) {
   const id = requestId(context.request);
   try {
+    if (!enforceSameOrigin(context.request)) return errorResponse(403, 'ORIGIN_REJECTED', 'Cross-origin notification requests are not permitted.', id);
     const auth = await verifyFirebaseIdToken(context.request, context.env);
     if (!auth.ok) return auth.response;
 
