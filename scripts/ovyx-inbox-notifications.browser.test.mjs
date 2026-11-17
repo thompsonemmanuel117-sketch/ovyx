@@ -201,6 +201,13 @@ try {
     }));
     assert.ok(dimensions.scrollWidth <= dimensions.width + 1,
       '[' + target.name + '] the Inbox must not introduce horizontal page overflow.');
+    const dashboardDock = page.locator('#ovyx-v52-bottom-bar');
+    if (await dashboardDock.count()) {
+      assert.equal(await dashboardDock.evaluate(node => {
+        const style = getComputedStyle(node);
+        return style.display !== 'none' && style.visibility !== 'hidden' && node.getClientRects().length > 0;
+      }), false, '[' + target.name + '] the dashboard-only bottom navigation must stay hidden on Inbox.');
+    }
 
     console.log('OVYX server-backed Inbox, filters, pagination, read states and push configuration passed on ' + target.name + '.');
     await page.close();
