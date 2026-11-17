@@ -26,5 +26,5 @@ test('App Studio builds a distinct responsive workbench from existing live featu
 });
 
 test('App Studio runtime cache token points at the new composition', () => {
-  assert.match(middleware, /ovyx-app-studio-premium-polish\.js\?v=20261117-1/);
+  assert.match(middleware, /ovyx-app-studio-premium-polish\.js\?v=20261117-2/);
 });
