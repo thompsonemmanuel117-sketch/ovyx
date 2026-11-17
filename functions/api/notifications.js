@@ -7,7 +7,7 @@ import {
 } from '../_lib/firebase-admin.js';
 
 const ANNOUNCEMENTS = 'ovyx_announcements';
-const MAX_BODY_BYTES = 24000;
+const MAX_BODY_BYTES = 8000;
 
 const clean = (value, max = 500) => String(value ?? '').trim().slice(0, max);
 
@@ -107,36 +107,31 @@ export async function onRequestPost(context) {
     const body = await readJson(context.request, MAX_BODY_BYTES);
     const action = clean(body?.action, 40).toLowerCase();
     if (action === 'read-all') {
+      const pageToken = clean(body?.pageToken, 4000) || null;
+      const result = await listFirestoreDocuments(
+        context.env,
+        ANNOUNCEMENTS,
+        1000,
+        pageToken,
+        'createdAt desc, __name__ desc'
+      );
+      const ids = (result.documents || [])
+        .map(normalizeAnnouncement)
+        .filter(item => item.published && /^[A-Za-z0-9_-]{1,160}$/.test(item.id))
+        .map(item => item.id);
       const readAt = new Date().toISOString();
-      let pageToken = null;
-      let updatedCount = 0;
-      for (let page = 0; page < 20; page += 1) {
-        const result = await listFirestoreDocuments(
+      for (let offset = 0; offset < ids.length; offset += 100) {
+        const batch = ids.slice(offset, offset + 100);
+        await Promise.all(batch.map(notificationId => setFirestoreDocumentAtPath(
           context.env,
-          ANNOUNCEMENTS,
-          1000,
-          pageToken,
-          'createdAt desc, __name__ desc'
-        );
-        const ids = (result.documents || [])
-          .map(normalizeAnnouncement)
-          .filter(item => item.published && /^[A-Za-z0-9_-]{1,160}$/.test(item.id))
-          .map(item => item.id);
-        for (let offset = 0; offset < ids.length; offset += 100) {
-          const batch = ids.slice(offset, offset + 100);
-          await Promise.all(batch.map(notificationId => setFirestoreDocumentAtPath(
-            context.env,
-            ['users', auth.user.uid, 'notificationState', notificationId],
-            { readAt },
-            { merge: true }
-          )));
-        }
-        updatedCount += ids.length;
-        pageToken = result.nextPageToken || null;
-        if (!pageToken) break;
+          ['users', auth.user.uid, 'notificationState', notificationId],
+          { readAt },
+          { merge: true }
+        )));
       }
+      const nextPageToken = result.nextPageToken || null;
       return jsonResponse(
-        { ok: true, action, readAt, updatedCount, complete: !pageToken },
+        { ok: true, action, readAt, updatedCount: ids.length, complete: !nextPageToken, nextPageToken },
         200,
         { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' }
       );
