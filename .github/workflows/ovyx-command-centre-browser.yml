@@ -10,6 +10,8 @@ on:
       - 'assets/ovyx-home-dashboard-behavior.js'
       - 'assets/ovyx-home-dashboard-phase3.js'
       - 'assets/ovyx-home-recent-website-gallery.js'
+      - 'assets/ovyx-home-recent-page.js'
+      - 'scripts/ovyx-home-recent-page.test.mjs'
       - 'assets/css/ovyx-home-recent-website-gallery.css'
       - 'scripts/ovyx-home-recent-website-gallery.test.mjs'
       - 'assets/css/ovyx-home-dashboard-phase3.css'
@@ -72,6 +74,7 @@ jobs:
           node scripts/ovyx-home-dashboard-behavior.test.mjs
           node scripts/ovyx-home-dashboard-phase3.test.mjs
           node scripts/ovyx-home-recent-website-gallery.test.mjs
+          node scripts/ovyx-home-recent-page.test.mjs
           npm run validate
       - name: Start local Cloudflare Pages app shell
         run: |
