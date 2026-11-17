@@ -91,7 +91,7 @@ try {
         readState.set(String(payload.notificationId), payload.action === 'unread');
       }
       if (payload.action === 'read-all') {
-        for (const id of payload.notificationIds || []) readState.set(String(id), false);
+        for (const item of [...firstPage, ...olderPage]) readState.set(String(item.id), false);
       }
       await route.fulfill({
         status: 200,
@@ -102,7 +102,8 @@ try {
           action: payload.action,
           id: payload.notificationId || null,
           readAt: payload.action === 'unread' ? null : new Date().toISOString(),
-          updatedCount: (payload.notificationIds || []).length,
+          updatedCount: payload.action === 'read-all' ? firstPage.length + olderPage.length : 0,
+          complete: true,
         }),
       });
     });
@@ -177,9 +178,10 @@ try {
     await page.waitForFunction(() => document.getElementById('v34-inbox-unread-count')?.textContent === '0');
     const readAll = requests.find(item => item.method === 'POST' && item.payload?.action === 'read-all');
     assert.ok(readAll, '[' + target.name + '] Mark all read must call the server bulk action.');
-    assert.deepEqual(new Set(readAll.payload.notificationIds), new Set([
-      'inbox-product-1', 'inbox-account-1', 'inbox-security-1',
-    ]), '[' + target.name + '] Mark all read must include all loaded notification IDs.');
+    assert.equal(readAll.payload.action, 'read-all',
+      '[' + target.name + '] Mark all read must request the server-wide published Inbox action.');
+    assert.equal(Object.prototype.hasOwnProperty.call(readAll.payload, 'notificationIds'), false,
+      '[' + target.name + '] Mark all read must not be limited to the currently loaded page.');
 
     await page.locator('#ovyx-inbox-search').fill('security notice');
     assert.equal(await page.locator('.v34-inbox-item').count(), 1,
