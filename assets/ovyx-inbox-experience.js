@@ -383,7 +383,7 @@
         const read = make('button', '', item.unread ? 'Mark read' : 'Mark unread');
         read.type = 'button';
         read.dataset.inboxRead = '1';
-        read.addEventListener('click', () => void setReadState(item, item.unread));
+        read.addEventListener('click', () => void setReadState(item, !item.unread));
         actions.appendChild(read);
         row.append(icon, content, actions);
         list.appendChild(row);
