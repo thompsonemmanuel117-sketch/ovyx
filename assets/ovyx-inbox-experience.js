@@ -581,6 +581,8 @@
     const legacy = window.OVYXNotifications;
     if (!legacy || legacy.__ovyxServerInboxBridge) return;
     legacy.__ovyxServerInboxBridge = true;
+    try { legacy.unsub?.(); } catch (_) {}
+    legacy.unsub = null;
     legacy.subscribe = () => {
       if (isInboxRoute()) void refresh(true);
     };
