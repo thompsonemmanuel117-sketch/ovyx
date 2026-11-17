@@ -331,12 +331,21 @@
     updateBadges();
     setStatus('Marking notifications as read…');
     try {
-      const result = await api(API, 'POST', { action: 'read-all' });
-      items.forEach(item => { item.unread = false; item.readAt = result.readAt || new Date().toISOString(); });
+      let pageToken = null;
+      let updatedCount = 0;
+      let complete = false;
+      do {
+        const result = await api(API, 'POST', { action: 'read-all', pageToken });
+        updatedCount += Number(result.updatedCount || 0);
+        pageToken = result.nextPageToken || null;
+        complete = result.complete !== false;
+        if (pageToken) setStatus('Marking older notifications as read… ' + updatedCount + ' processed.');
+      } while (pageToken);
+      items.forEach(item => { item.unread = false; item.readAt = new Date().toISOString(); });
       render();
-      setStatus(result.complete === false
-        ? 'The latest notifications are marked as read. Some older history remains.'
-        : 'All notifications are marked as read.');
+      setStatus(complete
+        ? 'All notifications are marked as read.'
+        : 'Some older notifications could not be reached. Try again.');
     } catch (error) {
       setStatus(error.message || 'Notifications could not be marked as read. Try again.');
     } finally {
