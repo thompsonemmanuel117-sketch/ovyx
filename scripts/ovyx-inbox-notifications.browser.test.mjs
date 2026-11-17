@@ -118,6 +118,7 @@ try {
         vapidPublicKey: null,
         reason: 'Phone alerts are not configured for this test deployment.',
         activeDeviceCount: 0,
+        deviceSubscribed: false,
       }),
     }));
 
