@@ -138,7 +138,11 @@ try {
       { timeout: 60000 },
     );
 
-    await page.evaluate(() => window.Router.go('inbox'));
+    if (target.isMobile) await page.evaluate(() => window.MobileDrawer?.open?.());
+    const inboxNavigation = page.locator('button.ovyx-account-link').filter({ hasText: 'Inbox' });
+    assert.equal(await inboxNavigation.count(), 1,
+      '[' + target.name + '] the existing sidebar must expose exactly one Inbox destination.');
+    await inboxNavigation.click();
     await page.waitForFunction(() =>
       window.KernelState?.activeView === 'inbox'
       && !document.getElementById('view-inbox')?.classList.contains('hidden'),
