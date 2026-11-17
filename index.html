@@ -468,7 +468,7 @@
 <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-5">
 <div><div class="ovyx-nav-label px-2">MAIN</div><div class="space-y-1">
 <button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="home" onclick="Router.go('home')"><i class="fa-regular fa-compass"></i><span>Home<small>Overview &amp; quick actions</small></span></button>
-<button class="ovyx-mobile-nav-item spring-btn" onclick="ProjectStore.createPromptModal(); MobileDrawer.close()"><i class="fa-solid fa-plus text-brand-gold"></i><span>New Project<small>Start from an idea</small></span></button>
+
 <button class="ovyx-mobile-nav-item spring-btn" onclick="continueOvyxProject(); MobileDrawer.close()"><i class="fa-solid fa-arrow-turn-up rotate-90"></i><span>Continue Project<small>Return to active work</small></span></button>
 <button class="ovyx-mobile-nav-item spring-btn" onclick="Router.go('home'); MobileDrawer.close(); setTimeout(()=&gt;document.getElementById('home-recent-anchor')?.scrollIntoView({behavior:'smooth'}),80)"><i class="fa-regular fa-clock"></i><span>Recent Projects<small>Latest workspace activity</small></span></button>
 </div></div>
