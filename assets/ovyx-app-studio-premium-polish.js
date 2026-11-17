@@ -385,19 +385,18 @@
       workbench = el('section', 'ovyx-as-workbench');
       workbench.id = 'ovyx-app-studio-workbench';
       workbench.innerHTML =
-        '<header class="ovyx-as-workbench__header"><div><p class="ovyx-as-kicker">THE WORKBENCH</p><h2>Your app, from first scan to launch.</h2><p>One clear path. Every tool stays connected.</p></div><span class="ovyx-as-workbench__live"><i></i> Workspace</span></header>' +
         '<div class="ovyx-as-workbench__grid">' +
           '<div class="ovyx-as-workbench__primary">' +
-            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="analyze"><header><span>01</span><div><h3>Analyze your website</h3><p>Start with a link to your website.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
-            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="build"><header><span>02</span><div><h3>Build your app</h3><p>Generate, preview and shape your app.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="analyze"><div class="ovyx-as-workbench__body"></div></section>' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="build"><div class="ovyx-as-workbench__body"></div></section>' +
           '</div>' +
           '<aside class="ovyx-as-workbench__secondary">' +
-            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="verify"><header><span>03</span><div><h3>Check your app</h3><p>Review quality and live behaviour.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
-            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="release"><header><span>04</span><div><h3>Prepare to launch</h3><p>Save, export or publish when ready.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="verify"><div class="ovyx-as-workbench__body"></div></section>' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="release"><div class="ovyx-as-workbench__body"></div></section>' +
           '</aside>' +
         '</div>' +
         '<div class="ovyx-as-workbench__advanced" data-ovyx-as-advanced><p class="ovyx-as-kicker">MORE TOOLS</p><div class="ovyx-as-workbench__advanced-grid"></div></div>';
-      const anchor = root.querySelector('#' + HERO_ID) || root.querySelector('#' + DOCK_ID) || root.firstElementChild;
+      const anchor = root.querySelector('#' + DOCK_ID) || root.firstElementChild;
       if (anchor && anchor.parentNode === root) anchor.insertAdjacentElement('afterend', workbench);
       else root.insertBefore(workbench, root.firstChild);
     }
@@ -442,6 +441,7 @@
       '#view-appstudio .ovyx-as-workbench__primary,#view-appstudio .ovyx-as-workbench__secondary{display:grid;align-content:start;gap:14px;min-width:0}',
       '#view-appstudio .ovyx-as-workbench__stage{min-width:0;overflow:visible;pointer-events:auto;touch-action:pan-y pinch-zoom;padding:clamp(13px,1.8vw,19px);border:1px solid var(--as-border,rgba(255,255,255,.11));border-radius:17px;background:linear-gradient(150deg,color-mix(in srgb,var(--as-surface,#11161f) 96%,white 4%),var(--as-surface,#11161f));box-shadow:0 12px 30px rgba(0,0,0,.13)}',
       '#view-appstudio .ovyx-as-workbench__stage[hidden],#view-appstudio .ovyx-as-workbench__advanced[hidden]{display:none!important}',
+      '#view-appstudio .ovyx-as-workbench__header{display:none!important}#view-appstudio .ovyx-as-workbench__stage{padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}#view-appstudio .ovyx-as-workbench__stage>header{display:none!important}',
       '#view-appstudio .ovyx-as-workbench__stage>header{display:flex;align-items:center;gap:11px;margin:0 0 13px;padding:0 0 12px;border-bottom:1px solid var(--as-border,rgba(255,255,255,.1))}',
       '#view-appstudio .ovyx-as-workbench__stage>header>span{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;border:1px solid rgba(194,163,107,.38);border-radius:9px;background:rgba(194,163,107,.09);color:#d8bd83;font:750 10px/1 ui-monospace,monospace}',
       '#view-appstudio .ovyx-as-workbench__stage h3{margin:0;color:var(--as-text,#f4f6f8);font-size:14px;font-weight:730;letter-spacing:-.02em}',
@@ -474,9 +474,10 @@
     const root = document.querySelector(ROOT);
     if (!root || !root.isConnected) return;
     root.classList.add('ovyx-as-visual-redesign');
-    if (!document.getElementById(HERO_ID)) {
-      root.insertBefore(buildHero(), root.firstElementChild);
-    }
+    // The App Studio workbench is the entry point. Do not recreate the old
+    // promotional hero/step navigator on refresh or after DOM mutations.
+    const obsoleteHero = document.getElementById(HERO_ID);
+    if (obsoleteHero) obsoleteHero.remove();
     wrapIdentity(root);
     wrapLegacyConversion(root);
     enhanceStages(root);
