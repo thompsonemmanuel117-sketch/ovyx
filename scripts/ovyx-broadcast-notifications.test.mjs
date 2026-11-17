@@ -35,6 +35,7 @@ assert.match(inbox, /unreadCount: notifications\.filter\(item => item\.unread\)\
 assert.match(inbox, /notificationState/);
 assert.match(inbox, /enforceSameOrigin/);
 assert.match(inbox, /action === 'read-all'/);
+assert.match(inbox, /updatedCount, complete: !pageToken/);
 assert.match(inbox, /action === 'unread'/);
 assert.match(inbox, /nextPageToken: page\.nextPageToken/);
 assert.match(inbox, /createdAt desc, __name__ desc/);
@@ -84,7 +85,7 @@ assert.match(middleware, /ovyx-account-notifications\.js\?v=20261114-1/);
 assert.match(middleware, /ovyx-inbox-experience\.js\?v=20261118-1/);
 assert.match(inboxClient, /\/api\/notifications/);
 assert.doesNotMatch(inboxClient, /firebase\.firestore/);
-assert.match(inboxClient, /notificationIds: items\.map/);
+assert.match(inboxClient, /action: 'read-all'/);
 assert.match(inboxClient, /data-inbox-filter/);
 assert.match(inboxClient, /ovyx-inbox-search/);
 assert.match(inboxClient, /setReadState\(item, !item\.unread\)/);
