@@ -330,10 +330,12 @@
     updateBadges();
     setStatus('Marking notifications as read…');
     try {
-      const result = await api(API, 'POST', { action: 'read-all', notificationIds: items.map(item => String(item.id || '')).filter(Boolean) });
+      const result = await api(API, 'POST', { action: 'read-all' });
       items.forEach(item => { item.unread = false; item.readAt = result.readAt || new Date().toISOString(); });
       render();
-      setStatus('All loaded notifications are marked as read.');
+      setStatus(result.complete === false
+        ? 'The latest notifications are marked as read. Some older history remains.'
+        : 'All notifications are marked as read.');
     } catch (error) {
       setStatus(error.message || 'Notifications could not be marked as read. Try again.');
     } finally {
