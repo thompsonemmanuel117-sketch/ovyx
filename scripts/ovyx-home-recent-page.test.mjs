@@ -7,6 +7,59 @@ const middleware = await readFile(new URL('../functions/_middleware.js', import.
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
 assert.doesNotThrow(() => new vm.Script(source), 'Dashboard navigation runtime must parse.');
+
+const listeners = {};
+let removedTools = 0;
+let destination = '';
+const heading = { textContent: '' };
+const eyebrow = { textContent: '' };
+const viewAll = {
+  textContent: '',
+  attributes: {},
+  removeAttribute(name) { delete this.attributes[name]; },
+  setAttribute(name, value) { this.attributes[name] = value; }
+};
+const bell = { style: { setProperty() {} } };
+const inboxRoot = { setAttribute() {} };
+const toolsSection = { remove() { removedTools += 1; } };
+const document = {
+  readyState: 'complete',
+  querySelector(selector) {
+    return ({
+      '#view-home .v59-workspace-section': toolsSection,
+      '#home-recent-anchor .v59-section-head h2': heading,
+      '#home-recent-anchor .v59-section-head .v59-eyebrow': eyebrow,
+      '#home-recent-anchor .v59-section-head button': viewAll
+    })[selector] || null;
+  },
+  querySelectorAll() { return []; },
+  getElementById(id) {
+    return id === 'ovyx-account-notifications-root' ? inboxRoot
+      : id === 'ovyx-notification-bell' ? bell : null;
+  },
+  addEventListener(type, listener) { (listeners[type] ||= []).push(listener); }
+};
+const window = {
+  KernelState: { activeView: 'home' },
+  Router: { go(route) { destination = route; } },
+  addEventListener(type, listener) { (listeners['window:' + type] ||= []).push(listener); }
+};
+vm.runInNewContext(source, { window, document });
+assert.equal(removedTools, 1, 'The Start tools section must be removed from the Home dashboard.');
+assert.equal(heading.textContent, 'Recent projects');
+assert.equal(eyebrow.textContent, 'PROJECTS');
+assert.equal(viewAll.attributes['data-ovyx-open-projects'], 'true');
+assert.equal(viewAll.attributes['aria-label'], 'View all projects');
+assert.equal(viewAll.attributes.onclick, undefined, 'The old inline action must not trigger a second route.');
+for (const handler of listeners.click || []) {
+  handler({
+    target: { closest: selector => selector === '[data-ovyx-open-projects]' ? viewAll : null },
+    preventDefault() {},
+    stopImmediatePropagation() {}
+  });
+}
+assert.equal(destination, 'projects', 'View all must navigate directly to the main Projects library.');
+assert.equal(typeof window.OVYXRecentWebsitesPage.open, 'function');
 assert.match(source, /#view-home \.v59-workspace-section/,
   'The dashboard Start tools section must be removed from the overview.');
 assert.match(source, /data-ovyx-open-projects/,
