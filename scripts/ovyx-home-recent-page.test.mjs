@@ -77,8 +77,8 @@ assert.match(source, /setProperty\('visibility', isHome\(\) \? 'hidden' : ''/,
   'Only the floating notification trigger should be hidden on Home.');
 assert.match(source, /setProperty\('pointer-events', isHome\(\) \? 'none' : ''/);
 assert.match(source, /data-ovyx-home-hidden/);
-assert.match(source, /Recent projects/);
-assert.match(source, /PROJECTS/);
+assert.match(source, /Recent websites/);
+assert.match(source, /RECENT/);
 assert.match(source, /node\.textContent !== value/,
   'Navigation text updates must avoid redundant DOM writes.');
 assert.doesNotMatch(source, /observer\.observe\(document\.body/,
