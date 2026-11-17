@@ -182,6 +182,17 @@ try {
     // The isolated fixture is intentionally compact; give the App Studio surface
     // realistic page height so this assertion tests document scrolling, not fixture length.
     const appStudio = document.getElementById('view-appstudio');
+    const viewport = document.getElementById('view-router-viewport');
+    // The real app shell can position the route viewport; this isolated page-scroll
+    // probe must model the document-owned scrolling contract explicitly.
+    viewport.style.position = 'static';
+    viewport.style.display = 'block';
+    viewport.style.height = 'auto';
+    viewport.style.minHeight = '0';
+    viewport.style.maxHeight = 'none';
+    viewport.style.overflow = 'visible';
+    appStudio.style.position = 'relative';
+    appStudio.style.height = 'auto';
     appStudio.style.minHeight = (window.innerHeight + 240) + 'px';
     window.scrollTo(0, document.documentElement.scrollHeight);
     return { scrollY: window.scrollY, maxScroll: document.documentElement.scrollHeight - window.innerHeight };
