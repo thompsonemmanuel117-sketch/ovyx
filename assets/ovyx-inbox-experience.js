@@ -252,7 +252,7 @@
       const category = clean(item.category || 'product', 40).toLowerCase();
       if (filter === 'unread' && !item.unread) return false;
       if (filter === 'product' && category !== 'product') return false;
-      if (filter === 'account' && !['account', 'security'].includes(category)) return false;
+      if (filter === 'account' && category !== 'account') return false;
       if (filter === 'security' && category !== 'security') return false;
       if (filter === 'maintenance' && category !== 'maintenance') return false;
       if (search) {
