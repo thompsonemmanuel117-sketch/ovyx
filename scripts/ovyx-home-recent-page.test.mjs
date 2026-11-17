@@ -40,8 +40,8 @@ assert.match(html, /id="projects-search"/,
 assert.match(html, /id="home-projects-grid"/,
   'The compact dashboard recent-project preview must remain.');
 
-assert.doesNotMatch(middleware, /ovyx-home-recent-page\.js/,
-  'The retired Recent page runtime must not be injected.');
+assert.match(middleware, /ovyx-home-recent-page\.js\?v=20261117-1/,
+  'The dashboard declutter runtime must load with a fresh cache version.');
 assert.doesNotMatch(middleware, /ovyx-home-recent-page\.css/,
   'The retired Recent page stylesheet must not be injected.');
 assert.match(middleware, /ovyx-home-recent-website-gallery\.js/,
