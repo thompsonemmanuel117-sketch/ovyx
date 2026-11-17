@@ -533,10 +533,17 @@
         deviceSubscribed = false;
         setPushStatus('Phone alerts are disabled on this device.');
       } else if (browserSubscription) {
-        await browserSubscription.unsubscribe();
-        browserSubscription = null;
-        deviceSubscribed = false;
-        setPushStatus('The old browser subscription was removed.');
+        const existingConfig = await api(PUSH_API);
+        if (existingConfig.pushConfigured === true && existingConfig.vapidPublicKey) {
+          await api(PUSH_API, 'POST', { action: 'subscribe', subscription: browserSubscription.toJSON() });
+          deviceSubscribed = true;
+          setPushStatus('Phone alerts are now linked to this account on this device.');
+        } else {
+          await browserSubscription.unsubscribe();
+          browserSubscription = null;
+          deviceSubscribed = false;
+          setPushStatus('The old browser subscription was removed.');
+        }
       } else {
         if (isIOSInstalledAppRequired()) throw new Error('Add OVYX to your Home Screen and open the installed app before enabling phone alerts.');
         const config = await api(PUSH_API);
