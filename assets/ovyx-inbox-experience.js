@@ -645,6 +645,7 @@
     const uid = String(account?.uid || '');
     if (uid !== activeUid) {
       activeUid = uid;
+      deviceSubscribed = false;
       items = [];
       nextPageToken = null;
       loadError = '';
