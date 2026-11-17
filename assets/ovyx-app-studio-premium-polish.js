@@ -4,7 +4,6 @@
   window.__OVYX_APP_STUDIO_PREMIUM_POLISH_V1__ = true;
 
   const ROOT = '#view-appstudio';
-  const HERO_ID = 'ovyx-app-studio-experience';
   const IDENTITY_ID = 'ovyx-as-identity-details';
   const LEGACY_ID = 'ovyx-as-existing-conversion';
   const DOCK_ID = 'ovyx-app-studio-workspace-dock';
@@ -111,39 +110,6 @@
     if (!button) return;
     const identity = document.getElementById(IDENTITY_ID);
     if (identity) identity.open = true;
-  }
-
-  function handleStepClick(event) {
-    const anchor = event.target && event.target.closest && event.target.closest('[data-ovyx-as-step]');
-    if (!anchor) return;
-    event.preventDefault();
-    const name = anchor.dataset.ovyxAsStep;
-    const map = {
-      analyze: '#ovyx-app-studio-url-analyzer-panel',
-      generate: '#ovyx-app-studio-link-builder',
-      verify: '#ovyx-app-studio-project-brain',
-      release: '#ovyx-app-studio-release'
-    };
-    let target = document.querySelector(map[name] || '');
-    if (!target || (name === 'generate' && !window.__OVYX_APP_STUDIO_GENERATED_PROJECT__ && !window.__OVYX_URL_ANALYZER_LAST_REPORT__)) {
-      target = document.querySelector('#ovyx-app-studio-url-analyzer-panel [data-ua-url]');
-      if (target && name !== 'analyze') {
-        const helper = $(document.getElementById(HERO_ID), '[data-ovyx-as-helper]');
-        if (helper) helper.textContent = name === 'generate'
-          ? 'Analyze a website first. The app generator becomes available after a successful analysis.'
-          : 'Complete the current step to continue. The next step becomes available when it is ready.';
-      }
-    }
-    if (!target) return;
-    const behavior = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
-    const disclosure = target.closest('details');
-    if (disclosure) disclosure.open = true;
-    if (target.matches('input')) {
-      target.scrollIntoView({ behavior, block: 'center' });
-      target.focus({ preventScroll: true });
-    } else {
-      target.scrollIntoView({ behavior, block: 'start' });
-    }
   }
 
   function addStyles() {
@@ -338,12 +304,8 @@
     const root = document.querySelector(ROOT);
     if (!root || !root.isConnected) return;
     root.classList.add('ovyx-as-visual-redesign');
-    if (!document.getElementById(HERO_ID)) {
-      root.insertBefore(buildHero(), root.firstElementChild);
-    }
     wrapIdentity(root);
     wrapLegacyConversion(root);
-    enhanceStages(root);
     refinePanelCopy(root);
     groupAnalyzerDetails(root);
     const findings = document.querySelector('#ovyx-app-studio-project-brain .ovyx-lb-brain-findings');
@@ -355,7 +317,6 @@
     addWorkbenchStyles();
     composeWorkbench(root);
     addWorkbenchLayoutStyles();
-    refreshFlow();
   }
 
   function queuePolish() {
@@ -372,7 +333,6 @@
     polish();
     observer = new MutationObserver(queuePolish);
     observer.observe(document.body, { childList: true, subtree: true });
-    document.addEventListener('click', handleStepClick);
     document.addEventListener('click', handlePaletteDisclosure, true);
     window.addEventListener('ovyx:url-analyzer-report-ready', queuePolish);
     window.addEventListener('ovyx:active-web-payload-ready', event => {
