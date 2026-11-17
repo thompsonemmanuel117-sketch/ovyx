@@ -35,7 +35,8 @@ assert.match(inbox, /unreadCount: notifications\.filter\(item => item\.unread\)\
 assert.match(inbox, /notificationState/);
 assert.match(inbox, /enforceSameOrigin/);
 assert.match(inbox, /action === 'read-all'/);
-assert.match(inbox, /updatedCount, complete: !pageToken/);
+assert.match(inbox, /const pageToken = clean\(body\?\.pageToken, 4000\)/);
+assert.match(inbox, /complete: !nextPageToken, nextPageToken/);
 assert.match(inbox, /action === 'unread'/);
 assert.match(inbox, /nextPageToken: page\.nextPageToken/);
 assert.match(inbox, /createdAt desc, __name__ desc/);
