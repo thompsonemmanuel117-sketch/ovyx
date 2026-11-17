@@ -199,8 +199,9 @@ try {
   desktop.on('pageerror', error => errors.push(error.message));
   desktop.on('dialog', dialog => dialog.accept());
   await desktop.goto(base, { waitUntil: 'load' });
-  await desktop.locator('#ovyx-as-title').waitFor();
-  assert.equal(await desktop.locator('[data-ovyx-as-step]').count(), 4, 'The premium guided flow must be mounted in the real Stage 3–6 test fixture.');
+  await desktop.locator('#ovyx-app-studio-url-analyzer-panel').waitFor({ state: 'attached' });
+  assert.equal(await desktop.locator('#ovyx-as-title').count(), 0, 'The removed promotional App Studio hero must stay absent.');
+  assert.equal(await desktop.locator('[data-ovyx-as-step]').count(), 0, 'The removed numbered promotional workflow must stay absent.');
   assert.equal(await desktop.locator('#ovyx-as-identity-details').evaluate(el => el.open), false, 'The large Brand DNA editor should be collapsed by default.');
   assert.equal(await desktop.locator('#ovyx-as-existing-conversion').evaluate(el => el.open), false, 'The distinct legacy Web Studio conversion route should remain available but not compete with the link-based flow.');
   await desktop.locator('#ovyx-app-studio-url-analyzer-panel').waitFor();
