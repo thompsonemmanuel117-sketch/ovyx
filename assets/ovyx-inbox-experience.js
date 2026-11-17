@@ -161,6 +161,13 @@
         button.type = 'button';
         button.dataset.inboxFilter = key;
         toolbar.insertBefore(button, $('#ovyx-inbox-search', toolbar));
+      } else if (key === 'unread') {
+        let count = $('#v34-inbox-unread-count', button);
+        if (!count) {
+          count = make('span', '', '0');
+          count.id = 'v34-inbox-unread-count';
+        }
+        button.replaceChildren(document.createTextNode('Unread '), count);
       } else {
         button.textContent = label;
       }
