@@ -185,17 +185,39 @@ try {
     const viewport = document.getElementById('view-router-viewport');
     // The real app shell can position the route viewport; this isolated page-scroll
     // probe must model the document-owned scrolling contract explicitly.
+    const html = document.documentElement;
+    const body = document.body;
+    // Remove the app-shell viewport constraints from this isolated document fixture.
+    // The product contract under test is document scrolling, not shell scroll ownership.
+    html.style.height = 'auto';
+    html.style.minHeight = '0';
+    html.style.overflowY = 'auto';
+    body.style.display = 'block';
+    body.style.position = 'static';
+    body.style.height = 'auto';
+    body.style.minHeight = '0';
+    body.style.overflowY = 'visible';
     viewport.style.position = 'static';
     viewport.style.display = 'block';
     viewport.style.height = 'auto';
     viewport.style.minHeight = '0';
     viewport.style.maxHeight = 'none';
     viewport.style.overflow = 'visible';
-    appStudio.style.position = 'relative';
+    appStudio.style.display = 'flex';
+    appStudio.style.position = 'static';
     appStudio.style.height = 'auto';
     appStudio.style.minHeight = (window.innerHeight + 240) + 'px';
-    window.scrollTo(0, document.documentElement.scrollHeight);
-    return { scrollY: window.scrollY, maxScroll: document.documentElement.scrollHeight - window.innerHeight };
+    // Force layout before measuring/scrolling so Chromium commits the new document height.
+    const documentHeight = Math.max(html.scrollHeight, body.scrollHeight, body.getBoundingClientRect().bottom);
+    window.scrollTo(0, documentHeight);
+    return {
+      scrollY: window.scrollY,
+      maxScroll: Math.max(html.scrollHeight, body.scrollHeight) - window.innerHeight,
+      documentHeight,
+      htmlOverflowY: getComputedStyle(html).overflowY,
+      bodyOverflowY: getComputedStyle(body).overflowY,
+      appStudioHeight: appStudio.getBoundingClientRect().height
+    };
   });
   assert.ok(scrollProbe.maxScroll > 0 && scrollProbe.scrollY > 0, 'The full App Studio page must scroll through the document instead of trapping movement inside a panel: ' + JSON.stringify(scrollProbe));
   await desktop.evaluate(() => window.scrollTo(0, 0));
