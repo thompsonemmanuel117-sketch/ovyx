@@ -241,11 +241,25 @@ try {
   await mobile.locator('#ovyx-as-title').waitFor();
   const metrics = await mobile.evaluate(() => {
     const root = document.getElementById('view-appstudio');
+    const workbench = document.getElementById('ovyx-app-studio-workbench');
+    const heading = workbench?.querySelector('.ovyx-as-workbench__header');
+    const title = heading?.querySelector('h2');
+    const live = heading?.querySelector('.ovyx-as-workbench__live');
+    const grid = workbench?.querySelector('.ovyx-as-workbench__grid');
+    const headingRect = heading?.getBoundingClientRect();
+    const titleRect = title?.getBoundingClientRect();
+    const liveRect = live?.getBoundingClientRect();
+    const gridRect = grid?.getBoundingClientRect();
     return {
       viewport: document.documentElement.clientWidth,
       documentWidth: document.documentElement.scrollWidth,
       appWidth: root.clientWidth,
       appScrollWidth: root.scrollWidth,
+      headingBottom: headingRect?.bottom || 0,
+      titleBottom: titleRect?.bottom || 0,
+      liveTop: liveRect?.top || 0,
+      liveBottom: liveRect?.bottom || 0,
+      gridTop: gridRect?.top || 0,
       overflowingChildren: Array.from(root.children).map(child => ({
         id: child.id || '',
         className: String(child.className || '').slice(0, 120),
@@ -265,6 +279,12 @@ try {
   });
   assert.ok(metrics.appWidth > 0 && metrics.documentWidth <= metrics.viewport + 1 && metrics.appScrollWidth <= metrics.appWidth + 1,
     'The premium App Studio layout must not create mobile horizontal overflow: ' + JSON.stringify(metrics));
+  assert.ok(metrics.titleBottom <= metrics.headingBottom + 1,
+    'The mobile workbench heading must fit inside its own header instead of being clipped by the first stage: ' + JSON.stringify(metrics));
+  assert.ok(metrics.liveTop >= metrics.titleBottom - 1,
+    'The mobile Workspace badge must sit below the heading without covering it: ' + JSON.stringify(metrics));
+  assert.ok(metrics.gridTop >= metrics.headingBottom + 8,
+    'The first stage must have clear separation from the complete workbench heading: ' + JSON.stringify(metrics));
   const mobileShell = await mobile.evaluate(() => {
     const dock = document.getElementById('ovyx-v52-bottom-bar');
     const shell = document.querySelector('#view-home .v59-dashboard-shell');
