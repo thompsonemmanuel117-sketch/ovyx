@@ -19,37 +19,6 @@
     return element;
   };
 
-  function buildHero() {
-    const hero = el('section', 'ovyx-as-hero');
-    hero.id = HERO_ID;
-    hero.setAttribute('aria-labelledby', 'ovyx-as-title');
-    hero.innerHTML =
-      '<div class="ovyx-as-hero__top">' +
-        '<div class="ovyx-as-hero__copy">' +
-          '<p class="ovyx-as-kicker">OVYX · APP STUDIO</p>' +
-          '<h1 id="ovyx-as-title">From website to working app.</h1>' +
-          '<p class="ovyx-as-hero__desc">Inspect a website, create a tailored app, verify key interactions, and prepare it for release.</p>' +
-        '</div>' +
-        '<div class="ovyx-as-hero__mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>' +
-      '</div>' +
-      '<nav class="ovyx-as-flow" aria-label="App build steps">' +
-        '<a href="#ovyx-app-studio-url-analyzer-panel" data-ovyx-as-step="analyze">' +
-          '<span class="ovyx-as-flow__number">01</span><span class="ovyx-as-flow__copy"><b>Analyze</b><small>Inspect a public URL</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Start here</span>' +
-        '</a>' +
-        '<a href="#ovyx-app-studio-link-builder" data-ovyx-as-step="generate">' +
-          '<span class="ovyx-as-flow__number">02</span><span class="ovyx-as-flow__copy"><b>Build</b><small>Create your app</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Next</span>' +
-        '</a>' +
-        '<a href="#ovyx-app-studio-project-brain" data-ovyx-as-step="verify">' +
-          '<span class="ovyx-as-flow__number">03</span><span class="ovyx-as-flow__copy"><b>Verify</b><small>Test real behaviour</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Next</span>' +
-        '</a>' +
-        '<a href="#ovyx-app-studio-release" data-ovyx-as-step="release">' +
-          '<span class="ovyx-as-flow__number">04</span><span class="ovyx-as-flow__copy"><b>Release</b><small>Save, export or publish</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Next</span>' +
-        '</a>' +
-      '</nav>' +
-      '<p class="ovyx-as-hero__helper" data-ovyx-as-helper aria-live="polite">Start with a public website URL. Advanced options stay tucked away until you need them.</p>';
-    return hero;
-  }
-
   function wrapIdentity(root) {
     const panel = document.getElementById('ovyx-app-studio-brand-dna-panel');
     if (!panel || !root.contains(panel) || panel.closest('#' + IDENTITY_ID)) return;
@@ -137,72 +106,6 @@
     });
   }
 
-  function setStepState(anchor, state, message) {
-    if (anchor.dataset.ovyxAsState === state) return;
-    anchor.dataset.ovyxAsState = state;
-    anchor.classList.toggle('is-complete', state === 'complete');
-    anchor.classList.toggle('is-current', state === 'current');
-    anchor.classList.toggle('is-pending', state === 'pending');
-    const label = $(anchor, '[data-ovyx-as-step-state]');
-    if (label && label.textContent !== message) label.textContent = message;
-  }
-
-  function refreshFlow() {
-    const hero = document.getElementById(HERO_ID);
-    if (!hero) return;
-    const steps = [...hero.querySelectorAll('[data-ovyx-as-step]')];
-    const report = !!window.__OVYX_URL_ANALYZER_LAST_REPORT__;
-    const project = !!window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
-    const brain = window.__OVYX_PROJECT_BRAIN_REPORT__;
-    const verified = !!(brain && brain.summary && brain.summary.runtimeChecked);
-    const artifact = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
-    const releaseState = artifact?.releaseState || {};
-    const production = releaseState.web?.production;
-    const productionIsLive = !!(production && production.action === 'publish' &&
-      ['active', 'success', 'deployed', 'completed'].includes(String(production.status || '').toLowerCase()));
-    const mobile = releaseState.mobile;
-    const mobileHasArtifact = Object.values(mobile?.artifacts || {}).some(item => !!(item && (item.downloadUrl || item.url)));
-    const mobileCompleted = mobile?.status === 'completed' && mobileHasArtifact;
-    const projectSaved = artifact?.savedToProjects === true;
-    const latestWebRecord = releaseState.web?.[releaseState.latestWebKey] || null;
-    const previewDeployed = !!(latestWebRecord && latestWebRecord.environment !== 'production' &&
-      ['active', 'success', 'deployed', 'completed'].includes(String(latestWebRecord.status || '').toLowerCase()));
-    const released = productionIsLive || mobileCompleted;
-    const states = [
-      report ? 'complete' : 'current',
-      project ? 'complete' : report ? 'current' : 'pending',
-      verified ? (brain.status === 'failed' || brain.status === 'needs-attention' ? 'current' : 'complete') : project ? 'current' : 'pending',
-      released ? 'complete' : (projectSaved || previewDeployed || (verified && brain.status !== 'failed')) ? 'current' : 'pending'
-    ];
-    const messages = [
-      states[0] === 'complete' ? 'Done' : 'Start here',
-      states[1] === 'complete' ? 'Done' : report ? 'Build next' : 'Next',
-      states[2] === 'complete' ? 'Done' : verified ? 'Review findings' : project ? 'Check now' : 'Next',
-      released ? (mobileCompleted && !productionIsLive ? 'Build ready' : 'Published') : productionIsLive ? 'Published' : previewDeployed ? 'Preview ready · publish when ready' : projectSaved ? 'Saved · ready for release' : verified && brain.status !== 'failed' ? 'Ready to continue' : 'Next'
-    ];
-    steps.forEach((anchor, index) => setStepState(anchor, states[index], messages[index]));
-    const helper = $(hero, '[data-ovyx-as-helper]');
-    if (!helper) return;
-    let copy = !report
-      ? 'Start with a public website URL. Advanced options stay tucked away until you need them.'
-      : !project
-        ? 'Website analysis is complete. Use the findings below to create your app.'
-        : !verified
-          ? 'Your app preview is ready. Quality checks are reviewing its source and visible controls.'
-          : (brain.status === 'failed' || brain.status === 'needs-attention')
-            ? 'Quality checks found items to review. Review the details before publishing.'
-            : productionIsLive
-              ? 'Production publish is recorded. Use Release Health to confirm the public site is reachable.'
-              : mobileCompleted
-                ? 'A mobile build artifact was returned. Review its download/details and verify it before distribution.'
-                : previewDeployed
-                  ? 'A preview deployment is live. Publish production only after reviewing the preview and release health.'
-                  : projectSaved
-                    ? 'Your app is saved in OVYX Projects. Export it or create a preview deployment when you are ready.'
-                    : 'Checks are complete. Save your app, export it, or deploy a preview when you are ready.';
-    if (helper.textContent !== copy) helper.textContent = copy;
-  }
-
   function handlePaletteDisclosure(event) {
     const button = event.target && event.target.closest && event.target.closest('.ovyx-ua-secondary');
     if (!button) return;
@@ -285,44 +188,6 @@
   }
 
 
-  function enhanceStages(root) {
-    const stages = [
-      { id: 'ovyx-app-studio-url-analyzer-panel', number: '01', label: 'ANALYZE', title: 'Analyze the website', status: () => window.__OVYX_URL_ANALYZER_LAST_REPORT__ ? 'Reviewed' : 'Waiting' },
-      { id: 'ovyx-app-studio-link-builder', number: '02', label: 'BUILD', title: 'Build your app', status: () => window.__OVYX_APP_STUDIO_GENERATED_PROJECT__ ? 'App created' : window.__OVYX_URL_ANALYZER_LAST_REPORT__ ? 'Ready to build' : 'Waiting' },
-      { id: 'ovyx-app-studio-project-brain', number: '03', label: 'QUALITY', title: 'Check app behaviour', status: () => {
-        const report = window.__OVYX_PROJECT_BRAIN_REPORT__;
-        return !report ? 'Not checked' : report.status === 'failed' ? 'Failed checks' : report.status === 'needs-attention' ? 'Review needed' : report.summary?.runtimeChecked ? 'Verified' : 'Source checked';
-      } },
-      { id: 'ovyx-app-studio-release', number: '04', label: 'RELEASE', title: 'Prepare for launch', status: () => {
-        const project = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
-        const state = project?.releaseState || {};
-        const production = state.web?.production;
-        const live = production && production.action === 'publish' && ['active','success','deployed','completed'].includes(String(production.status || '').toLowerCase());
-        return live ? 'Published' : project?.savedToProjects ? 'Saved · ready' : project ? 'Ready when you are' : 'Waiting';
-      } }
-    ];
-    for (const stage of stages) {
-      const panel = document.getElementById(stage.id);
-      if (!panel || !root.contains(panel)) continue;
-      panel.dataset.ovyxAsStage = stage.label.toLowerCase();
-      let meta = panel.querySelector(':scope > .ovyx-as-stage-meta');
-      if (!meta) {
-        meta = el('div', 'ovyx-as-stage-meta');
-        meta.innerHTML = '<span class="ovyx-as-stage-meta__index"></span><span class="ovyx-as-stage-meta__label"></span><span class="ovyx-as-stage-meta__title"></span><span class="ovyx-as-stage-meta__status" role="status" aria-live="polite"></span>';
-        panel.insertBefore(meta, panel.firstChild);
-      }
-      const index = $(meta, '.ovyx-as-stage-meta__index');
-      const label = $(meta, '.ovyx-as-stage-meta__label');
-      const title = $(meta, '.ovyx-as-stage-meta__title');
-      const status = $(meta, '.ovyx-as-stage-meta__status');
-      if (index && index.textContent !== stage.number) index.textContent = stage.number;
-      if (label && label.textContent !== stage.label) label.textContent = stage.label;
-      if (title && title.textContent !== stage.title) title.textContent = stage.title;
-      const nextStatus = stage.status();
-      if (status && status.textContent !== nextStatus) status.textContent = nextStatus;
-    }
-  }
-
   function refinePanelCopy(root) {
     const copy = [
       ['.ovyx-ua-panel .ovyx-ua-muted', 'Enter a public website address. OVYX maps its pages, brand and useful assets.'],
@@ -385,19 +250,18 @@
       workbench = el('section', 'ovyx-as-workbench');
       workbench.id = 'ovyx-app-studio-workbench';
       workbench.innerHTML =
-        '<header class="ovyx-as-workbench__header"><div><p class="ovyx-as-kicker">THE WORKBENCH</p><h2>Your app, from first scan to launch.</h2><p>One clear path. Every tool stays connected.</p></div><span class="ovyx-as-workbench__live"><i></i> Workspace</span></header>' +
         '<div class="ovyx-as-workbench__grid">' +
           '<div class="ovyx-as-workbench__primary">' +
-            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="analyze"><header><span>01</span><div><h3>Analyze your website</h3><p>Start with a link to your website.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
-            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="build"><header><span>02</span><div><h3>Build your app</h3><p>Generate, preview and shape your app.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="analyze"><div class="ovyx-as-workbench__body"></div></section>' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="build"><div class="ovyx-as-workbench__body"></div></section>' +
           '</div>' +
           '<aside class="ovyx-as-workbench__secondary">' +
-            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="verify"><header><span>03</span><div><h3>Check your app</h3><p>Review quality and live behaviour.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
-            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="release"><header><span>04</span><div><h3>Prepare to launch</h3><p>Save, export or publish when ready.</p></div></header><div class="ovyx-as-workbench__body"></div></section>' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="verify"><div class="ovyx-as-workbench__body"></div></section>' +
+            '<section class="ovyx-as-workbench__stage" data-ovyx-as-slot="release"><div class="ovyx-as-workbench__body"></div></section>' +
           '</aside>' +
         '</div>' +
-        '<div class="ovyx-as-workbench__advanced" data-ovyx-as-advanced><p class="ovyx-as-kicker">MORE TOOLS</p><div class="ovyx-as-workbench__advanced-grid"></div></div>';
-      const anchor = root.querySelector('#' + HERO_ID) || root.querySelector('#' + DOCK_ID) || root.firstElementChild;
+        '<div class="ovyx-as-workbench__advanced" data-ovyx-as-advanced><div class="ovyx-as-workbench__advanced-grid"></div></div>';
+      const anchor = root.querySelector('#' + DOCK_ID) || root.firstElementChild;
       if (anchor && anchor.parentNode === root) anchor.insertAdjacentElement('afterend', workbench);
       else root.insertBefore(workbench, root.firstChild);
     }
