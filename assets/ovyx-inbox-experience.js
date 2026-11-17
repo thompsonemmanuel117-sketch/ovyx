@@ -285,6 +285,7 @@
       const target = new URL(value, window.location.origin);
       if (!['https:', 'http:'].includes(target.protocol)) return;
       if (target.origin !== window.location.origin) {
+        if (target.protocol !== 'https:') return;
         window.open(target.href, '_blank', 'noopener,noreferrer');
         return;
       }
