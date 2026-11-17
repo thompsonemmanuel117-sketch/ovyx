@@ -90,6 +90,7 @@ assert.match(inboxClient, /data-inbox-filter/);
 assert.match(inboxClient, /ovyx-inbox-search/);
 assert.match(inboxClient, /setReadState\(item, !item\.unread\)/);
 assert.match(inboxClient, /window\.OVYXNotifications/);
+assert.match(inboxClient, /api\('\/api\/admin\/broadcasts'\)/);
 assert.match(inboxClient, /Notification\.requestPermission/);
 assert.match(inboxClient, /navigator\.serviceWorker\.register\('\/sw\.js'/);
 assert.match(inboxClient, /prefers-reduced-motion/);
