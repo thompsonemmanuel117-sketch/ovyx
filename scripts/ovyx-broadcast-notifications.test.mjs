@@ -107,5 +107,8 @@ assert.deepEqual(Array.from(brandLockupPng.subarray(0, 8)), [137, 80, 78, 71, 13
 assert.match(adminUi, /sendEmail: wantsEmail/);
 assert.match(adminUi, /providerAcceptedCount/);
 assert.match(adminUi, /OVYX broadcast published/);
+assert.match(adminUi, /Users can enable phone alerts from the Inbox/);
+assert.doesNotMatch(adminUi, /from the notification bell/);
+assert.match(client, /full-page Inbox is mounted by ovyx-inbox-experience\.js/);
 
 console.log('OVYX broadcast delivery, server-backed Inbox, read states, preferences, push and PWA notification contracts passed.');
