@@ -246,6 +246,7 @@ try {
     const title = heading?.querySelector('h2');
     const live = heading?.querySelector('.ovyx-as-workbench__live');
     const grid = workbench?.querySelector('.ovyx-as-workbench__grid');
+    const headerStyle = heading ? getComputedStyle(heading) : null;
     const headingRect = heading?.getBoundingClientRect();
     const titleRect = title?.getBoundingClientRect();
     const liveRect = live?.getBoundingClientRect();
@@ -255,6 +256,14 @@ try {
       documentWidth: document.documentElement.scrollWidth,
       appWidth: root.clientWidth,
       appScrollWidth: root.scrollWidth,
+      hasWorkbench: !!workbench,
+      hasHeading: !!heading,
+      hasTitle: !!title,
+      hasWorkspaceBadge: !!live,
+      hasStageGrid: !!grid,
+      headerDisplay: headerStyle?.display || '',
+      headerPosition: headerStyle?.position || '',
+      badgePosition: live ? getComputedStyle(live).position : '',
       headingBottom: headingRect?.bottom || 0,
       titleBottom: titleRect?.bottom || 0,
       liveTop: liveRect?.top || 0,
@@ -279,6 +288,14 @@ try {
   });
   assert.ok(metrics.appWidth > 0 && metrics.documentWidth <= metrics.viewport + 1 && metrics.appScrollWidth <= metrics.appWidth + 1,
     'The premium App Studio layout must not create mobile horizontal overflow: ' + JSON.stringify(metrics));
+  assert.ok(metrics.hasWorkbench && metrics.hasHeading && metrics.hasTitle && metrics.hasWorkspaceBadge && metrics.hasStageGrid,
+    'The mobile workbench geometry test must measure real rendered elements, not pass on missing nodes: ' + JSON.stringify(metrics));
+  assert.equal(metrics.headerDisplay, 'grid',
+    'The mobile workbench header must use its dedicated stacked layout: ' + JSON.stringify(metrics));
+  assert.equal(metrics.headerPosition, 'relative',
+    'The mobile workbench header must stay in normal document flow: ' + JSON.stringify(metrics));
+  assert.equal(metrics.badgePosition, 'static',
+    'The Workspace badge must stay in normal document flow on mobile: ' + JSON.stringify(metrics));
   assert.ok(metrics.titleBottom <= metrics.headingBottom + 1,
     'The mobile workbench heading must fit inside its own header instead of being clipped by the first stage: ' + JSON.stringify(metrics));
   assert.ok(metrics.liveTop >= metrics.titleBottom - 1,
