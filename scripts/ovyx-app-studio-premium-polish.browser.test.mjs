@@ -6,8 +6,8 @@ import { chromium } from 'playwright';
 
 const runtimeSource = await readFile(fileURLToPath(new URL('../assets/ovyx-app-studio-premium-polish.js', import.meta.url)), 'utf8');
 const runtime = runtimeSource.replace(
-  'function enhanceStages(root) {',
-  'function enhanceStages(root) { window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ = (window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ || 0) + 1;'
+  'function composeWorkbench(root) { window.__OVYX_APP_STUDIO_COMPOSE_COUNT__ = (window.__OVYX_APP_STUDIO_COMPOSE_COUNT__ || 0) + 1;',
+  'function enhanceStages(root) { window.__OVYX_APP_STUDIO_COMPOSE_COUNT__ = (window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ || 0) + 1;'
 );
 assert.notEqual(runtime, runtimeSource, 'The stage-enhancement instrumentation point must remain available.');
 const appShellRuntime = await readFile(fileURLToPath(new URL('../assets/ovyx-app-shell-polish.js', import.meta.url)), 'utf8');
@@ -93,7 +93,7 @@ try {
   const errors = [];
   desktop.on('pageerror', error => errors.push(error.message));
   await desktop.goto(base, { waitUntil: 'load' });
-  await desktop.locator('#ovyx-as-title').waitFor();
+  await desktop.locator('#ovyx-app-studio-workbench').waitFor();
   await desktop.waitForTimeout(120);
   const stagePassesBeforeIdle = await desktop.evaluate(() => window.__OVYX_APP_STUDIO_STAGE_ENHANCE_COUNT__ || 0);
   await desktop.waitForTimeout(200);
@@ -113,7 +113,7 @@ try {
     return {
       viewport: document.documentElement.clientWidth,
       root: root.getBoundingClientRect().width,
-      hero: hero.getBoundingClientRect().width,
+      hero: hero?.getBoundingClientRect().width || 0,
       workbench: workbench?.getBoundingClientRect().width || 0,
       grid: grid?.getBoundingClientRect().width || 0,
       primary: primary?.getBoundingClientRect().width || 0,
@@ -122,7 +122,7 @@ try {
       legacyCanvasPreserved: Boolean(legacyCanvas && advanced?.contains(legacyCanvas))
     };
   });
-  assert.ok(wideLayout.root > 1300 && wideLayout.hero > 1200 && wideLayout.workbench > 1200 && wideLayout.grid > 1200,
+  assert.ok(wideLayout.root > 1300 && wideLayout.hero === 0 && wideLayout.workbench > 1200 && wideLayout.grid > 1200,
     'The redesigned desktop workbench must use the full available screen width: ' + JSON.stringify(wideLayout));
   assert.ok(wideLayout.primary > 600 && wideLayout.secondary > 280,
     'The Analyze/Build area and Verify/Release rail must both remain usable at desktop width: ' + JSON.stringify(wideLayout));
@@ -163,7 +163,7 @@ try {
       stagePointerEvents: getComputedStyle(document.querySelector('.ovyx-as-workbench__stage')).pointerEvents,
       stageTouchAction: getComputedStyle(document.querySelector('.ovyx-as-workbench__stage')).touchAction,
       workbenchClass: document.getElementById('view-appstudio').classList.contains('ovyx-as-visual-redesign'),
-      flowColumns: getComputedStyle(document.querySelector('.ovyx-as-flow')).gridTemplateColumns
+      flowPresent: !!document.querySelector('.ovyx-as-flow')
     };
   });
   assert.ok(desktopPolish.textContrast >= 4.5, 'Theme text must remain readable against both canvas and cards: ' + JSON.stringify(desktopPolish));
@@ -185,14 +185,16 @@ try {
   assert.ok(scrollProbe.maxScroll > 0 && scrollProbe.scrollY > 0, 'The full App Studio page must scroll through the document instead of trapping movement inside a panel: ' + JSON.stringify(scrollProbe));
   await desktop.evaluate(() => window.scrollTo(0, 0));
   assert.equal(desktopPolish.workbenchClass, true, 'Premium Polish must own and apply the stable workbench layout class.');
-  assert.equal(desktopPolish.flowColumns.split(' ').length, 4, 'The integrated workbench must show a compact four-step rail on desktop.');
+  assert.equal(desktopPolish.flowPresent, false, 'The promotional four-step rail must not be mounted.');
 
-  assert.equal(await desktop.locator('#view-appstudio > #ovyx-app-studio-experience').count(), 1, 'The new guided workspace header must be mounted once at the top.');
-  assert.equal(await desktop.locator('#view-appstudio').evaluate(root => root.firstElementChild?.id), 'ovyx-app-studio-workspace-dock', 'The existing project dock must remain the first App Studio element when all live runtimes run together.');
-  assert.equal(await desktop.locator('#ovyx-as-title').innerText(), 'Build apps, beautifully.', 'The integrated App Shell copy must remain the final visible heading.');
-  assert.equal(await desktop.locator('[data-ovyx-as-step]').count(), 4, 'The workspace should present one clear analyze → generate → verify → release path.');
-  assert.ok(await desktop.locator('[data-ovyx-as-step="analyze"]').evaluate(el => el.classList.contains('is-complete')));
-  assert.ok(await desktop.locator('[data-ovyx-as-step="generate"]').evaluate(el => el.classList.contains('is-current')));
+  assert.equal(await desktop.locator('#view-appstudio > #ovyx-app-studio-experience').count(), 0, 'The promotional hero must stay removed.');
+  assert.equal(await desktop.locator('#view-appstudio').evaluate(root => root.firstElementChild?.id), 'ovyx-app-studio-workspace-dock', 'The existing project dock must remain first.');
+  assert.equal(await desktop.locator('#ovyx-as-title').count(), 0, 'The old promotional title must not return.');
+  assert.equal(await desktop.locator('[data-ovyx-as-step]').count(), 0, 'The duplicate four-step navigation must stay removed.');
+  assert.equal(await desktop.locator('.ovyx-as-workbench__stage > header').count(), 0, 'Numbered explanatory stage headers must stay removed.');
+  for (const selector of ['#ovyx-app-studio-url-analyzer-panel','#ovyx-app-studio-link-builder','#ovyx-app-studio-project-brain','#ovyx-app-studio-release']) {
+    assert.equal(await desktop.locator(selector).count(), 1, 'A real App Studio feature must remain mounted: ' + selector);
+  }
 
   const identity = desktop.locator('#ovyx-as-identity-details');
   assert.equal(await identity.count(), 1);
@@ -229,16 +231,15 @@ try {
     window.dispatchEvent(new CustomEvent('ovyx:link-app-generated'));
     window.dispatchEvent(new CustomEvent('ovyx:project-brain-updated'));
   });
-  await desktop.waitForFunction(() => document.querySelector('[data-ovyx-as-step="verify"]')?.classList.contains('is-complete'));
-  assert.ok(await desktop.locator('[data-ovyx-as-step="release"]').evaluate(el => el.classList.contains('is-current')));
+  await desktop.waitForFunction(() => document.querySelector('#ovyx-app-studio-project-brain .ovyx-lb-brain-findings'));
+  assert.equal(await desktop.locator('#ovyx-app-studio-release').count(), 1);
 
-  await desktop.locator('[data-ovyx-as-step="release"]').click();
-  assert.ok(await desktop.locator('#ovyx-app-studio-release').isVisible(), 'The guided release step must scroll to the real release controls.');
+  assert.ok(await desktop.locator('#ovyx-app-studio-release').isVisible(), 'The real release controls must remain visible.');
 
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await mobile.emulateMedia({ reducedMotion: 'reduce' });
   await mobile.goto(base, { waitUntil: 'load' });
-  await mobile.locator('#ovyx-as-title').waitFor();
+  await mobile.locator('#ovyx-app-studio-workbench').waitFor();
   const metrics = await mobile.evaluate(() => {
     const root = document.getElementById('view-appstudio');
     const workbench = document.getElementById('ovyx-app-studio-workbench');
@@ -325,18 +326,18 @@ try {
   assert.match(mobileShell.viewportPadding, /76px/, 'The scroll viewport must reserve only enough room for the attached dock.');
   const mobileWorkbench = await mobile.evaluate(() => ({
     workbenchClass: document.getElementById('view-appstudio').classList.contains('ovyx-as-visual-redesign'),
-    flowColumns: getComputedStyle(document.querySelector('.ovyx-as-flow')).gridTemplateColumns,
+    flowPresent: !!document.querySelector('.ovyx-as-flow'),
     bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom
   }));
   assert.equal(mobileWorkbench.workbenchClass, true, 'The mobile screen must keep the integrated workbench class.');
   assert.ok(await mobile.evaluate(() => { const style = document.getElementById('ovyx-app-studio-workbench-style'); return Boolean(style?.sheet && style.sheet.cssRules.length > 10); }), 'The workbench stylesheet must parse into real CSS rules, not merely add its marker class.');
-  assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 4, 'Mobile must retain all four compact workflow steps.');
-  assert.equal(mobileWorkbench.flowColumns.split(' ').length, 2, 'Mobile workflow steps should use a readable two-column grid.');
+  assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 0, 'Mobile must not remount the removed workflow navigation.');
+  assert.equal(mobileWorkbench.flowPresent, false, 'Mobile must not remount the promotional workflow rail.');
   assert.equal(mobileWorkbench.bottomPadding, '10px', 'Mobile must not reserve an unnecessary blank bottom runway.');
-  const animation = await mobile.locator('#ovyx-app-studio-experience').evaluate(el => getComputedStyle(el).animationDuration);
+  const animation = await mobile.locator('#ovyx-app-studio-workbench').evaluate(el => getComputedStyle(el).animationDuration);
   assert.ok(['1e-05s', '0.00001s', '0.01ms'].includes(animation) || parseFloat(animation) <= 0.00001,
     'Reduced-motion users must not receive decorative entrance animation; got ' + animation);
-  assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 4);
+  assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 0);
   assert.deepEqual(errors, [], 'The workspace design runtime must not throw browser errors.');
   assert.ok(requests.every(path => !path.startsWith('/api/')), 'Visual enhancements must not trigger or duplicate network/API requests.');
   console.log('OVYX App Studio premium polish browser checks passed: guided four-step flow, compact brand/report disclosures, retained conversion path, working palette transfer, desktop/mobile fit and reduced-motion support.');
