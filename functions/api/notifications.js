@@ -107,21 +107,36 @@ export async function onRequestPost(context) {
     const body = await readJson(context.request, MAX_BODY_BYTES);
     const action = clean(body?.action, 40).toLowerCase();
     if (action === 'read-all') {
-      const notificationIds = Array.isArray(body?.notificationIds) ? body.notificationIds : [];
-      const ids = [...new Set(notificationIds.map(value => clean(value, 160))
-        .filter(value => /^[A-Za-z0-9_-]{1,160}$/.test(value)))].slice(0, 100);
-      if (!ids.length) {
-        return errorResponse(400, 'NOTIFICATION_IDS_REQUIRED', 'Load notifications before marking them as read.');
-      }
       const readAt = new Date().toISOString();
-      await Promise.all(ids.map(notificationId => setFirestoreDocumentAtPath(
-        context.env,
-        ['users', auth.user.uid, 'notificationState', notificationId],
-        { readAt },
-        { merge: true }
-      )));
+      let pageToken = null;
+      let updatedCount = 0;
+      for (let page = 0; page < 20; page += 1) {
+        const result = await listFirestoreDocuments(
+          context.env,
+          ANNOUNCEMENTS,
+          1000,
+          pageToken,
+          'createdAt desc, __name__ desc'
+        );
+        const ids = (result.documents || [])
+          .map(normalizeAnnouncement)
+          .filter(item => item.published && /^[A-Za-z0-9_-]{1,160}$/.test(item.id))
+          .map(item => item.id);
+        for (let offset = 0; offset < ids.length; offset += 100) {
+          const batch = ids.slice(offset, offset + 100);
+          await Promise.all(batch.map(notificationId => setFirestoreDocumentAtPath(
+            context.env,
+            ['users', auth.user.uid, 'notificationState', notificationId],
+            { readAt },
+            { merge: true }
+          )));
+        }
+        updatedCount += ids.length;
+        pageToken = result.nextPageToken || null;
+        if (!pageToken) break;
+      }
       return jsonResponse(
-        { ok: true, action, readAt, updatedCount: ids.length },
+        { ok: true, action, readAt, updatedCount, complete: !pageToken },
         200,
         { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' }
       );
