@@ -17,6 +17,7 @@
   let routeActive = false;
   let refreshTimer = null;
   let browserSubscription = null;
+  let deviceSubscribed = false;
   let pushBusy = false;
   let loadError = '';
 
@@ -496,12 +497,19 @@
         setPushStatus('Phone alerts are blocked by your browser. Allow notifications in browser settings to enable them.');
         return;
       }
-      const config = await api(PUSH_API);
-      if (!browserSubscription && config.pushConfigured !== true) {
+      const endpointQuery = browserSubscription ? '?endpoint=' + encodeURIComponent(browserSubscription.endpoint) : '';
+      const config = await api(PUSH_API + endpointQuery);
+      deviceSubscribed = config.deviceSubscribed === true;
+      button.textContent = deviceSubscribed ? 'Disable phone alerts' : 'Enable phone alerts';
+      if (!deviceSubscribed && config.pushConfigured !== true && browserSubscription) {
+        button.disabled = false;
+        button.textContent = 'Remove old browser subscription';
+        setPushStatus('This browser has a subscription that is not linked to your signed-in account. You can remove it here.');
+      } else if (!deviceSubscribed && config.pushConfigured !== true) {
         button.disabled = true;
         setPushStatus(config.reason || 'Phone alerts are not configured for this OVYX deployment yet.');
       } else {
-        setPushStatus(browserSubscription
+        setPushStatus(deviceSubscribed
           ? 'Phone alerts are enabled on this device.'
           : 'Enable phone alerts to receive important OVYX announcements outside the app.');
       }
@@ -518,11 +526,17 @@
     pushBusy = true;
     button.disabled = true;
     try {
-      if (browserSubscription) {
+      if (browserSubscription && deviceSubscribed) {
         await api(PUSH_API, 'POST', { action: 'unsubscribe', endpoint: browserSubscription.endpoint });
         await browserSubscription.unsubscribe();
         browserSubscription = null;
+        deviceSubscribed = false;
         setPushStatus('Phone alerts are disabled on this device.');
+      } else if (browserSubscription) {
+        await browserSubscription.unsubscribe();
+        browserSubscription = null;
+        deviceSubscribed = false;
+        setPushStatus('The old browser subscription was removed.');
       } else {
         if (isIOSInstalledAppRequired()) throw new Error('Add OVYX to your Home Screen and open the installed app before enabling phone alerts.');
         const config = await api(PUSH_API);
@@ -544,6 +558,7 @@
           });
         }
         await api(PUSH_API, 'POST', { action: 'subscribe', subscription: browserSubscription.toJSON() });
+        deviceSubscribed = true;
         setPushStatus('Phone alerts are enabled on this device.');
       }
     } catch (error) {
@@ -624,6 +639,9 @@
         } else {
           setStatus('Sign in to view your notifications.');
           setConnection(false, 'SIGN IN REQUIRED');
+          const pushButton = $('#ovyx-inbox-push-toggle');
+          if (pushButton) pushButton.hidden = true;
+          setPushStatus('Sign in to manage phone alerts.');
           render();
         }
       }
