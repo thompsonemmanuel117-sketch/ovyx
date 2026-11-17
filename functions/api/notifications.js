@@ -26,7 +26,7 @@ function normalizeAnnouncement(row) {
 }
 
 async function loadAnnouncements(env, pageToken = null) {
-  const result = await listFirestoreDocuments(env, ANNOUNCEMENTS, 100, pageToken, 'createdAt desc');
+  const result = await listFirestoreDocuments(env, ANNOUNCEMENTS, 100, pageToken, 'createdAt desc, __name__ desc');
   return {
     notifications: (result.documents || [])
       .map(normalizeAnnouncement)
@@ -37,18 +37,23 @@ async function loadAnnouncements(env, pageToken = null) {
 }
 
 async function loadReadMap(env, uid) {
-  let rows = await listFirestoreSubcollectionDocuments(
-    env,
-    'users',
-    uid,
-    'notificationState',
-    1000
-  );
-
   const read = {};
-  for (const row of rows) {
-    const id = clean(row?.id, 160);
-    if (id && row?.data?.readAt) read[id] = row.data.readAt;
+  let pageToken = null;
+  for (let page = 0; page < 20; page += 1) {
+    const rows = await listFirestoreSubcollectionDocuments(
+      env,
+      'users',
+      uid,
+      'notificationState',
+      1000,
+      pageToken
+    );
+    for (const row of rows) {
+      const id = clean(row?.id, 160);
+      if (id && row?.data?.readAt) read[id] = row.data.readAt;
+    }
+    pageToken = rows.nextPageToken || null;
+    if (!pageToken) break;
   }
   return read;
 }
