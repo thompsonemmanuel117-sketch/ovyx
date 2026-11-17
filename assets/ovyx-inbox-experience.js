@@ -107,7 +107,7 @@
     if (!view || !toolbar || !list || !actions) return false;
 
     const description = $('.v34-inbox-head p', view);
-    if (description) description.textContent = 'Important updates from your OVYX workspace, in one place.';
+    if (description) description.textContent = 'Product updates and account announcements from OVYX, in one place.';
 
     if (!$('#ovyx-inbox-status', view)) {
       const status = make('div', 'ovyx-inbox-status');
