@@ -21,19 +21,16 @@ for (const path of [
   execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../' + path, import.meta.url))], { stdio: 'pipe' });
 }
 
-assert.ok(runtime.includes('From website to working app.'), 'App Studio must have a clear product heading.');
-assert.ok(runtime.includes('data-ovyx-as-step="analyze"') && runtime.includes('data-ovyx-as-step="generate"') && runtime.includes('data-ovyx-as-step="verify"') && runtime.includes('data-ovyx-as-step="release"'), 'The workspace must expose one guided four-step path.');
+assert.ok(!runtime.includes('From website to working app.') && !runtime.includes('Build apps, beautifully.'), 'Promotional App Studio hero copy must stay removed.');
+assert.ok(!runtime.includes('data-ovyx-as-step') && !runtime.includes('ovyx-as-flow'), 'The duplicate Analyze / Build / Verify / Release rail must stay removed.');
+assert.ok(!runtime.includes('Your app, from first scan to launch.') && !runtime.includes('Analyze your website'), 'Repeated numbered workflow headings and explanatory copy must stay removed.');
+assert.ok(runtime.includes('function composeWorkbench(root)') && runtime.includes('ovyx-app-studio-url-analyzer-panel') && runtime.includes('ovyx-app-studio-link-builder') && runtime.includes('ovyx-app-studio-project-brain') && runtime.includes('ovyx-app-studio-release'), 'The real analyzer, generator, verifier and release panels must remain connected in the workbench.');
 assert.ok(runtime.includes('wrapIdentity(root)'), 'Advanced Brand DNA controls must remain available in progressive disclosure.');
 assert.ok(runtime.includes('wrapLegacyConversion(root)'), 'The existing Web Studio conversion route must remain accessible without dominating the primary flow.');
 assert.ok(runtime.includes('groupAnalyzerDetails(root)'), 'Detailed URL scan evidence must be collapsible while core results and generation stay prominent.');
 assert.ok(runtime.includes('handlePaletteDisclosure'), 'Using detected source colors must open the actual Brand DNA controls.');
 assert.ok(runtime.includes('prefers-reduced-motion:reduce'), 'Animations must respect reduced-motion preferences.');
 assert.ok(runtime.includes('ovyx-app-studio-project-brain') && runtime.includes('ovyx-app-studio-release'), 'The guided path must target the actual verifier and release controls.');
-assert.ok(runtime.includes('if (index && index.textContent !== stage.number) index.textContent = stage.number;'), 'Stage numbers must only update when their visible value changes.');
-assert.ok(runtime.includes('if (label && label.textContent !== stage.label) label.textContent = stage.label;'), 'Stage labels must not create repeated child-list mutations.');
-assert.ok(runtime.includes('if (title && title.textContent !== stage.title) title.textContent = stage.title;'), 'Stage titles must not create repeated child-list mutations.');
-assert.ok(runtime.includes('if (status && status.textContent !== nextStatus) status.textContent = nextStatus;'), 'Dynamic stage status should update only when its value changes, preventing a MutationObserver feedback loop.');
-assert.ok(runtime.includes('!project') && runtime.includes('!verified'), 'The progress rail must reflect generated and verified state rather than decorative status.');
 assert.ok(runtime.includes('max-width:none!important;width:100%!important') && runtime.includes('max-width:none!important;padding:clamp(15px,2vw,24px)!important'), 'App Studio sections and the existing conversion shell must use the full available width without a narrow max-width cap.');
 assert.ok(runtime.includes('font-size:clamp(12px,.9vw,14px)!important;line-height:1.55!important') && runtime.includes('font-size:clamp(13px,1vw,15px)!important;line-height:1.65!important'), 'Workspace labels and explanatory text must remain comfortably readable.');
 assert.ok(!runtime.includes('window.OVYXAIService') && !runtime.includes('fetch('), 'The polish layer must not duplicate the generation/API logic.');
@@ -46,4 +43,4 @@ assert.ok(packageJson.scripts.test.includes('scripts/ovyx-app-studio-premium-pol
 assert.ok(workflow.includes('scripts/ovyx-app-studio-premium-polish.browser.test.mjs'), 'The responsive progressive-disclosure browser test must run in CI.');
 assert.ok(browserTest.includes('390') && browserTest.includes("emulateMedia({ reducedMotion: 'reduce' })") && runtime.includes('Detailed inspection report'), 'Browser coverage must include mobile layout, reduced motion and report disclosure.');
 
-console.log('OVYX App Studio premium polish source checks passed: guided flow, progressive disclosure, preserved release/conversion actions, reduced-motion support and CI wiring.');
+console.log('OVYX App Studio premium polish source checks passed: lean functional layout, progressive disclosure, preserved release/conversion actions, reduced-motion support and CI wiring.');
