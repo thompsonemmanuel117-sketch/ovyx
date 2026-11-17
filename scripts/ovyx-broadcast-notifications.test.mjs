@@ -42,6 +42,8 @@ assert.match(firebaseAdmin, /rows\.nextPageToken=data\.nextPageToken\|\|null/);
 assert.match(userPush, /enforceSameOrigin/);
 assert.match(userPush, /verifyFirebaseIdToken/);
 assert.match(userPush, /USER_PUSH_COLLECTION/);
+assert.match(userPush, /deviceSubscribed/);
+assert.match(inboxClient, /config\.deviceSubscribed === true/);
 assert.match(userPush, /action === 'subscribe'/);
 assert.match(userPush, /action === 'unsubscribe'/);
 assert.match(pushHelper, /export async function sendUserPushNotification/);
