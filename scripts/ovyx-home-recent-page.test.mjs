@@ -46,8 +46,8 @@ const window = {
 };
 vm.runInNewContext(source, { window, document });
 assert.equal(removedTools, 1, 'The Start tools section must be removed from the Home dashboard.');
-assert.equal(heading.textContent, 'Recent projects');
-assert.equal(eyebrow.textContent, 'PROJECTS');
+assert.equal(heading.textContent, 'Recent websites');
+assert.equal(eyebrow.textContent, 'RECENT');
 assert.equal(viewAll.attributes['data-ovyx-open-projects'], 'true');
 assert.equal(viewAll.attributes['aria-label'], 'View all projects');
 assert.equal(viewAll.attributes.onclick, undefined, 'The old inline action must not trigger a second route.');
