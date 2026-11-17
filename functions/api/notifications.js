@@ -7,7 +7,7 @@ import {
 } from '../_lib/firebase-admin.js';
 
 const ANNOUNCEMENTS = 'ovyx_announcements';
-const MAX_BODY_BYTES = 8000;
+const MAX_BODY_BYTES = 24000;
 
 const clean = (value, max = 500) => String(value ?? '').trim().slice(0, max);
 
