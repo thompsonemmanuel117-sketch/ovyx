@@ -243,66 +243,32 @@ try {
   const metrics = await mobile.evaluate(() => {
     const root = document.getElementById('view-appstudio');
     const workbench = document.getElementById('ovyx-app-studio-workbench');
-    const heading = workbench?.querySelector('.ovyx-as-workbench__header');
-    const title = heading?.querySelector('h2');
-    const live = heading?.querySelector('.ovyx-as-workbench__live');
     const grid = workbench?.querySelector('.ovyx-as-workbench__grid');
-    const headerStyle = heading ? getComputedStyle(heading) : null;
-    const headingRect = heading?.getBoundingClientRect();
-    const titleRect = title?.getBoundingClientRect();
-    const liveRect = live?.getBoundingClientRect();
-    const gridRect = grid?.getBoundingClientRect();
     return {
       viewport: document.documentElement.clientWidth,
       documentWidth: document.documentElement.scrollWidth,
       appWidth: root.clientWidth,
       appScrollWidth: root.scrollWidth,
       hasWorkbench: !!workbench,
-      hasHeading: !!heading,
-      hasTitle: !!title,
-      hasWorkspaceBadge: !!live,
+      hasMarketingHeader: !!workbench?.querySelector('.ovyx-as-workbench__header'),
+      hasMarketingHero: !!document.getElementById('ovyx-app-studio-experience'),
       hasStageGrid: !!grid,
-      headerDisplay: headerStyle?.display || '',
-      headerPosition: headerStyle?.position || '',
-      badgePosition: live ? getComputedStyle(live).position : '',
-      headingBottom: headingRect?.bottom || 0,
-      titleBottom: titleRect?.bottom || 0,
-      liveTop: liveRect?.top || 0,
-      liveBottom: liveRect?.bottom || 0,
-      gridTop: gridRect?.top || 0,
+      hasRealTools: ['ovyx-app-studio-url-analyzer-panel','ovyx-app-studio-link-builder','ovyx-app-studio-project-brain','ovyx-app-studio-release']
+        .every(id => document.getElementById(id)?.isConnected),
       overflowingChildren: Array.from(root.children).map(child => ({
         id: child.id || '',
-        className: String(child.className || '').slice(0, 120),
         width: Math.round(child.getBoundingClientRect().width),
         clientWidth: child.clientWidth,
-        scrollWidth: child.scrollWidth,
-        overflowNodes: Array.from(child.querySelectorAll('*')).filter(node => node.scrollWidth > node.clientWidth + 2).slice(0, 8).map(node => ({
-          tag: node.tagName.toLowerCase(),
-          id: node.id || '',
-          className: String(node.className || '').slice(0, 100),
-          clientWidth: node.clientWidth,
-          scrollWidth: node.scrollWidth,
-          width: Math.round(node.getBoundingClientRect().width)
-        }))
+        scrollWidth: child.scrollWidth
       })).filter(child => child.scrollWidth > child.clientWidth + 2 || child.width > root.clientWidth + 2)
     };
   });
   assert.ok(metrics.appWidth > 0 && metrics.documentWidth <= metrics.viewport + 1 && metrics.appScrollWidth <= metrics.appWidth + 1,
-    'The premium App Studio layout must not create mobile horizontal overflow: ' + JSON.stringify(metrics));
-  assert.ok(metrics.hasWorkbench && metrics.hasHeading && metrics.hasTitle && metrics.hasWorkspaceBadge && metrics.hasStageGrid,
-    'The mobile workbench geometry test must measure real rendered elements, not pass on missing nodes: ' + JSON.stringify(metrics));
-  assert.equal(metrics.headerDisplay, 'grid',
-    'The mobile workbench header must use its dedicated stacked layout: ' + JSON.stringify(metrics));
-  assert.equal(metrics.headerPosition, 'relative',
-    'The mobile workbench header must stay in normal document flow: ' + JSON.stringify(metrics));
-  assert.equal(metrics.badgePosition, 'static',
-    'The Workspace badge must stay in normal document flow on mobile: ' + JSON.stringify(metrics));
-  assert.ok(metrics.titleBottom <= metrics.headingBottom + 1,
-    'The mobile workbench heading must fit inside its own header instead of being clipped by the first stage: ' + JSON.stringify(metrics));
-  assert.ok(metrics.liveTop >= metrics.titleBottom - 1,
-    'The mobile Workspace badge must sit below the heading without covering it: ' + JSON.stringify(metrics));
-  assert.ok(metrics.gridTop >= metrics.headingBottom + 8,
-    'The first stage must have clear separation from the complete workbench heading: ' + JSON.stringify(metrics));
+    'The lean App Studio layout must not create mobile horizontal overflow: ' + JSON.stringify(metrics));
+  assert.ok(metrics.hasWorkbench && metrics.hasStageGrid && metrics.hasRealTools,
+    'The real App Studio workbench and all four functional tools must remain mounted: ' + JSON.stringify(metrics));
+  assert.equal(metrics.hasMarketingHeader, false, 'The duplicate workbench marketing header must stay removed on mobile.');
+  assert.equal(metrics.hasMarketingHero, false, 'The promotional hero must stay removed on mobile.');
   const mobileShell = await mobile.evaluate(() => {
     const dock = document.getElementById('ovyx-v52-bottom-bar');
     const shell = document.querySelector('#view-home .v59-dashboard-shell');
@@ -340,7 +306,7 @@ try {
   assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 0);
   assert.deepEqual(errors, [], 'The workspace design runtime must not throw browser errors.');
   assert.ok(requests.every(path => !path.startsWith('/api/')), 'Visual enhancements must not trigger or duplicate network/API requests.');
-  console.log('OVYX App Studio premium polish browser checks passed: guided four-step flow, compact brand/report disclosures, retained conversion path, working palette transfer, desktop/mobile fit and reduced-motion support.');
+  console.log('OVYX App Studio premium polish browser checks passed: lean tool layout, compact brand/report disclosures, retained conversion path, working palette transfer, desktop/mobile fit and reduced-motion support.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));
