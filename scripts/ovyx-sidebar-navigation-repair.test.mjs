@@ -17,4 +17,32 @@ assert.match(source, /data-nav="projects" onclick="Router\.go\('projects'\)"/, '
 assert.match(source, /data-modal-create/, 'The canonical project creation flow remains in Projects.');
 assert.match(middleware, /ovyx-sidebar-navigation-repair\.js\?v=20261117-1/, 'Pages must load the repaired sidebar authority after legacy shell scripts.');
 
+
+let removed = false;
+let collapseCall = null;
+const menu = { dataset: {}, onclick: null };
+const createEntry = {
+  textContent: 'New Project Start from an idea',
+  getAttribute: () => 'ProjectStore.createPromptModal(); MobileDrawer.close()',
+  remove: () => { removed = true; }
+};
+const drawer = { querySelectorAll: () => [createEntry] };
+const documentMock = {
+  readyState: 'complete',
+  getElementById: id => id === 'mobile-drawer' ? drawer : id === 'ovyx-v34-menu-source' ? menu : null,
+  documentElement: { dataset: { ovyxSidebar: 'collapsed' }, classList: { remove() {} } },
+  body: { classList: { contains: () => false } }
+};
+const windowMock = {
+  innerWidth: 1280,
+  matchMedia: () => ({ matches: true }),
+  addEventListener() {},
+  OVYXDesktopShell: { setCollapsed: (...args) => { collapseCall = args; } }
+};
+vm.runInNewContext(runtime, { window: windowMock, document: documentMock });
+assert.equal(removed, true, 'The duplicate New Project entry must be removed from the mobile drawer.');
+assert.equal(typeof menu.onclick, 'function', 'The top-bar menu must receive the canonical sidebar toggle.');
+menu.onclick({ preventDefault() {}, stopPropagation() {} });
+assert.deepEqual(collapseCall, [false, true], 'Opening a visually collapsed sidebar must also clear its inert state through the canonical controller.');
+
 console.log('OVYX sidebar navigation repair contract checks passed.');
