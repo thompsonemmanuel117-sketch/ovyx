@@ -201,6 +201,13 @@
     if (node) node.textContent = clean(message, 400);
   }
 
+  function setConnection(connected, label) {
+    const node = $('#v34-inbox-connection');
+    if (!node) return;
+    node.textContent = label || (connected ? 'LIVE' : 'UNAVAILABLE');
+    node.classList.toggle('live', connected === true);
+  }
+
   function setPushStatus(message) {
     const node = $('#ovyx-inbox-push-status');
     if (node) node.textContent = clean(message, 300);
@@ -413,6 +420,7 @@
     loading = true;
     ensureControls();
     setStatus('Syncing your Inbox…');
+    setConnection(false, 'CONNECTING');
     if (reset) nextPageToken = null;
     loadError = '';
     render();
@@ -429,9 +437,11 @@
       }
       nextPageToken = data.nextPageToken || null;
       setStatus(items.length ? 'Showing ' + items.length + ' notification(s).' : 'Your Inbox is up to date.');
+      setConnection(true, 'LIVE');
     } catch (error) {
       loadError = error.message || 'Notifications are temporarily unavailable.';
       setStatus(loadError);
+      setConnection(false, 'UNAVAILABLE');
     } finally {
       loading = false;
       render();
@@ -611,6 +621,7 @@
           void refreshPushControl();
         } else {
           setStatus('Sign in to view your notifications.');
+          setConnection(false, 'SIGN IN REQUIRED');
           render();
         }
       }
