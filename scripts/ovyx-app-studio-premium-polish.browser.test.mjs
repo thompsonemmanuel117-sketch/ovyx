@@ -158,6 +158,7 @@ try {
       borderContrast: ratio(effective.borderColor,effective.cardColor),
       bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom,
       rootHeight: getComputedStyle(document.getElementById('view-appstudio')).height,
+      rootOverflowX: getComputedStyle(document.getElementById('view-appstudio')).overflowX,
       rootOverflowY: getComputedStyle(document.getElementById('view-appstudio')).overflowY,
       rootTouchAction: getComputedStyle(document.getElementById('view-appstudio')).touchAction,
       rootScrollBehavior: getComputedStyle(document.getElementById('view-appstudio')).scrollBehavior,
@@ -173,8 +174,9 @@ try {
   assert.equal(desktopPolish.theme.accentColor, '#010101', 'Contrast protection must not rewrite the original Theme Lab accent in saved/exported theme data.');
   assert.equal(desktopPolish.bottomPadding, '12px', 'The integrated workbench should not reserve an excessive bottom runway.');
   assert.equal(desktopPolish.rootHeight, 'auto', 'App Studio must grow with its content instead of creating a nested fixed-height scroll area.');
+  assert.equal(desktopPolish.rootOverflowX, 'clip', 'Horizontal clipping must not create a nested scroll container.');
   assert.equal(desktopPolish.rootOverflowY, 'visible', 'The platform viewport must own vertical page scrolling.');
-  assert.match(desktopPolish.rootTouchAction, /pan-y/, 'Touch scrolling must remain available on the App Studio surface.');
+  assert.equal(desktopPolish.rootTouchAction, 'auto', 'App Studio and embedded conversion tools must retain native pointer and touch gestures.');
   assert.equal(desktopPolish.rootScrollBehavior, 'auto', 'The page surface must not animate every user scroll gesture.');
   assert.equal(desktopPolish.workbenchClass, true, 'Premium Polish must own and apply the stable workbench layout class.');
   assert.equal(desktopPolish.flowColumns.split(' ').length, 4, 'The integrated workbench must show a compact four-step rail on desktop.');
@@ -282,6 +284,7 @@ try {
     workbenchClass: document.getElementById('view-appstudio').classList.contains('ovyx-as-visual-redesign'),
     flowColumns: getComputedStyle(document.querySelector('.ovyx-as-flow')).gridTemplateColumns,
     bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom,
+    rootOverflowX: getComputedStyle(document.getElementById('view-appstudio')).overflowX,
     rootOverflowY: getComputedStyle(document.getElementById('view-appstudio')).overflowY,
     rootTouchAction: getComputedStyle(document.getElementById('view-appstudio')).touchAction
   }));
@@ -290,8 +293,9 @@ try {
   assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 4, 'Mobile must retain all four compact workflow steps.');
   assert.equal(mobileWorkbench.flowColumns.split(' ').length, 2, 'Mobile workflow steps should use a readable two-column grid.');
   assert.equal(mobileWorkbench.bottomPadding, '10px', 'Mobile must not reserve an unnecessary blank bottom runway.');
+  assert.equal(mobileWorkbench.rootOverflowX, 'clip', 'Mobile horizontal clipping must not force vertical overflow to auto.');
   assert.equal(mobileWorkbench.rootOverflowY, 'visible', 'Mobile App Studio must scroll with the platform viewport, not trap the gesture in a nested panel.');
-  assert.match(mobileWorkbench.rootTouchAction, /pan-y/, 'Mobile vertical touch movement must remain enabled.');
+  assert.equal(mobileWorkbench.rootTouchAction, 'auto', 'Mobile pointer and touch gestures must remain native for embedded tools.');
   const animation = await mobile.locator('#ovyx-app-studio-experience').evaluate(el => getComputedStyle(el).animationDuration);
   assert.ok(['1e-05s', '0.00001s', '0.01ms'].includes(animation) || parseFloat(animation) <= 0.00001,
     'Reduced-motion users must not receive decorative entrance animation; got ' + animation);
