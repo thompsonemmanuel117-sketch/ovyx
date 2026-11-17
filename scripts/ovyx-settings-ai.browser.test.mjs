@@ -141,6 +141,7 @@ try {
     await waitForRouteRestore(page);
 
     await page.evaluate(() => window.Router.go('settings'));
+    await page.waitForFunction(() => window.KernelState?.activeView === 'settings', null, { timeout: 15000 });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     // Wait for the authenticated account to be installed before opening settings.
     await page.waitForFunction(
@@ -179,6 +180,7 @@ try {
     assert.equal(serverPreferences.mode, 'fast', '[' + target.name + '] home mode changes must stay synchronized with account settings.');
     assert.equal(serverPreferences.provider, 'automatic', '[' + target.name + '] home mode must not select a provider.');
     await page.evaluate(() => window.Router.go('settings'));
+    await page.waitForFunction(() => window.KernelState?.activeView === 'settings', null, { timeout: 15000 });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('ai'));
     await page.locator('[data-settings-panel="ai"] #set-ai-save').waitFor({ state: 'visible' });
