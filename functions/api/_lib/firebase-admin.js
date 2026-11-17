@@ -467,7 +467,8 @@ export async function listFirestoreDocuments(
   env,
   collection,
   pageSize = 100,
-  pageToken = null
+  pageToken = null,
+  orderBy = null
 ) {
   const serviceAccount = parseServiceAccount(env);
   const accessToken = await getGoogleAccessToken(env);
@@ -483,6 +484,9 @@ export async function listFirestoreDocuments(
 
   if (pageToken) {
     params.set('pageToken', String(pageToken));
+  }
+  if (orderBy) {
+    params.set('orderBy', String(orderBy));
   }
 
   const url =
