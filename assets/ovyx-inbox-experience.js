@@ -402,8 +402,14 @@
           const open = make('button', '', 'Open');
           open.type = 'button';
           open.dataset.inboxOpen = '1';
-          open.addEventListener('click', () => {
-            if (item.unread) void setReadState(item, false);
+          open.addEventListener('click', async () => {
+            let target = null;
+            try { target = new URL(clean(item.link, 500), window.location.origin); } catch (_) {}
+            if (item.unread && target?.origin === window.location.origin && target.pathname === '/' && target.hash) {
+              await setReadState(item, false);
+            } else if (item.unread) {
+              void setReadState(item, false);
+            }
             openTarget(item.link);
           });
           actions.appendChild(open);
