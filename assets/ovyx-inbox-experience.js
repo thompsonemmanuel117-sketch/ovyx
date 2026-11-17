@@ -690,7 +690,12 @@
     bindLegacyBridge();
     window.addEventListener('ovyx:view-changed', () => {
       window.setTimeout(syncRoute, 0);
-      window.setTimeout(bindLegacyBridge, 0);
+      window.setTimeout(() => {
+        bindLegacyBridge();
+        if (window.KernelState?.activeView === 'admin-broadcasts') {
+          void window.OVYXNotifications?.renderHistory?.();
+        }
+      }, 0);
     }, { passive: true });
     window.addEventListener('focus', () => {
       if (routeActive && user()) void refresh(true);
