@@ -158,7 +158,7 @@ try {
       borderContrast: ratio(effective.borderColor,effective.cardColor),
       bottomPadding: getComputedStyle(document.getElementById('view-appstudio')).paddingBottom,
       rootOverflowY: getComputedStyle(document.getElementById('view-appstudio')).overflowY,
-      rootHeight: getComputedStyle(document.getElementById('view-appstudio')).height,
+      rootContentFits: document.getElementById('view-appstudio').scrollHeight <= document.getElementById('view-appstudio').clientHeight + 1,
       rootTouchAction: getComputedStyle(document.getElementById('view-appstudio')).touchAction,
       stagePointerEvents: getComputedStyle(document.querySelector('.ovyx-as-workbench__stage')).pointerEvents,
       stageTouchAction: getComputedStyle(document.querySelector('.ovyx-as-workbench__stage')).touchAction,
@@ -174,7 +174,7 @@ try {
   assert.equal(desktopPolish.theme.accentColor, '#010101', 'Contrast protection must not rewrite the original Theme Lab accent in saved/exported theme data.');
   assert.equal(desktopPolish.bottomPadding, '12px', 'The integrated workbench should not reserve an excessive bottom runway.');
   assert.equal(desktopPolish.rootOverflowY, 'visible', 'App Studio must not create a nested scroll trap; the app shell owns page scrolling.');
-  assert.equal(desktopPolish.rootHeight, 'auto', 'App Studio must grow with its content instead of being locked to the viewport height.');
+  assert.equal(desktopPolish.rootContentFits, true, 'App Studio must grow with its content instead of clipping it inside a fixed-height panel.');
   assert.match(desktopPolish.rootTouchAction, /pan-y/, 'Touch scrolling must remain native and available on the App Studio surface.');
   assert.equal(desktopPolish.stagePointerEvents, 'auto', 'Workbench stages must not block pointer or drag interactions.');
   assert.match(desktopPolish.stageTouchAction, /pan-y/, 'Touch gestures must pass through the workbench stages without locking page movement.');
