@@ -190,6 +190,14 @@ try {
     assert.equal(await page.locator('.v34-inbox-item').count(), 1,
       '[' + target.name + '] category filters must work alongside search.');
     await page.locator('#ovyx-inbox-search').fill('');
+    await page.locator('[data-inbox-filter="account"]').click();
+    assert.equal(await page.locator('.v34-inbox-item').count(), 1,
+      '[' + target.name + '] the Account filter must exclude Security notices.');
+    assert.equal(await page.locator('.v34-inbox-item').getAttribute('data-inbox-id'), 'inbox-account-1');
+    await page.locator('[data-inbox-filter="product"]').click();
+    assert.equal(await page.locator('.v34-inbox-item').count(), 1,
+      '[' + target.name + '] the Product filter must return product announcements.');
+    assert.equal(await page.locator('.v34-inbox-item').getAttribute('data-inbox-id'), 'inbox-product-1');
     await page.locator('[data-inbox-filter="all"]').click();
 
     assert.equal(await page.locator('#ovyx-inbox-push-toggle').isDisabled(), true,
