@@ -18,6 +18,7 @@
   let refreshTimer = null;
   let browserSubscription = null;
   let pushBusy = false;
+  let loadError = '';
 
   function user() {
     try { return window.firebase?.auth?.()?.currentUser || null; }
@@ -313,7 +314,7 @@
     updateBadges();
     setStatus('Marking notifications as read…');
     try {
-      const result = await api(API, 'POST', { action: 'read-all' });
+      const result = await api(API, 'POST', { action: 'read-all', notificationIds: items.map(item => String(item.id || '')).filter(Boolean) });
       items.forEach(item => { item.unread = false; item.readAt = result.readAt || new Date().toISOString(); });
       render();
       setStatus('All loaded notifications are marked as read.');
@@ -342,11 +343,19 @@
       list.appendChild(empty);
     } else if (!filtered.length) {
       const empty = make('div', 'v34-inbox-empty');
-      const heading = search || filter !== 'all' ? 'No matching notifications' : 'You’re all caught up';
-      const copy = search || filter !== 'all'
-        ? 'Try another filter or search term.'
-        : 'New OVYX announcements will appear here when they are published.';
-      empty.append(make('b', '', heading), make('span', '', copy));
+      if (loadError && !items.length) {
+        empty.append(make('b', '', 'Notifications unavailable'), make('span', '', loadError));
+        const retry = make('button', 'ovyx-inbox-more', 'Try again');
+        retry.type = 'button';
+        retry.addEventListener('click', () => void refresh(true));
+        empty.appendChild(retry);
+      } else {
+        const heading = search || filter !== 'all' ? 'No matching notifications' : 'You’re all caught up';
+        const copy = search || filter !== 'all'
+          ? 'Try another filter or search term.'
+          : 'New OVYX announcements will appear here when they are published.';
+        empty.append(make('b', '', heading), make('span', '', copy));
+      }
       list.appendChild(empty);
     } else {
       let previousDay = '';
@@ -404,14 +413,14 @@
     loading = true;
     ensureControls();
     setStatus('Syncing your Inbox…');
-    if (reset) {
-      items = [];
-      nextPageToken = null;
-    }
+    if (reset) nextPageToken = null;
+    loadError = '';
     render();
     try {
       const query = nextPageToken && !reset ? '?pageToken=' + encodeURIComponent(nextPageToken) : '';
+      const requestedUid = String(user()?.uid || '');
       const data = await api(API + query);
+      if (String(user()?.uid || '') !== requestedUid) return;
       const incoming = Array.isArray(data.notifications) ? data.notifications : [];
       if (reset) items = incoming;
       else {
@@ -421,7 +430,8 @@
       nextPageToken = data.nextPageToken || null;
       setStatus(items.length ? 'Showing ' + items.length + ' notification(s).' : 'Your Inbox is up to date.');
     } catch (error) {
-      setStatus(error.message || 'Notifications are temporarily unavailable.');
+      loadError = error.message || 'Notifications are temporarily unavailable.';
+      setStatus(loadError);
     } finally {
       loading = false;
       render();
@@ -452,7 +462,8 @@
 
   async function refreshPushControl() {
     const button = $('#ovyx-inbox-push-toggle');
-    if (!button || !user()) return;
+    if (!button) return;
+    if (!user()) { button.hidden = true; return; }
     if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
       button.hidden = true;
       setPushStatus('Phone alerts are not supported in this browser. Your in-app Inbox will still work.');
@@ -470,6 +481,11 @@
       browserSubscription = registration ? await registration.pushManager.getSubscription() : null;
       button.disabled = false;
       button.textContent = browserSubscription ? 'Disable phone alerts' : 'Enable phone alerts';
+      if (!browserSubscription && Notification.permission === 'denied') {
+        button.disabled = true;
+        setPushStatus('Phone alerts are blocked by your browser. Allow notifications in browser settings to enable them.');
+        return;
+      }
       const config = await api(PUSH_API);
       if (!browserSubscription && config.pushConfigured !== true) {
         button.disabled = true;
@@ -587,6 +603,7 @@
       activeUid = uid;
       items = [];
       nextPageToken = null;
+      loadError = '';
       if (routeActive) {
         ensureControls();
         if (uid) {
