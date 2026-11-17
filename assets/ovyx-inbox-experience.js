@@ -62,6 +62,8 @@
       '#view-inbox .v34-inbox-head h1{font-size:clamp(26px,3vw,34px);letter-spacing:-.045em}',
       '#view-inbox .v34-inbox-head p{max-width:520px;font-size:12px;line-height:1.6;color:#9ca3af}',
       '#view-inbox .v34-inbox-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
+      '#view-inbox .v34-inbox-head-actions .ovyx-inbox-push-status{flex:1 0 100%;margin:0}',
+      '#view-inbox [hidden]{display:none!important}',
       '#view-inbox .v34-status-pill{font-size:9px;padding:7px 10px}',
       '#view-inbox .v34-inbox-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:18px 0 14px}',
       '#view-inbox .v34-inbox-filter{font-size:11px;padding:8px 12px;border:1px solid rgba(255,255,255,.08);border-radius:999px;color:#aeb4bf;background:rgba(255,255,255,.025)}',
@@ -123,12 +125,11 @@
       push.id = 'ovyx-inbox-push-toggle';
       push.addEventListener('click', togglePhonePush);
       actions.appendChild(push);
-      const pushStatus = make('span', 'ovyx-inbox-push-status');
+      const pushStatus = make('span', 'ovyx-inbox-push-status ovyx-inbox-status');
       pushStatus.id = 'ovyx-inbox-push-status';
-      pushStatus.className = 'ovyx-inbox-status';
       pushStatus.setAttribute('role', 'status');
       pushStatus.setAttribute('aria-live', 'polite');
-      actions.insertAdjacentElement('afterend', pushStatus);
+      actions.appendChild(pushStatus);
     }
 
     if (!$('#ovyx-inbox-search', view)) {
