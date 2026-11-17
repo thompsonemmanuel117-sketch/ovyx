@@ -37,6 +37,8 @@ assert.match(inbox, /enforceSameOrigin/);
 assert.match(inbox, /action === 'read-all'/);
 assert.match(inbox, /action === 'unread'/);
 assert.match(inbox, /nextPageToken: page\.nextPageToken/);
+assert.match(inbox, /'createdAt desc'/);
+assert.match(firebaseAdmin, /orderBy = null/);
 assert.match(firebaseAdmin, /listFirestoreSubcollectionDocuments\(env,parentCollection,parentDocumentId,subcollection,pageSize=100,pageToken=null\)/);
 assert.match(firebaseAdmin, /rows\.nextPageToken=data\.nextPageToken\|\|null/);
 assert.match(userPush, /enforceSameOrigin/);
