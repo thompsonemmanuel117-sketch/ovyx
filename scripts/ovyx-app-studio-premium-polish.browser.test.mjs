@@ -197,6 +197,10 @@ try {
     body.style.height = 'auto';
     body.style.minHeight = '0';
     body.style.overflowY = 'visible';
+    // Keep the test's document taller than the viewport even when the compact
+    // App Studio fixture itself is shorter than one screen.
+    body.style.minHeight = (window.innerHeight + 480) + 'px';
+    html.style.minHeight = (window.innerHeight + 480) + 'px';
     viewport.style.position = 'static';
     viewport.style.display = 'block';
     viewport.style.height = 'auto';
