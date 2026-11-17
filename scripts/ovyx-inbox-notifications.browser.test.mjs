@@ -90,8 +90,16 @@ try {
       if (payload.action === 'read' || payload.action === 'unread') {
         readState.set(String(payload.notificationId), payload.action === 'unread');
       }
+      let complete = true;
+      let nextPageToken = null;
+      let updatedCount = 0;
       if (payload.action === 'read-all') {
-        for (const item of [...firstPage, ...olderPage]) readState.set(String(item.id), false);
+        const older = payload.pageToken === 'read-all-next';
+        const batch = older ? olderPage : firstPage;
+        for (const item of batch) readState.set(String(item.id), false);
+        updatedCount = batch.length;
+        complete = older;
+        nextPageToken = older ? null : 'read-all-next';
       }
       await route.fulfill({
         status: 200,
@@ -102,8 +110,9 @@ try {
           action: payload.action,
           id: payload.notificationId || null,
           readAt: payload.action === 'unread' ? null : new Date().toISOString(),
-          updatedCount: payload.action === 'read-all' ? firstPage.length + olderPage.length : 0,
-          complete: true,
+          updatedCount,
+          complete,
+          nextPageToken,
         }),
       });
     });
@@ -180,12 +189,13 @@ try {
 
     await page.locator('#v34-inbox-mark-all').click();
     await page.waitForFunction(() => document.getElementById('v34-inbox-unread-count')?.textContent === '0');
-    const readAll = requests.find(item => item.method === 'POST' && item.payload?.action === 'read-all');
-    assert.ok(readAll, '[' + target.name + '] Mark all read must call the server bulk action.');
-    assert.equal(readAll.payload.action, 'read-all',
-      '[' + target.name + '] Mark all read must request the server-wide published Inbox action.');
-    assert.equal(Object.prototype.hasOwnProperty.call(readAll.payload, 'notificationIds'), false,
-      '[' + target.name + '] Mark all read must not be limited to the currently loaded page.');
+    const readAllRequests = requests.filter(item => item.method === 'POST' && item.payload?.action === 'read-all');
+    assert.equal(readAllRequests.length, 2,
+      '[' + target.name + '] Mark all read must continue through every server page.');
+    assert.equal(readAllRequests[0].payload.pageToken, null,
+      '[' + target.name + '] Mark all read must begin at the newest page.');
+    assert.equal(readAllRequests[1].payload.pageToken, 'read-all-next',
+      '[' + target.name + '] Mark all read must continue with the returned page token.');
 
     await page.locator('#ovyx-inbox-search').fill('security notice');
     assert.equal(await page.locator('.v34-inbox-item').count(), 1,
