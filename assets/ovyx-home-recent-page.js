@@ -32,10 +32,10 @@
     $('#view-home .v59-workspace-section')?.remove();
 
     const heading = $('#home-recent-anchor .v59-section-head h2');
-    setText(heading, 'Recent projects');
+    setText(heading, 'Recent websites');
 
     const eyebrow = $('#home-recent-anchor .v59-section-head .v59-eyebrow');
-    setText(eyebrow, 'PROJECTS');
+    setText(eyebrow, 'RECENT');
 
     const viewAll = $('#home-recent-anchor .v59-section-head button');
     if (viewAll) {
