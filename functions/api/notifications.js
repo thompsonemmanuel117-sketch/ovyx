@@ -25,21 +25,24 @@ function normalizeAnnouncement(row) {
   };
 }
 
-async function loadAnnouncements(env) {
-  const result = await listFirestoreDocuments(env, ANNOUNCEMENTS, 100);
-  return result.documents
-    .map(normalizeAnnouncement)
-    .filter(item => item.published)
-    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+async function loadAnnouncements(env, pageToken = null) {
+  const result = await listFirestoreDocuments(env, ANNOUNCEMENTS, 100, pageToken);
+  return {
+    notifications: (result.documents || [])
+      .map(normalizeAnnouncement)
+      .filter(item => item.published)
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))),
+    nextPageToken: result.nextPageToken || null
+  };
 }
 
 async function loadReadMap(env, uid) {
-  const rows = await listFirestoreSubcollectionDocuments(
+  let rows = await listFirestoreSubcollectionDocuments(
     env,
     'users',
     uid,
     'notificationState',
-    100
+    1000
   );
 
   const read = {};
@@ -56,12 +59,14 @@ export async function onRequestGet(context) {
     const auth = await verifyFirebaseIdToken(context.request, context.env);
     if (!auth.ok) return auth.response;
 
-    const [announcements, read] = await Promise.all([
-      loadAnnouncements(context.env),
+    const url = new URL(context.request.url);
+    const pageToken = clean(url.searchParams.get('pageToken'), 4000) || null;
+    const [page, read] = await Promise.all([
+      loadAnnouncements(context.env, pageToken),
       loadReadMap(context.env, auth.user.uid)
     ]);
 
-    const notifications = announcements.map(item => ({
+    const notifications = page.notifications.map(item => ({
       ...item,
       readAt: read[item.id] || null,
       unread: !read[item.id]
@@ -71,6 +76,7 @@ export async function onRequestGet(context) {
       {
         ok: true,
         notifications,
+        nextPageToken: page.nextPageToken,
         unreadCount: notifications.filter(item => item.unread).length
       },
       200,
@@ -93,14 +99,34 @@ export async function onRequestPost(context) {
 
     const body = await readJson(context.request, MAX_BODY_BYTES);
     const action = clean(body?.action, 40).toLowerCase();
-    const notificationId = clean(body?.notificationId || body?.id, 160);
+    if (action === 'read-all') {
+      const notificationIds = Array.isArray(body?.notificationIds) ? body.notificationIds : [];
+      const ids = [...new Set(notificationIds.map(value => clean(value, 160))
+        .filter(value => /^[A-Za-z0-9_-]{1,160}$/.test(value)))].slice(0, 100);
+      if (!ids.length) {
+        return errorResponse(400, 'NOTIFICATION_IDS_REQUIRED', 'Load notifications before marking them as read.');
+      }
+      const readAt = new Date().toISOString();
+      await Promise.all(ids.map(notificationId => setFirestoreDocumentAtPath(
+        context.env,
+        ['users', auth.user.uid, 'notificationState', notificationId],
+        { readAt },
+        { merge: true }
+      )));
+      return jsonResponse(
+        { ok: true, action, readAt, updatedCount: ids.length },
+        200,
+        { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' }
+      );
+    }
 
-    if (action !== 'read' || !notificationId || !/^[A-Za-z0-9_-]{1,160}$/.test(notificationId)) {
+    const notificationId = clean(body?.notificationId || body?.id, 160);
+    if (!['read', 'unread'].includes(action) || !notificationId || !/^[A-Za-z0-9_-]{1,160}$/.test(notificationId)) {
       return errorResponse(400, 'INVALID_NOTIFICATION_ACTION', 'Choose a valid notification action.');
     }
 
-    const readAt = new Date().toISOString();
-
+    const unread = action === 'unread';
+    const readAt = unread ? null : new Date().toISOString();
     await setFirestoreDocumentAtPath(
       context.env,
       ['users', auth.user.uid, 'notificationState', notificationId],
@@ -109,7 +135,7 @@ export async function onRequestPost(context) {
     );
 
     return jsonResponse(
-      { ok: true, id: notificationId, readAt },
+      { ok: true, id: notificationId, readAt, unread },
       200,
       { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' }
     );
