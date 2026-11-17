@@ -1020,7 +1020,7 @@
           messages.push('Phone push was not sent: ' + String(push.reason || 'VAPID push credentials are not configured.'));
           deliveryWarning = true;
         } else if (Number(push.attempted || 0) === 0) {
-          messages.push('No active phone subscriptions yet. Users can enable phone alerts from the notification bell.');
+          messages.push('No active phone subscriptions yet. Users can enable phone alerts from the Inbox.');
         } else {
           messages.push('Push service accepted ' + Number(push.accepted || 0) + ' of ' + Number(push.attempted || 0) + ' device notifications; ' + Number(push.failed || 0) + ' failed.');
           if (Number(push.failed || 0) > 0) deliveryWarning = true;
