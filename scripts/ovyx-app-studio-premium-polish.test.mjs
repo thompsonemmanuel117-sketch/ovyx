@@ -22,7 +22,7 @@ for (const path of [
 }
 
 assert.ok(!runtime.includes('From website to working app.') && !runtime.includes('Build apps, beautifully.'), 'Promotional App Studio hero copy must stay removed.');
-assert.ok(!runtime.includes('data-ovyx-as-step') && !runtime.includes('ovyx-as-flow'), 'The duplicate Analyze / Build / Verify / Release rail must stay removed.');
+assert.ok(!runtime.includes('data-ovyx-as-step') && !runtime.includes('function buildHero') && !runtime.includes('function refreshFlow'), 'The duplicate Analyze / Build / Verify / Release rail must stay removed.');
 assert.ok(!runtime.includes('Your app, from first scan to launch.') && !runtime.includes('Analyze your website'), 'Repeated numbered workflow headings and explanatory copy must stay removed.');
 assert.ok(runtime.includes('function composeWorkbench(root)') && runtime.includes('ovyx-app-studio-url-analyzer-panel') && runtime.includes('ovyx-app-studio-link-builder') && runtime.includes('ovyx-app-studio-project-brain') && runtime.includes('ovyx-app-studio-release'), 'The real analyzer, generator, verifier and release panels must remain connected in the workbench.');
 assert.ok(runtime.includes('wrapIdentity(root)'), 'Advanced Brand DNA controls must remain available in progressive disclosure.');
