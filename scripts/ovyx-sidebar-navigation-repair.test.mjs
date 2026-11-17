@@ -7,7 +7,7 @@ const middleware = await readFile(new URL('../functions/_middleware.js', import.
 const source = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
 assert.doesNotThrow(() => new vm.Script(runtime), 'Sidebar repair runtime must parse.');
-assert.match(runtime, /ProjectStore\\.createPromptModal/, 'Only the duplicate mobile sidebar create-project action is removed.');
+assert.ok(runtime.includes('ProjectStore\\.createPromptModal'), 'Only the duplicate mobile sidebar create-project action is removed.');
 assert.match(runtime, /window\.OVYXDesktopShell\.setCollapsed\(!collapsed, true\)/, 'Desktop sidebar visibility and inert state must be changed through the canonical shell authority.');
 assert.match(runtime, /sidebar\.inert \|\| sidebar\.getAttribute\('aria-hidden'\) === 'true'/, 'A visually open but inert sidebar must be detected and repaired.');
 assert.match(runtime, /window\.MobileDrawer\.open/, 'The mobile menu must continue opening the existing drawer.');
