@@ -743,6 +743,23 @@ try {
     // experience while preserving the existing multipart support-ticket flow.
     await page.evaluate(() => window.Router.go('faq'));
     await page.locator('#ovyx-help-centre-intro').waitFor({ state: 'visible', timeout: 20000 });
+    const helpPageState = await page.evaluate(() => {
+      const faq = document.getElementById('view-faq');
+      const search = faq?.querySelector('.ovyx-help-top');
+      const popular = faq?.querySelector('.ovyx-help-popular')?.parentElement;
+      const staticFaq = faq?.querySelector('#ovyx-help-faq-list')?.closest('.ovyx-help-section');
+      const quickHelp = faq?.querySelector('#help-shortcuts')?.closest('aside');
+      return {
+        searchHidden: !!search?.hidden,
+        popularHidden: !!popular?.hidden,
+        faqHidden: !!staticFaq?.hidden,
+        quickHelpVisible: !!quickHelp && !quickHelp.hidden,
+      };
+    });
+    assert.equal(helpPageState.searchHidden, true, '[' + target.name + '] the old FAQ search must not compete with OVYX AI.');
+    assert.equal(helpPageState.popularHidden, true, '[' + target.name + '] static FAQ category cards must be secondary/hidden.');
+    assert.equal(helpPageState.faqHidden, true, '[' + target.name + '] static FAQ answers must not create a second answer destination.');
+    assert.equal(helpPageState.quickHelpVisible, true, '[' + target.name + '] non-answer quick actions should remain available.');
     await page.locator('#ovyx-help-centre-intro').getByRole('button', { name: 'Contact OVYX Support' }).click();
     await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 20000 });
     const supportPageState = await page.evaluate(() => ({
