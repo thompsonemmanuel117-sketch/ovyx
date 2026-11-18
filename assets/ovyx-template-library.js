@@ -70,16 +70,17 @@
       sort.dataset.ovyxBound = '1';
       sort.addEventListener('change', () => { state.sort = sort.value === 'az' ? 'az' : 'newest'; render(); });
     }
-    if (!feed.dataset.ovyxTemplateObserver && typeof MutationObserver === 'function') {
+    if (!view.dataset.ovyxTemplateObserver && typeof MutationObserver === 'function') {
+      // Observe the page rather than only the initial feed node. A legacy
+      // renderer can replace #templates-catalog-feed itself, which detaches
+      // a feed-only observer and lets stale cards take ownership again.
       const observer = new MutationObserver(() => {
-        // The retired TemplateStore renderer can still replace the public
-        // catalogue with similarly named legacy cards. Only this renderer's
-        // marked grid is authoritative; restore it whenever another renderer
-        // takes ownership of the feed.
-        if (isTemplatesView() && !feed.querySelector('[data-ovyx-template-cards="1"], .ovyx-template-empty[data-ovyx-template-empty="1"]')) render();
+        const currentFeed = $('templates-catalog-feed');
+        if (isTemplatesView() && currentFeed &&
+          !currentFeed.querySelector('[data-ovyx-template-cards="1"], .ovyx-template-empty[data-ovyx-template-empty="1"]')) render();
       });
-      observer.observe(feed, { childList: true });
-      feed.dataset.ovyxTemplateObserver = '1';
+      observer.observe(view, { childList: true, subtree: true });
+      view.dataset.ovyxTemplateObserver = '1';
     }
     if (!feed.dataset.ovyxTemplateLibraryBound) {
       feed.dataset.ovyxTemplateLibraryBound = '1';
