@@ -818,6 +818,18 @@ try {
     await page.locator('#legacy-support-entry-fixture').evaluate(node => node.remove());
     await page.evaluate(() => window.Router.go('faq'));
     await page.waitForFunction(() => window.KernelState?.activeView === 'faq', null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const legacyWhatsApp = document.createElement('button');
+      legacyWhatsApp.type = 'button';
+      legacyWhatsApp.id = 'legacy-whatsapp-support-fixture';
+      legacyWhatsApp.setAttribute('data-v34-support-wa', '1');
+      document.body.appendChild(legacyWhatsApp);
+      legacyWhatsApp.click();
+    });
+    await page.waitForFunction(() => window.KernelState?.activeView === 'support', null, { timeout: 10000 });
+    await page.locator('#legacy-whatsapp-support-fixture').evaluate(node => node.remove());
+    await page.evaluate(() => window.Router.go('faq'));
+    await page.waitForFunction(() => window.KernelState?.activeView === 'faq', null, { timeout: 10000 });
 
     console.log(`PASS ${target.name}: real dock isolation, menu actions, read-only tool loop, local-context fallback, explicit approval and verified source update.`);
     await page.evaluate(() => {
