@@ -118,6 +118,9 @@
     const description = $('.ovyx-help-support-head p', card);
     if (description) description.textContent = 'Describe the issue clearly. OVYX saves a support ticket and sends an email to the support inbox when delivery is available; the status below confirms the actual result.';
     bindSupportForm(form);
+    // Consumers such as assistant-feedback handoff must wait until duplicate
+    // legacy forms have been removed and this exact form is mounted in Support.
+    form.dataset.ovyxSupportFormReady = '1';
     return true;
   }
 
