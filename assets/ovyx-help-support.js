@@ -108,7 +108,8 @@
 
         showStatus(form, 'Your report has been sent to OVYX Support. We have received it.', 'success');
         toast('Your report was sent to OVYX Support.', 'success');
-        form.dataset.ovyxSupportReportId = '';\n        form.dataset.ovyxSupportPayloadSignature = '';
+        form.dataset.ovyxSupportReportId = '';
+        form.dataset.ovyxSupportPayloadSignature = '';
       } catch (error) {
         showStatus(form, error?.message || 'Your report could not be sent. Please try again.', 'error');
         toast(error?.message || 'Your report could not be sent.', 'warning');
