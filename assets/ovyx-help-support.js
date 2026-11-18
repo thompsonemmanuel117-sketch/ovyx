@@ -97,18 +97,20 @@
     const mount = $('[data-ovyx-support-form-mount]', page);
     if (!mount) return false;
 
-    // Repeated legacy mount hooks can leave more than one copy of the old
-    // support form in the dynamically-created page. Keep one canonical form
-    // and discard only duplicate support cards inside this page.
-    const pageForms = Array.from(page.querySelectorAll('#' + FORM_ID));
-    pageForms.slice(1).forEach(duplicate => {
-      const duplicateCard = duplicate.closest('.ovyx-help-support-inline') || duplicate;
-      if (duplicateCard !== mount && !mount.contains(duplicateCard)) duplicateCard.remove();
-    });
-    const form = page.querySelector('#' + FORM_ID) || document.getElementById(FORM_ID);
-    const card = form?.closest('.ovyx-help-support-inline');
+    // Legacy shell boot paths can mount more than one copy of the same form
+    // across the FAQ and standalone page. Prefer the form already in Support,
+    // otherwise move the first existing form, then remove only duplicate cards
+    // so there is exactly one editable support ticket form in the document.
+    const allForms = Array.from(document.querySelectorAll('#' + FORM_ID));
+    const form = page.querySelector('#' + FORM_ID) || allForms[0] || null;
+    const card = form?.closest('.ovyx-help-support-inline') || form;
     if (!card) return false;
     if (card.parentElement !== mount) mount.appendChild(card);
+    Array.from(document.querySelectorAll('#' + FORM_ID)).forEach(duplicate => {
+      if (duplicate === form) return;
+      const duplicateCard = duplicate.closest('.ovyx-help-support-inline') || duplicate;
+      if (duplicateCard !== card) duplicateCard.remove();
+    });
     const description = $('.ovyx-help-support-head p', card);
     if (description) description.textContent = 'Describe the issue clearly. OVYX saves a support ticket and sends an email to the support inbox when delivery is available; the status below confirms the actual result.';
     bindSupportForm(form);
