@@ -80,10 +80,11 @@ try {
     await page.waitForFunction(() => window.ProjectCloudSync.activeUid === 'ovyx-template-browser-user', null, { timeout: 20000 });
     const routeState = await page.evaluate(() => {
       const result = window.Router?.go?.('templates');
-      window.OVYXTemplateLibrary?.load?.();
+      const loadResult = window.OVYXTemplateLibrary?.load?.();
       const view = document.getElementById('view-templates');
       const feed = document.getElementById('templates-catalog-feed');
-      return { result, activeView: window.KernelState?.activeView || null, hidden: view?.classList.contains('hidden') ?? null,
+      return { result, loadStarted: !!loadResult, libraryState: window.OVYXTemplateLibrary?.state || null,
+        activeView: window.KernelState?.activeView || null, hidden: view?.classList.contains('hidden') ?? null,
         parentIsViewport: view?.parentElement?.id === 'view-router-viewport', canonical: window.Router?.__v659Canonical === true,
         viewDisplay: view ? getComputedStyle(view).display : null, feedVisibility: feed ? getComputedStyle(feed).visibility : null,
         feedInlineVisibility: feed?.style.visibility || null, viewClasses: view?.className || null };
@@ -92,7 +93,17 @@ try {
     assert.equal(routeState.result, true, '[' + target.name + '] the canonical router must open the Templates page.');
     assert.equal(routeState.activeView, 'templates', '[' + target.name + '] Templates must be the active route.');
     assert.equal(routeState.hidden, false, '[' + target.name + '] the Templates section must be visible.');
-    await page.waitForFunction(() => document.querySelectorAll('#templates-catalog-feed [data-template-card]').length === 3, null, { timeout: 20000 });
+    try {
+      await page.waitForFunction(() => document.querySelectorAll('#templates-catalog-feed [data-template-card]').length === 3, null, { timeout: 20000 });
+    } catch (error) {
+      const libraryState = await page.evaluate(() => ({
+        state: window.OVYXTemplateLibrary?.state || null,
+        cards: document.querySelectorAll('#templates-catalog-feed [data-template-card]').length,
+        feedText: document.getElementById('templates-catalog-feed')?.innerText?.slice(0, 500) || '',
+      }));
+      console.error('[' + target.name + '] Template catalogue did not render ' + JSON.stringify(libraryState));
+      throw error;
+    }
     await page.locator('#templates-catalog-feed').waitFor({ state: 'visible' });
 
     assert.equal(await page.locator('#view-templates h3').first().textContent(), 'Find your next starting point',
