@@ -56,6 +56,23 @@ assert.match(websiteEngineKnowledge, /does not scaffold|does not install depende
 assert.match(websiteEngineKnowledge, /Cloudflare Workers AI/);
 assert.match(websiteEngineKnowledge, /App Studio.*unchanged|App Studio.*separately routed/i);
 
+const helpKnowledge = buildOvyxProjectKnowledge('How do I contact OVYX Support and send a report?');
+assert.match(helpKnowledge, /functions\\/api\\/support\\.js/);
+assert.match(helpKnowledge, /support_tickets/);
+assert.match(helpKnowledge, /Resend delivery/);
+
+const projectsKnowledge = buildOvyxProjectKnowledge('How do I create and switch between projects?');
+assert.match(projectsKnowledge, /projects-unified-flow\\.js|project-workspace-picker\\.js/);
+
+const publishingKnowledge = buildOvyxProjectKnowledge('How do I publish and manage my live website?');
+assert.match(publishingKnowledge, /publishing-center\\.js|website-management\\.js/);
+
+const connectionsKnowledge = buildOvyxProjectKnowledge('How do I connect GitHub and check inbox notifications?');
+assert.match(connectionsKnowledge, /personal-connections|inbox-experience/);
+
+const settingsKnowledge = buildOvyxProjectKnowledge('Where are my account settings and billing plan?');
+assert.match(settingsKnowledge, /settings-billing-live\\.js|entitlements/);
+
 const general = buildOvyxProjectKnowledge('Hello, thank you.');
 assert.match(general, /IMPORTANT SCOPE BOUNDARY/);
 assert.doesNotMatch(general, /Source paths:/, 'Unrelated greetings should not load detailed topic cards.');
