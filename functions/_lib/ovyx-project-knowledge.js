@@ -182,7 +182,7 @@ const CARDS = [
       'Projects is the project library and the single place to create, search, filter, open and manage projects. A sidebar project selector changes the active project; it is not proof of team membership or a separate workspace.',
       'Distinguish a project from a workspace and from a published website. Do not claim that a project is cloud-synced unless the active account and server response confirm it. Do not imply that creating a project from two different entry points creates two different project systems.',
       'For navigation questions, describe only controls present in the current OVYX navigation. If a control is not visible or its action is not verified, say so and direct the user to Projects or Contact Support.',
-    ].join('\\n'),
+    ].join('\n'),
   },
   {
     id: 'publishing-and-sites',
@@ -202,7 +202,7 @@ const CARDS = [
       'Publishing and Manage Website are related but distinct: publishing prepares and deploys a project, while Manage Website is the workspace for managing a published site and its available assets or updates.',
       'Never claim a deployment is live, a domain is connected, DNS has propagated, or an external service is healthy unless the relevant OVYX endpoint or provider confirms it. Explain prerequisites and report the exact state returned by the service.',
       'If a publish or update action fails, help the user identify the stage and request the relevant diagnostic details. Do not invent deployment controls or promise an unsupported hosting capability.',
-    ].join('\\n'),
+    ].join('\n'),
   },
   {
     id: 'connections-and-inbox',
@@ -223,7 +223,7 @@ const CARDS = [
       'Universal Connections is the account integration area. Explain the difference between a connected provider, a configured credential and a verified working integration. Never ask users to paste secrets into chat or claim a provider is connected without an actual connection status.',
       'The OVYX Inbox is for product and account notifications. Notification preferences and email delivery are separate: a saved preference alone does not prove that an email notification was sent.',
       'For GitHub, distinguish repository authorization from deployment configuration. Repository visibility depends on the authorized account and its permissions.',
-    ].join('\\n'),
+    ].join('\n'),
   },
   {
     id: 'settings-account-billing',
@@ -243,7 +243,7 @@ const CARDS = [
       'Settings contains account preferences and security controls. Explain where a setting lives only when the current navigation or source map confirms it. Account security actions must be described carefully and never claim a session was revoked without a successful server response.',
       'Plans, entitlements and AI usage are related but not interchangeable. A visible plan or usage estimate does not prove a payment succeeded or an entitlement was granted. Purchases and quota changes require verified server-side results.',
       'Theme and appearance preferences affect presentation, not authorization or backend capabilities. Never imply that changing a theme unlocks a feature.',
-    ].join('\\n'),
+    ].join('\n'),
   },
   {
     id: 'help-support',
