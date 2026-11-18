@@ -3164,6 +3164,17 @@
         const result = originalOpen(...args);
         renderChrome();
         bindEvents();
+        // The legacy shell can leave the panel in a visibility-hidden state
+        // while still assigning display:flex. An explicit public open action
+        // must restore the panel's visible, interactive state.
+        const activePanel = panel();
+        if (activePanel) {
+          activePanel.hidden = false;
+          activePanel.setAttribute('aria-hidden', 'false');
+          activePanel.style.setProperty('visibility', 'visible', 'important');
+          activePanel.style.setProperty('opacity', '1', 'important');
+          activePanel.style.setProperty('pointer-events', 'auto', 'important');
+        }
         resolveWorkspaceContext().catch(() => syncWorkspaceBadge(localWorkspaceSnapshot(), true));
         return result;
       };
