@@ -2895,8 +2895,8 @@
   }
 
   async function openAssistantSupportDraft(row, saveFailed = false) {
-    if (window.Router && typeof window.Router.go === 'function') window.Router.go('faq');
-    else document.getElementById('view-faq')?.classList.remove('hidden');
+    if (window.Router && typeof window.Router.go === 'function') window.Router.go('support');
+    else document.getElementById('view-support')?.classList.remove('hidden');
     let form = null;
     for (let attempt = 0; attempt < 35; attempt += 1) {
       form = document.getElementById('ovyx-help-support-form');
@@ -2904,7 +2904,7 @@
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     if (!form) {
-      responseToast('Open Help → Contact Support to describe the response that was not helpful.', 'warning');
+      responseToast('Open Contact OVYX Support to describe the response that was not helpful.', 'warning');
       return;
     }
     const subject = document.getElementById('ovyx-help-support-subject');
@@ -2924,7 +2924,7 @@
     try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
     try { target.focus({ preventScroll: true }); } catch (_) {}
     responseToast(saveFailed
-      ? 'Help is open with a support draft. The vote could not be saved, but you can still submit the issue.'
+      ? 'Contact OVYX Support is open with your report draft. The vote could not be saved, but you can still submit the issue.'
       : 'Help is open with a support draft. Review it and submit when ready.', saveFailed ? 'warning' : 'info');
   }
 
