@@ -5,7 +5,7 @@
 
   const $ = id => document.getElementById(id);
   const panel = () => $('kernel-brain-bot-panel');
-  const allowedRoutes = new Set(['home','projects','webstudio','appstudio','workspace','templates','settings','pricing','faq','inbox']);
+  const allowedRoutes = new Set(['home','projects','webstudio','appstudio','workspace','templates','settings','pricing','faq','support','inbox']);
   const nativeModes = /^(workspace-assistant|workspace-copilot(?:-v2|-advanced|-native)?|ovyx-native-assistant)$/i;
   const NATIVE_RESPONSE_BOT_MARK = "<svg viewBox=\"0 0 64 64\" aria-hidden=\"true\"><defs><linearGradient id=\"ovyxNativeDiamondGold\" x1=\"0\" y1=\"1\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#8d5a15\"/><stop offset=\".48\" stop-color=\"#fff0b0\"/><stop offset=\"1\" stop-color=\"#d49a36\"/></linearGradient></defs><path d=\"M32 5 54 18 54 46 32 59 10 46 10 18Z\" fill=\"none\" stroke=\"url(#ovyxNativeDiamondGold)\" stroke-width=\"3\" stroke-linejoin=\"round\"/><path d=\"M32 16 43 23 43 41 32 48 21 41 21 23Z\" fill=\"rgba(232,182,79,.09)\" stroke=\"url(#ovyxNativeDiamondGold)\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/><path d=\"M10 18 32 16 54 18 M10 46 32 48 54 46 M32 5 32 16 M32 48 32 59\" fill=\"none\" stroke=\"#e8c36f\" stroke-opacity=\".8\" stroke-width=\"1.3\"/></svg>";
   let busy = false;
