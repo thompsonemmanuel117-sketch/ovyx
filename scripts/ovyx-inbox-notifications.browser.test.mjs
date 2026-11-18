@@ -142,6 +142,8 @@ try {
     await page.waitForFunction(() =>
       typeof window.OVYXInboxExperience?.refresh === 'function'
       && typeof window.Router?.go === 'function'
+      && window.Router?.__v659Canonical === true
+      && typeof window.OVYXRouteAuthority?.go === 'function'
       && !!window.firebase?.auth?.()?.currentUser,
       null,
       { timeout: 60000 },
