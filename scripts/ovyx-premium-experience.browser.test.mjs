@@ -13,7 +13,15 @@ try{
     await installOwnerBrowserApiFixtures(page);
     page.setDefaultTimeout(15000);
     const pageErrors=[];
+    const scriptErrors=[];
     page.on('pageerror',error=>pageErrors.push(String(error?.stack||error?.message||error)));
+    page.on('console',message=>{if(message.type()==='error')scriptErrors.push(message.text());});
+    await page.addInitScript(()=>window.addEventListener('error',event=>{
+      console.error('[OVYX_WINDOW_ERROR_DETAIL] '+JSON.stringify({
+        message:event.message,filename:event.filename,lineno:event.lineno,colno:event.colno,
+        stack:event.error?.stack||null
+      }));
+    }));
     await page.goto(baseURL,{waitUntil:'domcontentloaded',timeout:60000});
     await page.waitForFunction(()=> {
       const direct = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
@@ -73,7 +81,7 @@ try{
     assert.equal(platform.oauthButtonsPresent,true,'['+target.name+'] existing Google and GitHub sign-in actions must remain present.');
     if(target.name==='desktop')assert.ok(platform.authColumns>=2,'Desktop sign-in should retain its two-column editorial layout.');
     else assert.equal(platform.authColumns,1,'Mobile sign-in should stack into one readable column.');
-    assert.deepEqual(pageErrors,[],'['+target.name+'] page must not emit browser errors.');
+    assert.deepEqual(pageErrors,[],'['+target.name+'] page must not emit browser errors. Console: '+scriptErrors.join(' | '));
     console.log('OVYX premium platform experience passed on '+target.name+'.');
     await page.close();
   }
