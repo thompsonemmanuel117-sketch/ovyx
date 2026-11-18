@@ -179,10 +179,4 @@
     scan();
   }
 
-  if (document.body && typeof MutationObserver === 'function') {
-    const observer = new MutationObserver(records => {
-      if (records.some(record => record.addedNodes?.length)) scan();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
 })();
