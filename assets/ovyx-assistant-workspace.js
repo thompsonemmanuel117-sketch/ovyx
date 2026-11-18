@@ -2901,7 +2901,7 @@
     for (let attempt = 0; attempt < 35; attempt += 1) {
       // The dedicated Support page owns the editable report. Avoid matching
       // any legacy hidden form that may still exist elsewhere in the shell.
-      form = document.querySelector('#view-support #ovyx-help-support-form');
+      form = document.querySelector('#view-support #ovyx-help-support-form[data-ovyx-support-form-ready="1"]');
       if (form) break;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
