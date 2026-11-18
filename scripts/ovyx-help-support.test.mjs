@@ -43,7 +43,7 @@ assert.ok(client.includes('ovyx-help-ai-primary'), 'Static FAQ answers must be d
 assert.ok(client.includes('WorkspaceBrainBot.open'), 'The Help Centre must reuse the existing OVYX AI assistant.');
 assert.ok(assistant.includes("window.Router.go('support')"), 'AI feedback must hand off to the dedicated Contact Support page.');
 assert.ok(assistant.includes("'faq','support','inbox'"), 'OVYX AI navigation actions must allow the standalone support route.');
-assert.ok(middleware.includes('/assets/ovyx-help-support.js?v=20261118-11'), 'The standalone support runtime must be loaded by the app shell.');
+assert.ok(middleware.includes('/assets/ovyx-help-support.js?v=20261118-12'), 'The standalone support runtime must be loaded by the app shell.');
 assert.ok(knowledge.includes("id: 'help-support'"), 'OVYX AI knowledge must include Help and Support.');
 for (const id of ['projects-and-workspaces', 'publishing-and-sites', 'connections-and-inbox', 'settings-account-billing']) {
   assert.ok(knowledge.includes("id: '" + id + "'"), 'OVYX AI knowledge is missing platform topic: ' + id);
