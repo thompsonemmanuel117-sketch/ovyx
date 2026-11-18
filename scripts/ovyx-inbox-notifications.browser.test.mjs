@@ -151,9 +151,9 @@ try {
     // shell/navigation regression suite; its legacy account-link class is not
     // a stable contract for this Inbox-specific browser test.
     if (target.isMobile) await page.evaluate(() => window.MobileDrawer?.close?.());
-    await page.evaluate(() => window.Router.go('inbox'));
+    await page.evaluate(() => window.Router.go('view-inbox'));
     await page.waitForFunction(() =>
-      window.KernelState?.activeView === 'inbox'
+      String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'inbox'
       && !document.getElementById('view-inbox')?.classList.contains('hidden'),
       null,
       { timeout: 20000 },
