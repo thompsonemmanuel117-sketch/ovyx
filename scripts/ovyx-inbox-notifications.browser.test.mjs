@@ -147,11 +147,11 @@ try {
       { timeout: 60000 },
     );
 
-    if (target.isMobile) await page.evaluate(() => window.MobileDrawer?.open?.());
-    const inboxNavigation = page.locator('button.ovyx-account-link:visible').filter({ hasText: 'Inbox' });
-    assert.equal(await inboxNavigation.count(), 1,
-      '[' + target.name + '] the existing sidebar must expose exactly one Inbox destination.');
-    await inboxNavigation.click();
+    // Exercise the canonical router directly. The sidebar is covered by the
+    // shell/navigation regression suite; its legacy account-link class is not
+    // a stable contract for this Inbox-specific browser test.
+    if (target.isMobile) await page.evaluate(() => window.MobileDrawer?.close?.());
+    await page.evaluate(() => window.Router.go('inbox'));
     await page.waitForFunction(() =>
       window.KernelState?.activeView === 'inbox'
       && !document.getElementById('view-inbox')?.classList.contains('hidden'),
