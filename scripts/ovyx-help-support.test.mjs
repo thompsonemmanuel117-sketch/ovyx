@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { sendSupportEmail } from '../functions/api/_lib/support-mailer.js';
 
 const client = fs.readFileSync('assets/ovyx-help-support.js', 'utf8');
 const assistant = fs.readFileSync('assets/ovyx-assistant-workspace.js', 'utf8');
@@ -51,5 +52,76 @@ assert.ok(docs.includes('POST /api/support'), 'Operations documentation must nam
 assert.ok(docs.includes('RESEND_API_KEY') && docs.includes('RESEND_FROM_EMAIL'), 'Operations documentation must describe required email configuration.');
 assert.ok(docs.includes('OVYX_SUPPORT_EMAIL'), 'Operations documentation must describe the support inbox override.');
 assert.equal(fs.existsSync('functions/api/support/report.js'), false, 'The duplicate report endpoint must not remain beside the existing support ticket route.');
+
+const originalFetch = globalThis.fetch;
+const emailRequests = [];
+try {
+  globalThis.fetch = async (url, options = {}) => {
+    emailRequests.push({ url: String(url), options });
+    return new Response(JSON.stringify({ id: 'resend-message-test-1' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  const sent = await sendSupportEmail({
+    RESEND_API_KEY: 'test-resend-key',
+    RESEND_FROM_EMAIL: 'OVYX Support <support@example.test>',
+    OVYX_SUPPORT_EMAIL: 'owner@example.test',
+  }, {
+    ticketId: 'OVYX-TEST123456',
+    subject: 'Browser test report',
+    message: 'A test support message with an attachment.',
+    userName: 'OVYX Test User',
+    contactEmail: 'user@example.test',
+    projectId: 'project-test',
+    route: 'support',
+    attachments: [{
+      filename: 'evidence.txt',
+      contentType: 'text/plain',
+      sizeBytes: 5,
+      base64: 'SGVsbG8=',
+    }],
+  });
+  assert.equal(sent.sent, true, 'Mailer must report successful provider delivery.');
+  assert.equal(sent.messageId, 'resend-message-test-1', 'Mailer must preserve the provider message ID.');
+  assert.equal(emailRequests.length, 1, 'One support ticket must produce one email request.');
+  assert.equal(emailRequests[0].url, 'https://api.resend.com/emails', 'Support email must use Resend.');
+  const payload = JSON.parse(emailRequests[0].options.body);
+  assert.deepEqual(payload.to, ['owner@example.test'], 'OVYX_SUPPORT_EMAIL must override the existing default recipient.');
+  assert.equal(payload.reply_to, 'user@example.test', 'Replies must go to the verified account email supplied by the server.');
+  assert.equal(payload.attachments[0].filename, 'evidence.txt', 'Validated support attachments must be included in the email.');
+  assert.equal(emailRequests[0].options.headers['Idempotency-Key'], 'ovyx-support/OVYX-TEST123456',
+    'Resend idempotency must be scoped to the saved ticket ID.');
+
+  emailRequests.length = 0;
+  await sendSupportEmail({
+    RESEND_API_KEY: 'test-resend-key',
+    RESEND_FROM_EMAIL: 'OVYX Support <support@example.test>',
+  }, {
+    ticketId: 'OVYX-DEFAULT123',
+    subject: 'Default inbox check',
+    message: 'Default recipient fallback test.',
+    userName: 'OVYX Test User',
+    contactEmail: 'user@example.test',
+    attachments: [],
+  });
+  const defaultPayload = JSON.parse(emailRequests[0].options.body);
+  assert.deepEqual(defaultPayload.to, ['ovyxsupportteam@gmail.com'], 'The established OVYX support inbox must remain the default recipient.');
+
+  globalThis.fetch = async () => new Response(JSON.stringify({ message: 'provider unavailable' }), { status: 503 });
+  await assert.rejects(() => sendSupportEmail({
+    RESEND_API_KEY: 'test-resend-key',
+    RESEND_FROM_EMAIL: 'OVYX Support <support@example.test>',
+  }, {
+    ticketId: 'OVYX-FAILED123',
+    subject: 'Delivery failure',
+    message: 'This email should fail.',
+    userName: 'OVYX Test User',
+    contactEmail: 'user@example.test',
+    attachments: [],
+  }), /Support email could not be delivered/i, 'Provider failures must not be reported as successful email delivery.');
+} finally {
+  globalThis.fetch = originalFetch;
+}
 
 console.log('OVYX Help Centre contracts passed: one native AI, standalone support page, preserved attachments, existing ticket queue, verified email delivery states and expanded product knowledge.');
