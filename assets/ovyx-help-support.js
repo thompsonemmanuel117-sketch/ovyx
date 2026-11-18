@@ -4,6 +4,7 @@
   window.__OVYX_HELP_SUPPORT_EMAIL_V2__ = true;
 
   const FORM_ID = 'ovyx-help-support-form';
+  let supportMoveAttempts = 0;
   const $ = (selector, root = document) => root?.querySelector?.(selector) || null;
 
   function toast(message, kind) {
@@ -222,6 +223,16 @@
     }, true);
   }
 
+  function queueSupportFormMove() {
+    if (moveSupportForm()) {
+      supportMoveAttempts = 0;
+      return;
+    }
+    if (supportMoveAttempts >= 20) return;
+    supportMoveAttempts += 1;
+    window.setTimeout(queueSupportFormMove, 50);
+  }
+
   function patchRouter() {
     const router = window.Router;
     if (!router || typeof router.go !== 'function' || router.__ovyxSupportRouteV2) return;
@@ -229,7 +240,13 @@
     router.go = function (viewId, ...args) {
       const route = String(viewId || '').replace(/^view-/, '').toLowerCase();
       if (route === 'support') moveSupportForm();
-      return originalGo(viewId, ...args);
+      const result = originalGo(viewId, ...args);
+      if (route === 'support') {
+        const mobileTitle = document.getElementById('mobile-current-view');
+        if (mobileTitle) mobileTitle.textContent = 'Support';
+        window.setTimeout(queueSupportFormMove, 0);
+      }
+      return result;
     };
     router.__ovyxSupportRouteV2 = true;
   }
