@@ -376,6 +376,14 @@ try {
       ['copy', 'helpful', 'not-helpful', 'retry'],
       `[${target.name}] every native assistant response needs Copy/Helpful/Not helpful/Retry actions`,
     );
+    // Keep the feedback persistence boundary deterministic in this browser
+    // regression. The support handoff is the behavior under test; the API
+    // contract and persistence failure paths are covered by their own suites.
+    await page.route('**/api/ai/feedback', async route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, saved: true }),
+    }));
     await helpMessage.locator('[data-ovyx-native-response-action="not-helpful"]').click();
     await page.locator('#view-support').waitFor({ state: 'visible', timeout: 20000 });
     await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 20000 });
