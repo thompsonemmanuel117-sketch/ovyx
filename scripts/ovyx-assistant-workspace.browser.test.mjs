@@ -379,6 +379,15 @@ try {
     // Keep the feedback persistence boundary deterministic in this browser
     // regression. The support handoff is the behavior under test; the API
     // contract and persistence failure paths are covered by their own suites.
+    // The shell may retain a prior editable Support draft. Clear only the
+    // standalone form fields so this test verifies that the feedback action
+    // populates a fresh draft without overwriting user-entered content.
+    await page.evaluate(() => {
+      const subject = document.querySelector('#view-support #ovyx-help-support-subject');
+      const message = document.querySelector('#view-support #ovyx-help-support-message');
+      if (subject) subject.value = '';
+      if (message) message.value = '';
+    });
     await page.route('**/api/ai/feedback', async route => route.fulfill({
       status: 200,
       contentType: 'application/json',
