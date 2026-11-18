@@ -30,7 +30,7 @@ export function normalizeOvyxNativeMode(value) {
 
 const ALLOWED_ROUTES = new Set([
   'home', 'projects', 'webstudio', 'appstudio', 'workspace',
-  'templates', 'settings', 'pricing', 'faq', 'inbox'
+  'templates', 'settings', 'pricing', 'faq', 'support', 'inbox'
 ]);
 const ALLOWED_ACTIONS = new Set([
   'refresh_context', 'run_project_scan', 'open_history',
