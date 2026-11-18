@@ -762,7 +762,12 @@ try {
     assert.equal(helpPageState.popularHidden, true, '[' + target.name + '] static FAQ category cards must be secondary/hidden.');
     assert.equal(helpPageState.faqHidden, true, '[' + target.name + '] static FAQ answers must not create a second answer destination.');
     assert.equal(helpPageState.quickHelpVisible, true, '[' + target.name + '] non-answer quick actions should remain available.');
-    await page.locator('#ovyx-help-centre-intro').getByRole('button', { name: 'Contact OVYX Support' }).click();
+    const contactSupportButton = page.locator('#ovyx-help-centre-intro').getByRole('button', { name: 'Contact OVYX Support' });
+    await contactSupportButton.waitFor({ state: 'visible', timeout: 20000 });
+    // The assistant feedback draft scrolls the support page smoothly. Dispatch
+    // the actual button click after the Help Centre is visible rather than
+    // requiring Playwright's pointer-stability heuristic during that motion.
+    await contactSupportButton.evaluate(button => button.click());
     await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 20000 });
     const supportPageState = await page.evaluate(() => ({
       active: window.KernelState?.activeView,
