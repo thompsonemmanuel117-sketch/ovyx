@@ -99,6 +99,8 @@
     const mount = $('[data-ovyx-support-form-mount]', page);
     if (!card || !mount) return false;
     if (card.parentElement !== mount) mount.appendChild(card);
+    const description = $('.ovyx-help-support-head p', card);
+    if (description) description.textContent = 'Describe the issue clearly. OVYX saves a support ticket and sends an email to the support inbox when delivery is available; the status below confirms the actual result.';
     bindSupportForm(form);
     return true;
   }
@@ -113,7 +115,7 @@
     header.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:18px 24px;align-items:center;margin:0 0 8px;padding:clamp(20px,3vw,30px);border:1px solid rgba(194,163,107,.22);border-radius:20px;background:radial-gradient(ellipse at 12% 0%,rgba(194,163,107,.10),transparent 52%),linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.015))';
     const copy = document.createElement('div');
     copy.style.cssText = 'flex:1 1 280px;min-width:0';
-    copy.innerHTML = '<p style="margin:0 0 8px;color:#c2a36b;font-size:10px;font-weight:800;letter-spacing:.16em">OVYX HELP CENTRE</p><h2 style="margin:0;color:var(--app-text,#fff);font:800 clamp(23px,3vw,32px)/1.1 Inter,sans-serif;letter-spacing:-.035em">Your guide to OVYX.</h2><p style="max-width:620px;margin:9px 0 0;color:var(--app-muted,#9ca3af);font:500 13px/1.6 Inter,sans-serif">Ask the AI assistant built by OVYX about the platform, or contact the support team when you need a person.</p>';
+    copy.innerHTML = '<p style="margin:0 0 8px;color:#c2a36b;font-size:10px;font-weight:800;letter-spacing:.16em">OVYX HELP CENTRE</p><h2 style="margin:0;color:var(--app-text,#fff);font:800 clamp(23px,3vw,32px)/1.1 Inter,sans-serif;letter-spacing:-.035em">Your guide to OVYX.</h2><p style="max-width:620px;margin:9px 0 0;color:var(--app-muted,#9ca3af);font:500 13px/1.6 Inter,sans-serif">OVYX AI is the first stop for platform questions. Use the reference guides below when useful, or contact the support team when you need a person.</p>';
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:9px;align-items:center';
     const ask = document.createElement('button');
