@@ -1,182 +1,250 @@
 (function () {
   'use strict';
-  if (window.__OVYX_HELP_SUPPORT_EMAIL_V1__) return;
-  window.__OVYX_HELP_SUPPORT_EMAIL_V1__ = true;
+  if (window.__OVYX_HELP_SUPPORT_EMAIL_V2__) return;
+  window.__OVYX_HELP_SUPPORT_EMAIL_V2__ = true;
 
   const FORM_ID = 'ovyx-help-support-form';
-  const $ = (selector, root = document) => root.querySelector(selector);
+  const $ = (selector, root = document) => root?.querySelector?.(selector) || null;
 
   function toast(message, kind) {
-    try {
-      if (typeof window.showToast === 'function') {
-        window.showToast(message, kind || 'info');
-        return;
-      }
-    } catch (_) {}
+    try { window.showToast?.(String(message || ''), kind || 'info'); } catch (_) {}
   }
 
-  function statusNode(form) {
-    let node = $('#ovyx-help-support-delivery-status', form);
-    if (node) return node;
-    node = document.createElement('p');
-    node.id = 'ovyx-help-support-delivery-status';
+  function setStatus(form, message, kind) {
+    const node = $('#ovyx-help-support-status', form) || $('#ovyx-help-support-delivery-status', form);
+    if (!node) return;
+    node.textContent = message;
+    node.dataset.kind = kind || 'info';
     node.setAttribute('role', 'status');
     node.setAttribute('aria-live', 'polite');
-    node.style.cssText = 'margin:0 0 14px;padding:12px 14px;border:1px solid rgba(255,255,255,.12);border-radius:12px;font-size:13px;line-height:1.5;display:none';
-    form.prepend(node);
-    return node;
   }
 
-  function showStatus(form, message, kind) {
-    const node = statusNode(form);
-    node.textContent = message;
-    node.style.display = 'block';
-    node.style.borderColor = kind === 'success' ? 'rgba(74,190,130,.45)' : kind === 'error' ? 'rgba(235,100,100,.45)' : 'rgba(255,255,255,.12)';
-    node.style.color = kind === 'success' ? '#a7f3c6' : kind === 'error' ? '#fecaca' : 'inherit';
+  function supportPage() {
+    const viewport = document.getElementById('view-router-viewport');
+    if (!viewport) return null;
+    let page = document.getElementById('view-support');
+    if (page) return page;
+
+    page = document.createElement('section');
+    page.id = 'view-support';
+    page.className = 'hidden';
+    page.setAttribute('aria-hidden', 'true');
+    page.setAttribute('aria-label', 'Contact OVYX Support');
+    page.innerHTML = `
+      <div class="ovyx-support-page">
+        <header class="ovyx-support-page-head">
+          <div>
+            <div class="ovyx-panel-kicker">OVYX / HELP CENTRE / SUPPORT</div>
+            <h1>Contact OVYX Support</h1>
+            <p>Send a report directly to the OVYX support team. Your request is also saved in the secure support queue.</p>
+          </div>
+          <div class="ovyx-support-page-actions">
+            <button type="button" class="ovyx-support-back" data-ovyx-support-back>Back to Help Centre</button>
+            <button type="button" class="ovyx-support-ai" data-ovyx-support-ai>Ask OVYX AI</button>
+          </div>
+        </header>
+        <div class="ovyx-support-page-note">
+          <span aria-hidden="true">◆</span>
+          <p>Use this page for account issues, bugs and requests that need the OVYX team. For quick how-to questions, OVYX AI is available from the Help Centre.</p>
+        </div>
+        <div data-ovyx-support-form-mount></div>
+      </div>`;
+    viewport.appendChild(page);
+
+    const style = document.createElement('style');
+    style.id = 'ovyx-support-page-styles';
+    style.textContent = `
+      #view-support{width:100%;min-height:100%;padding:clamp(18px,3vw,36px);box-sizing:border-box;background:var(--app-bg,#000)}
+      .ovyx-support-page{width:min(100%,1040px);margin:0 auto;display:grid;gap:18px}
+      .ovyx-support-page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:clamp(20px,3vw,30px);border:1px solid rgba(194,163,107,.2);border-radius:20px;background:radial-gradient(ellipse at 12% 0%,rgba(194,163,107,.10),transparent 55%),linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012))}
+      .ovyx-support-page-head h1{margin:8px 0 0;color:var(--app-text,#fff);font:800 clamp(25px,3vw,34px)/1.1 Inter,sans-serif;letter-spacing:-.035em}
+      .ovyx-support-page-head p{max-width:620px;margin:9px 0 0;color:var(--app-muted,#9ca3af);font:500 13px/1.6 Inter,sans-serif}
+      .ovyx-support-page-actions{display:flex;flex-wrap:wrap;gap:9px;justify-content:flex-end}
+      .ovyx-support-page-actions button{min-height:40px;padding:0 14px;border-radius:10px;font:700 11px Inter,sans-serif;cursor:pointer}
+      .ovyx-support-back{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.035);color:var(--app-text,#fff)}
+      .ovyx-support-ai{border:1px solid rgba(194,163,107,.4);background:linear-gradient(135deg,#d8b777,#a98545);color:#17130b}
+      .ovyx-support-page-note{display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.018)}
+      .ovyx-support-page-note>span{color:#c2a36b;font-size:13px}
+      .ovyx-support-page-note p{margin:0;color:var(--app-muted,#9ca3af);font:500 11px/1.6 Inter,sans-serif}
+      #view-support .ovyx-help-support-inline{margin:0!important;width:100%}
+      #view-support .ovyx-help-support-head p{font-size:11px}
+      #view-support .ovyx-help-support-grid input,#view-support .ovyx-help-support-grid textarea{font-size:13px}
+      #view-support .ovyx-help-support-grid label span{font-size:9px}
+      #view-support .ovyx-help-support-foot small{font-size:10px}
+      #view-support .ovyx-help-support-foot button{min-height:42px}
+      @media(max-width:680px){.ovyx-support-page-head{align-items:stretch;flex-direction:column}.ovyx-support-page-actions{justify-content:stretch}.ovyx-support-page-actions button{flex:1}.ovyx-support-page{gap:13px}}
+      @media(prefers-reduced-motion:reduce){#view-support *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
+    `;
+    document.head.appendChild(style);
+
+    page.querySelector('[data-ovyx-support-back]')?.addEventListener('click', () => window.Router?.go?.('faq'));
+    page.querySelector('[data-ovyx-support-ai]')?.addEventListener('click', () => {
+      const assistant = window.WorkspaceBrainBot;
+      if (typeof assistant?.open === 'function') assistant.open();
+      else toast('OVYX AI is not ready yet. Please try again in a moment.', 'warning');
+    });
+    return page;
   }
 
-  function getInput(form, id, name) {
-    return document.getElementById(id) || $('[name="' + name + '"]', form);
+  function moveSupportForm() {
+    const page = supportPage();
+    if (!page) return false;
+    const faq = document.getElementById('view-faq');
+    if (faq && !faq.querySelector('.ovyx-help-shell') && typeof window.OVYXMountHelpSupportForm === 'function') {
+      try { window.OVYXMountHelpSupportForm(faq); } catch (_) {}
+    }
+    const form = document.getElementById(FORM_ID);
+    const card = form?.closest('.ovyx-help-support-inline');
+    const mount = $('[data-ovyx-support-form-mount]', page);
+    if (!card || !mount) return false;
+    if (card.parentElement !== mount) mount.appendChild(card);
+    bindSupportForm(form);
+    return true;
   }
 
-  function bind(form) {
-    if (!form || form.dataset.ovyxSupportEmailBound === '1') return;
-    form.dataset.ovyxSupportEmailBound = '1';
+  function enhanceHelpPage() {
+    const page = document.getElementById('view-faq');
+    const shell = page?.querySelector('.ovyx-help-shell');
+    if (!shell || shell.querySelector('#ovyx-help-centre-intro')) return;
+    const header = document.createElement('section');
+    header.id = 'ovyx-help-centre-intro';
+    header.setAttribute('aria-label', 'OVYX Help Centre');
+    header.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:18px 24px;align-items:center;margin:0 0 8px;padding:clamp(20px,3vw,30px);border:1px solid rgba(194,163,107,.22);border-radius:20px;background:radial-gradient(ellipse at 12% 0%,rgba(194,163,107,.10),transparent 52%),linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.015))';
+    const copy = document.createElement('div');
+    copy.style.cssText = 'flex:1 1 280px;min-width:0';
+    copy.innerHTML = '<p style="margin:0 0 8px;color:#c2a36b;font-size:10px;font-weight:800;letter-spacing:.16em">OVYX HELP CENTRE</p><h2 style="margin:0;color:var(--app-text,#fff);font:800 clamp(23px,3vw,32px)/1.1 Inter,sans-serif;letter-spacing:-.035em">Your guide to OVYX.</h2><p style="max-width:620px;margin:9px 0 0;color:var(--app-muted,#9ca3af);font:500 13px/1.6 Inter,sans-serif">Ask the AI assistant built by OVYX about the platform, or contact the support team when you need a person.</p>';
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:9px;align-items:center';
+    const ask = document.createElement('button');
+    ask.type = 'button';
+    ask.textContent = 'Ask OVYX AI';
+    ask.style.cssText = 'min-height:41px;padding:0 16px;border:1px solid rgba(194,163,107,.42);border-radius:10px;background:linear-gradient(135deg,#d8b777,#a98545);color:#17130b;font:750 11px Inter,sans-serif;cursor:pointer';
+    ask.addEventListener('click', () => {
+      if (typeof window.WorkspaceBrainBot?.open === 'function') window.WorkspaceBrainBot.open();
+      else toast('OVYX AI is not ready yet. Please try again in a moment.', 'warning');
+    });
+    const contact = document.createElement('button');
+    contact.type = 'button';
+    contact.textContent = 'Contact OVYX Support';
+    contact.style.cssText = 'min-height:41px;padding:0 15px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.035);color:var(--app-text,#fff);font:700 11px Inter,sans-serif;cursor:pointer';
+    contact.addEventListener('click', () => window.Router?.go?.('support'));
+    actions.append(ask, contact);
+    header.append(copy, actions);
+    const top = shell.querySelector('.ovyx-help-top');
+    shell.insertBefore(header, top || shell.firstChild);
+  }
 
+  function bindSupportForm(form) {
+    if (!form || form.dataset.ovyxSupportEmailBound === '2') return;
+    form.dataset.ovyxSupportEmailBound = '2';
     form.addEventListener('submit', async event => {
       event.preventDefault();
       event.stopImmediatePropagation();
 
-      const subjectInput = getInput(form, 'ovyx-help-support-subject', 'subject');
-      const messageInput = getInput(form, 'ovyx-help-support-message', 'message');
-      const categoryInput = getInput(form, '', 'category');
+      const subjectInput = $('#ovyx-help-support-subject', form);
+      const messageInput = $('#ovyx-help-support-message', form);
+      const emailInput = $('#ovyx-help-support-email', form);
+      const fileInput = $('#ovyx-help-support-attachments', form);
       const subject = String(subjectInput?.value || '').trim();
       const message = String(messageInput?.value || '').trim();
-      const category = String(categoryInput?.value || 'other').trim();
       if (subject.length < 4 || message.length < 12) {
-        showStatus(form, subject.length < 4
-          ? 'Add a short subject before sending.'
-          : 'Please describe the issue in a little more detail.', 'error');
+        setStatus(form, subject.length < 4 ? 'Add a short subject before sending.' : 'Please describe the issue in a little more detail.', 'error');
         (subject.length < 4 ? subjectInput : messageInput)?.focus();
         return;
       }
 
       const user = window.firebase?.auth?.()?.currentUser || null;
       if (!user || typeof user.getIdToken !== 'function') {
-        showStatus(form, 'Sign in to your OVYX account before contacting Support.', 'error');
+        setStatus(form, 'Sign in to your OVYX account before contacting Support.', 'error');
+        return;
+      }
+      if (emailInput && user.email && String(emailInput.value || '').trim().toLowerCase() !== String(user.email).trim().toLowerCase()) {
+        setStatus(form, 'Use the email address verified on your OVYX account so Support can reply securely.', 'error');
+        emailInput.focus();
         return;
       }
 
-      const submit = $('button[type="submit"],input[type="submit"]', form);
-      if (submit) {
-        submit.disabled = true;
-        submit.setAttribute('aria-busy', 'true');
+      const files = Array.from(fileInput?.files || []);
+      const totalBytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+      if (files.length > 3) {
+        setStatus(form, 'Attach at most 3 files.', 'error');
+        return;
+      }
+      if (files.some(file => Number(file.size || 0) > 5 * 1024 * 1024) || totalBytes > 6 * 1024 * 1024) {
+        setStatus(form, 'Each attachment must be 5 MB or smaller, with 6 MB total.', 'error');
+        return;
       }
 
-      const payloadSignature = [subject, message, category].join('\\n');
-      const sameRetryPayload = form.dataset.ovyxSupportPayloadSignature === payloadSignature;
-      const reportId = sameRetryPayload && form.dataset.ovyxSupportReportId
-        ? form.dataset.ovyxSupportReportId
-        : (typeof crypto?.randomUUID === 'function' ? crypto.randomUUID() : 'report_' + Date.now() + '_' + Math.random().toString(36).slice(2));
-      form.dataset.ovyxSupportReportId = reportId;
-      form.dataset.ovyxSupportPayloadSignature = payloadSignature;
+      const submit = $('#ovyx-help-support-submit', form);
+      if (submit) { submit.disabled = true; submit.setAttribute('aria-busy', 'true'); }
+      setStatus(form, 'Sending your report to OVYX Support…', 'info');
 
       try {
-        const token = await user.getIdToken();
-        const response = await fetch('/api/support/report', {
+        const token = await user.getIdToken(true);
+        const body = new FormData();
+        body.append('subject', subject);
+        body.append('message', message);
+        body.append('projectId', String(window.KernelState?.activeProject?.id || '').slice(0, 120));
+        body.append('route', String(window.KernelState?.activeView || 'support').slice(0, 120));
+        files.forEach(file => body.append('attachments', file, file.name));
+
+        const response = await fetch('/api/support', {
           method: 'POST',
           credentials: 'same-origin',
           cache: 'no-store',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': 'Bearer ' + token,
-          },
-          body: JSON.stringify({
-            reportId,
-            subject,
-            message,
-            category,
-            page: String(window.Router?.currentRoute || window.KernelState?.activeView || 'help').slice(0, 120),
-          }),
+          headers: { Accept: 'application/json', Authorization: 'Bearer ' + token },
+          body,
         });
-        let result = {};
-        try { result = await response.json(); } catch (_) {}
-        if (!response.ok || result.ok !== true) {
-          throw new Error(result.message || 'OVYX could not email your report. Please try again.');
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.ok !== true || !result.ticket?.ticketId) {
+          throw new Error(result.message || result.error?.message || 'Your report could not be submitted. Please try again.');
         }
 
-        showStatus(form, 'Your report has been sent to OVYX Support. We have received it.', 'success');
-        toast('Your report was sent to OVYX Support.', 'success');
-        form.dataset.ovyxSupportReportId = '';
-        form.dataset.ovyxSupportPayloadSignature = '';
+        const ticketId = String(result.ticket.ticketId);
+        if (result.ticket.notificationStatus === 'sent') {
+          setStatus(form, 'Report ' + ticketId + ' was emailed to OVYX Support and saved securely. The team can reply to your verified account email.', 'success');
+          toast('Your report was sent to OVYX Support.', 'success');
+          subjectInput.value = '';
+          messageInput.value = '';
+          if (fileInput) fileInput.value = '';
+          const fileName = $('#ovyx-help-support-file-name', form);
+          if (fileName) fileName.textContent = 'No files selected';
+        } else {
+          setStatus(form, 'Report ' + ticketId + ' is saved in the secure OVYX Support queue, but email delivery was not confirmed. Please do not submit it again; the team can still find it in Admin → Support Tickets.', 'error');
+          toast('Your report was saved, but its email could not be confirmed.', 'warning');
+        }
       } catch (error) {
-        showStatus(form, error?.message || 'Your report could not be sent. Please try again.', 'error');
+        setStatus(form, error?.message || 'Your report could not be sent. Please try again.', 'error');
         toast(error?.message || 'Your report could not be sent.', 'warning');
       } finally {
-        if (submit) {
-          submit.disabled = false;
-          submit.removeAttribute('aria-busy');
-        }
+        if (submit) { submit.disabled = false; submit.removeAttribute('aria-busy'); }
       }
     }, true);
   }
 
-  function enhanceHelpPage() {
-    const page = document.getElementById('view-faq');
-    if (!page || document.getElementById('ovyx-help-centre-intro')) return;
-    const form = document.getElementById(FORM_ID);
-    if (!form) return;
-
-    const header = document.createElement('section');
-    header.id = 'ovyx-help-centre-intro';
-    header.setAttribute('aria-label', 'OVYX Help Centre');
-    header.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:18px 24px;align-items:center;margin:0 0 24px;padding:clamp(20px,3vw,30px);border:1px solid rgba(232,182,79,.22);border-radius:22px;background:radial-gradient(ellipse at 12% 0%,rgba(232,182,79,.10),transparent 52%),linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018));';
-    const copy = document.createElement('div');
-    copy.style.cssText = 'flex:1 1 280px;min-width:0';
-    copy.innerHTML = '<p style="margin:0 0 8px;color:#d9ad58;font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase">OVYX HELP CENTRE</p><h1 style="margin:0;color:var(--text-primary,#fff);font-size:clamp(24px,3vw,34px);line-height:1.12;letter-spacing:-.035em">Your guide to OVYX.</h1><p style="max-width:620px;margin:10px 0 0;color:var(--text-secondary,#a1a1aa);font-size:14px;line-height:1.65">Ask OVYX AI how the platform works, or contact the support team when you need a person.</p>';
-    const actions = document.createElement('div');
-    actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end';
-    const ask = document.createElement('button');
-    ask.type = 'button';
-    ask.textContent = 'Ask OVYX AI';
-    ask.style.cssText = 'min-height:42px;padding:0 17px;border:1px solid rgba(232,182,79,.45);border-radius:12px;background:linear-gradient(135deg,#e8b64f,#b9832c);color:#17120a;font-weight:700;cursor:pointer';
-    ask.addEventListener('click', () => {
-      const assistant = window.WorkspaceBrainBot;
-      if (typeof assistant?.open !== 'function') {
-        toast('OVYX AI is not ready yet. Please try again in a moment.', 'warning');
-        return;
-      }
-      assistant.open();
-      window.setTimeout(() => {
-        const input = document.getElementById('bot-chat-input');
-        try { input?.focus({ preventScroll: true }); } catch (_) { input?.focus?.(); }
-      }, 180);
-    });
-    const contact = document.createElement('button');
-    contact.type = 'button';
-    contact.textContent = 'Contact OVYX Support';
-    contact.style.cssText = 'min-height:42px;padding:0 16px;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(255,255,255,.045);color:var(--text-primary,#fff);font-weight:600;cursor:pointer';
-    contact.addEventListener('click', () => {
-      form.scrollIntoView({ behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth', block: 'start' });
-      const target = document.getElementById('ovyx-help-support-subject') || form;
-      try { target.focus({ preventScroll: true }); } catch (_) {}
-    });
-    actions.append(ask, contact);
-    header.append(copy, actions);
-    page.prepend(header);
+  function patchRouter() {
+    const router = window.Router;
+    if (!router || typeof router.go !== 'function' || router.__ovyxSupportRouteV2) return;
+    const originalGo = router.go.bind(router);
+    router.go = function (viewId, ...args) {
+      const route = String(viewId || '').replace(/^view-/, '').toLowerCase();
+      if (route === 'support') moveSupportForm();
+      return originalGo(viewId, ...args);
+    };
+    router.__ovyxSupportRouteV2 = true;
   }
 
   function scan() {
-    const form = document.getElementById(FORM_ID);
-    bind(form);
+    patchRouter();
     enhanceHelpPage();
+    moveSupportForm();
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', scan, { once: true });
+    document.addEventListener('DOMContentLoaded', () => window.setTimeout(scan, 90), { once: true });
   } else {
-    scan();
+    window.setTimeout(scan, 90);
   }
-
+  window.addEventListener('ovyx:view-changed', () => window.setTimeout(scan, 30));
+  window.addEventListener('load', () => window.setTimeout(scan, 90), { once: true });
 })();
