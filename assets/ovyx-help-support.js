@@ -94,10 +94,20 @@
     if (faq && !faq.querySelector('.ovyx-help-shell') && typeof window.OVYXMountHelpSupportForm === 'function') {
       try { window.OVYXMountHelpSupportForm(faq); } catch (_) {}
     }
-    const form = document.getElementById(FORM_ID);
-    const card = form?.closest('.ovyx-help-support-inline');
     const mount = $('[data-ovyx-support-form-mount]', page);
-    if (!card || !mount) return false;
+    if (!mount) return false;
+
+    // Repeated legacy mount hooks can leave more than one copy of the old
+    // support form in the dynamically-created page. Keep one canonical form
+    // and discard only duplicate support cards inside this page.
+    const pageForms = Array.from(page.querySelectorAll('#' + FORM_ID));
+    pageForms.slice(1).forEach(duplicate => {
+      const duplicateCard = duplicate.closest('.ovyx-help-support-inline') || duplicate;
+      if (duplicateCard !== mount && !mount.contains(duplicateCard)) duplicateCard.remove();
+    });
+    const form = page.querySelector('#' + FORM_ID) || document.getElementById(FORM_ID);
+    const card = form?.closest('.ovyx-help-support-inline');
+    if (!card) return false;
     if (card.parentElement !== mount) mount.appendChild(card);
     const description = $('.ovyx-help-support-head p', card);
     if (description) description.textContent = 'Describe the issue clearly. OVYX saves a support ticket and sends an email to the support inbox when delivery is available; the status below confirms the actual result.';
