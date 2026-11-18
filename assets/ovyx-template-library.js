@@ -229,7 +229,7 @@
   }
 
   function renderEmpty(title, description, action = '') {
-    return '<div class="ovyx-template-empty"><h4>' + escapeHtml(title) + '</h4><p>' + escapeHtml(description) + '</p>' + action + '</div>';
+    return '<div class="ovyx-template-empty" data-ovyx-template-empty="1"><h4>' + escapeHtml(title) + '</h4><p>' + escapeHtml(description) + '</p>' + action + '</div>';
   }
 
   function render() {
