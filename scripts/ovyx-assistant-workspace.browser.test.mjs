@@ -377,11 +377,13 @@ try {
       `[${target.name}] every native assistant response needs Copy/Helpful/Not helpful/Retry actions`,
     );
     await helpMessage.locator('[data-ovyx-native-response-action="not-helpful"]').click();
-    await page.locator('#view-faq').waitFor({ state: 'visible' });
-    await page.locator('#ovyx-help-support-form').waitFor({ state: 'attached' });
-    assert.match(await page.locator('#ovyx-help-support-subject').inputValue(), /Assistant response was not helpful/i,
+    await page.locator('#view-support').waitFor({ state: 'visible', timeout: 20000 });
+    await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 20000 });
+    assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'support',
+      `[${target.name}] assistant feedback must route to the dedicated Support page`);
+    assert.match(await page.locator('#view-support #ovyx-help-support-subject').inputValue(), /Assistant response was not helpful/i,
       `[${target.name}] thumbs-down should prepare an editable Contact Support subject`);
-    assert.match(await page.locator('#ovyx-help-support-message').inputValue(), /What went wrong\?/i,
+    assert.match(await page.locator('#view-support #ovyx-help-support-message').inputValue(), /What went wrong\?/i,
       `[${target.name}] thumbs-down should prepare an editable Contact Support draft`);
 
     await trigger.click();
