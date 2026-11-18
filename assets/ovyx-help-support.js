@@ -161,10 +161,15 @@
         setStatus(form, 'Sign in to your OVYX account before contacting Support.', 'error');
         return;
       }
-      if (emailInput && user.email && String(emailInput.value || '').trim().toLowerCase() !== String(user.email).trim().toLowerCase()) {
-        setStatus(form, 'Use the email address verified on your OVYX account so Support can reply securely.', 'error');
-        emailInput.focus();
-        return;
+      if (emailInput && user.email) {
+        const verifiedAccountEmail = String(user.email).trim().toLowerCase();
+        const enteredEmail = String(emailInput.value || '').trim().toLowerCase();
+        if (!enteredEmail) emailInput.value = verifiedAccountEmail;
+        else if (enteredEmail !== verifiedAccountEmail) {
+          setStatus(form, 'Use the email address verified on your OVYX account so Support can reply securely.', 'error');
+          emailInput.focus();
+          return;
+        }
       }
 
       const files = Array.from(fileInput?.files || []);
