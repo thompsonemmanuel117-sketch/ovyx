@@ -73,9 +73,9 @@
       '@media(prefers-reduced-motion:reduce){.ovyx-welcome-overlay,.ovyx-welcome-card,.ovyx-welcome-spark,.ovyx-notice-badge.is-visible{animation:none!important;transition:none!important}}';
     document.head.appendChild(style);
   }
-  // The floating inbox UI is intentionally retired platform-wide. Keep the
-  // authenticated notification data sync and welcome experience available so
-  // a dedicated inbox can be introduced later without rebuilding the backend.
+  // The floating bell and panel remain retired platform-wide. The dedicated
+  // full-page Inbox is mounted by ovyx-inbox-experience.js; keep this module's
+  // authenticated unread sync and welcome experience for the rest of the shell.
   function createWidget() { return null; }
   function closePanel(root = $('#ovyx-account-notifications-root')) {
     if (!root) return; const panel = $('#ovyx-notification-panel', root); if (panel) panel.hidden = true; $('#ovyx-notification-bell', root)?.setAttribute('aria-expanded', 'false');

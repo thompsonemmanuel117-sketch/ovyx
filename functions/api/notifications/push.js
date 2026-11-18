@@ -48,6 +48,8 @@ export async function onRequestGet(context) {
     if (identity.response) return identity.response;
     const config = getAdminPushConfiguration(context.env);
     const subscriptions = await ownedSubscriptions(context.env, identity.uid);
+    const endpoint = clean(new URL(context.request.url).searchParams.get('endpoint'), 2048);
+    const deviceSubscribed = Boolean(endpoint && subscriptions.some(row => String(row.endpoint || '') === endpoint));
     return jsonResponse({
       ok: true,
       authority: 'SERVER',
@@ -55,6 +57,7 @@ export async function onRequestGet(context) {
       vapidPublicKey: config.configured ? config.publicKey : null,
       reason: config.configured ? null : config.reason,
       activeDeviceCount: subscriptions.length,
+      deviceSubscribed,
     }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
   } catch (error) {
     return errorResponse(error?.status || 503, error?.code || 'USER_PUSH_READ_FAILED', 'Phone notification settings could not be loaded.', id);

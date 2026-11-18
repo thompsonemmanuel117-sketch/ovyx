@@ -1,0 +1,78 @@
+name: OVYX Inbox Notifications Browser Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/ovyx-inbox-experience.js'
+      - 'assets/ovyx-account-notifications.js'
+      - 'functions/api/notifications.js'
+      - 'functions/api/notifications/push.js'
+      - 'functions/api/_lib/firebase-admin.js'
+      - 'functions/_middleware.js'
+      - 'sw.js'
+      - 'scripts/ovyx-inbox-notifications.browser.test.mjs'
+      - 'scripts/ovyx-broadcast-notifications.test.mjs'
+      - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
+      - 'package.json'
+      - '.github/workflows/ovyx-inbox-notifications-browser.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'assets/ovyx-inbox-experience.js'
+      - 'assets/ovyx-account-notifications.js'
+      - 'functions/api/notifications.js'
+      - 'functions/api/notifications/push.js'
+      - 'functions/api/_lib/firebase-admin.js'
+      - 'functions/_middleware.js'
+      - 'sw.js'
+      - 'scripts/ovyx-inbox-notifications.browser.test.mjs'
+      - 'scripts/ovyx-broadcast-notifications.test.mjs'
+      - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
+      - 'package.json'
+      - '.github/workflows/ovyx-inbox-notifications-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inbox-notifications-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install project and browser test dependencies
+        run: |
+          npm install --ignore-scripts
+          npm install --ignore-scripts --no-save playwright@^1.55.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify notification API, delivery and shell contracts
+        run: |
+          node scripts/ovyx-broadcast-notifications.test.mjs
+          npm run validate
+      - name: Start local Cloudflare Pages app shell
+        run: |
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8797 > /tmp/ovyx-inbox-pages.log 2>&1 &
+          echo $! > /tmp/ovyx-inbox-pages.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8797/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ovyx-inbox-pages.log
+          exit 1
+      - name: Test Inbox on desktop and mobile Chromium
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8797
+        run: node scripts/ovyx-inbox-notifications.browser.test.mjs
+      - name: Print local Pages logs on failure
+        if: failure()
+        run: cat /tmp/ovyx-inbox-pages.log || true

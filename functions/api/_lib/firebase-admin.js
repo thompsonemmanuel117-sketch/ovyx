@@ -467,7 +467,8 @@ export async function listFirestoreDocuments(
   env,
   collection,
   pageSize = 100,
-  pageToken = null
+  pageToken = null,
+  orderBy = null
 ) {
   const serviceAccount = parseServiceAccount(env);
   const accessToken = await getGoogleAccessToken(env);
@@ -483,6 +484,9 @@ export async function listFirestoreDocuments(
 
   if (pageToken) {
     params.set('pageToken', String(pageToken));
+  }
+  if (orderBy) {
+    params.set('orderBy', String(orderBy));
   }
 
   const url =
@@ -756,15 +760,18 @@ export async function deleteFirestoreDocumentAtPath(env,segments,expectedUpdateT
   throw Object.assign(new Error(payload?.error?.message||`Firestore delete failed (${response.status}).`),{status:response.status>=500?503:400,code:'FIRESTORE_DELETE_FAILED'});
 }
 
-export async function listFirestoreSubcollectionDocuments(env,parentCollection,parentDocumentId,subcollection,pageSize=100){
+export async function listFirestoreSubcollectionDocuments(env,parentCollection,parentDocumentId,subcollection,pageSize=100,pageToken=null){
   const serviceAccount=parseServiceAccount(env);
   const accessToken=await getGoogleAccessToken(env);
   const parent=firestoreDocumentPath(serviceAccount.project_id,[parentCollection,parentDocumentId]);
   const params=new URLSearchParams({pageSize:String(Math.min(Math.max(Number(pageSize)||100,1),1000))});
+  if(pageToken)params.set('pageToken',String(pageToken));
   const response=await fetch(`${parent}/${encodeURIComponent(subcollection)}?${params.toString()}`,{headers:{Authorization:`Bearer ${accessToken}`}});
   if(!response.ok)throw new Error(`Firestore subcollection list failed (${response.status}).`);
   const data=await response.json();
-  return (data.documents||[]).map(document=>({id:String(document?.name||'').split('/').pop()||'',data:firestoreDocumentToJs(document)}));
+  const rows=(data.documents||[]).map(document=>({id:String(document?.name||'').split('/').pop()||'',data:firestoreDocumentToJs(document)}));
+  rows.nextPageToken=data.nextPageToken||null;
+  return rows;
 }
 
 export async function createFirestoreDocument(
