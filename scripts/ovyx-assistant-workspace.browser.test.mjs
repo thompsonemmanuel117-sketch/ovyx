@@ -803,9 +803,9 @@ try {
         }),
       });
     });
-    await page.locator('#ovyx-help-support-subject').fill('Support browser regression');
-    await page.locator('#ovyx-help-support-message').fill('Please review this test report and its attached evidence.');
-    await page.locator('#ovyx-help-support-attachments').setInputFiles({
+    await page.locator('#view-support #ovyx-help-support-subject').fill('Support browser regression');
+    await page.locator('#view-support #ovyx-help-support-message').fill('Please review this test report and its attached evidence.');
+    await page.locator('#view-support #ovyx-help-support-attachments').setInputFiles({
       name: 'support-evidence.txt',
       mimeType: 'text/plain',
       buffer: Buffer.from('OVYX support attachment fixture'),
@@ -813,7 +813,7 @@ try {
     // The shell's scrollable viewport can still be settling after the
     // assistant draft focus/route transition; dispatch the real submit-button
     // click without relying on Playwright's scroll-into-view pointer heuristic.
-    await page.locator('#ovyx-help-support-submit').evaluate(button => button.click());
+    await page.locator('#view-support #ovyx-help-support-submit').evaluate(button => button.click());
     await page.waitForFunction(() => /OVYX-BROWSER123/.test(document.getElementById('ovyx-help-support-status')?.textContent || ''), null, { timeout: 15000 });
     assert.ok(supportRequest, '[' + target.name + '] support form must call the existing support API.');
     const supportHeaders = await supportRequest.allHeaders();
@@ -833,12 +833,12 @@ try {
         ticket: { ticketId: 'OVYX-BROWSERFAIL', status: 'open', notificationStatus: 'failed', attachmentCount: 0 },
       }),
     }));
-    await page.locator('#ovyx-help-support-subject').fill('Email delivery failure check');
-    await page.locator('#ovyx-help-support-message').fill('This test verifies honest email delivery failure messaging.');
+    await page.locator('#view-support #ovyx-help-support-subject').fill('Email delivery failure check');
+    await page.locator('#view-support #ovyx-help-support-message').fill('This test verifies honest email delivery failure messaging.');
     // The shell's scrollable viewport can still be settling after the
     // assistant draft focus/route transition; dispatch the real submit-button
     // click without relying on Playwright's scroll-into-view pointer heuristic.
-    await page.locator('#ovyx-help-support-submit').evaluate(button => button.click());
+    await page.locator('#view-support #ovyx-help-support-submit').evaluate(button => button.click());
     await page.waitForFunction(() => /OVYX-BROWSERFAIL/.test(document.getElementById('ovyx-help-support-status')?.textContent || ''), null, { timeout: 15000 });
     assert.match(await page.locator('#ovyx-help-support-status').innerText(), /email delivery was not confirmed/i,
       '[' + target.name + '] a saved ticket with failed email delivery must not be reported as emailed.');
