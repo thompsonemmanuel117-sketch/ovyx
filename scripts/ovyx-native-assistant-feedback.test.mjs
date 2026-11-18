@@ -18,7 +18,7 @@ for (const token of [
   'ovyxNativeRetryPrompt',
   "/api/ai/feedback",
   "route: 'assistant-workspace'",
-  "window.Router.go('faq')",
+  "window.Router.go('support')",
   "ovyx-help-support-subject",
   "ovyx-help-support-message",
 ]) {
