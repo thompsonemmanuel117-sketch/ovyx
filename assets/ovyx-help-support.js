@@ -143,6 +143,7 @@
     const faqSection = shell.querySelector('#ovyx-help-faq-list')?.closest('.ovyx-help-section');
     [legacySearch, popular, faqSection].filter(Boolean).forEach(node => {
       node.hidden = true;
+      node.style.setProperty('display', 'none', 'important');
       node.setAttribute('aria-hidden', 'true');
       node.dataset.ovyxSecondaryFaq = 'hidden';
     });
