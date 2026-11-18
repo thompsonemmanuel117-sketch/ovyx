@@ -73,9 +73,13 @@
         submit.setAttribute('aria-busy', 'true');
       }
 
-      const reportId = form.dataset.ovyxSupportReportId ||
-        (typeof crypto?.randomUUID === 'function' ? crypto.randomUUID() : 'report_' + Date.now() + '_' + Math.random().toString(36).slice(2));
+      const payloadSignature = [subject, message, category].join('\\n');
+      const sameRetryPayload = form.dataset.ovyxSupportPayloadSignature === payloadSignature;
+      const reportId = sameRetryPayload && form.dataset.ovyxSupportReportId
+        ? form.dataset.ovyxSupportReportId
+        : (typeof crypto?.randomUUID === 'function' ? crypto.randomUUID() : 'report_' + Date.now() + '_' + Math.random().toString(36).slice(2));
       form.dataset.ovyxSupportReportId = reportId;
+      form.dataset.ovyxSupportPayloadSignature = payloadSignature;
 
       try {
         const token = await user.getIdToken();
@@ -104,7 +108,7 @@
 
         showStatus(form, 'Your report has been sent to OVYX Support. We have received it.', 'success');
         toast('Your report was sent to OVYX Support.', 'success');
-        form.dataset.ovyxSupportReportId = '';
+        form.dataset.ovyxSupportReportId = '';\n        form.dataset.ovyxSupportPayloadSignature = '';
       } catch (error) {
         showStatus(form, error?.message || 'Your report could not be sent. Please try again.', 'error');
         toast(error?.message || 'Your report could not be sent.', 'warning');
