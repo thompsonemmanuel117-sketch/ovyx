@@ -2899,7 +2899,9 @@
     else document.getElementById('view-support')?.classList.remove('hidden');
     let form = null;
     for (let attempt = 0; attempt < 35; attempt += 1) {
-      form = document.getElementById('ovyx-help-support-form');
+      // The dedicated Support page owns the editable report. Avoid matching
+      // any legacy hidden form that may still exist elsewhere in the shell.
+      form = document.querySelector('#view-support #ovyx-help-support-form');
       if (form) break;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -2907,8 +2909,8 @@
       responseToast('Open Contact OVYX Support to describe the response that was not helpful.', 'warning');
       return;
     }
-    const subject = document.getElementById('ovyx-help-support-subject');
-    const message = document.getElementById('ovyx-help-support-message');
+    const subject = form.querySelector('#ovyx-help-support-subject');
+    const message = form.querySelector('#ovyx-help-support-message');
     const project = window.KernelState?.activeProject || {};
     const responseId = String(row?.dataset?.ovyxNativeMessageId || '').slice(0, 120);
     const draft = [
