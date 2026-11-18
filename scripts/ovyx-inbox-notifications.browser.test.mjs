@@ -149,6 +149,15 @@ try {
       { timeout: 60000 },
     );
 
+    // Capture route changes so a delayed shell redirect cannot silently hide
+    // the Inbox after the route authority initially confirms navigation.
+    await page.evaluate(() => {
+      window.__ovyxInboxRouteTrace = [];
+      window.addEventListener('ovyx:view-changed', event => window.__ovyxInboxRouteTrace.push({
+        detail: event.detail || null, activeView: window.KernelState?.activeView || null,
+        inboxHidden: document.getElementById('view-inbox')?.classList.contains('hidden') ?? null,
+      }));
+    });
     // Exercise the canonical router directly. The sidebar is covered by the
     // shell/navigation regression suite; its legacy account-link class is not
     // a stable contract for this Inbox-specific browser test.
@@ -171,12 +180,22 @@ try {
       });
       console.log('[' + target.name + '] Inbox canonical router fallback ' + JSON.stringify(routerState));
     }
-    await page.waitForFunction(() =>
-      String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'inbox'
-      && !document.getElementById('view-inbox')?.classList.contains('hidden'),
-      null,
-      { timeout: 20000 },
-    );
+    try {
+      await page.waitForFunction(() =>
+        String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'inbox'
+        && !document.getElementById('view-inbox')?.classList.contains('hidden'),
+        null,
+        { timeout: 20000 },
+      );
+    } catch (error) {
+      const finalRouteState = await page.evaluate(() => ({
+        activeView: window.KernelState?.activeView || null,
+        inboxHidden: document.getElementById('view-inbox')?.classList.contains('hidden') ?? null,
+        routeTrace: window.__ovyxInboxRouteTrace || [],
+      }));
+      console.error('[' + target.name + '] Inbox route changed after navigation ' + JSON.stringify(finalRouteState));
+      throw error;
+    }
     await page.locator('[data-inbox-id="inbox-product-1"]').waitFor();
     assert.equal(await page.locator('.v34-inbox-item').count(), 2,
       '[' + target.name + '] the Inbox must render the authenticated notification records.');
