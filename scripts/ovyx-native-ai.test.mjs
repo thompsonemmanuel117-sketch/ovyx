@@ -197,6 +197,14 @@ assert.equal(
   'Normalized model text',
   'The native response parser must accept normalized raw text from the free-only Cloudflare guard.',
 );
+const supportNavigation = parseOvyxNativeModelOutput({
+  response: JSON.stringify({
+    text: 'I can open Contact OVYX Support for you.',
+    actions: [{ type: 'navigate', route: 'support' }],
+  }),
+});
+assert.deepEqual(supportNavigation.actions, [{ type: 'navigate', route: 'support' }],
+  'Native OVYX AI must be allowed to navigate to the standalone Contact Support page.');
 
 await assert.rejects(
   generateOvyxNativeAI({}, { prompt: 'Hello' }),
