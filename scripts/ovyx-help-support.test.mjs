@@ -30,6 +30,7 @@ assert.ok(client.includes("getIdToken()"), 'Support submission must use the sign
 assert.ok(client.includes('stopImmediatePropagation()'), 'Support submission must prevent legacy duplicate form handlers.');
 assert.ok(client.includes('ovyxSupportReportId'), 'Support retry must preserve its idempotency key.');
 assert.ok(client.includes('ovyxSupportPayloadSignature'), 'A retry key must only be reused when the report payload is unchanged.');
+assert.ok(!client.includes('new MutationObserver'), 'The Help runtime must not observe the entire OVYX application DOM.');
 assert.ok(assistant.includes("window.Router.go('faq')"), 'AI feedback must continue to hand off to the dedicated Help/Support page.');
 assert.ok(middleware.includes('/assets/ovyx-help-support.js?v=20261118-1'), 'The support submission runtime must be loaded by the app shell.');
 assert.ok(knowledge.includes("id: 'help-support'"), 'The OVYX platform knowledge catalog must include Help and Support.');
