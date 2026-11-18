@@ -155,7 +155,7 @@
     });
     const contact = document.createElement('button');
     contact.type = 'button';
-    contact.textContent = 'Contact Support';
+    contact.textContent = 'Contact OVYX Support';
     contact.style.cssText = 'min-height:42px;padding:0 16px;border:1px solid rgba(255,255,255,.16);border-radius:12px;background:rgba(255,255,255,.045);color:var(--text-primary,#fff);font-weight:600;cursor:pointer';
     contact.addEventListener('click', () => {
       form.scrollIntoView({ behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth', block: 'start' });
