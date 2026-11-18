@@ -121,7 +121,7 @@ export async function sendSupportEmail(
 ) {
   const apiKey = String(env?.RESEND_API_KEY || '').trim();
   const from = String(env?.RESEND_FROM_EMAIL || '').trim();
-  const to = parseRecipients(env?.RESEND_SUPPORT_TO_EMAIL);
+  const to = parseRecipients(env?.OVYX_SUPPORT_EMAIL || env?.RESEND_SUPPORT_TO_EMAIL);
 
   if (!apiKey || !from) {
     throw Object.assign(
