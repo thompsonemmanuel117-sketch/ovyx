@@ -57,21 +57,21 @@ assert.match(websiteEngineKnowledge, /Cloudflare Workers AI/);
 assert.match(websiteEngineKnowledge, /App Studio.*unchanged|App Studio.*separately routed/i);
 
 const helpKnowledge = buildOvyxProjectKnowledge('How do I contact OVYX Support and send a report?');
-assert.match(helpKnowledge, /functions\\/api\\/support\\.js/);
-assert.match(helpKnowledge, /support_tickets/);
-assert.match(helpKnowledge, /Resend delivery/);
+assert.ok(helpKnowledge.includes('functions/api/support.js'));
+assert.ok(helpKnowledge.includes('support_tickets'));
+assert.ok(helpKnowledge.includes('Resend delivery'));
 
 const projectsKnowledge = buildOvyxProjectKnowledge('How do I create and switch between projects?');
-assert.match(projectsKnowledge, /projects-unified-flow\\.js|project-workspace-picker\\.js/);
+assert.ok(projectsKnowledge.includes('ovyx-projects-unified-flow.js') || projectsKnowledge.includes('ovyx-project-workspace-picker.js'));
 
 const publishingKnowledge = buildOvyxProjectKnowledge('How do I publish and manage my live website?');
-assert.match(publishingKnowledge, /publishing-center\\.js|website-management\\.js/);
+assert.ok(publishingKnowledge.includes('ovyx-publishing-center.js') || publishingKnowledge.includes('ovyx-website-management.js'));
 
 const connectionsKnowledge = buildOvyxProjectKnowledge('How do I connect GitHub and check inbox notifications?');
-assert.match(connectionsKnowledge, /personal-connections|inbox-experience/);
+assert.ok(connectionsKnowledge.includes('ovyx-personal-connections') || connectionsKnowledge.includes('ovyx-inbox-experience'));
 
 const settingsKnowledge = buildOvyxProjectKnowledge('Where are my account settings and billing plan?');
-assert.match(settingsKnowledge, /settings-billing-live\\.js|entitlements/);
+assert.ok(settingsKnowledge.includes('ovyx-settings-billing-live.js') || settingsKnowledge.includes('functions/api/entitlements.js'));
 
 const general = buildOvyxProjectKnowledge('Hello, thank you.');
 assert.match(general, /IMPORTANT SCOPE BOUNDARY/);
