@@ -15,6 +15,7 @@ for (const token of [
   "['support_reports', documentId]",
   "context.env?.OVYX_SUPPORT_EMAIL || DEFAULT_SUPPORT_EMAIL",
   'ovyxsupportteam@gmail.com',
+  "'OVYX Support <onboarding@resend.dev>'",
   "fetch('https://api.resend.com/emails'",
   "'Idempotency-Key': idempotencyKey",
   "deliveryStatus: 'pending'",
