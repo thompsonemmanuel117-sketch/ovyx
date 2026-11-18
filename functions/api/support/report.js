@@ -148,7 +148,7 @@ export async function onRequest(context) {
     const page = cleanText(body.page, 120);
     const recipientCandidate = String(context.env?.OVYX_SUPPORT_EMAIL || DEFAULT_SUPPORT_EMAIL).trim();
     const recipient = validEmail(recipientCandidate) ? recipientCandidate : DEFAULT_SUPPORT_EMAIL;
-    const sender = context.env?.OVYX_SUPPORT_FROM_EMAIL || context.env?.RESEND_FROM_EMAIL || '';
+    const sender = context.env?.OVYX_SUPPORT_FROM_EMAIL || context.env?.RESEND_FROM_EMAIL || 'OVYX Support <onboarding@resend.dev>';
     const documentId = (uid + '_' + reportId).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 220);
     const path = ['support_reports', documentId];
     const now = new Date().toISOString();
