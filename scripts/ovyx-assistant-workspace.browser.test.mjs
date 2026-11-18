@@ -379,6 +379,15 @@ try {
     await helpMessage.locator('[data-ovyx-native-response-action="not-helpful"]').click();
     await page.locator('#view-support').waitFor({ state: 'visible', timeout: 20000 });
     await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 20000 });
+    // Route activation and form relocation can finish before the asynchronous
+    // feedback handoff populates the editable draft, especially on mobile.
+    // Wait for the actual user-visible draft rather than racing its assignment.
+    await page.waitForFunction(() => {
+      const subject = document.querySelector('#view-support #ovyx-help-support-subject');
+      const message = document.querySelector('#view-support #ovyx-help-support-message');
+      return /Assistant response was not helpful/i.test(subject?.value || '') &&
+        /What went wrong\\?/i.test(message?.value || '');
+    }, null, { timeout: 10000 });
     assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'support',
       `[${target.name}] assistant feedback must route to the dedicated Support page`);
     assert.match(await page.locator('#view-support #ovyx-help-support-subject').inputValue(), /Assistant response was not helpful/i,
