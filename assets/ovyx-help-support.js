@@ -255,17 +255,28 @@
 
   function patchLegacySupportEntryPoints() {
     const center = window.OVYXSupportCenter;
-    if (!center || typeof center.open !== 'function' || center.__ovyxStandalonePageRoute) return;
-    center.open = function () {
-      if (typeof window.Router?.go === 'function') return window.Router.go('support');
-      const page = supportPage();
-      if (page) {
-        page.classList.remove('hidden');
-        page.setAttribute('aria-hidden', 'false');
-      }
-      return 'support';
-    };
-    center.__ovyxStandalonePageRoute = true;
+    if (center && typeof center.open === 'function' && !center.__ovyxStandalonePageRoute) {
+      center.open = function () {
+        if (typeof window.Router?.go === 'function') return window.Router.go('support');
+        const page = supportPage();
+        if (page) {
+          page.classList.remove('hidden');
+          page.setAttribute('aria-hidden', 'false');
+        }
+        return 'support';
+      };
+      center.__ovyxStandalonePageRoute = true;
+    }
+    if (!document.documentElement.dataset.ovyxSupportChannelsBound) {
+      document.documentElement.dataset.ovyxSupportChannelsBound = '1';
+      document.addEventListener('click', event => {
+        const directChannel = event.target?.closest?.('[data-v34-support-wa],[data-support-whatsapp]');
+        if (!directChannel) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        window.Router?.go?.('support');
+      }, true);
+    }
   }
 
   function scan() {
