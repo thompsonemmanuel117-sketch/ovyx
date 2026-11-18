@@ -12,6 +12,11 @@ on:
       - feat/app-studio-panel-experience
     paths:
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
+      - 'assets/ovyx-help-support.js'
+      - 'functions/api/support.js'
+      - 'functions/api/_lib/support-mailer.js'
+      - 'scripts/ovyx-help-support.test.mjs'
+      - 'docs/OVYX-HELP-CENTRE-SUPPORT.md'
       - 'scripts/ovyx-account-notifications.browser.test.mjs'
       - 'scripts/ovyx-settings.browser.test.mjs'
       - 'index.html'
@@ -123,6 +128,11 @@ on:
       - 'scripts/ovyx-broadcast-notifications.test.mjs'
       - 'scripts/ovyx-account-notifications.browser.test.mjs'
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
+      - 'assets/ovyx-help-support.js'
+      - 'functions/api/support.js'
+      - 'functions/api/_lib/support-mailer.js'
+      - 'scripts/ovyx-help-support.test.mjs'
+      - 'docs/OVYX-HELP-CENTRE-SUPPORT.md'
       - 'assets/ovyx-app-studio-link-builder.js'
       - 'assets/ovyx-app-studio-premium-polish.js'
       - 'assets/ovyx-app-studio-visual-refresh.js'
