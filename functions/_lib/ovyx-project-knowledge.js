@@ -165,6 +165,25 @@ const CARDS = [
       'The Stage 4 Cloudflare AI benchmark requires real usable Cloudflare allowance. Do not mark it passed based on mocks, static checks or an unavailable quota.',
     ].join('\n'),
   },
+  {
+    id: 'help-support',
+    title: 'OVYX Help Centre, platform questions and Contact Support',
+    keywords: ['help', 'help centre', 'help center', 'support', 'contact support', 'report a problem', 'submit a report', 'support ticket', 'how do i use ovyx', 'how to use ovyx', 'what is ovyx', 'about ovyx', 'platform question', 'feature help', 'troubleshoot ovyx', 'account help', 'billing help'],
+    sources: [
+      'assets/ovyx-assistant-workspace.js',
+      'assets/ovyx-help-support.js',
+      'functions/_lib/ovyx-native-ai.js',
+      'functions/_lib/ovyx-project-knowledge.js',
+      'functions/api/support/report.js',
+      'docs/OVYX-HELP-CENTRE-SUPPORT.md',
+    ],
+    content: [
+      'OVYX Help Centre has one primary product guide: OVYX AI, the assistant built by OVYX for the OVYX platform. Answer platform questions in the context of the actual OVYX product map and the topic-relevant source notes. Do not behave like a generic chatbot when the user asks how OVYX works.',
+      'Distinguish OVYX platform questions from questions about the signed-in user’s own saved website/app project and from questions about OVYX’s own GitHub codebase. Use the relevant, authorized context source for each. Do not claim a feature, entitlement, integration, setting, or action exists unless supported by current platform knowledge or observed tool results. State uncertainty and give the user the correct next step.',
+      'Contact OVYX Support is a separate Help page, not a competing AI assistant. The existing assistant can hand off unresolved or negative-feedback cases to the FAQ/Help route and prefill the existing support form. Support reports are submitted through POST /api/support/report, authenticated with Firebase, persisted in Firestore, and emailed server-side to the configured OVYX support inbox through Resend. Never ask the browser to choose the destination or expose email provider credentials.',
+      'A report is confirmed as emailed only after the server reports successful Resend delivery. A report may be stored with pending/failed delivery status if email configuration or delivery is unavailable. The support form uses an idempotent report ID for safe retries. Do not tell users that a support email was delivered unless the endpoint returned success.',
+    ].join('\n'),
+  },
 ];
 
 function normalizeInput(value) {
