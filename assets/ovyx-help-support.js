@@ -115,7 +115,7 @@
     header.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:18px 24px;align-items:center;margin:0 0 8px;padding:clamp(20px,3vw,30px);border:1px solid rgba(194,163,107,.22);border-radius:20px;background:radial-gradient(ellipse at 12% 0%,rgba(194,163,107,.10),transparent 52%),linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.015))';
     const copy = document.createElement('div');
     copy.style.cssText = 'flex:1 1 280px;min-width:0';
-    copy.innerHTML = '<p style="margin:0 0 8px;color:#c2a36b;font-size:10px;font-weight:800;letter-spacing:.16em">OVYX HELP CENTRE</p><h2 style="margin:0;color:var(--app-text,#fff);font:800 clamp(23px,3vw,32px)/1.1 Inter,sans-serif;letter-spacing:-.035em">Your guide to OVYX.</h2><p style="max-width:620px;margin:9px 0 0;color:var(--app-muted,#9ca3af);font:500 13px/1.6 Inter,sans-serif">OVYX AI is the first stop for platform questions. Use the reference guides below when useful, or contact the support team when you need a person.</p>';
+    copy.innerHTML = '<p style="margin:0 0 8px;color:#c2a36b;font-size:10px;font-weight:800;letter-spacing:.16em">OVYX HELP CENTRE</p><h2 style="margin:0;color:var(--app-text,#fff);font:800 clamp(23px,3vw,32px)/1.1 Inter,sans-serif;letter-spacing:-.035em">Your guide to OVYX.</h2><p style="max-width:620px;margin:9px 0 0;color:var(--app-muted,#9ca3af);font:500 13px/1.6 Inter,sans-serif">OVYX AI is the one place to ask platform questions. For account issues or problems that need a person, open Contact OVYX Support.</p>';
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:9px;align-items:center';
     const ask = document.createElement('button');
@@ -135,6 +135,24 @@
     header.append(copy, actions);
     const top = shell.querySelector('.ovyx-help-top');
     shell.insertBefore(header, top || shell.firstChild);
+
+    // The old static FAQ is retained in source for reference, but it must not
+    // compete with OVYX AI as a second answer destination in the Help Centre.
+    const legacySearch = shell.querySelector('.ovyx-help-top');
+    const popular = shell.querySelector('.ovyx-help-popular')?.parentElement;
+    const faqSection = shell.querySelector('#ovyx-help-faq-list')?.closest('.ovyx-help-section');
+    [legacySearch, popular, faqSection].filter(Boolean).forEach(node => {
+      node.hidden = true;
+      node.setAttribute('aria-hidden', 'true');
+      node.dataset.ovyxSecondaryFaq = 'hidden';
+    });
+    shell.classList.add('ovyx-help-ai-primary');
+    if (!document.getElementById('ovyx-help-ai-primary-styles')) {
+      const style = document.createElement('style');
+      style.id = 'ovyx-help-ai-primary-styles';
+      style.textContent = '.ovyx-help-ai-primary .ovyx-help-lower{grid-template-columns:minmax(0,1fr)!important}.ovyx-help-ai-primary .ovyx-help-lower aside{max-width:100%}';
+      document.head.appendChild(style);
+    }
   }
 
   function bindSupportForm(form) {
