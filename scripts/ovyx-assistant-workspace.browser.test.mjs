@@ -386,7 +386,7 @@ try {
       const subject = document.querySelector('#view-support #ovyx-help-support-subject');
       const message = document.querySelector('#view-support #ovyx-help-support-message');
       return /Assistant response was not helpful/i.test(subject?.value || '') &&
-        /What went wrong\\?/i.test(message?.value || '');
+        /What went wrong\?/i.test(message?.value || '');
     }, null, { timeout: 10000 });
     assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'support',
       `[${target.name}] assistant feedback must route to the dedicated Support page`);
