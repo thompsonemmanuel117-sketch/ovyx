@@ -72,7 +72,11 @@
     }
     if (!feed.dataset.ovyxTemplateObserver && typeof MutationObserver === 'function') {
       const observer = new MutationObserver(() => {
-        if (isTemplatesView() && !feed.querySelector('.ovyx-template-cards, .ovyx-template-empty')) render();
+        // The retired TemplateStore renderer can still replace the public
+        // catalogue with similarly named legacy cards. Only this renderer's
+        // marked grid is authoritative; restore it whenever another renderer
+        // takes ownership of the feed.
+        if (isTemplatesView() && !feed.querySelector('[data-ovyx-template-cards="1"], .ovyx-template-empty[data-ovyx-template-empty="1"]')) render();
       });
       observer.observe(feed, { childList: true });
       feed.dataset.ovyxTemplateObserver = '1';
@@ -266,7 +270,7 @@
         '<button type="button" data-ovyx-template-action="clear">Clear filters</button>');
       return;
     }
-    feed.innerHTML = '<div class="ovyx-template-cards col-span-full">' + items.map(item => {
+    feed.innerHTML = '<div class="ovyx-template-cards col-span-full" data-ovyx-template-cards="1">' + items.map(item => {
       const locked = item.locked === true;
       const tier = clean(item.requiredTier || 'free').toUpperCase();
       const pageCount = Array.isArray(item.pages) ? item.pages.length : 0;
