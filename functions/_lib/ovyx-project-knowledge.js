@@ -259,8 +259,6 @@ const CARDS = [
       'functions/api/_lib/support-mailer.js',
       'functions/_lib/ovyx-native-ai.js',
       'functions/_lib/ovyx-project-knowledge.js',
-      'functions/api/support.js',
-      'functions/api/_lib/support-mailer.js',
       'docs/OVYX-HELP-CENTRE-SUPPORT.md',
     ],
     content: [
