@@ -251,8 +251,24 @@
     router.__ovyxSupportRouteV2 = true;
   }
 
+  function patchLegacySupportEntryPoints() {
+    const center = window.OVYXSupportCenter;
+    if (!center || typeof center.open !== 'function' || center.__ovyxStandalonePageRoute) return;
+    center.open = function () {
+      if (typeof window.Router?.go === 'function') return window.Router.go('support');
+      const page = supportPage();
+      if (page) {
+        page.classList.remove('hidden');
+        page.setAttribute('aria-hidden', 'false');
+      }
+      return 'support';
+    };
+    center.__ovyxStandalonePageRoute = true;
+  }
+
   function scan() {
     patchRouter();
+    patchLegacySupportEntryPoints();
     enhanceHelpPage();
     moveSupportForm();
   }
@@ -264,4 +280,5 @@
   }
   window.addEventListener('ovyx:view-changed', () => window.setTimeout(scan, 30));
   window.addEventListener('load', () => window.setTimeout(scan, 90), { once: true });
+  [0, 120, 260, 650, 1500, 3000].forEach(delay => window.setTimeout(patchLegacySupportEntryPoints, delay));
 })();
