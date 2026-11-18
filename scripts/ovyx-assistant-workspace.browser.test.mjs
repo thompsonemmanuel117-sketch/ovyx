@@ -739,6 +739,73 @@ try {
         null, { timeout: 8000 });
     }
 
+    // Help Centre and standalone Contact Support must share one native AI
+    // experience while preserving the existing multipart support-ticket flow.
+    await page.evaluate(() => window.Router.go('faq'));
+    await page.locator('#ovyx-help-centre-intro').waitFor({ state: 'visible', timeout: 20000 });
+    await page.locator('#ovyx-help-centre-intro').getByRole('button', { name: 'Contact OVYX Support' }).click();
+    await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 20000 });
+    const supportPageState = await page.evaluate(() => ({
+      active: window.KernelState?.activeView,
+      supportVisible: !document.getElementById('view-support')?.classList.contains('hidden'),
+      formInSupport: document.getElementById('view-support')?.contains(document.getElementById('ovyx-help-support-form')),
+      formStillInHelp: document.getElementById('view-faq')?.contains(document.getElementById('ovyx-help-support-form')),
+      assistantAvailable: typeof window.WorkspaceBrainBot?.open === 'function',
+    }));
+    assert.equal(supportPageState.active, 'support', '[' + target.name + '] Contact Support must use its own route.');
+    assert.equal(supportPageState.supportVisible, true, '[' + target.name + '] standalone support page must be visible.');
+    assert.equal(supportPageState.formInSupport, true, '[' + target.name + '] existing support form must be moved into the standalone page.');
+    assert.equal(supportPageState.formStillInHelp, false, '[' + target.name + '] support form must not remain embedded in the Help Centre.');
+    assert.equal(supportPageState.assistantAvailable, true, '[' + target.name + '] Help Centre must reuse the existing OVYX AI.');
+
+    let supportRequest = null;
+    await page.route('**/api/support', async route => {
+      supportRequest = route.request();
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          ticket: { ticketId: 'OVYX-BROWSER123', status: 'open', notificationStatus: 'sent', attachmentCount: 1 },
+        }),
+      });
+    });
+    await page.locator('#ovyx-help-support-subject').fill('Support browser regression');
+    await page.locator('#ovyx-help-support-message').fill('Please review this test report and its attached evidence.');
+    await page.locator('#ovyx-help-support-attachments').setInputFiles({
+      name: 'support-evidence.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('OVYX support attachment fixture'),
+    });
+    await page.locator('#ovyx-help-support-submit').click();
+    await page.waitForFunction(() => /OVYX-BROWSER123/.test(document.getElementById('ovyx-help-support-status')?.textContent || ''), null, { timeout: 15000 });
+    assert.ok(supportRequest, '[' + target.name + '] support form must call the existing support API.');
+    const supportHeaders = await supportRequest.allHeaders();
+    assert.match(supportHeaders.authorization || '', /^Bearer /, '[' + target.name + '] support request must carry the Firebase identity token.');
+    assert.match(supportHeaders['content-type'] || '', /^multipart\/form-data;/, '[' + target.name + '] support request must preserve multipart attachment upload.');
+    const supportBody = supportRequest.postDataBuffer()?.toString('latin1') || '';
+    assert.ok(supportBody.includes('support-evidence.txt'), '[' + target.name + '] selected attachment must reach the existing support endpoint.');
+    assert.match(await page.locator('#ovyx-help-support-status').innerText(), /emailed to OVYX Support/i,
+      '[' + target.name + '] UI may confirm email delivery only when the server confirms notificationStatus=sent.');
+
+    await page.unroute('**/api/support');
+    await page.route('**/api/support', async route => route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ok: true,
+        ticket: { ticketId: 'OVYX-BROWSERFAIL', status: 'open', notificationStatus: 'failed', attachmentCount: 0 },
+      }),
+    }));
+    await page.locator('#ovyx-help-support-subject').fill('Email delivery failure check');
+    await page.locator('#ovyx-help-support-message').fill('This test verifies honest email delivery failure messaging.');
+    await page.locator('#ovyx-help-support-submit').click();
+    await page.waitForFunction(() => /OVYX-BROWSERFAIL/.test(document.getElementById('ovyx-help-support-status')?.textContent || ''), null, { timeout: 15000 });
+    assert.match(await page.locator('#ovyx-help-support-status').innerText(), /email delivery was not confirmed/i,
+      '[' + target.name + '] a saved ticket with failed email delivery must not be reported as emailed.');
+    await page.evaluate(() => window.Router.go('faq'));
+    await page.waitForFunction(() => window.KernelState?.activeView === 'faq', null, { timeout: 10000 });
+
     console.log(`PASS ${target.name}: real dock isolation, menu actions, read-only tool loop, local-context fallback, explicit approval and verified source update.`);
     await page.evaluate(() => {
       document.getElementById('test-typing-dock-shell')?.remove();
