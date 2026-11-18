@@ -38,6 +38,7 @@ assert.ok(client.includes('appendChild(card)'), 'The existing support form must 
 assert.ok(client.includes('ovyx-help-centre-intro'), 'The Help Centre must clearly identify the single OVYX AI entry point.');
 assert.ok(client.includes('WorkspaceBrainBot.open'), 'The Help Centre must reuse the existing OVYX AI assistant.');
 assert.ok(assistant.includes("window.Router.go('support')"), 'AI feedback must hand off to the dedicated Contact Support page.');
+assert.ok(assistant.includes("'faq','support','inbox'"), 'OVYX AI navigation actions must allow the standalone support route.');
 assert.ok(middleware.includes('/assets/ovyx-help-support.js?v=20261118-2'), 'The standalone support runtime must be loaded by the app shell.');
 assert.ok(knowledge.includes("id: 'help-support'"), 'OVYX AI knowledge must include Help and Support.');
 for (const id of ['projects-and-workspaces', 'publishing-and-sites', 'connections-and-inbox', 'settings-account-billing']) {
