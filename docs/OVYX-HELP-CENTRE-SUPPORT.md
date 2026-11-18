@@ -9,12 +9,11 @@ validates bounded report fields, persists the report in Firestore under
 
 The default recipient is the existing OVYX root/support inbox
 `ovyxsupportteam@gmail.com`. An optional `OVYX_SUPPORT_EMAIL` server
-environment variable can override it. The sender must be a verified sender
-configured as `OVYX_SUPPORT_FROM_EMAIL` or `RESEND_FROM_EMAIL`.
+environment variable can override it. The sender defaults to Resend's test sender `OVYX Support <onboarding@resend.dev>`. For this no-domain setup, create the Resend account using the OVYX support inbox so test-mode mail is addressed to the account owner. For production sending from a branded OVYX address, configure a verified sender as `OVYX_SUPPORT_FROM_EMAIL` or `RESEND_FROM_EMAIL`.
 
 Required Cloudflare Pages secrets/environment:
 - `RESEND_API_KEY` (secret)
-- `OVYX_SUPPORT_FROM_EMAIL` or `RESEND_FROM_EMAIL` (verified sender)
+- Optional `OVYX_SUPPORT_FROM_EMAIL` or `RESEND_FROM_EMAIL` (verified branded sender; defaults to Resend's test sender)
 - Optional `OVYX_SUPPORT_EMAIL` (destination override; defaults to the existing root/support inbox)
 
 Reports are recorded before delivery. Their Firestore delivery status is
