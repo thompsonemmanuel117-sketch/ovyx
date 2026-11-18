@@ -153,11 +153,24 @@ try {
     // shell/navigation regression suite; its legacy account-link class is not
     // a stable contract for this Inbox-specific browser test.
     if (target.isMobile) await page.evaluate(() => window.MobileDrawer?.close?.());
-    await page.evaluate(() => {
-      const navigate = window.OVYXRouteAuthority?.go || window.Router?.go;
+    const authorityState = await page.evaluate(() => {
+      const navigate = window.OVYXRouteAuthority?.go;
       if (typeof navigate !== 'function') throw new Error('The canonical OVYX route authority is unavailable.');
-      navigate('inbox');
+      const result = navigate.call(window.OVYXRouteAuthority, 'inbox');
+      const view = document.getElementById('view-inbox');
+      return { result: result ?? null, activeView: window.KernelState?.activeView || null,
+        hidden: view?.classList.contains('hidden') ?? null, inViewport: view?.parentElement?.id === 'view-router-viewport' };
     });
+    console.log('[' + target.name + '] Inbox route authority diagnostics ' + JSON.stringify(authorityState));
+    if (String(authorityState.activeView || '').replace(/^view-/, '') !== 'inbox' || authorityState.hidden !== false) {
+      const routerState = await page.evaluate(() => {
+        const result = window.Router?.go?.('inbox');
+        const view = document.getElementById('view-inbox');
+        return { result: result ?? null, activeView: window.KernelState?.activeView || null,
+          hidden: view?.classList.contains('hidden') ?? null };
+      });
+      console.log('[' + target.name + '] Inbox canonical router fallback ' + JSON.stringify(routerState));
+    }
     await page.waitForFunction(() =>
       String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'inbox'
       && !document.getElementById('view-inbox')?.classList.contains('hidden'),
