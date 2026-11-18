@@ -161,7 +161,9 @@ try {
     // Exercise the canonical router directly. The sidebar is covered by the
     // shell/navigation regression suite; its legacy account-link class is not
     // a stable contract for this Inbox-specific browser test.
-    if (target.isMobile) await page.evaluate(() => window.MobileDrawer?.close?.());
+    // The fresh shell starts with its drawer closed. Calling the legacy close
+    // method here schedules a home-route transition on mobile and races this
+    // Inbox route test, so leave the untouched shell state alone.
     const authorityState = await page.evaluate(() => {
       const navigate = window.OVYXRouteAuthority?.go;
       if (typeof navigate !== 'function') throw new Error('The canonical OVYX route authority is unavailable.');
