@@ -803,7 +803,7 @@ try {
     await page.waitForFunction(() => /OVYX-BROWSERFAIL/.test(document.getElementById('ovyx-help-support-status')?.textContent || ''), null, { timeout: 15000 });
     assert.match(await page.locator('#ovyx-help-support-status').innerText(), /email delivery was not confirmed/i,
       '[' + target.name + '] a saved ticket with failed email delivery must not be reported as emailed.');
-    await page.waitForFunction(() => typeof window.OVYXSupportCenter?.open === 'function', null, { timeout: 10000 });
+    await page.waitForFunction(() => window.OVYXSupportCenter?.__ovyxStandalonePageRoute === true, null, { timeout: 10000 });
     await page.evaluate(() => {
       const legacy = document.createElement('button');
       legacy.type = 'button';
