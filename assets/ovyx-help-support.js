@@ -129,8 +129,9 @@
     const header = document.createElement('section');
     header.id = 'ovyx-help-centre-intro';
     header.setAttribute('aria-label', 'OVYX Help Centre');
-    header.style.cssText = 'display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:center;margin:0 0 24px;padding:clamp(20px,3vw,30px);border:1px solid rgba(232,182,79,.22);border-radius:22px;background:radial-gradient(ellipse at 12% 0%,rgba(232,182,79,.10),transparent 52%),linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018));';
+    header.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:space-between;gap:18px 24px;align-items:center;margin:0 0 24px;padding:clamp(20px,3vw,30px);border:1px solid rgba(232,182,79,.22);border-radius:22px;background:radial-gradient(ellipse at 12% 0%,rgba(232,182,79,.10),transparent 52%),linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018));';
     const copy = document.createElement('div');
+    copy.style.cssText = 'flex:1 1 280px;min-width:0';
     copy.innerHTML = '<p style="margin:0 0 8px;color:#d9ad58;font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase">OVYX HELP CENTRE</p><h1 style="margin:0;color:var(--text-primary,#fff);font-size:clamp(24px,3vw,34px);line-height:1.12;letter-spacing:-.035em">Your guide to OVYX.</h1><p style="max-width:620px;margin:10px 0 0;color:var(--text-secondary,#a1a1aa);font-size:14px;line-height:1.65">Ask OVYX AI how the platform works, or contact the support team when you need a person.</p>';
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end';
