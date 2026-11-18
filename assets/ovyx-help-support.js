@@ -68,11 +68,9 @@
       }
 
       const submit = $('button[type="submit"],input[type="submit"]', form);
-      const previousLabel = submit ? (submit.textContent || submit.value || '') : '';
       if (submit) {
         submit.disabled = true;
-        if ('value' in submit && submit.tagName === 'INPUT') submit.value = 'Sending report…';
-        else submit.textContent = 'Sending report…';
+        submit.setAttribute('aria-busy', 'true');
       }
 
       const reportId = form.dataset.ovyxSupportReportId ||
@@ -113,8 +111,7 @@
       } finally {
         if (submit) {
           submit.disabled = false;
-          if ('value' in submit && submit.tagName === 'INPUT') submit.value = previousLabel;
-          else submit.textContent = previousLabel;
+          submit.removeAttribute('aria-busy');
         }
       }
     }, true);
