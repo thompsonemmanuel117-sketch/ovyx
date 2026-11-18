@@ -48,6 +48,7 @@ for (const id of ['projects-and-workspaces', 'publishing-and-sites', 'connection
 }
 assert.ok(nativeAi.includes('OVYX HELP BEHAVIOR:'), 'Native OVYX AI must have explicit Help Centre answer rules.');
 assert.ok(nativeAi.includes('Contact Support is a separate page'), 'OVYX AI must describe the separate human support destination.');
+assert.ok(nativeAi.includes("'faq', 'support', 'inbox'"), 'The server-side native AI action allowlist must include the support page.');
 assert.ok(docs.includes('POST /api/support'), 'Operations documentation must name the existing support endpoint.');
 assert.ok(docs.includes('RESEND_API_KEY') && docs.includes('RESEND_FROM_EMAIL'), 'Operations documentation must describe required email configuration.');
 assert.ok(docs.includes('OVYX_SUPPORT_EMAIL'), 'Operations documentation must describe the support inbox override.');
