@@ -102,7 +102,11 @@
     // otherwise move the first existing form, then remove only duplicate cards
     // so there is exactly one editable support ticket form in the document.
     const allForms = Array.from(document.querySelectorAll('#' + FORM_ID));
-    const form = page.querySelector('#' + FORM_ID) || allForms[0] || null;
+    // The legacy FAQ form owns the already-bound submit handler. If a stale
+    // duplicate exists in the new page, prefer the original form outside the
+    // page so moving it preserves its listeners and the existing API flow.
+    const form = allForms.find(candidate => !page.contains(candidate)) ||
+      page.querySelector('#' + FORM_ID) || allForms[0] || null;
     const card = form?.closest('.ovyx-help-support-inline') || form;
     if (!card) return false;
     if (card.parentElement !== mount) mount.appendChild(card);
