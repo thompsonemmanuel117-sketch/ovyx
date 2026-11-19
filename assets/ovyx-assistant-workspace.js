@@ -2895,18 +2895,37 @@
   }
 
   async function openAssistantSupportDraft(row, saveFailed = false) {
-    if (window.Router && typeof window.Router.go === 'function') window.Router.go('support');
+    const hasRouter = window.Router && typeof window.Router.go === 'function';
+    let form = document.getElementById('ovyx-help-support-form');
+
+    // The legacy support form is mounted by the Help Centre view lifecycle.
+    // On a cold mobile session, routing straight to Support can happen before
+    // that lifecycle has created the original form. Visit Help first only when
+    // the form is genuinely absent, then move that same bound form to Support.
+    if (!form && hasRouter) {
+      window.Router.go('faq');
+      const faq = document.getElementById('view-faq');
+      for (let attempt = 0; attempt < 240; attempt += 1) {
+        try { window.OVYXMountHelpSupportForm?.(faq); } catch (_) {}
+        form = document.getElementById('ovyx-help-support-form');
+        if (form) break;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    if (hasRouter) window.Router.go('support');
     else document.getElementById('view-support')?.classList.remove('hidden');
-    let form = null;
+
+    let readyForm = null;
     for (let attempt = 0; attempt < 180; attempt += 1) {
-      // Ask the Support runtime to finish moving the original bound form on
-      // every pass. This covers delayed legacy-shell mounting on mobile while
-      // preserving any existing draft and the original submit listeners.
+      // Re-run the idempotent move so delayed page mounting cannot strand the
+      // existing form in Help. This never clones the form or replaces handlers.
       try { window.OVYXEnsureSupportForm?.(); } catch (_) {}
-      form = document.querySelector('#view-support #ovyx-help-support-form[data-ovyx-support-form-ready="1"]');
-      if (form) break;
+      readyForm = document.querySelector('#view-support #ovyx-help-support-form[data-ovyx-support-form-ready="1"]');
+      if (readyForm) break;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
+    form = readyForm;
     if (!form) {
       responseToast('Open Contact OVYX Support to describe the response that was not helpful.', 'warning');
       return;
