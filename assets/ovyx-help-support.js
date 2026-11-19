@@ -304,8 +304,8 @@
     if (document.documentElement.dataset.ovyxHelpOpensSupport === '1') return;
     document.documentElement.dataset.ovyxHelpOpensSupport = '1';
     document.addEventListener('click', event => {
-      const button = event.target?.closest?.('button[onclick*="Router.go(\'faq\')"]');
-      if (!button || !/Help\s*\/\s*FAQ/i.test(String(button.textContent || ''))) return;
+      const button = event.target?.closest?.('button[onclick*="Router.go(\\'faq\\')"], [data-v52-account="help"]');
+      if (!button || !/Help(?:\\s*\\/\\s*FAQ)?/i.test(String(button.textContent || ''))) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       openSupportFromHelp();
