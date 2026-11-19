@@ -2898,28 +2898,29 @@
     const hasRouter = window.Router && typeof window.Router.go === 'function';
     let form = document.getElementById('ovyx-help-support-form');
 
-    // The legacy support form is mounted by the Help Centre view lifecycle.
-    // On a cold mobile session, routing straight to Support can happen before
-    // that lifecycle has created the original form. Visit Help first only when
-    // the form is genuinely absent, then move that same bound form to Support.
+    // The legacy support form is mounted by the Help Centre lifecycle. Route
+    // through Help once so its mount hook is available, but do not spend a
+    // separate long wait here: on delayed mobile boot the hook itself may be
+    // registered after this feedback callback starts.
     if (!form && hasRouter) {
       window.Router.go('faq');
-      const faq = document.getElementById('view-faq');
-      for (let attempt = 0; attempt < 240; attempt += 1) {
-        try { window.OVYXMountHelpSupportForm?.(faq); } catch (_) {}
-        form = document.getElementById('ovyx-help-support-form');
-        if (form) break;
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+      try { window.OVYXMountHelpSupportForm?.(document.getElementById('view-faq')); } catch (_) {}
+      form = document.getElementById('ovyx-help-support-form');
     }
 
     if (hasRouter) window.Router.go('support');
     else document.getElementById('view-support')?.classList.remove('hidden');
 
     let readyForm = null;
-    for (let attempt = 0; attempt < 180; attempt += 1) {
-      // Re-run the idempotent move so delayed page mounting cannot strand the
-      // existing form in Help. This never clones the form or replaces handlers.
+    for (let attempt = 0; attempt < 360; attempt += 1) {
+      // Retry both sides of the idempotent mount/move handshake. A late Help
+      // Centre lifecycle must not leave feedback waiting on a hook that was
+      // unavailable during the first route transition. The original form is
+      // reused; no duplicate is created and its submit handler is preserved.
+      const faq = document.getElementById('view-faq');
+      if (!document.getElementById('ovyx-help-support-form')) {
+        try { window.OVYXMountHelpSupportForm?.(faq); } catch (_) {}
+      }
       try { window.OVYXEnsureSupportForm?.(); } catch (_) {}
       readyForm = document.querySelector('#view-support #ovyx-help-support-form[data-ovyx-support-form-ready="1"]');
       if (readyForm) break;
