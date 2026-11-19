@@ -860,10 +860,11 @@ try {
     await page.waitForFunction(() => window.KernelState?.activeView === 'home', null, { timeout: 10000 });
     await page.evaluate(device => {
       if (device === 'mobile') window.MobileDrawer?.open?.();
-      const selector = device === 'mobile'
-        ? '[data-v52-account="help"]'
-        : 'button[onclick*="Router.go(\\'faq\\')"]';
-      const helpButton = document.querySelector(selector);
+      const helpButton = device === 'mobile'
+        ? document.querySelector('[data-v52-account="help"]')
+        : Array.from(document.querySelectorAll('button[onclick]')).find(button =>
+            /Help(?:\s*\/\s*FAQ)?/i.test(button.textContent || '') &&
+            String(button.getAttribute('onclick') || '').includes("Router.go('faq')"));
       if (!helpButton) throw new Error('The visible Help navigation button was not found for ' + device + '.');
       helpButton.click();
     }, target.name);
