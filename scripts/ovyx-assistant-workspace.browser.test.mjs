@@ -877,7 +877,41 @@ try {
     // assistant draft focus/route transition; dispatch the real submit-button
     // click without relying on Playwright's scroll-into-view pointer heuristic.
     await page.locator('#view-support #ovyx-help-support-submit').evaluate(button => button.click());
-    await page.waitForFunction(() => /OVYX-BROWSER123/.test(document.getElementById('ovyx-help-support-status')?.textContent || ''), null, { timeout: 15000 });
+    try {
+      await page.waitForFunction(() => /OVYX-BROWSER123/.test(document.getElementById('ovyx-help-support-status')?.textContent || ''), null, { timeout: 15000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => {
+        const form = document.getElementById('ovyx-help-support-form');
+        const user = window.firebase?.auth?.()?.currentUser || null;
+        const subject = document.getElementById('ovyx-help-support-subject');
+        const message = document.getElementById('ovyx-help-support-message');
+        const email = document.getElementById('ovyx-help-support-email');
+        const submit = document.getElementById('ovyx-help-support-submit');
+        return {
+          activeRoute: window.KernelState?.activeView,
+          formTag: form?.tagName || null,
+          formConnected: !!form?.isConnected,
+          formParent: form?.parentElement?.id || form?.parentElement?.className || null,
+          supportBound: form?.dataset?.ovyxSupportEmailBound || null,
+          legacyBound: !!form && form.dataset?.ovyxSupportLegacyBound,
+          formReady: form?.dataset?.ovyxSupportFormReady || null,
+          status: document.getElementById('ovyx-help-support-status')?.textContent || '',
+          subjectLength: subject?.value?.length || 0,
+          messageLength: message?.value?.length || 0,
+          emailValue: email?.value || '',
+          userEmail: user?.email || '',
+          hasGetIdToken: typeof user?.getIdToken === 'function',
+          submitDisabled: !!submit?.disabled,
+          attachmentCount: document.getElementById('ovyx-help-support-attachments')?.files?.length || 0,
+        };
+      }).catch(pageError => ({ diagnosticError: String(pageError?.message || pageError) }));
+      console.error('[' + target.name + '] support submission diagnostic: ' + JSON.stringify({
+        ...diagnostic,
+        requestObserved: !!supportRequest,
+        pageErrors: bootstrapErrors.slice(-20),
+      }));
+      throw error;
+    }
     assert.ok(supportRequest, '[' + target.name + '] support form must call the existing support API.');
     const supportHeaders = await supportRequest.allHeaders();
     assert.match(supportHeaders.authorization || '', /^Bearer /, '[' + target.name + '] support request must carry the Firebase identity token.');
