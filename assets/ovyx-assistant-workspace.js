@@ -2898,9 +2898,11 @@
     if (window.Router && typeof window.Router.go === 'function') window.Router.go('support');
     else document.getElementById('view-support')?.classList.remove('hidden');
     let form = null;
-    for (let attempt = 0; attempt < 35; attempt += 1) {
-      // The dedicated Support page owns the editable report. Avoid matching
-      // any legacy hidden form that may still exist elsewhere in the shell.
+    for (let attempt = 0; attempt < 90; attempt += 1) {
+      // Ask the Support runtime to finish moving the original bound form on
+      // every pass. This covers delayed legacy-shell mounting on mobile while
+      // preserving any existing draft and the original submit listeners.
+      try { window.OVYXEnsureSupportForm?.(); } catch (_) {}
       form = document.querySelector('#view-support #ovyx-help-support-form[data-ovyx-support-form-ready="1"]');
       if (form) break;
       await new Promise(resolve => setTimeout(resolve, 100));
