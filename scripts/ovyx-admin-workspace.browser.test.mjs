@@ -91,6 +91,11 @@ try {
     // navigation commit, then gate on the actual admin/auth runtime below.
     const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error');
+    // The shell's commit event precedes its full boot. Wait for the load event and
+    // the first-paint curtain to release before interacting with real admin controls.
+    await page.waitForFunction(() => document.readyState === 'complete', null, { timeout: 60000 });
+    await page.waitForFunction(() => !document.getElementById('ovyx-first-paint-curtain') &&
+      document.documentElement.getAttribute('data-ovyx-stabilizing') !== '1', null, { timeout: 20000 });
     await page.waitForFunction(() => !!window.OVYXAdminWorkspace, null, { timeout: 45000 });
     // The local Firebase facade is installed before app scripts run, so the
     // isolated auth state cannot race an external Firebase CDN load.
