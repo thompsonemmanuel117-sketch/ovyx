@@ -860,8 +860,9 @@ try {
     await page.waitForFunction(() => window.KernelState?.activeView === 'home', null, { timeout: 10000 });
     await page.evaluate(() => {
       const helpButton = Array.from(document.querySelectorAll('button'))
-        .find(button => /Help\s*\/\s*FAQ/i.test(button.textContent || '') &&
-          String(button.getAttribute('onclick') || '').includes("Router.go('faq')"));
+        .find(button => /Help(?:\\s*\\/\\s*FAQ)?/i.test(button.textContent || '') &&
+          (String(button.getAttribute('onclick') || '').includes("Router.go('faq')") ||
+            button.getAttribute('data-v52-account') === 'help'));
       if (!helpButton) throw new Error('The existing Help / FAQ navigation button was not found.');
       helpButton.click();
     });
