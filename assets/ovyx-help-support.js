@@ -345,5 +345,15 @@
   }
   window.addEventListener('ovyx:view-changed', () => window.setTimeout(scan, 30));
   window.addEventListener('load', () => window.setTimeout(scan, 90), { once: true });
+
+  // Reconcile late legacy Help Centre mounts so only one editable form remains in Support.
+  const supportFormObserver = new MutationObserver(records => {
+    const addedSupportForm = records.some(record => Array.from(record.addedNodes).some(node =>
+      node.nodeType === 1 && (node.id === FORM_ID || node.querySelector?.('#' + FORM_ID))
+    ));
+    if (addedSupportForm) moveSupportForm();
+  });
+  if (document.documentElement) supportFormObserver.observe(document.documentElement, { childList: true, subtree: true });
+
   [0, 120, 260, 650, 1500, 3000].forEach(delay => window.setTimeout(patchLegacySupportEntryPoints, delay));
 })();
