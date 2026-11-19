@@ -2959,6 +2959,13 @@
       if (vote === 'down') await openAssistantSupportDraft(row, true);
       return;
     }
+    // Start the editable Support hand-off before awaiting Firebase token
+    // refresh or the feedback API. The report draft is a user-facing action
+    // in its own right and must not be blocked by a slow/offline feedback
+    // persistence request (especially on mobile networks).
+    const supportDraftPromise = vote === 'down'
+      ? openAssistantSupportDraft(row, false)
+      : null;
     let saved = false;
     const user = getUser();
     try {
@@ -2993,7 +3000,7 @@
     } finally {
       if (button) button.disabled = false;
     }
-    if (vote === 'down') await openAssistantSupportDraft(row, !saved);
+    if (supportDraftPromise) await supportDraftPromise;
   }
 
   async function copyAssistantResponse(row) {
