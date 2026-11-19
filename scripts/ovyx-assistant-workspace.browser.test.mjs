@@ -850,6 +850,13 @@ try {
     assert.ok(supportBody.includes('support-evidence.txt'), '[' + target.name + '] selected attachment must reach the existing support endpoint.');
     assert.match(await page.locator('#ovyx-help-support-status').innerText(), /emailed to OVYX Support/i,
       '[' + target.name + '] UI may confirm email delivery only when the server confirms notificationStatus=sent.');
+    // The status is updated before the submit handler's finally block releases
+    // the button. Wait for that real completion boundary before starting the
+    // second delivery scenario; clicking a still-disabled button is a no-op.
+    await page.waitForFunction(() => {
+      const button = document.querySelector('#view-support #ovyx-help-support-submit');
+      return button && !button.disabled && button.getAttribute('aria-busy') !== 'true';
+    }, null, { timeout: 10000 });
 
     await page.unroute('**/api/support');
     await page.route('**/api/support', async route => route.fulfill({
