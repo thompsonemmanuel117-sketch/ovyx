@@ -805,17 +805,24 @@ try {
     // requiring Playwright's pointer-stability heuristic during that motion.
     await contactSupportButton.evaluate(button => button.click());
     await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForFunction(() => {
+      const forms = Array.from(document.querySelectorAll('#ovyx-help-support-form'));
+      return forms.length === 1 && document.querySelector('#view-support #ovyx-help-support-form') === forms[0] &&
+        !document.querySelector('#view-faq #ovyx-help-support-form');
+    }, null, { timeout: 10000 });
     const supportPageState = await page.evaluate(() => ({
       active: window.KernelState?.activeView,
       supportVisible: !document.getElementById('view-support')?.classList.contains('hidden'),
-      formInSupport: document.getElementById('view-support')?.contains(document.getElementById('ovyx-help-support-form')),
-      formStillInHelp: document.getElementById('view-faq')?.contains(document.getElementById('ovyx-help-support-form')),
+      formInSupport: !!document.querySelector('#view-support #ovyx-help-support-form'),
+      formStillInHelp: !!document.querySelector('#view-faq #ovyx-help-support-form'),
+      formCount: document.querySelectorAll('#ovyx-help-support-form').length,
       assistantAvailable: typeof window.WorkspaceBrainBot?.open === 'function',
     }));
     assert.equal(supportPageState.active, 'support', '[' + target.name + '] Contact Support must use its own route.');
     assert.equal(supportPageState.supportVisible, true, '[' + target.name + '] standalone support page must be visible.');
     assert.equal(supportPageState.formInSupport, true, '[' + target.name + '] existing support form must be moved into the standalone page.');
     assert.equal(supportPageState.formStillInHelp, false, '[' + target.name + '] support form must not remain embedded in the Help Centre.');
+    assert.equal(supportPageState.formCount, 1, '[' + target.name + '] Help Centre lifecycle must not leave duplicate support forms.');
     assert.equal(supportPageState.assistantAvailable, true, '[' + target.name + '] Help Centre must reuse the existing OVYX AI.');
 
     let supportRequest = null;
