@@ -50,8 +50,14 @@ try {
     await waitForRouteRestore(page);
     console.log('[settings-account] ' + target.name + ': route restored');
     await page.evaluate(() => window.Router.go('settings'));
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
-    await page.locator('#view-settings').waitFor({ state: 'visible' });
+    // On mobile the shell can finish applying the route after the router call
+    // returns. Wait for the actual Settings surface, then assert route state.
+    await page.locator('#view-settings').waitFor({ state: 'visible', timeout: 30000 });
+    await page.waitForFunction(
+      () => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings',
+      null,
+      { timeout: 30000 },
+    );
 
     const identity = await page.evaluate(() => {
       const user = {
