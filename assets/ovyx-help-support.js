@@ -284,11 +284,13 @@
   }
 
   function openSupportFromHelp() {
-    const faq = document.getElementById('view-faq');
-    // Mount the one canonical form in its legacy host without showing the
-    // Help Centre, then move that same node into the standalone Support route.
-    if (!document.getElementById(FORM_ID) && faq && typeof window.OVYXMountHelpSupportForm === 'function') {
-      try { window.OVYXMountHelpSupportForm(faq); } catch (_) {}
+    // The legacy form factory expects the Help Centre shell to be initialized.
+    // Visit that route and mount synchronously in the same click task, then
+    // immediately switch to Support so the Help Centre never becomes a painted screen.
+    if (!document.getElementById(FORM_ID) && typeof window.Router?.go === 'function') {
+      try { window.Router.go('faq'); } catch (_) {}
+      const faq = document.getElementById('view-faq');
+      try { window.OVYXMountHelpSupportForm?.(faq); } catch (_) {}
     }
     if (typeof window.Router?.go === 'function') return window.Router.go('support');
     const page = supportPage();
