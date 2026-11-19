@@ -35,7 +35,7 @@ assert.ok(client.includes("body.append('attachments'"), 'Selected attachments mu
 assert.ok(client.includes("result.ticket.notificationStatus === 'sent'"), 'The UI must only claim email delivery after server confirmation.');
 assert.ok(client.includes('view-support'), 'Contact Support must have its own routed page.');
 assert.ok(client.includes('openSupportFromHelp'), 'The Help navigation entry must open the standalone Support page directly.');
-assert.ok(client.includes("button[onclick]") && client.includes("Router.go('faq')"), 'The existing Help / FAQ sidebar entry must be intercepted safely.');
+assert.ok(client.includes("button[onclick]") && client.includes("Router.go('faq')") && client.includes('Help(?:'), 'The existing Help / FAQ sidebar entry must be intercepted safely.');
 assert.ok(client.includes('[data-v52-account="help"]'), 'The mobile account Help entry must also open standalone Support.');
 assert.ok(!client.includes('data-ovyx-support-back'), 'The standalone Support page must not show a Back to Help Centre action.');
 assert.ok(!client.includes('data-ovyx-support-ai'), 'The standalone Support page must not show an extra AI action.');
