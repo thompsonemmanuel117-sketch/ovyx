@@ -868,6 +868,9 @@ try {
     });
     await page.locator('#view-support #ovyx-help-support-subject').fill('Support browser regression');
     await page.locator('#view-support #ovyx-help-support-message').fill('Please review this test report and its attached evidence.');
+    // The account fixture is intentionally switched to owner@example.test during the assistant workflow.
+    // Submit using that authenticated address; production correctly rejects a mismatched email.
+    await page.locator('#view-support #ovyx-help-support-email').fill('owner@example.test');
     await page.locator('#view-support #ovyx-help-support-attachments').setInputFiles({
       name: 'support-evidence.txt',
       mimeType: 'text/plain',
