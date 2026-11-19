@@ -2913,17 +2913,19 @@
 
     let readyForm = null;
     for (let attempt = 0; attempt < 360; attempt += 1) {
-      // Retry both sides of the idempotent mount/move handshake. A late Help
-      // Centre lifecycle must not leave feedback waiting on a hook that was
-      // unavailable during the first route transition. The original form is
-      // reused; no duplicate is created and its submit handler is preserved.
+      // A late mobile shell-restoration pass can race the first navigation.
+      // Reassert the intended destination while the original form's
+      // idempotent mount/move handshake completes; never create a second form.
+      if (hasRouter && window.KernelState?.activeView !== 'support') {
+        try { window.Router.go('support'); } catch (_) {}
+      }
       const faq = document.getElementById('view-faq');
       if (!document.getElementById('ovyx-help-support-form')) {
         try { window.OVYXMountHelpSupportForm?.(faq); } catch (_) {}
       }
       try { window.OVYXEnsureSupportForm?.(); } catch (_) {}
       readyForm = document.querySelector('#view-support #ovyx-help-support-form[data-ovyx-support-form-ready="1"]');
-      if (readyForm) break;
+      if (readyForm && (!hasRouter || window.KernelState?.activeView === 'support')) break;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     form = readyForm;
