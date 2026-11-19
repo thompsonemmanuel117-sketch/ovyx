@@ -858,14 +858,15 @@ try {
     // and open only the standalone Contact OVYX Support form.
     await page.evaluate(() => window.Router.go('home'));
     await page.waitForFunction(() => window.KernelState?.activeView === 'home', null, { timeout: 10000 });
-    await page.evaluate(() => {
-      const helpButton = Array.from(document.querySelectorAll('button'))
-        .find(button => /Help(?:\s*\/\s*FAQ)?/i.test(button.textContent || '') &&
-          (String(button.getAttribute('onclick') || '').includes("Router.go('faq')") ||
-            button.getAttribute('data-v52-account') === 'help'));
-      if (!helpButton) throw new Error('The existing Help / FAQ navigation button was not found.');
+    await page.evaluate(device => {
+      if (device === 'mobile') window.MobileDrawer?.open?.();
+      const selector = device === 'mobile'
+        ? '[data-v52-account="help"]'
+        : 'button[onclick*="Router.go(\\'faq\\')"]';
+      const helpButton = document.querySelector(selector);
+      if (!helpButton) throw new Error('The visible Help navigation button was not found for ' + device + '.');
       helpButton.click();
-    });
+    }, target.name);
     await page.waitForFunction(() => window.KernelState?.activeView === 'support', null, { timeout: 15000 });
     await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 15000 });
     const helpEntryState = await page.evaluate(() => ({
