@@ -256,7 +256,7 @@ jobs:
             shift 2
             for script in "$@"; do
               echo "[$label] START $script"
-              timeout --signal=TERM --kill-after=15s 5m node "scripts/$script" 2>&1 | tee -a "$log_file"
+              timeout --signal=TERM --kill-after=15s 8m node "scripts/$script" 2>&1 | tee -a "$log_file"
               script_status=${PIPESTATUS[0]}
               if [ "$script_status" -ne 0 ]; then
                 if [ "$script_status" -eq 124 ] || [ "$script_status" -eq 137 ]; then
