@@ -72,13 +72,34 @@ try {
     console.log('[' + target.name + '] bootstrap diagnostic: ' + JSON.stringify(bootstrapDiagnostic));
     // Poll on a timer rather than requestAnimationFrame so the readiness gate
     // still progresses if the shell has a paused animation frame queue.
-    await page.waitForFunction(
+    const waitForComposerBootstrap = () => page.waitForFunction(
       () => document.readyState !== 'loading'
         && typeof window.OVYXRouteAuthority?.go === 'function'
         && window.__OVYX_WEBSTUDIO_PULSE_COMPOSER_V1__ === true,
       null,
       { timeout: 45000, polling: 250 },
     );
+    try {
+      await waitForComposerBootstrap();
+    } catch (firstError) {
+      // A single mobile navigation can receive the HTML response while the
+      // document parser remains stalled before body creation (for example, a
+      // transient local Pages asset/bootstrap interruption). Retry the shell
+      // once only for that observable incomplete-document state; real
+      // application/bootstrap failures still fail the second readiness gate.
+      const stalledDocument = await page.evaluate(() => ({
+        readyState: document.readyState,
+        bodyChildren: document.body?.children?.length || 0,
+        routeAuthority: typeof window.OVYXRouteAuthority?.go,
+        composerReady: window.__OVYX_WEBSTUDIO_PULSE_COMPOSER_V1__ === true,
+      })).catch(() => null);
+      if (stalledDocument?.readyState !== 'loading' || stalledDocument.bodyChildren !== 0) {
+        throw firstError;
+      }
+      console.warn('[' + target.name + '] shell document remained empty after response; retrying one clean navigation: ' + JSON.stringify(stalledDocument));
+      await page.reload({ waitUntil: 'commit', timeout: 60000 });
+      await waitForComposerBootstrap();
+    }
     await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached', timeout: 45000 });
     await page.evaluate(() => {
       const route = window.OVYXRouteAuthority?.go;

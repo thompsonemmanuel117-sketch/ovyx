@@ -92,7 +92,7 @@ try {
         .filter(src => /\/assets\/ovyx-assistant-workspace\.js(?:\?|$)/.test(src))
     );
     assert.ok(assistantAssetSources.length, `[${target.name}] assistant workspace asset was not fetched`);
-    assert.ok(assistantAssetSources.some(src => /[?&]v=20261112-1(?:&|$)/.test(src)),
+    assert.ok(assistantAssetSources.some(src => /[?&]v=20261118-4(?:&|$)/.test(src)),
       `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
     // Resource timing records a fetch before the asset's boot hook necessarily
     // finishes. Wait for the native wrapper before invoking the public open API.
@@ -376,12 +376,69 @@ try {
       ['copy', 'helpful', 'not-helpful', 'retry'],
       `[${target.name}] every native assistant response needs Copy/Helpful/Not helpful/Retry actions`,
     );
+    // Keep the feedback persistence boundary deterministic in this browser
+    // regression. The support handoff is the behavior under test; the API
+    // contract and persistence failure paths are covered by their own suites.
+    // The shell may retain a prior editable Support draft. Clear only the
+    // standalone form fields so this test verifies that the feedback action
+    // populates a fresh draft without overwriting user-entered content.
+    await page.evaluate(() => {
+      const subject = document.querySelector('#view-support #ovyx-help-support-subject');
+      const message = document.querySelector('#view-support #ovyx-help-support-message');
+      if (subject) subject.value = '';
+      if (message) message.value = '';
+    });
+    await page.route('**/api/ai/feedback', async route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, saved: true }),
+    }));
+    // Persist the intended destination before the asynchronous feedback
+    // handoff. The late shell route-restoration controller must not send the
+    // mobile test back Home while the Support draft is being populated.
+    await page.evaluate(() => {
+      let session = {};
+      try { session = JSON.parse(localStorage.getItem('ovyx.runtime.session.v4') || '{}'); } catch (_) {}
+      localStorage.setItem('ovyx.runtime.route.v18', 'support');
+      localStorage.setItem('ovyx.settings.last-view.v1', 'support');
+      localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ ...session, route: 'support' }));
+    });
     await helpMessage.locator('[data-ovyx-native-response-action="not-helpful"]').click();
-    await page.locator('#view-faq').waitFor({ state: 'visible' });
-    await page.locator('#ovyx-help-support-form').waitFor({ state: 'attached' });
-    assert.match(await page.locator('#ovyx-help-support-subject').inputValue(), /Assistant response was not helpful/i,
+    await page.locator('#view-support').waitFor({ state: 'visible', timeout: 20000 });
+    await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 20000 });
+    // Route activation and form relocation can finish before the asynchronous
+    // feedback handoff populates the editable draft, especially on mobile.
+    // Wait for the actual user-visible draft rather than racing its assignment.
+    try {
+      await page.waitForFunction(() => {
+            const subject = document.querySelector('#view-support #ovyx-help-support-subject');
+            const message = document.querySelector('#view-support #ovyx-help-support-message');
+            return /Assistant response was not helpful/i.test(subject?.value || '') &&
+              /What went wrong\?/i.test(message?.value || '');
+          }, null, { timeout: 45000 });
+    } catch (error) {
+      const handoff = await page.evaluate(() => {
+        const form = document.querySelector('#view-support #ovyx-help-support-form');
+        return {
+          activeView: window.KernelState?.activeView || null,
+          supportVisible: !!document.querySelector('#view-support:not(.hidden)'),
+          formExists: !!form,
+          formReady: form?.getAttribute('data-ovyx-support-form-ready') || null,
+          subject: document.querySelector('#view-support #ovyx-help-support-subject')?.value || null,
+          message: document.querySelector('#view-support #ovyx-help-support-message')?.value || null,
+          ensureHook: typeof window.OVYXEnsureSupportForm,
+          mountHook: typeof window.OVYXMountHelpSupportForm,
+          assistantRuntime: typeof window.WorkspaceBrainBot,
+        };
+      }).catch(cause => ({ diagnosticError: String(cause?.message || cause) }));
+      console.error(`[${target.name}] Assistant support handoff diagnostic: ${JSON.stringify({ handoff, pageErrors: bootstrapErrors.slice(-30) })}`);
+      throw error;
+    }
+    assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'support',
+      `[${target.name}] assistant feedback must route to the dedicated Support page`);
+    assert.match(await page.locator('#view-support #ovyx-help-support-subject').inputValue(), /Assistant response was not helpful/i,
       `[${target.name}] thumbs-down should prepare an editable Contact Support subject`);
-    assert.match(await page.locator('#ovyx-help-support-message').inputValue(), /What went wrong\?/i,
+    assert.match(await page.locator('#view-support #ovyx-help-support-message').inputValue(), /What went wrong\?/i,
       `[${target.name}] thumbs-down should prepare an editable Contact Support draft`);
 
     await trigger.click();
@@ -738,6 +795,187 @@ try {
       await page.waitForFunction(() => getComputedStyle(document.getElementById('ovyx-v52-bottom-bar')).display === 'grid',
         null, { timeout: 8000 });
     }
+
+    // Help Centre and standalone Contact Support must share one native AI
+    // experience while preserving the existing multipart support-ticket flow.
+    await page.evaluate(() => window.Router.go('faq'));
+    await page.locator('#ovyx-help-centre-intro').waitFor({ state: 'visible', timeout: 20000 });
+    const helpPageState = await page.evaluate(() => {
+      const faq = document.getElementById('view-faq');
+      const search = faq?.querySelector('.ovyx-help-top');
+      const popular = faq?.querySelector('.ovyx-help-popular')?.parentElement;
+      const staticFaq = faq?.querySelector('#ovyx-help-faq-list')?.closest('.ovyx-help-section');
+      const quickHelp = faq?.querySelector('#help-shortcuts')?.closest('aside');
+      return {
+        searchHidden: !!search?.hidden,
+        popularHidden: !!popular?.hidden,
+        faqHidden: !!staticFaq?.hidden,
+        quickHelpVisible: !!quickHelp && !quickHelp.hidden,
+      };
+    });
+    assert.equal(helpPageState.searchHidden, true, '[' + target.name + '] the old FAQ search must not compete with OVYX AI.');
+    assert.equal(helpPageState.popularHidden, true, '[' + target.name + '] static FAQ category cards must be secondary/hidden.');
+    assert.equal(helpPageState.faqHidden, true, '[' + target.name + '] static FAQ answers must not create a second answer destination.');
+    assert.equal(helpPageState.quickHelpVisible, true, '[' + target.name + '] non-answer quick actions should remain available.');
+    const contactSupportButton = page.locator('#ovyx-help-centre-intro').getByRole('button', { name: 'Contact OVYX Support' });
+    await contactSupportButton.waitFor({ state: 'visible', timeout: 20000 });
+    // The assistant feedback draft scrolls the support page smoothly. Dispatch
+    // the actual button click after the Help Centre is visible rather than
+    // requiring Playwright's pointer-stability heuristic during that motion.
+    await contactSupportButton.evaluate(button => button.click());
+    await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForFunction(() => {
+      const forms = Array.from(document.querySelectorAll('#ovyx-help-support-form'));
+      return forms.length === 1 && document.querySelector('#view-support #ovyx-help-support-form') === forms[0] &&
+        !document.querySelector('#view-faq #ovyx-help-support-form');
+    }, null, { timeout: 10000 });
+    const supportPageState = await page.evaluate(() => ({
+      active: window.KernelState?.activeView,
+      supportVisible: !document.getElementById('view-support')?.classList.contains('hidden'),
+      formInSupport: !!document.querySelector('#view-support #ovyx-help-support-form'),
+      formStillInHelp: !!document.querySelector('#view-faq #ovyx-help-support-form'),
+      formCount: document.querySelectorAll('#ovyx-help-support-form').length,
+      assistantAvailable: typeof window.WorkspaceBrainBot?.open === 'function',
+    }));
+    assert.equal(supportPageState.active, 'support', '[' + target.name + '] Contact Support must use its own route.');
+    assert.equal(supportPageState.supportVisible, true, '[' + target.name + '] standalone support page must be visible.');
+    assert.equal(supportPageState.formInSupport, true, '[' + target.name + '] existing support form must be moved into the standalone page.');
+    assert.equal(supportPageState.formStillInHelp, false, '[' + target.name + '] support form must not remain embedded in the Help Centre.');
+    assert.equal(supportPageState.formCount, 1, '[' + target.name + '] Help Centre lifecycle must not leave duplicate support forms.');
+    assert.equal(supportPageState.assistantAvailable, true, '[' + target.name + '] Help Centre must reuse the existing OVYX AI.');
+    // The legacy shell may re-run its mount hook after the original form has
+    // moved to Support. That must remain globally idempotent and not create a
+    // second form that races the Assistant feedback handoff.
+    await page.evaluate(() => window.OVYXMountHelpSupportForm?.(document.getElementById('view-faq')));
+    assert.equal(await page.locator('#ovyx-help-support-form').count(), 1,
+      '[' + target.name + '] rerunning the legacy mount hook must not duplicate the moved Support form.');
+    assert.equal(await page.locator('#view-support #ovyx-help-support-subject').count(), 1,
+      '[' + target.name + '] the moved Support form must retain its editable subject field.');
+    assert.equal(await page.locator('#view-support #ovyx-help-support-message').count(), 1,
+      '[' + target.name + '] the moved Support form must retain its editable message field.');
+
+    let supportRequest = null;
+    await page.route('**/api/support', async route => {
+      supportRequest = route.request();
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          ticket: { ticketId: 'OVYX-BROWSER123', status: 'open', notificationStatus: 'sent', attachmentCount: 1 },
+        }),
+      });
+    });
+    await page.locator('#view-support #ovyx-help-support-subject').fill('Support browser regression');
+    await page.locator('#view-support #ovyx-help-support-message').fill('Please review this test report and its attached evidence.');
+    // The account fixture is intentionally switched to owner@example.test during the assistant workflow.
+    // Submit using that authenticated address; production correctly rejects a mismatched email.
+    await page.locator('#view-support #ovyx-help-support-email').fill('owner@example.test');
+    await page.locator('#view-support #ovyx-help-support-attachments').setInputFiles({
+      name: 'support-evidence.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('OVYX support attachment fixture'),
+    });
+    // The shell's scrollable viewport can still be settling after the
+    // assistant draft focus/route transition; dispatch the real submit-button
+    // click without relying on Playwright's scroll-into-view pointer heuristic.
+    await page.locator('#view-support #ovyx-help-support-submit').evaluate(button => button.click());
+    try {
+      await page.waitForFunction(() => /OVYX-BROWSER123/.test(document.getElementById('ovyx-help-support-status')?.textContent || ''), null, { timeout: 15000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => {
+        const form = document.getElementById('ovyx-help-support-form');
+        const user = window.firebase?.auth?.()?.currentUser || null;
+        const subject = document.getElementById('ovyx-help-support-subject');
+        const message = document.getElementById('ovyx-help-support-message');
+        const email = document.getElementById('ovyx-help-support-email');
+        const submit = document.getElementById('ovyx-help-support-submit');
+        return {
+          activeRoute: window.KernelState?.activeView,
+          formTag: form?.tagName || null,
+          formConnected: !!form?.isConnected,
+          formParent: form?.parentElement?.id || form?.parentElement?.className || null,
+          supportBound: form?.dataset?.ovyxSupportEmailBound || null,
+          legacyBound: !!form && form.dataset?.ovyxSupportLegacyBound,
+          formReady: form?.dataset?.ovyxSupportFormReady || null,
+          status: document.getElementById('ovyx-help-support-status')?.textContent || '',
+          subjectLength: subject?.value?.length || 0,
+          messageLength: message?.value?.length || 0,
+          emailValue: email?.value || '',
+          userEmail: user?.email || '',
+          hasGetIdToken: typeof user?.getIdToken === 'function',
+          submitDisabled: !!submit?.disabled,
+          attachmentCount: document.getElementById('ovyx-help-support-attachments')?.files?.length || 0,
+        };
+      }).catch(pageError => ({ diagnosticError: String(pageError?.message || pageError) }));
+      console.error('[' + target.name + '] support submission diagnostic: ' + JSON.stringify({
+        ...diagnostic,
+        requestObserved: !!supportRequest,
+        pageErrors: bootstrapErrors.slice(-20),
+      }));
+      throw error;
+    }
+    assert.ok(supportRequest, '[' + target.name + '] support form must call the existing support API.');
+    const supportHeaders = await supportRequest.allHeaders();
+    assert.match(supportHeaders.authorization || '', /^Bearer /, '[' + target.name + '] support request must carry the Firebase identity token.');
+    assert.match(supportHeaders['content-type'] || '', /^multipart\/form-data;/, '[' + target.name + '] support request must preserve multipart attachment upload.');
+    const supportBody = supportRequest.postDataBuffer()?.toString('latin1') || '';
+    assert.ok(supportBody.includes('support-evidence.txt'), '[' + target.name + '] selected attachment must reach the existing support endpoint.');
+    assert.match(await page.locator('#ovyx-help-support-status').innerText(), /emailed to OVYX Support/i,
+      '[' + target.name + '] UI may confirm email delivery only when the server confirms notificationStatus=sent.');
+    // The status is updated before the submit handler's finally block releases
+    // the button. Wait for that real completion boundary before starting the
+    // second delivery scenario; clicking a still-disabled button is a no-op.
+    await page.waitForFunction(() => {
+      const button = document.querySelector('#view-support #ovyx-help-support-submit');
+      return button && !button.disabled && button.getAttribute('aria-busy') !== 'true';
+    }, null, { timeout: 10000 });
+
+    await page.unroute('**/api/support');
+    await page.route('**/api/support', async route => route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ok: true,
+        ticket: { ticketId: 'OVYX-BROWSERFAIL', status: 'open', notificationStatus: 'failed', attachmentCount: 0 },
+      }),
+    }));
+    await page.locator('#view-support #ovyx-help-support-subject').fill('Email delivery failure check');
+    await page.locator('#view-support #ovyx-help-support-message').fill('This test verifies honest email delivery failure messaging.');
+    // The shell's scrollable viewport can still be settling after the
+    // assistant draft focus/route transition; dispatch the real submit-button
+    // click without relying on Playwright's scroll-into-view pointer heuristic.
+    await page.locator('#view-support #ovyx-help-support-submit').evaluate(button => button.click());
+    await page.waitForFunction(() => /OVYX-BROWSERFAIL/.test(document.getElementById('ovyx-help-support-status')?.textContent || ''), null, { timeout: 15000 });
+    assert.match(await page.locator('#ovyx-help-support-status').innerText(), /email delivery was not confirmed/i,
+      '[' + target.name + '] a saved ticket with failed email delivery must not be reported as emailed.');
+    await page.waitForFunction(() => window.OVYXSupportCenter?.__ovyxStandalonePageRoute === true, null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const legacy = document.createElement('button');
+      legacy.type = 'button';
+      legacy.id = 'legacy-support-entry-fixture';
+      legacy.setAttribute('data-support-open', '1');
+      document.body.appendChild(legacy);
+      legacy.click();
+    });
+    await page.waitForFunction(() => window.KernelState?.activeView === 'support', null, { timeout: 10000 });
+    assert.equal(await page.locator('#ovyx-v655-support-backdrop').evaluate(node => node.classList.contains('open')).catch(() => false), false,
+      '[' + target.name + '] legacy Contact Support triggers must route to the page instead of opening a support modal.');
+    await page.locator('#legacy-support-entry-fixture').evaluate(node => node.remove());
+    await page.evaluate(() => window.Router.go('faq'));
+    await page.waitForFunction(() => window.KernelState?.activeView === 'faq', null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const legacyWhatsApp = document.createElement('button');
+      legacyWhatsApp.type = 'button';
+      legacyWhatsApp.id = 'legacy-whatsapp-support-fixture';
+      legacyWhatsApp.setAttribute('data-v34-support-wa', '1');
+      document.body.appendChild(legacyWhatsApp);
+      legacyWhatsApp.click();
+    });
+    await page.waitForFunction(() => window.KernelState?.activeView === 'support', null, { timeout: 10000 });
+    await page.locator('#legacy-whatsapp-support-fixture').evaluate(node => node.remove());
+    await page.evaluate(() => window.Router.go('faq'));
+    await page.waitForFunction(() => window.KernelState?.activeView === 'faq', null, { timeout: 10000 });
 
     console.log(`PASS ${target.name}: real dock isolation, menu actions, read-only tool loop, local-context fallback, explicit approval and verified source update.`);
     await page.evaluate(() => {

@@ -17,6 +17,16 @@ try {
       hasTouch: !!target.hasTouch,
     });
     page.setDefaultTimeout(20000);
+    await page.addInitScript(() => {
+      // Keep late shell/session restoration aligned with this route-specific
+      // test. Otherwise the mobile boot controller can reapply Home after the
+      // canonical Inbox route has already rendered.
+      let session = {};
+      try { session = JSON.parse(localStorage.getItem('ovyx.runtime.session.v4') || '{}'); } catch (_) {}
+      localStorage.setItem('ovyx.runtime.route.v18', 'inbox');
+      localStorage.setItem('ovyx.settings.last-view.v1', 'inbox');
+      localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ ...session, route: 'inbox' }));
+    });
     const requests = [];
     const errors = [];
     const readState = new Map();
@@ -149,21 +159,55 @@ try {
       { timeout: 60000 },
     );
 
+    // Capture route changes so a delayed shell redirect cannot silently hide
+    // the Inbox after the route authority initially confirms navigation.
+    await page.evaluate(() => {
+      window.__ovyxInboxRouteTrace = [];
+      window.addEventListener('ovyx:view-changed', event => window.__ovyxInboxRouteTrace.push({
+        detail: event.detail || null, activeView: window.KernelState?.activeView || null,
+        inboxHidden: document.getElementById('view-inbox')?.classList.contains('hidden') ?? null,
+      }));
+    });
     // Exercise the canonical router directly. The sidebar is covered by the
     // shell/navigation regression suite; its legacy account-link class is not
     // a stable contract for this Inbox-specific browser test.
-    if (target.isMobile) await page.evaluate(() => window.MobileDrawer?.close?.());
-    await page.evaluate(() => {
-      const navigate = window.OVYXRouteAuthority?.go || window.Router?.go;
+    // The fresh shell starts with its drawer closed. Calling the legacy close
+    // method here schedules a home-route transition on mobile and races this
+    // Inbox route test, so leave the untouched shell state alone.
+    const authorityState = await page.evaluate(() => {
+      const navigate = window.OVYXRouteAuthority?.go;
       if (typeof navigate !== 'function') throw new Error('The canonical OVYX route authority is unavailable.');
-      navigate('inbox');
+      const result = navigate.call(window.OVYXRouteAuthority, 'inbox');
+      const view = document.getElementById('view-inbox');
+      return { result: result ?? null, activeView: window.KernelState?.activeView || null,
+        hidden: view?.classList.contains('hidden') ?? null, inViewport: view?.parentElement?.id === 'view-router-viewport' };
     });
-    await page.waitForFunction(() =>
-      String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'inbox'
-      && !document.getElementById('view-inbox')?.classList.contains('hidden'),
-      null,
-      { timeout: 20000 },
-    );
+    console.log('[' + target.name + '] Inbox route authority diagnostics ' + JSON.stringify(authorityState));
+    if (String(authorityState.activeView || '').replace(/^view-/, '') !== 'inbox' || authorityState.hidden !== false) {
+      const routerState = await page.evaluate(() => {
+        const result = window.Router?.go?.('inbox');
+        const view = document.getElementById('view-inbox');
+        return { result: result ?? null, activeView: window.KernelState?.activeView || null,
+          hidden: view?.classList.contains('hidden') ?? null };
+      });
+      console.log('[' + target.name + '] Inbox canonical router fallback ' + JSON.stringify(routerState));
+    }
+    try {
+      await page.waitForFunction(() =>
+        String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'inbox'
+        && !document.getElementById('view-inbox')?.classList.contains('hidden'),
+        null,
+        { timeout: 20000 },
+      );
+    } catch (error) {
+      const finalRouteState = await page.evaluate(() => ({
+        activeView: window.KernelState?.activeView || null,
+        inboxHidden: document.getElementById('view-inbox')?.classList.contains('hidden') ?? null,
+        routeTrace: window.__ovyxInboxRouteTrace || [],
+      }));
+      console.error('[' + target.name + '] Inbox route changed after navigation ' + JSON.stringify(finalRouteState));
+      throw error;
+    }
     await page.locator('[data-inbox-id="inbox-product-1"]').waitFor();
     assert.equal(await page.locator('.v34-inbox-item').count(), 2,
       '[' + target.name + '] the Inbox must render the authenticated notification records.');

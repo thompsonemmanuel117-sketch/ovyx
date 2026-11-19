@@ -210,6 +210,10 @@ jobs:
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8789
         run: node scripts/ovyx-account-notifications.browser.test.mjs
+      - name: Test Web Studio pulse composer in Chromium
+        id: pulse-composer
+        continue-on-error: true
+        run: node scripts/ovyx-webstudio-pulse-composer.browser.test.mjs
       - name: Test OVYX platform motion and reduced-motion behavior in Chromium
         id: platform-motion
         continue-on-error: true
@@ -218,10 +222,6 @@ jobs:
         id: quality-contract
         continue-on-error: true
         run: node scripts/ovyx-webstudio-quality.test.mjs
-      - name: Test Web Studio pulse composer in Chromium
-        id: pulse-composer
-        continue-on-error: true
-        run: node scripts/ovyx-webstudio-pulse-composer.browser.test.mjs
       - name: Test app-shell favicon in Chromium against local Pages runtime
         id: app-shell-favicon
         continue-on-error: true

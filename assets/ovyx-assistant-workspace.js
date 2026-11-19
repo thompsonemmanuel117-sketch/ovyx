@@ -5,7 +5,7 @@
 
   const $ = id => document.getElementById(id);
   const panel = () => $('kernel-brain-bot-panel');
-  const allowedRoutes = new Set(['home','projects','webstudio','appstudio','workspace','templates','settings','pricing','faq','inbox']);
+  const allowedRoutes = new Set(['home','projects','webstudio','appstudio','workspace','templates','settings','pricing','faq','support','inbox']);
   const nativeModes = /^(workspace-assistant|workspace-copilot(?:-v2|-advanced|-native)?|ovyx-native-assistant)$/i;
   const NATIVE_RESPONSE_BOT_MARK = "<svg viewBox=\"0 0 64 64\" aria-hidden=\"true\"><defs><linearGradient id=\"ovyxNativeDiamondGold\" x1=\"0\" y1=\"1\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#8d5a15\"/><stop offset=\".48\" stop-color=\"#fff0b0\"/><stop offset=\"1\" stop-color=\"#d49a36\"/></linearGradient></defs><path d=\"M32 5 54 18 54 46 32 59 10 46 10 18Z\" fill=\"none\" stroke=\"url(#ovyxNativeDiamondGold)\" stroke-width=\"3\" stroke-linejoin=\"round\"/><path d=\"M32 16 43 23 43 41 32 48 21 41 21 23Z\" fill=\"rgba(232,182,79,.09)\" stroke=\"url(#ovyxNativeDiamondGold)\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/><path d=\"M10 18 32 16 54 18 M10 46 32 48 54 46 M32 5 32 16 M32 48 32 59\" fill=\"none\" stroke=\"#e8c36f\" stroke-opacity=\".8\" stroke-width=\"1.3\"/></svg>";
   let busy = false;
@@ -2895,20 +2895,53 @@
   }
 
   async function openAssistantSupportDraft(row, saveFailed = false) {
-    if (window.Router && typeof window.Router.go === 'function') window.Router.go('faq');
-    else document.getElementById('view-faq')?.classList.remove('hidden');
-    let form = null;
-    for (let attempt = 0; attempt < 35; attempt += 1) {
+    const hasRouter = window.Router && typeof window.Router.go === 'function';
+    let form = document.getElementById('ovyx-help-support-form');
+
+    // The legacy support form is mounted by the Help Centre lifecycle. Route
+    // through Help once so its mount hook is available, but do not spend a
+    // separate long wait here: on delayed mobile boot the hook itself may be
+    // registered after this feedback callback starts.
+    if (!form && hasRouter) {
+      window.Router.go('faq');
+      try { window.OVYXMountHelpSupportForm?.(document.getElementById('view-faq')); } catch (_) {}
       form = document.getElementById('ovyx-help-support-form');
-      if (form) break;
+    }
+
+    if (hasRouter) window.Router.go('support');
+    else document.getElementById('view-support')?.classList.remove('hidden');
+
+    let readyForm = null;
+    for (let attempt = 0; attempt < 360; attempt += 1) {
+      // A late mobile shell-restoration pass can race the first navigation.
+      // Reassert the intended destination while the original form's
+      // idempotent mount/move handshake completes; never create a second form.
+      if (hasRouter && window.KernelState?.activeView !== 'support') {
+        try { window.Router.go('support'); } catch (_) {}
+      }
+      const faq = document.getElementById('view-faq');
+      if (!document.getElementById('ovyx-help-support-form')) {
+        try { window.OVYXMountHelpSupportForm?.(faq); } catch (_) {}
+      }
+      try { window.OVYXEnsureSupportForm?.(); } catch (_) {}
+      const candidateForm = document.querySelector('#view-support #ovyx-help-support-form[data-ovyx-support-form-ready="1"]');
+      // A stale readiness marker is not enough: the handoff needs real editable
+      // controls on the exact form that will receive the draft.
+      readyForm = candidateForm &&
+        candidateForm.querySelector('#ovyx-help-support-subject') &&
+        candidateForm.querySelector('#ovyx-help-support-message')
+        ? candidateForm
+        : null;
+      if (readyForm && (!hasRouter || window.KernelState?.activeView === 'support')) break;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
+    form = readyForm;
     if (!form) {
-      responseToast('Open Help → Contact Support to describe the response that was not helpful.', 'warning');
+      responseToast('Open Contact OVYX Support to describe the response that was not helpful.', 'warning');
       return;
     }
-    const subject = document.getElementById('ovyx-help-support-subject');
-    const message = document.getElementById('ovyx-help-support-message');
+    const subject = form.querySelector('#ovyx-help-support-subject');
+    const message = form.querySelector('#ovyx-help-support-message');
     const project = window.KernelState?.activeProject || {};
     const responseId = String(row?.dataset?.ovyxNativeMessageId || '').slice(0, 120);
     const draft = [
@@ -2924,7 +2957,7 @@
     try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
     try { target.focus({ preventScroll: true }); } catch (_) {}
     responseToast(saveFailed
-      ? 'Help is open with a support draft. The vote could not be saved, but you can still submit the issue.'
+      ? 'Contact OVYX Support is open with your report draft. The vote could not be saved, but you can still submit the issue.'
       : 'Help is open with a support draft. Review it and submit when ready.', saveFailed ? 'warning' : 'info');
   }
 
@@ -2935,6 +2968,13 @@
       if (vote === 'down') await openAssistantSupportDraft(row, true);
       return;
     }
+    // Start the editable Support hand-off before awaiting Firebase token
+    // refresh or the feedback API. The report draft is a user-facing action
+    // in its own right and must not be blocked by a slow/offline feedback
+    // persistence request (especially on mobile networks).
+    const supportDraftPromise = vote === 'down'
+      ? openAssistantSupportDraft(row, false)
+      : null;
     let saved = false;
     const user = getUser();
     try {
@@ -2969,7 +3009,7 @@
     } finally {
       if (button) button.disabled = false;
     }
-    if (vote === 'down') await openAssistantSupportDraft(row, !saved);
+    if (supportDraftPromise) await supportDraftPromise;
   }
 
   async function copyAssistantResponse(row) {
@@ -3162,6 +3202,17 @@
         const result = originalOpen(...args);
         renderChrome();
         bindEvents();
+        // The legacy shell can leave the panel in a visibility-hidden state
+        // while still assigning display:flex. An explicit public open action
+        // must restore the panel's visible, interactive state.
+        const activePanel = panel();
+        if (activePanel) {
+          activePanel.hidden = false;
+          activePanel.setAttribute('aria-hidden', 'false');
+          activePanel.style.setProperty('visibility', 'visible', 'important');
+          activePanel.style.setProperty('opacity', '1', 'important');
+          activePanel.style.setProperty('pointer-events', 'auto', 'important');
+        }
         resolveWorkspaceContext().catch(() => syncWorkspaceBadge(localWorkspaceSnapshot(), true));
         return result;
       };

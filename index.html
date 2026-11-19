@@ -4667,7 +4667,7 @@ function patchSettings(){const S=window.OVYXSettings;if(!S||S.__n1314)return;S._
 function escHelp(v){return String(v??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;',"\"":'&quot;'}[m]))}
 function mountHelpSupportForm(v){
   const shell=v?.querySelector?.('.ovyx-help-shell');
-  if(!shell || shell.querySelector('#ovyx-help-support-inline')) return;
+  if(!shell || document.getElementById('ovyx-help-support-form') || shell.querySelector('#ovyx-help-support-inline')) return;
   const card=document.createElement('section');
   card.id='ovyx-help-support-inline';
   card.className='ovyx-help-support-inline';

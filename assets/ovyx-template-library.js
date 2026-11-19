@@ -70,12 +70,17 @@
       sort.dataset.ovyxBound = '1';
       sort.addEventListener('change', () => { state.sort = sort.value === 'az' ? 'az' : 'newest'; render(); });
     }
-    if (!feed.dataset.ovyxTemplateObserver && typeof MutationObserver === 'function') {
+    if (!view.dataset.ovyxTemplateObserver && typeof MutationObserver === 'function') {
+      // Observe the page rather than only the initial feed node. A legacy
+      // renderer can replace #templates-catalog-feed itself, which detaches
+      // a feed-only observer and lets stale cards take ownership again.
       const observer = new MutationObserver(() => {
-        if (isTemplatesView() && !feed.querySelector('.ovyx-template-cards, .ovyx-template-empty')) render();
+        const currentFeed = $('templates-catalog-feed');
+        if (isTemplatesView() && currentFeed &&
+          !currentFeed.querySelector('[data-ovyx-template-cards="1"], .ovyx-template-empty[data-ovyx-template-empty="1"]')) render();
       });
-      observer.observe(feed, { childList: true });
-      feed.dataset.ovyxTemplateObserver = '1';
+      observer.observe(view, { childList: true, subtree: true });
+      view.dataset.ovyxTemplateObserver = '1';
     }
     if (!feed.dataset.ovyxTemplateLibraryBound) {
       feed.dataset.ovyxTemplateLibraryBound = '1';
@@ -225,7 +230,7 @@
   }
 
   function renderEmpty(title, description, action = '') {
-    return '<div class="ovyx-template-empty"><h4>' + escapeHtml(title) + '</h4><p>' + escapeHtml(description) + '</p>' + action + '</div>';
+    return '<div class="ovyx-template-empty" data-ovyx-template-empty="1"><h4>' + escapeHtml(title) + '</h4><p>' + escapeHtml(description) + '</p>' + action + '</div>';
   }
 
   function render() {
@@ -266,7 +271,7 @@
         '<button type="button" data-ovyx-template-action="clear">Clear filters</button>');
       return;
     }
-    feed.innerHTML = '<div class="ovyx-template-cards col-span-full">' + items.map(item => {
+    feed.innerHTML = '<div class="ovyx-template-cards col-span-full" data-ovyx-template-cards="1">' + items.map(item => {
       const locked = item.locked === true;
       const tier = clean(item.requiredTier || 'free').toUpperCase();
       const pageCount = Array.isArray(item.pages) ? item.pages.length : 0;
