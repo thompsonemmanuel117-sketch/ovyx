@@ -409,12 +409,31 @@ try {
     // Route activation and form relocation can finish before the asynchronous
     // feedback handoff populates the editable draft, especially on mobile.
     // Wait for the actual user-visible draft rather than racing its assignment.
-    await page.waitForFunction(() => {
-      const subject = document.querySelector('#view-support #ovyx-help-support-subject');
-      const message = document.querySelector('#view-support #ovyx-help-support-message');
-      return /Assistant response was not helpful/i.test(subject?.value || '') &&
-        /What went wrong\?/i.test(message?.value || '');
-    }, null, { timeout: 45000 });
+    try {
+      await page.waitForFunction(() => {
+            const subject = document.querySelector('#view-support #ovyx-help-support-subject');
+            const message = document.querySelector('#view-support #ovyx-help-support-message');
+            return /Assistant response was not helpful/i.test(subject?.value || '') &&
+              /What went wrong\?/i.test(message?.value || '');
+          }, null, { timeout: 45000 });
+    } catch (error) {
+      const handoff = await page.evaluate(() => {
+        const form = document.querySelector('#view-support #ovyx-help-support-form');
+        return {
+          activeView: window.KernelState?.activeView || null,
+          supportVisible: !!document.querySelector('#view-support:not(.hidden)'),
+          formExists: !!form,
+          formReady: form?.getAttribute('data-ovyx-support-form-ready') || null,
+          subject: document.querySelector('#view-support #ovyx-help-support-subject')?.value || null,
+          message: document.querySelector('#view-support #ovyx-help-support-message')?.value || null,
+          ensureHook: typeof window.OVYXEnsureSupportForm,
+          mountHook: typeof window.OVYXMountHelpSupportForm,
+          assistantRuntime: typeof window.WorkspaceBrainBot,
+        };
+      }).catch(cause => ({ diagnosticError: String(cause?.message || cause) }));
+      console.error(`[${target.name}] Assistant support handoff diagnostic: ${JSON.stringify({ handoff, pageErrors: bootstrapErrors.slice(-30) })}`);
+      throw error;
+    }
     assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'support',
       `[${target.name}] assistant feedback must route to the dedicated Support page`);
     assert.match(await page.locator('#view-support #ovyx-help-support-subject').inputValue(), /Assistant response was not helpful/i,
