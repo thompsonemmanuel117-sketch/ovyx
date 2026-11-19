@@ -2924,7 +2924,14 @@
         try { window.OVYXMountHelpSupportForm?.(faq); } catch (_) {}
       }
       try { window.OVYXEnsureSupportForm?.(); } catch (_) {}
-      readyForm = document.querySelector('#view-support #ovyx-help-support-form[data-ovyx-support-form-ready="1"]');
+      const candidateForm = document.querySelector('#view-support #ovyx-help-support-form[data-ovyx-support-form-ready="1"]');
+      // A stale readiness marker is not enough: the handoff needs real editable
+      // controls on the exact form that will receive the draft.
+      readyForm = candidateForm &&
+        candidateForm.querySelector('#ovyx-help-support-subject') &&
+        candidateForm.querySelector('#ovyx-help-support-message')
+        ? candidateForm
+        : null;
       if (readyForm && (!hasRouter || window.KernelState?.activeView === 'support')) break;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
