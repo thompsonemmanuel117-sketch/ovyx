@@ -854,6 +854,38 @@ try {
     assert.equal(await page.locator('#view-support #ovyx-help-support-message').count(), 1,
       '[' + target.name + '] the moved Support form must retain its editable message field.');
 
+    // The visible Help / FAQ navigation entry must bypass the Help Centre
+    // and open only the standalone Contact OVYX Support form.
+    await page.evaluate(() => window.Router.go('home'));
+    await page.waitForFunction(() => window.KernelState?.activeView === 'home', null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const helpButton = Array.from(document.querySelectorAll('button'))
+        .find(button => /Help\\s*\\/\\s*FAQ/i.test(button.textContent || '') &&
+          String(button.getAttribute('onclick') || '').includes("Router.go('faq')"));
+      if (!helpButton) throw new Error('The existing Help / FAQ navigation button was not found.');
+      helpButton.click();
+    });
+    await page.waitForFunction(() => window.KernelState?.activeView === 'support', null, { timeout: 15000 });
+    await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 15000 });
+    const helpEntryState = await page.evaluate(() => ({
+      active: window.KernelState?.activeView,
+      formVisible: !!document.querySelector('#view-support #ovyx-help-support-form'),
+      helpPageVisible: !!document.querySelector('#view-faq:not(.hidden)'),
+      extraHeader: !!document.querySelector('#view-support .ovyx-support-page-head'),
+      extraNote: !!document.querySelector('#view-support .ovyx-support-page-note'),
+      backAction: !!document.querySelector('#view-support [data-ovyx-support-back]'),
+      aiAction: !!document.querySelector('#view-support [data-ovyx-support-ai]'),
+      formCount: document.querySelectorAll('#ovyx-help-support-form').length,
+    }));
+    assert.equal(helpEntryState.active, 'support', '[' + target.name + '] Help navigation must open the standalone Support route.');
+    assert.equal(helpEntryState.formVisible, true, '[' + target.name + '] Help navigation must show the full Contact Support form.');
+    assert.equal(helpEntryState.helpPageVisible, false, '[' + target.name + '] Help Centre must not remain visible behind the form.');
+    assert.equal(helpEntryState.extraHeader, false, '[' + target.name + '] Support route must not show an extra page header.');
+    assert.equal(helpEntryState.extraNote, false, '[' + target.name + '] Support route must not show extra help copy or panels.');
+    assert.equal(helpEntryState.backAction, false, '[' + target.name + '] Support route must not show a Back to Help action.');
+    assert.equal(helpEntryState.aiAction, false, '[' + target.name + '] Support route must not show a separate AI action.');
+    assert.equal(helpEntryState.formCount, 1, '[' + target.name + '] Help navigation must preserve exactly one canonical support form.');
+
     let supportRequest = null;
     await page.route('**/api/support', async route => {
       supportRequest = route.request();
