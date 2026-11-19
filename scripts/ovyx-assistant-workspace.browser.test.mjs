@@ -843,6 +843,16 @@ try {
     assert.equal(supportPageState.formStillInHelp, false, '[' + target.name + '] support form must not remain embedded in the Help Centre.');
     assert.equal(supportPageState.formCount, 1, '[' + target.name + '] Help Centre lifecycle must not leave duplicate support forms.');
     assert.equal(supportPageState.assistantAvailable, true, '[' + target.name + '] Help Centre must reuse the existing OVYX AI.');
+    // The legacy shell may re-run its mount hook after the original form has
+    // moved to Support. That must remain globally idempotent and not create a
+    // second form that races the Assistant feedback handoff.
+    await page.evaluate(() => window.OVYXMountHelpSupportForm?.(document.getElementById('view-faq')));
+    assert.equal(await page.locator('#ovyx-help-support-form').count(), 1,
+      '[' + target.name + '] rerunning the legacy mount hook must not duplicate the moved Support form.');
+    assert.equal(await page.locator('#view-support #ovyx-help-support-subject').count(), 1,
+      '[' + target.name + '] the moved Support form must retain its editable subject field.');
+    assert.equal(await page.locator('#view-support #ovyx-help-support-message').count(), 1,
+      '[' + target.name + '] the moved Support form must retain its editable message field.');
 
     let supportRequest = null;
     await page.route('**/api/support', async route => {
