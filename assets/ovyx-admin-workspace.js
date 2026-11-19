@@ -353,10 +353,11 @@
     }
     try {
       router.go(target.route);
+      // Close the mobile drawer for the overview route as well, so its
+      // backdrop cannot obscure the newly opened Admin Workspace.
+      try { window.MobileDrawer?.close?.(); } catch { /* Optional on desktop. */ }
       if (target.route === 'admin-overview') {
         setTimeout(() => byId('adm-stat-projects')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }), 60);
-      } else {
-        try { window.MobileDrawer?.close?.(); } catch { /* Optional on desktop. */ }
       }
       return true;
     } catch (error) {
