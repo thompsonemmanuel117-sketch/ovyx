@@ -105,13 +105,26 @@
     // otherwise move the first existing form, then remove only duplicate cards
     // so there is exactly one editable support ticket form in the document.
     const allForms = Array.from(document.querySelectorAll('#' + FORM_ID));
-    // The legacy FAQ form owns the already-bound submit handler. If a stale
-    // duplicate exists in the new page, prefer the original form outside the
-    // page so moving it preserves its listeners and the existing API flow.
-    const form = allForms.find(candidate => !page.contains(candidate)) ||
+    // A late legacy mount can briefly leave an incomplete shell/form beside
+    // the real editable ticket form. Never prefer a stale outside form merely
+    // because it appears first: the assistant handoff and submit path require
+    // both editable draft controls to exist.
+    const hasDraftFields = candidate =>
+      !!candidate?.querySelector?.('#ovyx-help-support-subject') &&
+      !!candidate?.querySelector?.('#ovyx-help-support-message');
+    const form = allForms.find(candidate => !page.contains(candidate) && hasDraftFields(candidate)) ||
+      allForms.find(candidate => page.contains(candidate) && hasDraftFields(candidate)) ||
+      allForms.find(hasDraftFields) ||
+      allForms.find(candidate => !page.contains(candidate)) ||
       page.querySelector('#' + FORM_ID) || allForms[0] || null;
     const card = form?.closest('.ovyx-help-support-inline') || form;
     if (!card) return false;
+    if (!hasDraftFields(form)) {
+      // Do not advertise a form as ready while it cannot accept the assistant
+      // draft. A subsequent legacy mount mutation will trigger reconciliation.
+      delete form.dataset.ovyxSupportFormReady;
+      return false;
+    }
     if (card.parentElement !== mount) mount.appendChild(card);
     Array.from(document.querySelectorAll('#' + FORM_ID)).forEach(duplicate => {
       if (duplicate === form) return;
