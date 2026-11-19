@@ -91,7 +91,10 @@
     const page = supportPage();
     if (!page) return false;
     const faq = document.getElementById('view-faq');
-    if (faq && !faq.querySelector('.ovyx-help-shell') && typeof window.OVYXMountHelpSupportForm === 'function') {
+    // A legacy Help shell can exist before its support form is mounted.
+    // Mount the original form whenever it is absent; checking only for the
+    // shell incorrectly skipped this recovery path on delayed boot/mobile.
+    if (faq && !document.getElementById(FORM_ID) && typeof window.OVYXMountHelpSupportForm === 'function') {
       try { window.OVYXMountHelpSupportForm(faq); } catch (_) {}
     }
     const mount = $('[data-ovyx-support-form-mount]', page);
@@ -321,6 +324,12 @@
       }, true);
     }
   }
+
+  // Expose an idempotent readiness hook for assistant-feedback handoff.
+  // It reuses the existing form and submit handler; it never clones a ticket form.
+  window.OVYXEnsureSupportForm = function () {
+    return moveSupportForm();
+  };
 
   function scan() {
     patchRouter();
