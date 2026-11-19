@@ -17,6 +17,16 @@ try {
       hasTouch: !!target.hasTouch,
     });
     page.setDefaultTimeout(20000);
+    await page.addInitScript(() => {
+      // Keep late shell/session restoration aligned with this route-specific
+      // test. Otherwise the mobile boot controller can reapply Home after the
+      // canonical Inbox route has already rendered.
+      let session = {};
+      try { session = JSON.parse(localStorage.getItem('ovyx.runtime.session.v4') || '{}'); } catch (_) {}
+      localStorage.setItem('ovyx.runtime.route.v18', 'inbox');
+      localStorage.setItem('ovyx.settings.last-view.v1', 'inbox');
+      localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ ...session, route: 'inbox' }));
+    });
     const requests = [];
     const errors = [];
     const readState = new Map();
