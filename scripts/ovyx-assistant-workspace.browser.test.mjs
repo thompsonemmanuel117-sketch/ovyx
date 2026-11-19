@@ -393,6 +393,16 @@ try {
       contentType: 'application/json',
       body: JSON.stringify({ ok: true, saved: true }),
     }));
+    // Persist the intended destination before the asynchronous feedback
+    // handoff. The late shell route-restoration controller must not send the
+    // mobile test back Home while the Support draft is being populated.
+    await page.evaluate(() => {
+      let session = {};
+      try { session = JSON.parse(localStorage.getItem('ovyx.runtime.session.v4') || '{}'); } catch (_) {}
+      localStorage.setItem('ovyx.runtime.route.v18', 'support');
+      localStorage.setItem('ovyx.settings.last-view.v1', 'support');
+      localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ ...session, route: 'support' }));
+    });
     await helpMessage.locator('[data-ovyx-native-response-action="not-helpful"]').click();
     await page.locator('#view-support').waitFor({ state: 'visible', timeout: 20000 });
     await page.locator('#view-support #ovyx-help-support-form').waitFor({ state: 'visible', timeout: 20000 });
