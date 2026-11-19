@@ -273,6 +273,16 @@ jobs:
           # Each browser suite covers desktop and mobile. Run the two groups
           # sequentially against the single local Pages worker: parallel Chromium
           # processes were starving navigation and causing unrelated goto timeouts.
+          # Settings coverage runs once in the dedicated Settings Regression workflow.
+          # Keep this group focused on Assistant, Sentinel, provider and Web Studio flows.
+          run_shard "assistant-and-runtime" /tmp/ovyx-assistant-shard-b.log \
+            ovyx-assistant-workspace.browser.test.mjs \
+            ovyx-sentinel.browser.test.mjs \
+            ovyx-provider-availability.browser.test.mjs \
+            ovyx-webstudio-reliability.browser.test.mjs
+          shard_b_status=$?
+
+
           run_shard "app-studio-and-admin" /tmp/ovyx-assistant-shard-a.log \
             ovyx-account-notifications.browser.test.mjs \
             ovyx-brand-dna.browser.test.mjs \
@@ -286,15 +296,6 @@ jobs:
             ovyx-admin-workspace.browser.test.mjs \
             ovyx-admin-hub.browser.test.mjs
           shard_a_status=$?
-
-          # Settings coverage runs once in the dedicated Settings Regression workflow.
-          # Keep this group focused on Assistant, Sentinel, provider and Web Studio flows.
-          run_shard "assistant-and-runtime" /tmp/ovyx-assistant-shard-b.log \
-            ovyx-assistant-workspace.browser.test.mjs \
-            ovyx-sentinel.browser.test.mjs \
-            ovyx-provider-availability.browser.test.mjs \
-            ovyx-webstudio-reliability.browser.test.mjs
-          shard_b_status=$?
 
           if [ "$shard_a_status" -ne 0 ] || [ "$shard_b_status" -ne 0 ]; then
             echo "One or more Assistant Workspace browser-test groups failed."
