@@ -2898,7 +2898,7 @@
     if (window.Router && typeof window.Router.go === 'function') window.Router.go('support');
     else document.getElementById('view-support')?.classList.remove('hidden');
     let form = null;
-    for (let attempt = 0; attempt < 90; attempt += 1) {
+    for (let attempt = 0; attempt < 180; attempt += 1) {
       // Ask the Support runtime to finish moving the original bound form on
       // every pass. This covers delayed legacy-shell mounting on mobile while
       // preserving any existing draft and the original submit listeners.
