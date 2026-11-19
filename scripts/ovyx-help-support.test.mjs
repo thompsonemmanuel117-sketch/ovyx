@@ -34,6 +34,11 @@ assert.ok(client.includes('new FormData()'), 'Support submission must preserve m
 assert.ok(client.includes("body.append('attachments'"), 'Selected attachments must be submitted to the existing support endpoint.');
 assert.ok(client.includes("result.ticket.notificationStatus === 'sent'"), 'The UI must only claim email delivery after server confirmation.');
 assert.ok(client.includes('view-support'), 'Contact Support must have its own routed page.');
+assert.ok(client.includes('openSupportFromHelp'), 'The Help navigation entry must open the standalone Support page directly.');
+assert.ok(client.includes('button[onclick*="Router.go(\\'faq\\')"]'), 'The existing Help / FAQ sidebar entry must be intercepted safely.');
+assert.ok(!client.includes('data-ovyx-support-back'), 'The standalone Support page must not show a Back to Help Centre action.');
+assert.ok(!client.includes('data-ovyx-support-ai'), 'The standalone Support page must not show an extra AI action.');
+assert.ok(!client.includes('ovyx-support-page-note'), 'The standalone Support page must contain only the Contact Support form, without extra help panels.');
 assert.ok(client.includes("router.go('support')") || client.includes("go?.('support')"), 'The Help Centre must navigate to the standalone support page.');
 assert.ok(client.includes('appendChild(card)'), 'The existing support form must be moved, not duplicated or discarded.');
 assert.ok(client.includes('patchLegacySupportEntryPoints'), 'Legacy support buttons must route to the standalone page rather than opening competing modals.');
