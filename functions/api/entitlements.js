@@ -15,13 +15,6 @@ const PAID_TIERS = new Set([
   'max'
 ]);
 
-const TIER_RANK = Object.freeze({
-  free: 0,
-  pro: 1,
-  max: 2,
-  root: 3
-});
-
 const DEFAULT_FREE_CAPABILITIES = Object.freeze({
   // Product capabilities are currently open to every account. Plan tiers
   // describe billing and usage allowances, not feature availability.
@@ -85,105 +78,6 @@ function hasValidRollingAccess(profile, now) {
 function buildPaidCapabilities() {
   return buildAvailableCapabilities();
 }
-
-function normalizeFeatureRules(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .filter(rule => rule && typeof rule === 'object')
-    .map(rule => ({
-      feature: String(rule.feature || '').trim(),
-      tier: String(rule.tier || 'free').trim().toLowerCase(),
-      locked: rule.locked === true
-    }))
-    .filter(rule => rule.feature);
-}
-
-function canonicalCapabilityName(value, capabilities) {
-  const normalized = String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  const aliases = {
-    webstudio: 'webStudio',
-    advancedwebstudio: 'advancedWebStudio',
-    appstudio: 'appStudio',
-    gamestudio: 'gameStudio',
-    aigeneration: 'aiGeneration',
-    github: 'github',
-    cloudflaredeploy: 'cloudflareDeploy',
-    teamworkspace: 'teamWorkspace',
-    workspace: 'teamWorkspace',
-    templates: 'templates'
-  };
-  const candidate = aliases[normalized] || value;
-  return Object.prototype.hasOwnProperty.call(capabilities, candidate) ? candidate : null;
-}
-
-function applyPlanFeatures(capabilities, planFeatures, tier, managed) {
-  const result = { ...capabilities };
-  if (!managed || !['pro', 'max'].includes(String(tier || '').toLowerCase())) return result;
-  const source = planFeatures && planFeatures[String(tier).toLowerCase()];
-  if (!Array.isArray(source)) return result;
-  const allowed = new Set(source.map(item => String(typeof item === 'string' ? item : (item?.id || item?.key || '')).trim()).filter(Boolean));
-  // Once the owner explicitly manages a paid tier, the saved list is the
-  // capability allowlist for that tier. Do not intersect with defaults here:
-  // doing so would make it impossible for the owner to enable a new capability.
-  for (const feature of ['webStudio', 'advancedWebStudio', 'appStudio', 'gameStudio', 'aiGeneration', 'github', 'cloudflareDeploy', 'teamWorkspace', 'templates']) {
-    result[feature] = allowed.has(feature);
-  }
-  return result;
-}
-
-function applyGlobalGating(capabilities, gating, tier) {
-  const result = {
-    ...capabilities
-  };
-
-  if (!gating || typeof gating !== 'object') {
-    return result;
-  }
-
-  const currentRank = TIER_RANK[String(tier || 'free').trim().toLowerCase()] ?? 0;
-
-  for (const [feature, requiredTierValue] of Object.entries(gating)) {
-    const canonicalFeature = canonicalCapabilityName(feature, result);
-    if (!canonicalFeature) continue;
-
-    const requiredTier = String(requiredTierValue || 'free').trim().toLowerCase();
-    const requiredRank = TIER_RANK[requiredTier];
-
-    if (requiredRank === undefined) {
-      continue;
-    }
-
-    if (currentRank < requiredRank) {
-      result[canonicalFeature] = false;
-    }
-  }
-
-  return result;
-}
-
-function applyFeatureRules(capabilities, featureRules) {
-  const result = {
-    ...capabilities
-  };
-
-  for (const rule of featureRules) {
-    if (rule.locked !== true) {
-      continue;
-    }
-
-    const feature = rule.feature;
-
-    if (Object.prototype.hasOwnProperty.call(result, feature)) {
-      result[feature] = false;
-    }
-  }
-
-  return result;
-}
-
 
 async function resolveEntitlements(env, user) {
   const now = Date.now();
@@ -260,8 +154,6 @@ async function resolveEntitlements(env, user) {
   // Feature-gate configuration is intentionally not consulted until OVYX
   // explicitly introduces plan-based feature restrictions.
   const effectiveTier = accessActive ? tier : 'free';
-  const featureRules = [];
-  const gating = {};
 
   return {
     planTier: effectiveTier,
@@ -271,8 +163,8 @@ async function resolveEntitlements(env, user) {
     accessExpiresAt: expiresAt,
     accessActive,
     capabilities,
-    featureRules,
-    gating,
+    featureRules: [],
+    gating: {},
     planFeatures: {},
     planFeaturesManaged: false
   };
@@ -285,10 +177,6 @@ export {
   hasValidRollingAccess,
   buildPaidCapabilities,
   buildAvailableCapabilities,
-  normalizeFeatureRules,
-  applyFeatureRules,
-  applyGlobalGating,
-  applyPlanFeatures,
   resolveEntitlements
 };
 
