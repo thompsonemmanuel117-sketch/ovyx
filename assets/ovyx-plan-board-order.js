@@ -50,7 +50,7 @@
     }
 
     const headings = Array.from(root.querySelectorAll(
-      'h1,h2,h3,h4,h5,[data-plan-tier],[data-tier],[class*="plan-name" i]'
+      'h1,h2,h3,h4,h5,strong,b,[data-plan-tier],[data-tier],[class*="plan-name" i],[class*="heading" i],[class*="font-bold" i]'
     ));
     const selected = {};
     for (const heading of headings) {
