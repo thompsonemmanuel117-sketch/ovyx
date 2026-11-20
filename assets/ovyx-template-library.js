@@ -70,23 +70,25 @@
       sort.dataset.ovyxBound = '1';
       sort.addEventListener('change', () => { state.sort = sort.value === 'az' ? 'az' : 'newest'; render(); });
     }
-    if (!view.dataset.ovyxTemplateObserver && typeof MutationObserver === 'function') {
-      // Observe the page rather than only the initial feed node. A legacy
-      // renderer can replace #templates-catalog-feed itself, which detaches
-      // a feed-only observer and lets stale cards take ownership again.
+    const observerRoot = $('view-router-viewport') || document.body;
+    if (observerRoot && !observerRoot.dataset.ovyxTemplateObserver && typeof MutationObserver === 'function') {
+      // The router can replace the Templates section itself during a legacy
+      // navigation transition. Observe the stable viewport so the protection
+      // survives replacement of both the page and its feed node.
       const observer = new MutationObserver(() => {
+        if (!isTemplatesView()) return;
+        const currentView = $('view-templates');
         const currentFeed = $('templates-catalog-feed');
-        if (!isTemplatesView() || !currentFeed) return;
-        // Legacy template globals may be initialized after this page module.
-        // Re-apply the compatibility patch whenever the page mutates so a
-        // late legacy renderer cannot reclaim the server-backed catalogue.
+        if (!currentView || !currentFeed || currentView.classList.contains('hidden')) return;
+        // Legacy globals may be initialized after this module. Re-apply the
+        // adapter and restore the server-backed catalogue after any takeover.
         patchLegacyStore();
         if (!currentFeed.querySelector('[data-ovyx-template-cards="1"], .ovyx-template-empty[data-ovyx-template-empty="1"]')) {
           render();
         }
       });
-      observer.observe(view, { childList: true, subtree: true });
-      view.dataset.ovyxTemplateObserver = '1';
+      observer.observe(observerRoot, { childList: true, subtree: true });
+      observerRoot.dataset.ovyxTemplateObserver = '1';
     }
     if (!feed.dataset.ovyxTemplateLibraryBound) {
       feed.dataset.ovyxTemplateLibraryBound = '1';
