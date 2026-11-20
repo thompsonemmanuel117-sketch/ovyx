@@ -196,25 +196,6 @@ async function resolveEntitlements(env, user) {
    * expiration. This is the server-side emergency/admin identity.
    */
   if (isRootIdentity(user)) {
-    let systemConfig = {};
-
-    try {
-      systemConfig =
-        (await getFirestoreData(env, 'system', 'config')) || {};
-    } catch {
-      systemConfig = {};
-    }
-
-    const featureRules = normalizeFeatureRules(
-      systemConfig.featureRules
-    );
-
-    const gating =
-      systemConfig.gating &&
-      typeof systemConfig.gating === 'object'
-        ? systemConfig.gating
-        : {};
-
     return {
       planTier: 'root',
       planTierState: 'active',
@@ -227,17 +208,7 @@ async function resolveEntitlements(env, user) {
       accessExpiresAt: null,
       accessActive: true,
       /* Root owner access is intentionally outside subscription and feature gating. */
-      capabilities: {
-        webStudio: true,
-        advancedWebStudio: true,
-        appStudio: true,
-        gameStudio: true,
-        aiGeneration: true,
-        github: true,
-        cloudflareDeploy: true,
-        teamWorkspace: true,
-        templates: true
-      },
+      capabilities: buildAvailableCapabilities(),
       featureRules: [],
       gating: {},
       planFeatures: {},
@@ -287,20 +258,8 @@ async function resolveEntitlements(env, user) {
   // account; actual usage quotas and paid subscription records remain intact.
   const capabilities = buildAvailableCapabilities();
 
-  /*
-   * Feature locks are also server-side.
-   *
-   * /system/config is not client-writable under Phase 8 rules.
-   */
-  let systemConfig = {};
-
-  try {
-    systemConfig =
-      (await getFirestoreData(env, 'system', 'config')) || {};
-  } catch {
-    systemConfig = {};
-  }
-
+  // Feature-gate configuration is intentionally not consulted until OVYX
+  // explicitly introduces plan-based feature restrictions.
   const effectiveTier = accessActive ? tier : 'free';
   const featureRules = [];
   const gating = {};
