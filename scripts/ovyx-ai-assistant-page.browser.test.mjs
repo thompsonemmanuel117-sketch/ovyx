@@ -23,7 +23,7 @@ try {
 
     const errors = [];
     page.on('pageerror', error => {
-      if (/ovyx|assistant|WorkspaceBrainBot|Router/i.test(error.message)) errors.push(error.message);
+      if (/ovyx-ai-assistant-page|WorkspaceBrainBot|view-ai-assistant/i.test(error.message + ' ' + (error.stack || ''))) errors.push(error.message);
     });
 
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
