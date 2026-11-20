@@ -77,16 +77,6 @@
   const suppressedDockNodes = new Set();
   const pendingDockCandidates = new Set();
   const DOCK_HIDE_PROPERTIES = ['display', 'visibility', 'opacity', 'pointer-events', 'transform'];
-  const DOCK_CANDIDATE_SELECTOR = [
-    'nav', '[role="navigation"]', 'footer',
-    '[aria-label*="navigation" i]',
-    '[id*="bottom" i]', '[class*="bottom" i]',
-    '[id*="navigation" i]', '[class*="navigation" i]',
-    '[id*="navbar" i]', '[class*="navbar" i]',
-    '[id*="nav-bar" i]', '[class*="nav-bar" i]',
-    '[id*="dock" i]', '[class*="dock" i]',
-    '[id*="toolbar" i]', '[class*="toolbar" i]'
-  ].join(',');
 
   function readInlineProperty(style, property) {
     return { value: style.getPropertyValue(property), priority: style.getPropertyPriority(property) };
@@ -149,11 +139,15 @@
     // querySelectorAll('*') path forced style and layout reads across the
     // complete application shell during keyboard/route mutations.
     const dockCandidates = new Set([
-      ...(document.body?.querySelectorAll(DOCK_CANDIDATE_SELECTOR) || []),
+      document.getElementById('ovyx-v52-bottom-bar'),
       ...(document.body?.children || []),
       ...(document.getElementById('view-router-viewport')?.children || []),
       ...changedNodes,
-    ]);
+    ].filter(Boolean));
+    // A wrapper's class/style may change its direct child into a fixed dock.
+    for (const node of changedNodes) {
+      if (node instanceof HTMLElement) Array.from(node.children || []).forEach(child => dockCandidates.add(child));
+    }
     dockCandidates.forEach(node => {
       if (!(node instanceof HTMLElement)) return;
       const alreadySuppressed = node.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS);
@@ -265,7 +259,6 @@
                 if (!(node instanceof HTMLElement)) continue;
                 pendingDockCandidates.add(node);
                 Array.from(node.children || []).forEach(child => pendingDockCandidates.add(child));
-                node.querySelectorAll(DOCK_CANDIDATE_SELECTOR).forEach(child => pendingDockCandidates.add(child));
               }
               return pendingDockCandidates.size > 0;
             }
