@@ -32,7 +32,6 @@ try {
     await page.waitForFunction(() =>
       window.WorkspaceBrainBot?.__ovyxNativeOpen === true &&
       window.WorkspaceBrainBot?.__OVYX_AI_ASSISTANT_PAGE_WRAPPED === true &&
-      window.OVYXAIService?.__ovyxNativeWorkspaceRoute === true &&
       document.getElementById('view-ai-assistant'),
       null,
       { timeout: 60000 },
