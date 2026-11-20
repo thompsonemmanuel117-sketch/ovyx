@@ -47,13 +47,15 @@ Give the existing OVYX AI Assistant its own full-width routed workspace. This is
 ## 4. Research and product decisions
 
 Research reviewed:
-- Vercel AI SDK's Chatbot guide documents explicit submitted/streaming/ready/error states, message streaming, and tool-aware message parts. OVYX already has activity stages and tool outcomes; the page should expose those clearly rather than invent a second activity model.
-- OpenAI's Conversation State guide describes durable conversation identifiers spanning sessions/devices and conversation items including messages and tool calls/results. OVYX currently writes turns but has no read/list endpoint, so a conversation history rail is deferred until that backend contract exists.
-- OpenAI's UI guidelines recommend fullscreen for work that benefits from more space and keeping the conversational composer available during fullscreen work. This supports a dedicated Assistant workspace with the existing composer and context/actions retained.
+- Vercel AI SDK's current Chatbot guide models submitted, streaming, ready and error as distinct UI states; it recommends rendering typed message parts so text, tool calls and tool results are not collapsed into one string. OVYX already has activity stages and tool outcomes, so the page keeps those existing signals visible. Its current API returns a completed JSON response, so this page does not falsely animate token streaming or claim a Stop action it cannot support.
+- Vercel's persistence guide treats storing and loading messages as separate requirements, and calls out validating stored tool parts before replaying them. OVYX currently writes user-scoped turns but has no conversation-list/read endpoint, so a history rail is deferred until an authenticated read/resume contract exists.
+- OpenAI's Conversation State guide describes durable conversation identifiers spanning sessions/devices and conversation items including messages and tool calls/results. This supports treating conversation identity, tool activity and message persistence as explicit product concepts.
+- OpenAI's UI guidelines recommend fullscreen for rich work that benefits from more space and keeping the conversational composer available in the fullscreen experience. This supports a dedicated Assistant workspace that retains the existing composer and action controls.
 
 Sources:
-- https://github.com/vercel/ai/blob/main/content/docs/04-ai-sdk-ui/02-chatbot.mdx
-- https://developers.openai.com/api/docs/guides/conversation-state?api-mode=responses
+- https://ai-sdk.dev/docs/ai-sdk-ui/chatbot
+- https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-message-persistence
+- https://developers.openai.com/api/docs/guides/conversation-state
 - https://developers.openai.com/plugins/concepts/ui-guidelines
 
 Implementation decisions:
