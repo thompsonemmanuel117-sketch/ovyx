@@ -23,17 +23,23 @@ const TIER_RANK = Object.freeze({
 });
 
 const DEFAULT_FREE_CAPABILITIES = Object.freeze({
+  // Product capabilities are currently open to every account. Plan tiers
+  // describe billing and usage allowances, not feature availability.
   webStudio: true,
-  advancedWebStudio: false,
-  appStudio: false,
+  advancedWebStudio: true,
+  appStudio: true,
+  // Game Studio is not a released OVYX capability yet; do not advertise it as unlocked.
   gameStudio: false,
-  // Free includes a small AI allowance; the server quota engine enforces its limits.
   aiGeneration: true,
-  github: false,
+  github: true,
   cloudflareDeploy: true,
-  teamWorkspace: false,
+  teamWorkspace: true,
   templates: true
 });
+
+function buildAvailableCapabilities() {
+  return { ...DEFAULT_FREE_CAPABILITIES };
+}
 
 function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -77,18 +83,8 @@ function hasValidRollingAccess(profile, now) {
   );
 }
 
-function buildPaidCapabilities(tier) {
-  return {
-    webStudio: true,
-    advancedWebStudio: tier === 'max',
-    appStudio: true,
-    gameStudio: false,
-    aiGeneration: true,
-    github: true,
-    cloudflareDeploy: true,
-    teamWorkspace: true,
-    templates: true
-  };
+function buildPaidCapabilities() {
+  return buildAvailableCapabilities();
 }
 
 function normalizeFeatureRules(value) {
@@ -242,10 +238,10 @@ async function resolveEntitlements(env, user) {
         teamWorkspace: true,
         templates: true
       },
-      featureRules,
-      gating,
-      planFeatures: systemConfig.planFeatures || {},
-      planFeaturesManaged: systemConfig.planFeaturesManaged === true
+      featureRules: [],
+      gating: {},
+      planFeatures: {},
+      planFeaturesManaged: false
     };
   }
 
@@ -286,15 +282,10 @@ async function resolveEntitlements(env, user) {
     expiresAt !== null &&
     expiresAt > now;
 
-  let capabilities;
-
-  if (accessActive) {
-    capabilities = buildPaidCapabilities(tier);
-  } else {
-    capabilities = {
-      ...DEFAULT_FREE_CAPABILITIES
-    };
-  }
+  // Do not apply speculative feature locks from old plan configuration.
+  // Every currently shipped capability stays available to every signed-in
+  // account; actual usage quotas and paid subscription records remain intact.
+  const capabilities = buildAvailableCapabilities();
 
   /*
    * Feature locks are also server-side.
@@ -310,29 +301,9 @@ async function resolveEntitlements(env, user) {
     systemConfig = {};
   }
 
-  const featureRules = normalizeFeatureRules(
-    systemConfig.featureRules
-  );
-
-  const gating =
-    systemConfig.gating &&
-    typeof systemConfig.gating === 'object'
-      ? systemConfig.gating
-      : {};
-
   const effectiveTier = accessActive ? tier : 'free';
-
-  capabilities = applyPlanFeatures(capabilities, systemConfig.planFeatures, effectiveTier, systemConfig.planFeaturesManaged === true);
-  capabilities = applyGlobalGating(
-    capabilities,
-    gating,
-    effectiveTier
-  );
-
-  capabilities = applyFeatureRules(
-    capabilities,
-    featureRules
-  );
+  const featureRules = [];
+  const gating = {};
 
   return {
     planTier: effectiveTier,
@@ -344,8 +315,8 @@ async function resolveEntitlements(env, user) {
     capabilities,
     featureRules,
     gating,
-    planFeatures: systemConfig.planFeatures || {},
-    planFeaturesManaged: systemConfig.planFeaturesManaged === true
+    planFeatures: {},
+    planFeaturesManaged: false
   };
 }
 
@@ -355,6 +326,7 @@ export {
   isRootIdentity,
   hasValidRollingAccess,
   buildPaidCapabilities,
+  buildAvailableCapabilities,
   normalizeFeatureRules,
   applyFeatureRules,
   applyGlobalGating,
