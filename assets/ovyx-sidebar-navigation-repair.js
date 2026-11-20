@@ -17,7 +17,39 @@
     });
   }
 
+  function repairExpandedDesktopSidebar() {
+    if (!isDesktop() || document.body.classList.contains('ovyx-webstudio-active')) return;
+    var root = document.documentElement;
+    var sidebar = document.getElementById('app-sidebar');
+    if (!sidebar) return;
+
+    // The collapsed class/data attribute are the shell's actual layout state.
+    // Do not infer "collapsed" from inert/aria-hidden: those can be stale after
+    // an interrupted transition and leave a visibly open sidebar unclickable.
+    var collapsed = root.dataset.ovyxSidebar === 'collapsed' ||
+      root.classList.contains('v34-sidebar-collapsed');
+    if (collapsed) {
+      sidebar.inert = true;
+      sidebar.setAttribute('aria-hidden', 'true');
+      return;
+    }
+
+    // Re-apply the canonical expanded state on boot and route changes. This
+    // repairs stale inert/aria-hidden flags without changing the user's
+    // intentional collapsed preference.
+    if (window.OVYXDesktopShell && typeof window.OVYXDesktopShell.setCollapsed === 'function') {
+      window.OVYXDesktopShell.setCollapsed(false, true);
+    }
+    sidebar.hidden = false;
+    sidebar.inert = false;
+    sidebar.setAttribute('aria-hidden', 'false');
+    if (sidebar.style && sidebar.style.pointerEvents === 'none') {
+      sidebar.style.pointerEvents = 'auto';
+    }
+  }
+
   function syncSidebarNavigation() {
+    repairExpandedDesktopSidebar();
     var menu = document.getElementById('ovyx-v34-menu-source');
     if (!menu || menu.dataset.ovyxCanonicalSidebarToggle === '1') return;
     menu.dataset.ovyxCanonicalSidebarToggle = '1';
