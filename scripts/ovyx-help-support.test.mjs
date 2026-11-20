@@ -41,7 +41,7 @@ assert.ok(client.includes('[data-v52-account="help"]'), 'The mobile account Help
 assert.ok(!client.includes('data-ovyx-support-back'), 'The standalone Support page must not show a Back to Help Centre action.');
 assert.ok(!client.includes('data-ovyx-support-ai'), 'The standalone Support page must not show an extra AI action.');
 assert.ok(!client.includes('ovyx-support-page-note'), 'The standalone Support page must contain only the Contact Support form, without extra help panels.');
-assert.ok(client.includes("router.go('support')") || client.includes("go?.('support')"), 'The Help Centre must navigate to the standalone support page.');
+assert.ok(client.includes("window.Router.go('support')"), 'Help navigation must route to the standalone support page.');
 assert.ok(client.includes('appendChild(card)'), 'The existing support form must be moved, not duplicated or discarded.');
 assert.ok(client.includes('patchLegacySupportEntryPoints'), 'Legacy support buttons must route to the standalone page rather than opening competing modals.');
 assert.ok(client.includes('[data-v34-support-wa],[data-support-whatsapp]'), 'Legacy WhatsApp support actions must not bypass the single Contact Support page.');
