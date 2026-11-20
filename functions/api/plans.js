@@ -22,6 +22,7 @@ const AVAILABLE_FEATURES = Object.freeze([
   { id: 'webStudio', label: 'Web Studio' },
   { id: 'advancedWebStudio', label: 'Advanced Web Studio' },
   { id: 'appStudio', label: 'App Studio' },
+  { id: 'gameStudio', label: 'Game Studio' },
   { id: 'aiGeneration', label: 'AI Generation' },
   { id: 'github', label: 'Source management' },
   { id: 'cloudflareDeploy', label: 'Cloudflare Deploy' },
