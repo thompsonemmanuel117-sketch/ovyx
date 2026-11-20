@@ -264,7 +264,8 @@
               for (const node of Array.from(record.addedNodes || [])) {
                 if (!(node instanceof HTMLElement)) continue;
                 pendingDockCandidates.add(node);
-                node.querySelectorAll('*').forEach(child => pendingDockCandidates.add(child));
+                Array.from(node.children || []).forEach(child => pendingDockCandidates.add(child));
+                node.querySelectorAll(DOCK_CANDIDATE_SELECTOR).forEach(child => pendingDockCandidates.add(child));
               }
               return pendingDockCandidates.size > 0;
             }
