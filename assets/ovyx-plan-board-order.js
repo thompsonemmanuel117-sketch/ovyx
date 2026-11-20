@@ -60,7 +60,7 @@
     if (!ORDER.every(tier => selected[tier])) return;
 
     const ancestor = commonAncestor(ORDER.map(tier => selected[tier]));
-    if (!ancestor || ancestor === root) return;
+    if (!ancestor) return;
     const branches = Object.fromEntries(ORDER.map(tier =>
       [tier, directBranch(ancestor, selected[tier])]
     ));
