@@ -50,3 +50,10 @@ assert.match(planAdmin, /const planFeatures=\{pro:AVAILABLE_FEATURES,max:AVAILAB
 assert.match(planAdmin, /const gating=\{\}/);
 assert.match(planAdmin, /planFeaturesManaged:false/);
 console.log('OVYX plan quota and open feature availability tests passed.');
+
+const planBoardOrder = readFileSync(new URL('../assets/ovyx-plan-board-order.js', import.meta.url), 'utf8');
+assert.match(planBoardOrder, /const ORDER = \['free', 'pro', 'max'\]/);
+assert.match(planBoardOrder, /document\.getElementById\('view-pricing'\)/);
+assert.match(planBoardOrder, /ancestor\.appendChild\(branches\[tier\]\)/);
+assert.match(planBoardOrder, /data-plan-tier/);
+console.log('OVYX pricing board order is Free, Pro, Max without changing server entitlements.');
