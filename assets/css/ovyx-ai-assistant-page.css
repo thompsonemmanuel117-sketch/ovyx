@@ -161,3 +161,37 @@ body.ovyx-ai-assistant-page-active #view-ai-assistant {
     transition-duration: .01ms !important;
   }
 }
+
+/* Mobile keyboard: size the routed workspace to the visual viewport so the
+   composer remains reachable while Android Chrome resizes/pans the keyboard. */
+@media (max-width: 767px) {
+  body.ovyx-ai-assistant-page-active #view-ai-assistant.ovyx-ai-assistant-page {
+    height: var(--ovyx-assistant-visual-height, 100dvh) !important;
+    min-height: 0 !important;
+    max-height: var(--ovyx-assistant-visual-height, 100dvh) !important;
+    overflow: hidden !important;
+  }
+  body.ovyx-ai-assistant-page-active #view-ai-assistant #kernel-brain-bot-panel {
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+  }
+  #view-ai-assistant #kernel-brain-bot-panel #bot-chat-history {
+    min-height: 0 !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+  #view-ai-assistant #kernel-brain-bot-panel #bot-chat-input {
+    max-height: min(180px, 28dvh) !important;
+    resize: none !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+  #view-ai-assistant #kernel-brain-bot-panel > div:last-child {
+    flex-shrink: 0 !important;
+    padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
+  }
+}
