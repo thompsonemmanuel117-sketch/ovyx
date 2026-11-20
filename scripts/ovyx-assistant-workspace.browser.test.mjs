@@ -188,6 +188,14 @@ try {
     await page.evaluate(() => window.Router.go('home'));
     await page.waitForFunction(() => window.KernelState?.activeView === 'home', null, { timeout: 10000 });
 
+    // The Help flow above intentionally routes away and closes the Assistant.
+    // Reopen the dedicated full-screen Assistant route before asserting that
+    // dashboard docks stay suppressed for the entire Assistant session.
+    await page.evaluate(() => window.WorkspaceBrainBot.open());
+    await page.waitForFunction(() => window.KernelState?.activeView === 'ai-assistant', null, { timeout: 15000 });
+    await panel.waitFor({ state: 'visible', timeout: 15000 });
+    assert.equal(await page.locator('#view-ai-assistant').isVisible(), true,
+      '[' + target.name + '] the Assistant must be open in its dedicated full-screen route before dock isolation is tested.');
 
     // The real Home dock has inline !important styles and multiple shell
     // controllers. Verify the actual production element is hidden when the
