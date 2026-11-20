@@ -5,7 +5,7 @@ const source = fs.readFileSync('assets/ovyx-assistant-workspace.js', 'utf8');
 const native = fs.readFileSync('functions/_lib/ovyx-native-ai.js', 'utf8');
 
 const assistantPageCss = fs.readFileSync('assets/css/ovyx-ai-assistant-page.css', 'utf8');
-assert.match(source, /const DOCK_CANDIDATE_SELECTOR/);
+assert.match(source, /getElementById\('ovyx-v52-bottom-bar'\)/);
 assert.match(source, /pendingDockCandidates/);
 assert.match(source, /syncAssistantVisualViewport/);
 assert.doesNotMatch(source, /document\.body\??\.querySelectorAll\(['"]\*['"]\)/,
