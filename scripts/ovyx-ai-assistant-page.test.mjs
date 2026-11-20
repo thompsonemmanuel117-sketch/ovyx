@@ -17,6 +17,8 @@ assert.match(middleware, /ovyx-ai-assistant-page\.css\?v=20261120-1/,
 assert.match(nativeAssistant, /'ai-assistant'/, 'The native Assistant action router must allow navigation to the dedicated Assistant page.');
 assert.match(pageRuntime, /view-ai-assistant/,
   'The Assistant must have its own routed view, separate from Workspace repair tools.');
+assert.match(pageRuntime, /if \(!assistant\) return true/, 'The route must install before the legacy Assistant lazily creates its panel.');
+assert.match(pageRuntime, /originalOpen\.apply\(bot, args\);[\s\S]*?mountPage\(\)/, 'The first native open must move the lazily-created panel into the full-page route.');
 assert.match(pageRuntime, /appendChild\(assistant\)/,
   'The page must reuse and reparent the existing Assistant panel instead of cloning a second chat.');
 assert.match(pageRuntime, /bot\.open = function/,
