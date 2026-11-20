@@ -43,7 +43,7 @@ assert.match(publicPlans, /const gating = \{\}/);
 assert.match(publicPlans, /planFeaturesManaged: false/);
 const ownerControls = readFileSync(new URL('../assets/ovyx-admin-controls.js', import.meta.url), 'utf8');
 const planControls = ownerControls.slice(ownerControls.indexOf('function mountPlanControls()'), ownerControls.indexOf('function mountBrainControls()'));
-assert.doesNotMatch(planControls, /Included features per paid plan|Global feature gates|data-ovyx-global-feature-gate/);
+assert.doesNotMatch(planControls, /Included features per paid plan|Global feature gates|const gateRows|defaultGates|checkbox\.type = 'checkbox'/);
 assert.match(planControls, /monthly AI token allowances and daily prompt limits/);
 const planAdmin = readFileSync(new URL('../functions/api/admin/plans/update.js', import.meta.url), 'utf8');
 assert.match(planAdmin, /const planFeatures=\{pro:AVAILABLE_FEATURES,max:AVAILABLE_FEATURES\}/);
