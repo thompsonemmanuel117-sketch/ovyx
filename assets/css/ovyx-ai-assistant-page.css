@@ -33,6 +33,13 @@ body.ovyx-ai-assistant-page-active #view-router-viewport {
   min-height: 0 !important;
   overflow: hidden !important;
 }
+/* Some legacy route transitions leave newly-mounted sections at opacity:0.
+   Once the Assistant owns the active route, it must be fully interactive. */
+body.ovyx-ai-assistant-page-active #view-ai-assistant {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
 #view-ai-assistant #kernel-brain-bot-panel {
   position: relative !important;
   inset: auto !important;
