@@ -28,8 +28,7 @@ const DEFAULT_FREE_CAPABILITIES = Object.freeze({
   webStudio: true,
   advancedWebStudio: true,
   appStudio: true,
-  // Game Studio is not a released OVYX capability yet; do not advertise it as unlocked.
-  gameStudio: false,
+  gameStudio: true,
   aiGeneration: true,
   github: true,
   cloudflareDeploy: true,
