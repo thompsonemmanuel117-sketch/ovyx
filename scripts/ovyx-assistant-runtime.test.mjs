@@ -8,6 +8,7 @@ const assistantPageCss = fs.readFileSync('assets/css/ovyx-ai-assistant-page.css'
 assert.match(source, /getElementById\('ovyx-v52-bottom-bar'\)/);
 assert.match(source, /pendingDockCandidates/);
 assert.match(source, /syncAssistantVisualViewport/);
+assert.match(source, /composerResizeFrame/);
 assert.doesNotMatch(source, /document\.body\??\.querySelectorAll\(['"]\*['"]\)/,
   'Assistant dock updates must not traverse every element in the full application shell.');
 assert.match(assistantPageCss, /--ovyx-assistant-visual-height/);
