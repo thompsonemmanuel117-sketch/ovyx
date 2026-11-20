@@ -31,9 +31,10 @@
 
   function panelIsOpen() {
     const node = panel();
-    if (!node || node.classList.contains('hidden') || node.hidden) return false;
-    const style = window.getComputedStyle(node);
-    return style.display !== 'none' && style.visibility !== 'hidden' && node.getClientRects().length > 0;
+    // The routed section itself is hidden during navigation. Determine whether
+    // the Assistant controller is open from its own state, not its ancestor's
+    // layout box, so route-away cleanup still runs after the section is hidden.
+    return !!node && !node.classList.contains('hidden') && !node.hidden;
   }
 
   function validReturnRoute(value) {
