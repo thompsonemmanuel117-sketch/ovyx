@@ -41,4 +41,12 @@ const publicPlans = readFileSync(new URL('../functions/api/plans.js', import.met
 assert.match(publicPlans, /free: AVAILABLE_FEATURES,[\s\S]*?pro: AVAILABLE_FEATURES,[\s\S]*?max: AVAILABLE_FEATURES/);
 assert.match(publicPlans, /const gating = \{\}/);
 assert.match(publicPlans, /planFeaturesManaged: false/);
+const ownerControls = readFileSync(new URL('../assets/ovyx-admin-controls.js', import.meta.url), 'utf8');
+const planControls = ownerControls.slice(ownerControls.indexOf('function mountPlanControls()'), ownerControls.indexOf('function mountBrainControls()'));
+assert.doesNotMatch(planControls, /Included features per paid plan|Global feature gates|data-ovyx-global-feature-gate/);
+assert.match(planControls, /monthly AI token allowances and daily prompt limits/);
+const planAdmin = readFileSync(new URL('../functions/api/admin/plans/update.js', import.meta.url), 'utf8');
+assert.match(planAdmin, /const planFeatures=\{pro:AVAILABLE_FEATURES,max:AVAILABLE_FEATURES\}/);
+assert.match(planAdmin, /const gating=\{\}/);
+assert.match(planAdmin, /planFeaturesManaged:false/);
 console.log('OVYX plan quota and open feature availability tests passed.');
