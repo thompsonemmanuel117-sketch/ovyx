@@ -164,7 +164,7 @@ try {
     await hub.locator('[data-ovyx-admin-workspace-route="admin-pricing"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-pricing', null, { timeout: 15000 });
     await page.locator('#ovyx-global-quota-panel').waitFor({ state: 'attached' });
-    await page.waitForFunction(() => /Updated pricing and usage limits are ready/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /Pricing and usage limits are ready/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
     assert.equal(await page.locator('#ovyx-global-plan-features').count(), 0,
       '[' + target.name + '] speculative per-plan feature locks must not be rendered');
     assert.equal(await page.locator('#ovyx-global-gates-controls').count(), 0,
