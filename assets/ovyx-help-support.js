@@ -31,23 +31,10 @@
     page.className = 'hidden';
     page.setAttribute('aria-hidden', 'true');
     page.setAttribute('aria-label', 'Contact OVYX Support');
+    // The Support route is intentionally a single-purpose, full-page form.
+    // Do not render Help Centre navigation, AI actions, FAQ copy or extra cards here.
     page.innerHTML = `
       <div class="ovyx-support-page">
-        <header class="ovyx-support-page-head">
-          <div>
-            <div class="ovyx-panel-kicker">OVYX / HELP CENTRE / SUPPORT</div>
-            <h1>Contact OVYX Support</h1>
-            <p>Send a report directly to the OVYX support team. Your request is also saved in the secure support queue.</p>
-          </div>
-          <div class="ovyx-support-page-actions">
-            <button type="button" class="ovyx-support-back" data-ovyx-support-back>Back to Help Centre</button>
-            <button type="button" class="ovyx-support-ai" data-ovyx-support-ai>Ask OVYX AI</button>
-          </div>
-        </header>
-        <div class="ovyx-support-page-note">
-          <span aria-hidden="true">◆</span>
-          <p>Use this page for account issues, bugs and requests that need the OVYX team. For quick how-to questions, OVYX AI is available from the Help Centre.</p>
-        </div>
         <div data-ovyx-support-form-mount></div>
       </div>`;
     viewport.appendChild(page);
@@ -55,35 +42,19 @@
     const style = document.createElement('style');
     style.id = 'ovyx-support-page-styles';
     style.textContent = `
-      #view-support{width:100%;min-height:100%;padding:clamp(18px,3vw,36px);box-sizing:border-box;background:var(--app-bg,#000)}
-      .ovyx-support-page{width:min(100%,1040px);margin:0 auto;display:grid;gap:18px}
-      .ovyx-support-page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:clamp(20px,3vw,30px);border:1px solid rgba(194,163,107,.2);border-radius:20px;background:radial-gradient(ellipse at 12% 0%,rgba(194,163,107,.10),transparent 55%),linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012))}
-      .ovyx-support-page-head h1{margin:8px 0 0;color:var(--app-text,#fff);font:800 clamp(25px,3vw,34px)/1.1 Inter,sans-serif;letter-spacing:-.035em}
-      .ovyx-support-page-head p{max-width:620px;margin:9px 0 0;color:var(--app-muted,#9ca3af);font:500 13px/1.6 Inter,sans-serif}
-      .ovyx-support-page-actions{display:flex;flex-wrap:wrap;gap:9px;justify-content:flex-end}
-      .ovyx-support-page-actions button{min-height:40px;padding:0 14px;border-radius:10px;font:700 11px Inter,sans-serif;cursor:pointer}
-      .ovyx-support-back{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.035);color:var(--app-text,#fff)}
-      .ovyx-support-ai{border:1px solid rgba(194,163,107,.4);background:linear-gradient(135deg,#d8b777,#a98545);color:#17130b}
-      .ovyx-support-page-note{display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.018)}
-      .ovyx-support-page-note>span{color:#c2a36b;font-size:13px}
-      .ovyx-support-page-note p{margin:0;color:var(--app-muted,#9ca3af);font:500 11px/1.6 Inter,sans-serif}
-      #view-support .ovyx-help-support-inline{margin:0!important;width:100%}
+      #view-support{width:100%;min-height:100%;padding:clamp(16px,3vw,32px);box-sizing:border-box;background:var(--app-bg,#000)}
+      .ovyx-support-page{width:min(100%,960px);min-height:100%;margin:0 auto;display:flex;align-items:flex-start;justify-content:center}
+      #view-support .ovyx-help-support-inline{margin:0!important;width:100%;max-width:960px}
       #view-support .ovyx-help-support-head p{font-size:11px}
       #view-support .ovyx-help-support-grid input,#view-support .ovyx-help-support-grid textarea{font-size:13px}
       #view-support .ovyx-help-support-grid label span{font-size:9px}
       #view-support .ovyx-help-support-foot small{font-size:10px}
       #view-support .ovyx-help-support-foot button{min-height:42px}
-      @media(max-width:680px){.ovyx-support-page-head{align-items:stretch;flex-direction:column}.ovyx-support-page-actions{justify-content:stretch}.ovyx-support-page-actions button{flex:1}.ovyx-support-page{gap:13px}}
+      @media(max-width:680px){#view-support{padding:12px}.ovyx-support-page{width:100%}}
       @media(prefers-reduced-motion:reduce){#view-support *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
     `;
     document.head.appendChild(style);
 
-    page.querySelector('[data-ovyx-support-back]')?.addEventListener('click', () => window.Router?.go?.('faq'));
-    page.querySelector('[data-ovyx-support-ai]')?.addEventListener('click', () => {
-      const assistant = window.WorkspaceBrainBot;
-      if (typeof assistant?.open === 'function') assistant.open();
-      else toast('OVYX AI is not ready yet. Please try again in a moment.', 'warning');
-    });
     return page;
   }
 
@@ -312,6 +283,60 @@
     router.__ovyxSupportRouteV2 = true;
   }
 
+  async function openSupportFromHelp() {
+    // The legacy form factory expects the Help Centre shell to be initialized.
+    // Visit that route and mount synchronously in the same click task, then
+    // immediately switch to Support so the Help Centre never becomes a painted screen.
+    if (!document.getElementById(FORM_ID) && typeof window.Router?.go === 'function') {
+      try { window.Router.go('faq'); } catch (_) {}
+      const faq = document.getElementById('view-faq');
+      try { window.OVYXMountHelpSupportForm?.(faq); } catch (_) {}
+    }
+    if (typeof window.Router?.go === 'function') window.Router.go('support');
+    else {
+      const page = supportPage();
+      if (page) {
+        page.classList.remove('hidden');
+        page.setAttribute('aria-hidden', 'false');
+        moveSupportForm();
+      }
+    }
+
+    // Match the assistant hand-off's bounded route recovery: delayed mobile
+    // shell restoration must not steal the user's requested Support destination.
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if (typeof window.Router?.go === 'function' && window.KernelState?.activeView !== 'support') {
+        try { window.Router.go('support'); } catch (_) {}
+      }
+      const faq = document.getElementById('view-faq');
+      if (!document.getElementById(FORM_ID)) {
+        try { window.OVYXMountHelpSupportForm?.(faq); } catch (_) {}
+      }
+      try { window.OVYXEnsureSupportForm?.(); } catch (_) {}
+      const ready = document.querySelector('#view-support #' + FORM_ID + '[data-ovyx-support-form-ready="1"]');
+      if (ready?.querySelector('#ovyx-help-support-subject') && ready?.querySelector('#ovyx-help-support-message') &&
+          (!window.Router || window.KernelState?.activeView === 'support')) return;
+      await new Promise(resolve => window.setTimeout(resolve, 100));
+    }
+    if (!document.querySelector('#view-support #' + FORM_ID)) {
+      toast('Contact OVYX Support is still loading. Please wait a moment and try again.', 'warning');
+    }
+  }
+
+  function bindHelpEntryPoint() {
+    if (document.documentElement.dataset.ovyxHelpOpensSupport === '1') return;
+    document.documentElement.dataset.ovyxHelpOpensSupport = '1';
+    document.addEventListener('click', event => {
+      const button = event.target?.closest?.('[data-v52-account="help"], button[onclick]');
+      const isHelpButton = button?.matches?.('[data-v52-account="help"]') ||
+        String(button?.getAttribute('onclick') || '').includes("Router.go('faq')");
+      if (!isHelpButton || !/Help(?:\s*\/\s*FAQ)?/i.test(String(button.textContent || ''))) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      openSupportFromHelp().catch(() => {});
+    }, true);
+  }
+
   function patchLegacySupportEntryPoints() {
     const center = window.OVYXSupportCenter;
     if (center && typeof center.open === 'function' && !center.__ovyxStandalonePageRoute) {
@@ -346,6 +371,7 @@
 
   function scan() {
     patchRouter();
+    bindHelpEntryPoint();
     patchLegacySupportEntryPoints();
     enhanceHelpPage();
     moveSupportForm();

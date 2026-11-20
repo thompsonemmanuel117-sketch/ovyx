@@ -34,7 +34,14 @@ assert.ok(client.includes('new FormData()'), 'Support submission must preserve m
 assert.ok(client.includes("body.append('attachments'"), 'Selected attachments must be submitted to the existing support endpoint.');
 assert.ok(client.includes("result.ticket.notificationStatus === 'sent'"), 'The UI must only claim email delivery after server confirmation.');
 assert.ok(client.includes('view-support'), 'Contact Support must have its own routed page.');
-assert.ok(client.includes("router.go('support')") || client.includes("go?.('support')"), 'The Help Centre must navigate to the standalone support page.');
+assert.ok(client.includes('openSupportFromHelp'), 'The Help navigation entry must open the standalone Support page directly.');
+assert.ok(client.includes("window.Router.go('faq')"), 'Direct Help navigation must initialize the existing form host before switching to Support.');
+assert.ok(client.includes("button[onclick]") && client.includes("Router.go('faq')") && client.includes('Help(?:'), 'The existing Help / FAQ sidebar entry must be intercepted safely.');
+assert.ok(client.includes('[data-v52-account="help"]'), 'The mobile account Help entry must also open standalone Support.');
+assert.ok(!client.includes('data-ovyx-support-back'), 'The standalone Support page must not show a Back to Help Centre action.');
+assert.ok(!client.includes('data-ovyx-support-ai'), 'The standalone Support page must not show an extra AI action.');
+assert.ok(!client.includes('ovyx-support-page-note'), 'The standalone Support page must contain only the Contact Support form, without extra help panels.');
+assert.ok(client.includes("window.Router.go('support')"), 'Help navigation must route to the standalone support page.');
 assert.ok(client.includes('appendChild(card)'), 'The existing support form must be moved, not duplicated or discarded.');
 assert.ok(client.includes('patchLegacySupportEntryPoints'), 'Legacy support buttons must route to the standalone page rather than opening competing modals.');
 assert.ok(client.includes('[data-v34-support-wa],[data-support-whatsapp]'), 'Legacy WhatsApp support actions must not bypass the single Contact Support page.');
@@ -43,7 +50,7 @@ assert.ok(client.includes('ovyx-help-ai-primary'), 'Static FAQ answers must be d
 assert.ok(client.includes('WorkspaceBrainBot.open'), 'The Help Centre must reuse the existing OVYX AI assistant.');
 assert.ok(assistant.includes("window.Router.go('support')"), 'AI feedback must hand off to the dedicated Contact Support page.');
 assert.ok(assistant.includes("'faq','support','inbox'"), 'OVYX AI navigation actions must allow the standalone support route.');
-assert.ok(middleware.includes('/assets/ovyx-help-support.js?v=20261118-12'), 'The standalone support runtime must be loaded by the app shell.');
+assert.ok(middleware.includes('/assets/ovyx-help-support.js?v=20261120-1'), 'The standalone support runtime must be loaded by the app shell.');
 assert.ok(knowledge.includes("id: 'help-support'"), 'OVYX AI knowledge must include Help and Support.');
 for (const id of ['projects-and-workspaces', 'publishing-and-sites', 'connections-and-inbox', 'settings-account-billing']) {
   assert.ok(knowledge.includes("id: '" + id + "'"), 'OVYX AI knowledge is missing platform topic: ' + id);
