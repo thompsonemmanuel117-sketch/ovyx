@@ -33,8 +33,7 @@ try {
       window.WorkspaceBrainBot?.__ovyxNativeOpen === true &&
       window.WorkspaceBrainBot?.__OVYX_AI_ASSISTANT_PAGE_WRAPPED === true &&
       window.OVYXAIService?.__ovyxNativeWorkspaceRoute === true &&
-      document.getElementById('view-ai-assistant') &&
-      document.getElementById('kernel-brain-bot-panel')?.parentElement?.id === 'view-ai-assistant',
+      document.getElementById('view-ai-assistant'),
       null,
       { timeout: 60000 },
     );
@@ -49,6 +48,11 @@ try {
     }
 
     await page.waitForFunction(() => window.KernelState?.activeView === 'ai-assistant');
+    await page.waitForFunction(() =>
+      document.getElementById('kernel-brain-bot-panel')?.parentElement?.id === 'view-ai-assistant',
+      null,
+      { timeout: 30000 },
+    );
     const surface = page.locator('#view-ai-assistant');
     const panel = page.locator('#kernel-brain-bot-panel');
     await surface.waitFor({ state: 'visible' });
