@@ -283,7 +283,7 @@
     router.__ovyxSupportRouteV2 = true;
   }
 
-  function openSupportFromHelp() {
+  async function openSupportFromHelp() {
     // The legacy form factory expects the Help Centre shell to be initialized.
     // Visit that route and mount synchronously in the same click task, then
     // immediately switch to Support so the Help Centre never becomes a painted screen.
@@ -292,14 +292,35 @@
       const faq = document.getElementById('view-faq');
       try { window.OVYXMountHelpSupportForm?.(faq); } catch (_) {}
     }
-    if (typeof window.Router?.go === 'function') return window.Router.go('support');
-    const page = supportPage();
-    if (page) {
-      page.classList.remove('hidden');
-      page.setAttribute('aria-hidden', 'false');
-      moveSupportForm();
+    if (typeof window.Router?.go === 'function') window.Router.go('support');
+    else {
+      const page = supportPage();
+      if (page) {
+        page.classList.remove('hidden');
+        page.setAttribute('aria-hidden', 'false');
+        moveSupportForm();
+      }
     }
-    return 'support';
+
+    // Match the assistant hand-off's bounded route recovery: delayed mobile
+    // shell restoration must not steal the user's requested Support destination.
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if (typeof window.Router?.go === 'function' && window.KernelState?.activeView !== 'support') {
+        try { window.Router.go('support'); } catch (_) {}
+      }
+      const faq = document.getElementById('view-faq');
+      if (!document.getElementById(FORM_ID)) {
+        try { window.OVYXMountHelpSupportForm?.(faq); } catch (_) {}
+      }
+      try { window.OVYXEnsureSupportForm?.(); } catch (_) {}
+      const ready = document.querySelector('#view-support #' + FORM_ID + '[data-ovyx-support-form-ready="1"]');
+      if (ready?.querySelector('#ovyx-help-support-subject') && ready?.querySelector('#ovyx-help-support-message') &&
+          (!window.Router || window.KernelState?.activeView === 'support')) return;
+      await new Promise(resolve => window.setTimeout(resolve, 100));
+    }
+    if (!document.querySelector('#view-support #' + FORM_ID)) {
+      toast('Contact OVYX Support is still loading. Please wait a moment and try again.', 'warning');
+    }
   }
 
   function bindHelpEntryPoint() {
@@ -312,7 +333,7 @@
       if (!isHelpButton || !/Help(?:\s*\/\s*FAQ)?/i.test(String(button.textContent || ''))) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      openSupportFromHelp();
+      openSupportFromHelp().catch(() => {});
     }, true);
   }
 
