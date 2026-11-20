@@ -80,7 +80,9 @@
     const current = Array.from(ancestor.children).filter(node => planNodes.has(node));
     if (current.length === desired.length &&
         current.every((node, index) => node === desired[index])) return;
-    for (const tier of ORDER) ancestor.appendChild(branches[tier]);
+    const fragment = document.createDocumentFragment();
+    for (const tier of ORDER) fragment.appendChild(branches[tier]);
+    ancestor.insertBefore(fragment, current[0]);
   }
 
   function schedule() {
