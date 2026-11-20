@@ -69,9 +69,11 @@
 
     // Move only the three existing plan-card branches. No plan content,
     // price, checkout action, or entitlement data is recreated or rewritten.
-    const current = ORDER.map(tier => branches[tier]);
     const desired = ORDER.map(tier => branches[tier]);
-    if (current.every((node, index) => node === desired[index])) return;
+    const planNodes = new Set(desired);
+    const current = Array.from(ancestor.children).filter(node => planNodes.has(node));
+    if (current.length === desired.length &&
+        current.every((node, index) => node === desired[index])) return;
     for (const tier of ORDER) ancestor.appendChild(branches[tier]);
   }
 
