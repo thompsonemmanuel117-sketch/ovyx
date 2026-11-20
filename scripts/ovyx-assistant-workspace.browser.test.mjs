@@ -119,6 +119,14 @@ try {
     // public API first, then wait for the actual panel and verify it becomes visible.
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     await panel.waitFor({ state: 'attached', timeout: 45000 });
+    await page.waitForFunction(() => {
+      const route = document.getElementById('view-ai-assistant');
+      if (window.KernelState?.activeView !== 'ai-assistant' || !route) return false;
+      const style = getComputedStyle(route);
+      const bounds = route.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility === 'visible' &&
+        Number(style.opacity) >= 0.99 && bounds.width > 0 && bounds.height > 0;
+    }, null, { timeout: 15000 });
     const panelState = await panel.evaluate(el => {
       const rect = el.getBoundingClientRect();
       const computed = getComputedStyle(el);
