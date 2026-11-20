@@ -487,6 +487,15 @@ try {
     assert.match(await page.locator('#view-support #ovyx-help-support-message').inputValue(), /What went wrong\?/i,
       `[${target.name}] thumbs-down should prepare an editable Contact Support draft`);
 
+    // The feedback handoff intentionally navigates to the standalone Support
+    // page and closes the Assistant. Return to the Assistant route before
+    // continuing to exercise its actions menu; do not click a hidden control.
+    await page.evaluate(() => window.Router.go('home'));
+    await page.waitForFunction(() => window.KernelState?.activeView === 'home', null, { timeout: 10000 });
+    await page.evaluate(() => window.WorkspaceBrainBot.open());
+    await page.waitForFunction(() => window.KernelState?.activeView === 'ai-assistant', null, { timeout: 15000 });
+    await panel.waitFor({ state: 'visible', timeout: 15000 });
+
     await trigger.click();
     await menu.locator('[data-ovyx-native-action="new-chat"]').click();
     await page.locator('#bot-chat-history').getByText('Welcome to OVYX AI').waitFor({ state: 'visible' });
