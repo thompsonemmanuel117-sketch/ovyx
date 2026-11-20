@@ -165,22 +165,26 @@ try {
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-pricing', null, { timeout: 15000 });
     await page.locator('#ovyx-global-quota-panel').waitFor({ state: 'attached' });
     await page.waitForFunction(() => /Updated pricing and usage limits are ready/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
-    assert.equal(await page.locator('#ovyx-global-plan-features').count(), 1,
-      '[' + target.name + '] the pricing editor must expose real per-plan feature selectors');
-    assert.equal(await page.locator('#ovyx-global-plan-features input[data-v655-plan="pro"][value="webStudio"]').isChecked(), true,
-      '[' + target.name + '] initial Pro capabilities must load from the server plan catalog');
+    assert.equal(await page.locator('#ovyx-global-plan-features').count(), 0,
+      '[' + target.name + '] speculative per-plan feature locks must not be rendered');
+    assert.equal(await page.locator('#ovyx-global-gates-controls').count(), 0,
+      '[' + target.name + '] speculative global feature gates must not be rendered');
+    assert.equal(await page.locator('[id^="gate-"]').count(), 0,
+      '[' + target.name + '] no tier selector may lock a current feature');
     await page.locator('#adm-pro-ngn').fill('36000');
     await page.locator('#adm-pro-usd').fill('21');
     await page.locator('#ovyx-quota-tokens-pro').fill('600000');
     await page.locator('#ovyx-quota-daily-pro').fill('25');
     await page.locator('#ovyx-global-quota-save').click();
-    await page.waitForFunction(() => /Pricing and plan settings saved/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /Pricing and usage limits saved/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
     assert.equal(await page.evaluate(() => Number(window.OVYXPlanCatalog?.pricing?.pro?.ngn)), 36000,
       '[' + target.name + '] a saved Pro price must be reflected in the server catalog');
     assert.equal(await page.evaluate(() => Number(window.OVYXPlanCatalog?.pricing?.pro?.usd)), 21,
       '[' + target.name + '] public catalog refresh must propagate USD pricing too');
     assert.equal(await page.evaluate(() => Number(window.OVYXPlanCatalog?.tokenQuotas?.pro)), 600000,
       '[' + target.name + '] saved monthly quota should be read back from the catalog');
+    assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/plans/update' && !('features' in item.body) && !('gating' in item.body)),
+      '[' + target.name + '] plan saves must update pricing and quotas without sending feature-lock settings');
     await page.evaluate(() => window.OvyxCurrencyEngine?.setCurrency?.('USD'));
     assert.equal(await page.locator('#price-pro-display').evaluate(node => node.textContent).catch(() => ''), '$21.00',
       '[' + target.name + '] the visible Pro price should update to the saved USD amount after selecting USD');
