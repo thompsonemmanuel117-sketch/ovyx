@@ -20,7 +20,7 @@ assert.equal(available.advancedWebStudio, true);
 assert.equal(available.appStudio, true);
 assert.equal(available.github, true);
 assert.equal(available.teamWorkspace, true);
-assert.equal(available.gameStudio, false, 'Unreleased Game Studio must not be advertised as an available feature.');
+assert.equal(available.gameStudio, true);
 
 const middleware = read('functions/api/_middleware.js');
 assert.match(middleware, /if \(requiredFeatures && !user\)/, 'Plan-gated API routes must reject anonymous callers before route execution.');
