@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { QUOTA_PLANS } from '../functions/_lib/token-quota.js';
 import { buildAvailableCapabilities, buildPaidCapabilities } from '../functions/api/entitlements.js';
 import { resolveConnectionTier, UNIVERSAL_CONNECTION_LIMITS } from '../functions/api/settings/connections.js';
