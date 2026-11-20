@@ -6,21 +6,6 @@
 
   const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
   const OVYX_MODEL_PROVIDER = Object.freeze({ id: 'cloudflare-workers-ai', label: 'Cloudflare Workers AI' });
-  const PLAN_FEATURES = [
-    { id: 'webStudio', label: 'Web Studio' },
-    { id: 'advancedWebStudio', label: 'Advanced Web Studio' },
-    { id: 'appStudio', label: 'App Studio' },
-    { id: 'gameStudio', label: 'Game Studio' },
-    { id: 'aiGeneration', label: 'AI Generation' },
-    { id: 'github', label: 'Source management' },
-    { id: 'cloudflareDeploy', label: 'Website publishing' },
-    { id: 'teamWorkspace', label: 'Team Workspace' },
-    { id: 'templates', label: 'Blueprint Templates' }
-  ];
-  const DEFAULT_PLAN_FEATURES = {
-    pro: ['webStudio', 'appStudio', 'aiGeneration', 'github', 'cloudflareDeploy', 'templates'],
-    max: ['webStudio', 'advancedWebStudio', 'appStudio', 'aiGeneration', 'github', 'cloudflareDeploy', 'teamWorkspace', 'templates']
-  };
   const $ = id => document.getElementById(id);
   const owner = () => window.OVYXServerOwner?.active === true && window.__OVYX_ROOT_AUTH_VERIFIED === true;
   const currentUser = () => {
@@ -173,9 +158,7 @@
         pro: Object.assign({}, AC.pricing?.pro || {}, pricing.pro),
         max: Object.assign({}, AC.pricing?.max || {}, pricing.max)
       });
-      if (data.gating && typeof data.gating === 'object') AC.gating = Object.assign({}, AC.gating || {}, data.gating);
-      AC.updateLockIcons?.();
-      try { localStorage.setItem('ovyx_pricing_matrix', JSON.stringify(AC.pricing)); } catch (_) {}
+        try { localStorage.setItem('ovyx_pricing_matrix', JSON.stringify(AC.pricing)); } catch (_) {}
       const fields = [
         ['adm-pro-ngn', pricing.pro.ngn], ['adm-pro-usd', pricing.pro.usd],
         ['adm-max-ngn', pricing.max.ngn], ['adm-max-usd', pricing.max.usd]
@@ -442,31 +425,14 @@
   }
 
   let latestPlans = null;
-  function syncPlanFeatureControls(data) {
-    const features = data && data.features || {};
-    for (const tier of ['pro', 'max']) {
-      const values = Array.isArray(features[tier]) ? features[tier] : DEFAULT_PLAN_FEATURES[tier];
-      const selected = new Set(values.map(item => String(typeof item === 'string' ? item : (item?.id || item?.key || '')).trim()).filter(Boolean));
-      document.querySelectorAll('input[data-v655-plan="' + tier + '"]').forEach(input => {
-        input.checked = selected.has(input.value);
-      });
-    }
-  }
   async function loadPlansCatalog() {
     const response = await fetch('/api/plans', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) throw new Error(data.error || data.code || 'Pricing and plan details are not available right now.');
     latestPlans = data;
-    syncPlanFeatureControls(data);
     applyPublicPlanCatalog(data);
     const saveButton = $('ovyx-global-quota-save');
     if (saveButton) saveButton.disabled = false;
-    if (data.gating && typeof data.gating === 'object') {
-      Object.entries(data.gating).forEach(([key, tier]) => {
-        const control = $('gate-' + key);
-        if (control && document.activeElement !== control) control.value = tier;
-      });
-    }
     const q = data.tokenQuotas || {};
     const d = data.dailyPromptQuotas || {};
     ['free','pro','max'].forEach(tier => {
