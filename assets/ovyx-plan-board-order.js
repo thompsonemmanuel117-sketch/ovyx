@@ -80,9 +80,12 @@
     const current = Array.from(ancestor.children).filter(node => planNodes.has(node));
     if (current.length === desired.length &&
         current.every((node, index) => node === desired[index])) return;
+    const marker = document.createComment('OVYX plan order');
+    ancestor.insertBefore(marker, current[0]);
     const fragment = document.createDocumentFragment();
     for (const tier of ORDER) fragment.appendChild(branches[tier]);
-    ancestor.insertBefore(fragment, current[0]);
+    ancestor.insertBefore(fragment, marker);
+    marker.remove();
   }
 
   function schedule() {
