@@ -75,6 +75,7 @@
   // Keep the small set of docks we actually changed so closing the assistant
   // never needs to walk the entire application DOM just to restore them.
   const suppressedDockNodes = new Set();
+  const pendingDockCandidates = new Set();
   const DOCK_HIDE_PROPERTIES = ['display', 'visibility', 'opacity', 'pointer-events', 'transform'];
   const DOCK_CANDIDATE_SELECTOR = [
     'nav', '[role="navigation"]', 'footer',
@@ -109,7 +110,7 @@
     }
   }
 
-  function syncUnderlyingBottomNavigation(forceHidden) {
+  function syncUnderlyingBottomNavigation(forceHidden, changedNodes = []) {
     const input = $('bot-chat-input');
     const activePanel = panel();
     const composerFocused = Boolean(input && document.activeElement === input && activePanel?.contains(input));
@@ -147,7 +148,12 @@
     // Inspect only plausible navigation/dock elements. The previous
     // querySelectorAll('*') path forced style and layout reads across the
     // complete application shell during keyboard/route mutations.
-    const dockCandidates = document.body?.querySelectorAll(DOCK_CANDIDATE_SELECTOR) || [];
+    const dockCandidates = new Set([
+      ...(document.body?.querySelectorAll(DOCK_CANDIDATE_SELECTOR) || []),
+      ...(document.body?.children || []),
+      ...(document.getElementById('view-router-viewport')?.children || []),
+      ...changedNodes,
+    ]);
     dockCandidates.forEach(node => {
       if (!(node instanceof HTMLElement)) return;
       const alreadySuppressed = node.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS);
@@ -220,7 +226,9 @@
       const run = () => {
         refreshPending = false;
         syncAssistantVisualViewport();
-        syncUnderlyingBottomNavigation();
+        const changedNodes = Array.from(pendingDockCandidates);
+        pendingDockCandidates.clear();
+        syncUnderlyingBottomNavigation(undefined, changedNodes);
       };
       if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(run);
       else Promise.resolve().then(run);
@@ -251,18 +259,19 @@
             if (target.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS) &&
                 record.attributeName !== 'style') return false;
             if (record.type === 'childList') {
-              // Only newly-added subtrees that can contain a dock matter.
-              return Array.from(record.addedNodes || []).some(node =>
-                node instanceof HTMLElement &&
-                (node.matches(DOCK_CANDIDATE_SELECTOR) || node.querySelector(DOCK_CANDIDATE_SELECTOR))
-              );
+              // Inspect only the inserted subtree. This preserves support for
+              // opaque, classless fixed docks without walking the whole app.
+              for (const node of Array.from(record.addedNodes || [])) {
+                if (!(node instanceof HTMLElement)) continue;
+                pendingDockCandidates.add(node);
+                node.querySelectorAll('*').forEach(child => pendingDockCandidates.add(child));
+              }
+              return pendingDockCandidates.size > 0;
             }
-            // Attribute updates on a dock, its wrapper, or the route shell can
-            // change fixed/sticky positioning. Ignore unrelated app mutations.
-            return target.matches(DOCK_CANDIDATE_SELECTOR) ||
-              !!target.querySelector(DOCK_CANDIDATE_SELECTOR) ||
-              target.id === 'view-router-viewport' ||
-              target === document.body;
+            // A changed node can itself become fixed/sticky without a
+            // navigation-like class, so inspect that node only.
+            pendingDockCandidates.add(target);
+            return true;
           });
           if (needsRefresh) refresh();
         });
