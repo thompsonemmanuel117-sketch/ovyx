@@ -1,0 +1,163 @@
+/* OVYX AI Assistant — dedicated routed workspace */
+#view-ai-assistant.ovyx-ai-assistant-page {
+  position: relative !important;
+  isolation: isolate;
+  display: none;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  background:
+    radial-gradient(ellipse at 50% -18%, rgba(194,163,107,.105), transparent 48%),
+    radial-gradient(ellipse at 92% 78%, rgba(64,120,155,.055), transparent 34%),
+    #050607 !important;
+}
+#view-ai-assistant.ovyx-ai-assistant-page:not(.hidden) {
+  display: flex !important;
+  flex-direction: column !important;
+}
+#view-ai-assistant.ovyx-ai-assistant-page::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background-image: linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px);
+  background-size: 100% 72px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.38), transparent 75%);
+}
+body.ovyx-ai-assistant-page-active #view-router-viewport {
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+/* Some legacy route transitions leave newly-mounted sections at opacity:0.
+   Once the Assistant owns the active route, it must be fully interactive. */
+body.ovyx-ai-assistant-page-active #view-ai-assistant {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel {
+  position: relative !important;
+  inset: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  z-index: 1 !important;
+  display: flex !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  overflow: hidden !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel.hidden {
+  display: none !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel > div:first-child {
+  position: relative !important;
+  z-index: 2 !important;
+  flex: 0 0 auto !important;
+  min-height: 76px !important;
+  padding: 15px clamp(16px, 3vw, 34px) !important;
+  border-bottom: 1px solid rgba(255,255,255,.075) !important;
+  background: rgba(8,10,12,.88) !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel > div:nth-child(2) {
+  flex: 0 0 auto !important;
+  padding: 10px clamp(16px, 3vw, 34px) !important;
+  border-bottom: 1px solid rgba(255,255,255,.06) !important;
+  background: rgba(255,255,255,.018) !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel #bot-chat-history {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  padding: 26px clamp(18px, 5vw, 64px) 30px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  scrollbar-gutter: stable;
+  background: transparent !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel .ovyx-native-composer {
+  flex: 0 0 auto !important;
+  width: min(100%, 1120px) !important;
+  margin: 0 auto !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel > div:last-child {
+  flex: 0 0 auto !important;
+  padding: 14px clamp(16px, 4vw, 48px) calc(16px + env(safe-area-inset-bottom)) !important;
+  border-top: 1px solid rgba(255,255,255,.055) !important;
+  background: linear-gradient(180deg, rgba(5,6,7,.84), #050607 38%) !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel button:focus-visible,
+#view-ai-assistant #kernel-brain-bot-panel input:focus-visible,
+#view-ai-assistant #kernel-brain-bot-panel textarea:focus-visible {
+  outline: 2px solid rgba(232,182,79,.78) !important;
+  outline-offset: 3px !important;
+}
+/* Keep the native action menu above the Assistant back control. Both
+   live in the legacy header, whose stacking context otherwise lets the
+   close button intercept clicks when the full-screen layout is active. */
+#view-ai-assistant #kernel-brain-bot-panel > div:first-child {
+  z-index: 60 !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel .ovyx-ai-assistant-close {
+  z-index: 1 !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel [data-ovyx-native-more] {
+  position: relative !important;
+  z-index: 81 !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel .ovyx-native-menu {
+  position: relative !important;
+  z-index: 80 !important;
+  max-height: min(68dvh, 620px) !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel .ovyx-native-message-body {
+  overflow-wrap: anywhere !important;
+}
+@media (max-width: 767px) {
+  #view-ai-assistant.ovyx-ai-assistant-page {
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+  #view-ai-assistant #kernel-brain-bot-panel > div:first-child {
+    min-height: 66px !important;
+    padding: 10px 12px !important;
+  }
+  #view-ai-assistant #kernel-brain-bot-panel > div:nth-child(2) {
+    padding: 8px 12px !important;
+  }
+  #view-ai-assistant #kernel-brain-bot-panel #bot-chat-history {
+    padding: 18px 14px 22px !important;
+  }
+  #view-ai-assistant #kernel-brain-bot-panel > div:last-child {
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom)) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #view-ai-assistant.ovyx-ai-assistant-page,
+  #view-ai-assistant.ovyx-ai-assistant-page * {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

@@ -119,6 +119,14 @@ try {
     // public API first, then wait for the actual panel and verify it becomes visible.
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     await panel.waitFor({ state: 'attached', timeout: 45000 });
+    await page.waitForFunction(() => {
+      const route = document.getElementById('view-ai-assistant');
+      if (window.KernelState?.activeView !== 'ai-assistant' || !route) return false;
+      const style = getComputedStyle(route);
+      const bounds = route.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility === 'visible' &&
+        Number(style.opacity) >= 0.99 && bounds.width > 0 && bounds.height > 0;
+    }, null, { timeout: 15000 });
     const panelState = await panel.evaluate(el => {
       const rect = el.getBoundingClientRect();
       const computed = getComputedStyle(el);
@@ -188,6 +196,14 @@ try {
     await page.evaluate(() => window.Router.go('home'));
     await page.waitForFunction(() => window.KernelState?.activeView === 'home', null, { timeout: 10000 });
 
+    // The Help flow above intentionally routes away and closes the Assistant.
+    // Reopen the dedicated full-screen Assistant route before asserting that
+    // dashboard docks stay suppressed for the entire Assistant session.
+    await page.evaluate(() => window.WorkspaceBrainBot.open());
+    await page.waitForFunction(() => window.KernelState?.activeView === 'ai-assistant', null, { timeout: 15000 });
+    await panel.waitFor({ state: 'visible', timeout: 15000 });
+    assert.equal(await page.locator('#view-ai-assistant').isVisible(), true,
+      '[' + target.name + '] the Assistant must be open in its dedicated full-screen route before dock isolation is tested.');
 
     // The real Home dock has inline !important styles and multiple shell
     // controllers. Verify the actual production element is hidden when the
@@ -470,6 +486,15 @@ try {
       `[${target.name}] thumbs-down should prepare an editable Contact Support subject`);
     assert.match(await page.locator('#view-support #ovyx-help-support-message').inputValue(), /What went wrong\?/i,
       `[${target.name}] thumbs-down should prepare an editable Contact Support draft`);
+
+    // The feedback handoff intentionally navigates to the standalone Support
+    // page and closes the Assistant. Return to the Assistant route before
+    // continuing to exercise its actions menu; do not click a hidden control.
+    await page.evaluate(() => window.Router.go('home'));
+    await page.waitForFunction(() => window.KernelState?.activeView === 'home', null, { timeout: 10000 });
+    await page.evaluate(() => window.WorkspaceBrainBot.open());
+    await page.waitForFunction(() => window.KernelState?.activeView === 'ai-assistant', null, { timeout: 15000 });
+    await panel.waitFor({ state: 'visible', timeout: 15000 });
 
     await trigger.click();
     await menu.locator('[data-ovyx-native-action="new-chat"]').click();

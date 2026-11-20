@@ -93,10 +93,11 @@ try {
         routeAuthority: typeof window.OVYXRouteAuthority?.go,
         composerReady: window.__OVYX_WEBSTUDIO_PULSE_COMPOSER_V1__ === true,
       })).catch(() => null);
-      if (stalledDocument?.readyState !== 'loading' || stalledDocument.bodyChildren !== 0) {
-        throw firstError;
-      }
-      console.warn('[' + target.name + '] shell document remained empty after response; retrying one clean navigation: ' + JSON.stringify(stalledDocument));
+      const parserStillBlocked = stalledDocument?.readyState === 'loading' &&
+        stalledDocument.composerReady !== true &&
+        stalledDocument.routeAuthority !== 'function';
+      if (!parserStillBlocked) throw firstError;
+      console.warn('[' + target.name + '] shell parser/bootstrap remained incomplete after response; retrying one clean navigation: ' + JSON.stringify(stalledDocument));
       await page.reload({ waitUntil: 'commit', timeout: 60000 });
       await waitForComposerBootstrap();
     }
