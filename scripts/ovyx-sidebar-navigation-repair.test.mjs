@@ -30,7 +30,7 @@ const drawer = { querySelectorAll: () => [createEntry] };
 const documentMock = {
   readyState: 'complete',
   getElementById: id => id === 'mobile-drawer' ? drawer : id === 'ovyx-v34-menu-source' ? menu : null,
-  documentElement: { dataset: { ovyxSidebar: 'collapsed' }, classList: { remove() {} } },
+  documentElement: { dataset: { ovyxSidebar: 'collapsed' }, classList: { contains: () => false, remove() {} } },
   body: { classList: { contains: () => false } }
 };
 const windowMock = {
@@ -44,5 +44,38 @@ assert.equal(removed, true, 'The duplicate New Project entry must be removed fro
 assert.equal(typeof menu.onclick, 'function', 'The top-bar menu must receive the canonical sidebar toggle.');
 menu.onclick({ preventDefault() {}, stopPropagation() {} });
 assert.deepEqual(collapseCall, [false, true], 'Opening a visually collapsed sidebar must also clear its inert state through the canonical controller.');
+
+// An expanded desktop sidebar must not inherit stale inert/aria-hidden state.
+let repairedExpanded = null;
+const expandedMenu = { dataset: {}, onclick: null };
+const expandedSidebar = {
+  inert: true,
+  hidden: false,
+  style: { pointerEvents: 'none' },
+  attrs: { 'aria-hidden': 'true' },
+  setAttribute(name, value) { this.attrs[name] = value; },
+  getAttribute(name) { return this.attrs[name] || null; }
+};
+const expandedDocument = {
+  readyState: 'complete',
+  getElementById(id) {
+    if (id === 'app-sidebar') return expandedSidebar;
+    if (id === 'ovyx-v34-menu-source') return expandedMenu;
+    return null;
+  },
+  documentElement: { dataset: { ovyxSidebar: 'expanded' }, classList: { contains: () => false, remove() {} } },
+  body: { classList: { contains: () => false } }
+};
+const expandedWindow = {
+  innerWidth: 1280,
+  matchMedia: () => ({ matches: true }),
+  addEventListener() {},
+  OVYXDesktopShell: { setCollapsed(value) { repairedExpanded = value; } }
+};
+vm.runInNewContext(runtime, { window: expandedWindow, document: expandedDocument });
+assert.equal(repairedExpanded, false, 'The canonical desktop shell must be asked to restore the expanded state at startup.');
+assert.equal(expandedSidebar.inert, false, 'An expanded sidebar must not remain inert.');
+assert.equal(expandedSidebar.getAttribute('aria-hidden'), 'false', 'An expanded sidebar must be exposed to assistive technology.');
+assert.equal(expandedSidebar.style.pointerEvents, 'auto', 'An expanded sidebar must accept pointer interaction.');
 
 console.log('OVYX sidebar navigation repair contract checks passed.');
