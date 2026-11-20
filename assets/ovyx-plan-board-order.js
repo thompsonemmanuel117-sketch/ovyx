@@ -55,13 +55,18 @@
       });
     }
 
-    const headings = Array.from(root.querySelectorAll(
-      'h1,h2,h3,h4,h5,strong,b,[data-plan-tier],[data-tier],[class*="plan-name" i],[class*="heading" i],[class*="font-bold" i]'
-    ));
+    // The pricing route is a small, isolated surface. Inspect only its
+    // descendants so custom card markup is supported without depending on a
+    // particular heading tag or utility-class convention.
+    const headings = Array.from(root.querySelectorAll('*'));
     const selected = {};
     for (const heading of headings) {
       const tier = tierFromHeading(heading);
-      if (tier && !selected[tier]) selected[tier] = heading;
+      if (!tier || selected[tier]) continue;
+      // Prefer the innermost matching title instead of a wrapper that merely
+      // repeats the same text from its child heading.
+      if (Array.from(heading.children || []).some(child => tierFromHeading(child) === tier)) continue;
+      selected[tier] = heading;
     }
     if (!ORDER.every(tier => selected[tier])) return;
 
