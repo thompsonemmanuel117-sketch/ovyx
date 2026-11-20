@@ -21,7 +21,7 @@ const expectedAvailableCapabilities = {
   webStudio: true,
   advancedWebStudio: true,
   appStudio: true,
-  gameStudio: false,
+  gameStudio: true,
   aiGeneration: true,
   github: true,
   cloudflareDeploy: true,
