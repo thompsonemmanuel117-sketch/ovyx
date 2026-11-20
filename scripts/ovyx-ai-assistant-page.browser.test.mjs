@@ -44,7 +44,9 @@ try {
       await page.locator('#desktop-ai-assistant').click();
     } else {
       await page.evaluate(() => window.MobileDrawer?.open?.());
-      await page.locator('[data-v52-account="ai"]').click();
+      const mobileAssistantEntry = page.locator('[data-v52-account="ai"]:visible').first();
+      await mobileAssistantEntry.waitFor({ state: 'visible', timeout: 10000 });
+      await mobileAssistantEntry.click();
     }
 
     await page.waitForFunction(() => window.KernelState?.activeView === 'ai-assistant');
