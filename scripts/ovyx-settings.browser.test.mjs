@@ -317,8 +317,12 @@ try {
     // not need the unrelated app-wide last-view restoration to equal Settings.
     // Wait for pageshow/late route guards to settle, then explicitly open Settings.
     await page.waitForTimeout(400);
-    await page.evaluate(() => window.OVYXRouteAuthority.go('settings'));
-    await page.locator('#view-settings').waitFor({ state: 'visible' });
+    // Return through the same public SPA router used by the rest of the
+    // Settings browser suite. Wait for route state before asserting visibility
+    // so an interrupted route transition is reported as a navigation failure.
+    await page.evaluate(() => window.Router.go('settings'));
+    await page.waitForFunction(() => window.KernelState?.activeView === 'settings', null, { timeout: 15000 });
+    await page.locator('#view-settings').waitFor({ state: 'visible', timeout: 15000 });
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
     await page.locator('#ovyx-data-endpoint').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#ovyx-data-endpoint').inputValue(), endpoint);
