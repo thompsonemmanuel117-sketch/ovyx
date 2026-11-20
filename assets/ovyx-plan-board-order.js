@@ -46,7 +46,13 @@
       observer?.disconnect();
       root = nextRoot;
       observer = new MutationObserver(schedule);
-      observer.observe(root, { childList: true, subtree: true, characterData: true });
+      observer.observe(root, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['data-plan-tier', 'data-tier'],
+      });
     }
 
     const headings = Array.from(root.querySelectorAll(
