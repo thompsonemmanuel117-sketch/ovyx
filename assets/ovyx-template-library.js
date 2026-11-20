@@ -86,7 +86,12 @@
         // Legacy globals may be initialized after this module. Re-apply the
         // adapter and restore the server-backed catalogue after any takeover.
         patchLegacyStore();
-        if (!currentFeed.querySelector('[data-ovyx-template-cards="1"], .ovyx-template-empty[data-ovyx-template-empty="1"]')) {
+        const renderedCardCount = currentFeed.querySelectorAll('[data-template-card]').length;
+        const expectedCardCount = visibleItems().length;
+        if (!currentFeed.querySelector('[data-ovyx-template-cards="1"], .ovyx-template-empty[data-ovyx-template-empty="1"]') ||
+          (!state.loading && !state.error && state.items.length > 0 && renderedCardCount !== expectedCardCount)) {
+          // A legacy catalogue can leave behind its own wrapper while replacing
+          // the server-owned cards. Check the actual published card count too.
           render();
         }
       });
