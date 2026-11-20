@@ -12,6 +12,11 @@ on:
       - feat/app-studio-panel-experience
     paths:
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
+      - 'assets/ovyx-ai-assistant-page.js'
+      - 'assets/css/ovyx-ai-assistant-page.css'
+      - 'scripts/ovyx-ai-assistant-page.test.mjs'
+      - 'scripts/ovyx-ai-assistant-page.browser.test.mjs'
+      - 'docs/OVYX-AI-ASSISTANT-EXPERIENCE-AUDIT.md'
       - 'assets/ovyx-help-support.js'
       - 'functions/api/support.js'
       - 'functions/api/_lib/support-mailer.js'
@@ -96,6 +101,11 @@ on:
       - 'scripts/ovyx-admin-workspace.browser.test.mjs'
       - 'scripts/ovyx-admin-hub.browser.test.mjs'
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
+      - 'assets/ovyx-ai-assistant-page.js'
+      - 'assets/css/ovyx-ai-assistant-page.css'
+      - 'scripts/ovyx-ai-assistant-page.test.mjs'
+      - 'scripts/ovyx-ai-assistant-page.browser.test.mjs'
+      - 'docs/OVYX-AI-ASSISTANT-EXPERIENCE-AUDIT.md'
       - 'scripts/ovyx-sentinel.browser.test.mjs'
       - 'assets/ovyx-provider-availability.js'
       - 'scripts/ovyx-provider-availability.browser.test.mjs'
@@ -128,6 +138,11 @@ on:
       - 'scripts/ovyx-broadcast-notifications.test.mjs'
       - 'scripts/ovyx-account-notifications.browser.test.mjs'
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
+      - 'assets/ovyx-ai-assistant-page.js'
+      - 'assets/css/ovyx-ai-assistant-page.css'
+      - 'scripts/ovyx-ai-assistant-page.test.mjs'
+      - 'scripts/ovyx-ai-assistant-page.browser.test.mjs'
+      - 'docs/OVYX-AI-ASSISTANT-EXPERIENCE-AUDIT.md'
       - 'assets/ovyx-help-support.js'
       - 'functions/api/support.js'
       - 'functions/api/_lib/support-mailer.js'
@@ -277,6 +292,7 @@ jobs:
           # Keep this group focused on Assistant, Sentinel, provider and Web Studio flows.
           run_shard "assistant-and-runtime" /tmp/ovyx-assistant-shard-b.log \
             ovyx-assistant-workspace.browser.test.mjs \
+            ovyx-ai-assistant-page.browser.test.mjs \
             ovyx-sentinel.browser.test.mjs \
             ovyx-provider-availability.browser.test.mjs \
             ovyx-webstudio-reliability.browser.test.mjs
