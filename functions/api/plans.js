@@ -18,27 +18,17 @@ const DEFAULT_DAILY_PROMPT_QUOTAS = Object.freeze({
   max: 100
 });
 
-const DEFAULT_FEATURES = Object.freeze({
-  pro: [
-    { id: 'webStudio', label: 'Web Studio' },
-    { id: 'appStudio', label: 'App Studio' },
-    { id: 'aiGeneration', label: 'AI Generation' },
-    { id: 'github', label: 'GitHub' },
-    { id: 'cloudflareDeploy', label: 'Cloudflare Deploy' },
-    { id: 'teamWorkspace', label: 'Team Workspace' },
-    { id: 'templates', label: 'Templates' }
-  ],
-  max: [
-    { id: 'webStudio', label: 'Web Studio' },
-    { id: 'advancedWebStudio', label: 'Advanced Web Studio' },
-    { id: 'appStudio', label: 'App Studio' },
-    { id: 'aiGeneration', label: 'AI Generation' },
-    { id: 'github', label: 'GitHub' },
-    { id: 'cloudflareDeploy', label: 'Cloudflare Deploy' },
-    { id: 'teamWorkspace', label: 'Team Workspace' },
-    { id: 'templates', label: 'Templates' }
-  ]
-});
+const AVAILABLE_FEATURES = Object.freeze([
+  { id: 'webStudio', label: 'Web Studio' },
+  { id: 'advancedWebStudio', label: 'Advanced Web Studio' },
+  { id: 'appStudio', label: 'App Studio' },
+  { id: 'gameStudio', label: 'Game Studio' },
+  { id: 'aiGeneration', label: 'AI Generation' },
+  { id: 'github', label: 'Source management' },
+  { id: 'cloudflareDeploy', label: 'Cloudflare Deploy' },
+  { id: 'teamWorkspace', label: 'Team Workspace' },
+  { id: 'templates', label: 'Blueprint Templates' }
+]);
 
 const DEFAULT_ACCESS_RULES = [];
 
@@ -75,21 +65,15 @@ export async function onRequestGet(context) {
       ...(config.dailyPromptQuotas || {})
     };
 
-    const features = config.planFeaturesManaged === true ? {
-      pro: cleanFeatures(config.planFeatures?.pro, []),
-      max: cleanFeatures(config.planFeatures?.max, [])
-    } : {
-      pro: cleanFeatures(config.planFeatures?.pro, DEFAULT_FEATURES.pro),
-      max: cleanFeatures(config.planFeatures?.max, DEFAULT_FEATURES.max)
+    // Feature availability is intentionally not tier-gated yet. Keep legacy
+    // config readable by the admin tools, but do not publish it as user locks.
+    const features = {
+      free: AVAILABLE_FEATURES,
+      pro: AVAILABLE_FEATURES,
+      max: AVAILABLE_FEATURES
     };
-
-    const accessRules = Array.isArray(config.accessRules)
-      ? config.accessRules
-      : DEFAULT_ACCESS_RULES;
-
-    const gating = config.gating && typeof config.gating === 'object'
-      ? config.gating
-      : {};
+    const accessRules = DEFAULT_ACCESS_RULES;
+    const gating = {};
 
     return jsonResponse({
       ok: true,
@@ -97,7 +81,7 @@ export async function onRequestGet(context) {
       tokenQuotas,
       dailyPromptQuotas,
       features,
-      planFeaturesManaged: config.planFeaturesManaged === true,
+      planFeaturesManaged: false,
       accessRules,
       gating,
       updatedAt: config.updatedAt || null,

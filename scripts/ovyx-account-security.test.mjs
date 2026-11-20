@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { hasValidRollingAccess, buildPaidCapabilities, applyGlobalGating, applyFeatureRules } from '../functions/api/entitlements.js';
+import { hasValidRollingAccess, buildAvailableCapabilities, buildPaidCapabilities } from '../functions/api/entitlements.js';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const now = Date.UTC(2026, 10, 5);
@@ -11,16 +11,16 @@ assert.equal(hasValidRollingAccess({ planTier: 'pro', planTierState: 'active', e
 assert.equal(hasValidRollingAccess({ planTier: 'max', planTierState: 'canceled', expiresAt: now + 60000 }, now), false);
 assert.equal(hasValidRollingAccess({ planTier: 'free', planTierState: 'active', expiresAt: now + 60000 }, now), false);
 
-// Paid capabilities are derived from the same resolver used by protected API routes.
-const pro = buildPaidCapabilities('pro');
-const max = buildPaidCapabilities('max');
-assert.equal(pro.webStudio, true);
-assert.equal(pro.advancedWebStudio, false);
-assert.equal(pro.appStudio, true);
-assert.equal(max.advancedWebStudio, true);
-assert.equal(max.appStudio, true);
-assert.equal(applyGlobalGating({ webStudio: true }, { webStudio: 'pro' }, 'free').webStudio, false);
-assert.equal(applyFeatureRules({ webStudio: true }, [{ feature: 'webStudio', locked: true }]).webStudio, false);
+// Current product capabilities are available across every billing tier.
+const available = buildAvailableCapabilities();
+assert.deepEqual(buildPaidCapabilities('pro'), available);
+assert.deepEqual(buildPaidCapabilities('max'), available);
+assert.equal(available.webStudio, true);
+assert.equal(available.advancedWebStudio, true);
+assert.equal(available.appStudio, true);
+assert.equal(available.github, true);
+assert.equal(available.teamWorkspace, true);
+assert.equal(available.gameStudio, true);
 
 const middleware = read('functions/api/_middleware.js');
 assert.match(middleware, /if \(requiredFeatures && !user\)/, 'Plan-gated API routes must reject anonymous callers before route execution.');

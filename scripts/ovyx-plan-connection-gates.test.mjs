@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { QUOTA_PLANS } from '../functions/_lib/token-quota.js';
+import { buildAvailableCapabilities, buildPaidCapabilities } from '../functions/api/entitlements.js';
 import { resolveConnectionTier, UNIVERSAL_CONNECTION_LIMITS } from '../functions/api/settings/connections.js';
 
 assert.deepEqual(
@@ -16,8 +17,36 @@ assert.equal(resolveConnectionTier({ planTier: 'max', planTierState: 'canceled',
 assert.equal(resolveConnectionTier({ planTier: 'max', planTierState: '', expiresAt: Date.UTC(2027, 0, 1) }, 'member@example.test', now), 'free');
 assert.equal(resolveConnectionTier({}, 'ovyxsupportteam@gmail.com', now), 'max');
 assert.deepEqual(UNIVERSAL_CONNECTION_LIMITS, { free: 3, pro: 5, max: Infinity });
+const expectedAvailableCapabilities = {
+  webStudio: true,
+  advancedWebStudio: true,
+  appStudio: true,
+  gameStudio: true,
+  aiGeneration: true,
+  github: true,
+  cloudflareDeploy: true,
+  teamWorkspace: true,
+  templates: true
+};
+assert.deepEqual(buildAvailableCapabilities(), expectedAvailableCapabilities);
+assert.deepEqual(buildPaidCapabilities('pro'), expectedAvailableCapabilities);
+assert.deepEqual(buildPaidCapabilities('max'), expectedAvailableCapabilities);
+
 const entitlements = readFileSync(new URL('../functions/api/entitlements.js', import.meta.url), 'utf8');
-assert.match(entitlements, /webStudio: true,[\s\S]*?advancedWebStudio: false,[\s\S]*?appStudio: false/);
-assert.match(entitlements, /function buildPaidCapabilities\(tier\)[\s\S]*?webStudio: true,[\s\S]*?appStudio: true/);
-assert.match(entitlements, /advancedWebStudio: tier === 'max'/);
-console.log('OVYX plan quota, Universal Connection and App Studio gate tests passed.');
+assert.match(entitlements, /const capabilities = buildAvailableCapabilities\(\)/);
+assert.doesNotMatch(entitlements, /capabilities = applyPlanFeatures\(/);
+assert.doesNotMatch(entitlements, /capabilities = applyGlobalGating\(/);
+assert.doesNotMatch(entitlements, /capabilities = applyFeatureRules\(/);
+const publicPlans = readFileSync(new URL('../functions/api/plans.js', import.meta.url), 'utf8');
+assert.match(publicPlans, /free: AVAILABLE_FEATURES,[\s\S]*?pro: AVAILABLE_FEATURES,[\s\S]*?max: AVAILABLE_FEATURES/);
+assert.match(publicPlans, /const gating = \{\}/);
+assert.match(publicPlans, /planFeaturesManaged: false/);
+const ownerControls = readFileSync(new URL('../assets/ovyx-admin-controls.js', import.meta.url), 'utf8');
+const planControls = ownerControls.slice(ownerControls.indexOf('function mountPlanControls()'), ownerControls.indexOf('function mountBrainControls()'));
+assert.doesNotMatch(planControls, /Included features per paid plan|Global feature gates|const gateRows|defaultGates|checkbox\.type = 'checkbox'/);
+assert.match(planControls, /monthly AI token allowances and daily prompt limits/);
+const planAdmin = readFileSync(new URL('../functions/api/admin/plans/update.js', import.meta.url), 'utf8');
+assert.match(planAdmin, /const planFeatures=\{pro:AVAILABLE_FEATURES,max:AVAILABLE_FEATURES\}/);
+assert.match(planAdmin, /const gating=\{\}/);
+assert.match(planAdmin, /planFeaturesManaged:false/);
+console.log('OVYX plan quota and open feature availability tests passed.');

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { applyGlobalGating, applyPlanFeatures } from '../functions/api/entitlements.js';
+import { buildAvailableCapabilities, buildPaidCapabilities } from '../functions/api/entitlements.js';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const source = {
@@ -88,8 +88,9 @@ assert.match(source.assistantAI, /capabilities\?\.appStudio !== true/);
 assert.match(source.gatewayAI, /capabilities\?\.appStudio !== true/);
 assert.match(source.runtime, /function bindTemplateAccessGuard/);
 assert.match(source.runtime, /capabilities\?\.templates !== true/);
-assert.match(source.runtime, /Global feature gates/);
-assert.match(source.runtime, /select\.id = 'gate-' \+ key/);
+assert.doesNotMatch(source.runtime, /Global feature gates/);
+assert.doesNotMatch(source.runtime, /select\.id = 'gate-' \+ key/);
+assert.match(source.runtime, /Current product features remain available across all plans/);
 assert.match(source.runtime, /ac\.adminOverride = owner\(\) && config\.masterAdminOverride === true/);
 assert.match(source.runtime, /if \(!owner\(\) && window\.AdminConfigurator\)/, 'Owner preview override must clear on account switch/sign-out.');
 assert.match(source.html, /function ownerAdminOpsAuthorized\(\)\{return window\.OVYXServerOwner\?\.active===true&&window\.__OVYX_ROOT_AUTH_VERIFIED===true/);
@@ -143,16 +144,16 @@ assert.match(source.firebaseAdmin, /accounts:update/);
 assert.match(source.usersApi, /revokeFirebaseRefreshTokens/);
 
 assert.match(source.planUpdate, /dailyPromptQuotas/);
-assert.match(source.planUpdate, /planFeaturesManaged:true/);
-assert.match(source.planUpdate, /gating:next\.gating/);
-assert.match(source.runtime, /gating: gating/);
+assert.match(source.planUpdate, /planFeaturesManaged:false/);
+assert.match(source.planUpdate, /gating:\{\}/);
+assert.doesNotMatch(source.runtime, /gating: gating/);
 assert.match(source.runtime, /tokenQuotas: \{ free: readInt/);
 assert.match(source.publicPlans, /planFeaturesManaged/);
 assert.match(source.quota, /async function getConfiguredQuotaPlans/);
 assert.match(source.quota, /normalizeProfile\(profile, plans\)/);
 assert.match(source.quota, /_ovyxQuotaMonthlyLimit/);
-assert.match(source.entitlements, /applyPlanFeatures\(capabilities, systemConfig\.planFeatures/);
-assert.match(source.entitlements, /applyGlobalGating\(/);
+assert.match(source.entitlements, /const capabilities = buildAvailableCapabilities\(\)/);
+assert.doesNotMatch(source.entitlements, /applyPlanFeatures|applyGlobalGating|applyFeatureRules/);
 assert.match(source.entitlements, /Date\.parse\(String\(value\)\)/, 'Entitlements must accept ISO expiry timestamps written by payment fulfillment.');
 assert.match(source.quota, /const expiresAt = timestampMs\(profile\.expiresAt\)/, 'AI quota tier must honor subscription expiry.');
 assert.match(source.usersApi, /const targetExpiryMs = timestampMs\(target\.expiresAt\)/, 'Quota reset must correctly parse ISO expiry timestamps.');
@@ -194,8 +195,7 @@ assert.match(source.shellMiddleware, /ovyx-admin-controls\.js/);
 assert.match(source.headers, /\/assets\/ovyx-admin-controls\.js/);
 assert.match(source.runtime, /async function runTelemetryProbe/);
 assert.match(source.runtime, /function applyPublicPlanCatalog\(data\)/, 'Owner Tools must sync persisted pricing into public account UI');
-assert.match(source.runtime, /function syncPlanFeatureControls\(data\)/, 'Paid-plan feature selectors must load values from the authoritative plan catalog');
-assert.match(source.runtime, /Included features per paid plan/, 'Owner must have a real Pro/Max feature editor');
+assert.doesNotMatch(source.runtime, /syncPlanFeatureControls|Included features per paid plan|Global feature gates/);
 assert.match(source.runtime, /if \(!latestPlans\)/, 'Plan saves must fail closed when the server catalog has not loaded');
 assert.match(source.runtime, /async function syncPublicPlanCatalog\(\)/, 'Public plan state should refresh on active pages');
 assert.match(source.runtime, /OvyxCurrencyEngine\?\.renderFormattedPrices\?\.\(\)/, 'Saved server pricing must update price labels in the current page');
@@ -204,29 +204,22 @@ assert.match(source.browserFixtures, /path === '\/api\/admin\/plans\/update'/);
 assert.match(source.browserFixtures, /fixtureUsers/);
 assert.doesNotMatch(source.runtime, /Math\.random\s*\(/, 'Owner telemetry must not fabricate random service results.');
 
-const managedPlanBase = {
+const expectedCapabilities = {
   webStudio: true,
-  advancedWebStudio: false,
+  advancedWebStudio: true,
   appStudio: true,
-  gameStudio: false,
+  gameStudio: true,
   aiGeneration: true,
-  github: false,
-  cloudflareDeploy: false,
-  teamWorkspace: false,
-  templates: false
+  github: true,
+  cloudflareDeploy: true,
+  teamWorkspace: true,
+  templates: true
 };
-const configuredPro = applyPlanFeatures(managedPlanBase, {
-  pro: ['webStudio', 'advancedWebStudio', 'gameStudio', 'aiGeneration']
-}, 'pro', true);
-assert.equal(configuredPro.advancedWebStudio, true, 'Owner-managed Pro features must be able to enable an advanced capability.');
-assert.equal(configuredPro.gameStudio, true, 'Owner-managed Pro features must honor the saved allowlist even when a capability is off by default.');
-assert.equal(configuredPro.github, false, 'Features absent from the paid-plan allowlist must remain disabled.');
-assert.equal(applyPlanFeatures(managedPlanBase, { pro: ['github'] }, 'pro', false).github, false,
-  'Unmanaged plans must retain the built-in capability defaults.');
-assert.equal(applyGlobalGating({ webStudio: true }, { webstudio: 'max' }, 'pro').webStudio, false,
-  'The saved global tier gate must further restrict plan capabilities.');
+assert.deepEqual(buildAvailableCapabilities(), expectedCapabilities);
+assert.deepEqual(buildPaidCapabilities('pro'), expectedCapabilities);
+assert.deepEqual(buildPaidCapabilities('max'), expectedCapabilities);
 
 const testCommand = source.packageJson.scripts.test;
 assert.ok(testCommand.includes('scripts/ovyx-owner-controls-live.test.mjs'), 'Owner-controls regression test must run under npm test.');
 
-console.log('OVYX owner-control contracts passed: global switch enforcement, root-only account mutations, pricing/gates/quotas, public price propagation, global AI identity and routing, broadcast/template withdrawal, and evidence-based telemetry.');
+console.log('OVYX owner-control contracts passed: global switch enforcement, root-only account mutations, pricing/quotas, public price propagation, global AI identity and routing, broadcast/template withdrawal, and evidence-based telemetry.');
