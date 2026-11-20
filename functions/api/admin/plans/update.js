@@ -5,7 +5,7 @@ import { readJson, jsonResponse, requestId } from '../../_lib/http.js';
 import { recordAdminAuditEvent } from '../../../_lib/admin-audit.js';
 
 const ALLOWED_TIERS = new Set(['free', 'pro', 'max']);
-const AVAILABLE_FEATURES = ['webStudio','advancedWebStudio','appStudio','aiGeneration','github','cloudflareDeploy','teamWorkspace','templates'];
+const AVAILABLE_FEATURES = ['webStudio','advancedWebStudio','appStudio','gameStudio','aiGeneration','github','cloudflareDeploy','teamWorkspace','templates'];
 
 const DEFAULTS = {
   pricing: { pro: { ngn: 33500, usd: 20 }, max: { ngn: 209375, usd: 120 } },
