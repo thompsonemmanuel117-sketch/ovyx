@@ -70,7 +70,10 @@
       sort.dataset.ovyxBound = '1';
       sort.addEventListener('change', () => { state.sort = sort.value === 'az' ? 'az' : 'newest'; render(); });
     }
-    const observerRoot = $('view-router-viewport') || document.body;
+    // Observe the document body: the legacy router can replace the viewport itself.
+    // A viewport-scoped observer can remain attached to a detached node and
+    // miss a later replacement of the server-backed catalogue.
+    const observerRoot = document.body;
     if (observerRoot && !observerRoot.dataset.ovyxTemplateObserver && typeof MutationObserver === 'function') {
       // The router can replace the Templates section itself during a legacy
       // navigation transition. Observe the stable viewport so the protection
