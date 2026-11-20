@@ -76,8 +76,14 @@
       // a feed-only observer and lets stale cards take ownership again.
       const observer = new MutationObserver(() => {
         const currentFeed = $('templates-catalog-feed');
-        if (isTemplatesView() && currentFeed &&
-          !currentFeed.querySelector('[data-ovyx-template-cards="1"], .ovyx-template-empty[data-ovyx-template-empty="1"]')) render();
+        if (!isTemplatesView() || !currentFeed) return;
+        // Legacy template globals may be initialized after this page module.
+        // Re-apply the compatibility patch whenever the page mutates so a
+        // late legacy renderer cannot reclaim the server-backed catalogue.
+        patchLegacyStore();
+        if (!currentFeed.querySelector('[data-ovyx-template-cards="1"], .ovyx-template-empty[data-ovyx-template-empty="1"]')) {
+          render();
+        }
       });
       observer.observe(view, { childList: true, subtree: true });
       view.dataset.ovyxTemplateObserver = '1';
