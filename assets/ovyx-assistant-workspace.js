@@ -236,8 +236,8 @@
     if (!window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__) {
       window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__ = true;
       window.addEventListener('resize', refresh, { passive: true });
-      window.visualViewport?.addEventListener('resize', refresh, { passive: true });
-      window.visualViewport?.addEventListener('scroll', refresh, { passive: true });
+      window.visualViewport?.addEventListener?.('resize', refresh, { passive: true });
+      window.visualViewport?.addEventListener?.('scroll', refresh, { passive: true });
       window.addEventListener('orientationchange', refresh, { passive: true });
       // The dashboard may mount/re-mount its dock after the assistant opens.
       // Watch additions at the document level rather than only the panel node.
