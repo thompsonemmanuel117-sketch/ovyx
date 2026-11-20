@@ -44,8 +44,8 @@
 
   function mountPage() {
     const root = viewport();
+    if (!root) return false;
     const assistant = panel();
-    if (!root || !assistant) return false;
 
     let surface = page();
     if (!surface) {
@@ -61,8 +61,10 @@
       root.appendChild(surface);
     }
 
-    // Reuse the one production Assistant panel. Do not clone its composer,
-    // transcript, action menu, or event handlers into a second chat surface.
+    // The legacy shell creates the panel lazily from open(). The route
+    // must be mountable before that happens so the public API can be wrapped.
+    // Once the panel exists, move the one production instance into this page.
+    if (!assistant) return true;
     if (assistant.parentElement !== surface) surface.appendChild(assistant);
 
     assistant.classList.remove(
@@ -121,6 +123,8 @@
         finally { openingFromBot = false; }
       }
       const result = originalOpen.apply(bot, args);
+      // originalOpen may create the legacy panel on first use.
+      mountPage();
       setPageState(true);
       return result;
     };
@@ -150,7 +154,10 @@
 
       if (after === ROUTE) {
         setPageState(true);
-        if (!openingFromBot && !panelIsOpen()) originalOpen.apply(bot, []);
+        if (!openingFromBot && !panelIsOpen()) {
+          originalOpen.apply(bot, []);
+          mountPage();
+        }
       } else {
         setPageState(false);
         if (before === ROUTE && panelIsOpen()) originalClose.apply(bot, []);
