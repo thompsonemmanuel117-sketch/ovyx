@@ -90,7 +90,7 @@ try {
         feedInlineVisibility: feed?.style.visibility || null, viewClasses: view?.className || null };
     });
     console.log('[' + target.name + '] Templates route diagnostics ' + JSON.stringify(routeState));
-    assert.equal(routeState.result, 'templates', '[' + target.name + '] the canonical router must open the Templates page.');
+    assert.equal(routeState.result, true, '[' + target.name + '] the canonical router must open the Templates page.');
     assert.equal(routeState.activeView, 'templates', '[' + target.name + '] Templates must be the active route.');
     assert.equal(routeState.hidden, false, '[' + target.name + '] the Templates section must be visible.');
     try {
