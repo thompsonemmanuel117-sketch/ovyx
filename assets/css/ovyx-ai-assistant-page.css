@@ -169,6 +169,7 @@ body.ovyx-ai-assistant-page-active #view-ai-assistant {
     height: var(--ovyx-assistant-visual-height, 100dvh) !important;
     min-height: 0 !important;
     max-height: var(--ovyx-assistant-visual-height, 100dvh) !important;
+    transform: translateY(var(--ovyx-assistant-visual-offset, 0px)) !important;
     overflow: hidden !important;
   }
   body.ovyx-ai-assistant-page-active #view-ai-assistant #kernel-brain-bot-panel {
