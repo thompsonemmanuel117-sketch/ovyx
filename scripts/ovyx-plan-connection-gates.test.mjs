@@ -52,6 +52,7 @@ assert.match(planAdmin, /planFeaturesManaged:false/);
 console.log('OVYX plan quota and open feature availability tests passed.');
 
 const planBoardOrder = readFileSync(new URL('../assets/ovyx-plan-board-order.js', import.meta.url), 'utf8');
+new vm.Script(planBoardOrder, { filename: 'ovyx-plan-board-order.js' });
 assert.match(planBoardOrder, /const ORDER = \['free', 'pro', 'max'\]/);
 assert.match(planBoardOrder, /document\.getElementById\('view-pricing'\)/);
 assert.match(planBoardOrder, /ancestor\.insertBefore\(fragment, marker\)/);
