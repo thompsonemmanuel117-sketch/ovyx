@@ -92,7 +92,7 @@ try {
         .filter(src => /\/assets\/ovyx-assistant-workspace\.js(?:\?|$)/.test(src))
     );
     assert.ok(assistantAssetSources.length, `[${target.name}] assistant workspace asset was not fetched`);
-    assert.ok(assistantAssetSources.some(src => /[?&]v=20261118-4(?:&|$)/.test(src)),
+    assert.ok(assistantAssetSources.some(src => /[?&]v=20261120-3(?:&|$)/.test(src)),
       `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
     // Resource timing records a fetch before the asset's boot hook necessarily
     // finishes. Wait for the native wrapper before invoking the public open API.
@@ -289,6 +289,25 @@ try {
           getComputedStyle(document.getElementById('test-keyboard-floating-shell')).visibility === 'hidden'
         ));
     }, null, { timeout: 5000 });
+    if (target.name === 'mobile') {
+      const keyboardViewportHeight = await page.locator('#view-ai-assistant').evaluate(node =>
+        node.style.getPropertyValue('--ovyx-assistant-visual-height')
+      );
+      assert.equal(keyboardViewportHeight, '500px',
+        '[mobile] Assistant page must track the reduced visual viewport while the keyboard is open.');
+    }
+    const scrollState = await page.evaluate(() => {
+      const history = document.getElementById('bot-chat-history');
+      const input = document.getElementById('bot-chat-input');
+      return {
+        historyOverflowY: getComputedStyle(history).overflowY,
+        historyMinHeight: getComputedStyle(history).minHeight,
+        composerResize: getComputedStyle(input).resize,
+      };
+    });
+    assert.equal(scrollState.historyOverflowY, 'auto', '[' + target.name + '] chat history must remain independently scrollable.');
+    assert.equal(scrollState.historyMinHeight, '0px', '[' + target.name + '] chat history must be allowed to shrink inside the flex workspace.');
+    assert.equal(scrollState.composerResize, 'none', '[' + target.name + '] composer must not expose a drag-resize handle.');
     await composer.press('z');
     assert.equal(await page.evaluate(() => window.__ovyxAssistantTypingKeyBubbles), 0,
       `[${target.name}] assistant typing must not bubble into dashboard keyboard shortcuts`);

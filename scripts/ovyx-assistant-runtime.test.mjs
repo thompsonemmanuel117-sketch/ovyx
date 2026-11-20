@@ -4,6 +4,17 @@ import fs from 'node:fs';
 const source = fs.readFileSync('assets/ovyx-assistant-workspace.js', 'utf8');
 const native = fs.readFileSync('functions/_lib/ovyx-native-ai.js', 'utf8');
 
+const assistantPageCss = fs.readFileSync('assets/css/ovyx-ai-assistant-page.css', 'utf8');
+assert.match(source, /getElementById\('ovyx-v52-bottom-bar'\)/);
+assert.match(source, /pendingDockCandidates/);
+assert.match(source, /syncAssistantVisualViewport/);
+assert.match(source, /composerResizeFrame/);
+assert.doesNotMatch(source, /document\.body\??\.querySelectorAll\(['"]\*['"]\)/,
+  'Assistant dock updates must not traverse every element in the full application shell.');
+assert.match(assistantPageCss, /--ovyx-assistant-visual-height/);
+assert.match(assistantPageCss, /-webkit-overflow-scrolling:\s*touch/);
+assert.match(assistantPageCss, /overscroll-behavior-y:\s*contain/);
+
 assert.match(source, /data-ovyx-native-more/);
 assert.match(source, /function bindMenuTrigger\(\)/);
 assert.match(source, /window\.WorkspaceBrainBot\?\.__ovyxNativeOpen && window\.OVYXAIService\?\.__ovyxNativeWorkspaceRoute/,

@@ -9,6 +9,7 @@
   const nativeModes = /^(workspace-assistant|workspace-copilot(?:-v2|-advanced|-native)?|ovyx-native-assistant)$/i;
   const NATIVE_RESPONSE_BOT_MARK = "<svg viewBox=\"0 0 64 64\" aria-hidden=\"true\"><defs><linearGradient id=\"ovyxNativeDiamondGold\" x1=\"0\" y1=\"1\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#8d5a15\"/><stop offset=\".48\" stop-color=\"#fff0b0\"/><stop offset=\"1\" stop-color=\"#d49a36\"/></linearGradient></defs><path d=\"M32 5 54 18 54 46 32 59 10 46 10 18Z\" fill=\"none\" stroke=\"url(#ovyxNativeDiamondGold)\" stroke-width=\"3\" stroke-linejoin=\"round\"/><path d=\"M32 16 43 23 43 41 32 48 21 41 21 23Z\" fill=\"rgba(232,182,79,.09)\" stroke=\"url(#ovyxNativeDiamondGold)\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/><path d=\"M10 18 32 16 54 18 M10 46 32 48 54 46 M32 5 32 16 M32 48 32 59\" fill=\"none\" stroke=\"#e8c36f\" stroke-opacity=\".8\" stroke-width=\"1.3\"/></svg>";
   let busy = false;
+  let composerResizeFrame = 0;
   let activeActivityNode = null;
   let workspaceTaskStatus = 'idle';
   let workspaceTaskMessage = '';
@@ -75,6 +76,7 @@
   // Keep the small set of docks we actually changed so closing the assistant
   // never needs to walk the entire application DOM just to restore them.
   const suppressedDockNodes = new Set();
+  const pendingDockCandidates = new Set();
   const DOCK_HIDE_PROPERTIES = ['display', 'visibility', 'opacity', 'pointer-events', 'transform'];
 
   function readInlineProperty(style, property) {
@@ -99,7 +101,7 @@
     }
   }
 
-  function syncUnderlyingBottomNavigation(forceHidden) {
+  function syncUnderlyingBottomNavigation(forceHidden, changedNodes = []) {
     const input = $('bot-chat-input');
     const activePanel = panel();
     const composerFocused = Boolean(input && document.activeElement === input && activePanel?.contains(input));
@@ -134,7 +136,20 @@
     // The dashboard shell has several controllers that write inline
     // !important display values. A class-only hide loses to those inline
     // declarations, so temporarily take ownership of the actual dock styles.
-    document.body?.querySelectorAll('*').forEach(node => {
+    // Inspect only plausible navigation/dock elements. The previous
+    // querySelectorAll('*') path forced style and layout reads across the
+    // complete application shell during keyboard/route mutations.
+    const dockCandidates = new Set([
+      document.getElementById('ovyx-v52-bottom-bar'),
+      ...(document.body?.children || []),
+      ...(document.getElementById('view-router-viewport')?.children || []),
+      ...changedNodes,
+    ].filter(Boolean));
+    // A wrapper's class/style may change its direct child into a fixed dock.
+    for (const node of changedNodes) {
+      if (node instanceof HTMLElement) Array.from(node.children || []).forEach(child => dockCandidates.add(child));
+    }
+    dockCandidates.forEach(node => {
       if (!(node instanceof HTMLElement)) return;
       const alreadySuppressed = node.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS);
       const isDock = alreadySuppressed || isUnderlyingBottomNavigation(node, activePanel);
@@ -181,6 +196,22 @@
     });
   }
 
+  function syncAssistantVisualViewport() {
+    const root = $('view-ai-assistant');
+    const viewport = window.visualViewport;
+    if (!root) return;
+    const active = document.body?.classList.contains('ovyx-ai-assistant-page-active');
+    if (!active || !viewport) {
+      root.style.removeProperty('--ovyx-assistant-visual-height');
+      root.style.removeProperty('--ovyx-assistant-visual-offset');
+      return;
+    }
+    const height = Math.max(1, Math.round(viewport.height));
+    const offset = Math.max(0, Math.round(viewport.offsetTop || 0));
+    root.style.setProperty('--ovyx-assistant-visual-height', height + 'px');
+    root.style.setProperty('--ovyx-assistant-visual-offset', offset + 'px');
+  }
+
   function installComposerNavigationShield() {
     // A burst of assistant DOM mutations should produce one layout scan/frame.
     let refreshPending = false;
@@ -189,7 +220,10 @@
       refreshPending = true;
       const run = () => {
         refreshPending = false;
-        syncUnderlyingBottomNavigation();
+        syncAssistantVisualViewport();
+        const changedNodes = Array.from(pendingDockCandidates);
+        pendingDockCandidates.clear();
+        syncUnderlyingBottomNavigation(undefined, changedNodes);
       };
       if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(run);
       else Promise.resolve().then(run);
@@ -197,8 +231,9 @@
     if (!window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__) {
       window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__ = true;
       window.addEventListener('resize', refresh, { passive: true });
-      window.visualViewport?.addEventListener('resize', refresh, { passive: true });
-      window.visualViewport?.addEventListener('scroll', refresh, { passive: true });
+      window.visualViewport?.addEventListener?.('resize', refresh, { passive: true });
+      window.visualViewport?.addEventListener?.('scroll', refresh, { passive: true });
+      window.addEventListener('orientationchange', refresh, { passive: true });
       // The dashboard may mount/re-mount its dock after the assistant opens.
       // Watch additions at the document level rather than only the panel node.
       if (document.body && !document.body.dataset.ovyxNativeDockObserver) {
@@ -213,16 +248,24 @@
             const target = record.target;
             if (!(target instanceof HTMLElement)) return false;
             const assistantRoot = target.closest('#kernel-brain-bot-panel');
-            // Ignore chat transcript/composer churn, but never ignore changes
-            // to the panel element itself: hidden -> visible is the assistant
-            // open event that the old observer accidentally discarded.
+            // Transcript and composer mutations are intentionally invisible to
+            // the dock controller; typing must never trigger a dashboard scan.
             if (assistantRoot && assistantRoot !== target) return false;
-            if (record.type === 'childList') return true;
             if (target.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS) &&
                 record.attributeName !== 'style') return false;
-            // A route/dock controller may overwrite display:inline !important
-            // while the shield class is already present. Re-run the authority
-            // for that style mutation and restore the hidden inline values.
+            if (record.type === 'childList') {
+              // Inspect only the inserted subtree. This preserves support for
+              // opaque, classless fixed docks without walking the whole app.
+              for (const node of Array.from(record.addedNodes || [])) {
+                if (!(node instanceof HTMLElement)) continue;
+                pendingDockCandidates.add(node);
+                Array.from(node.children || []).forEach(child => pendingDockCandidates.add(child));
+              }
+              return pendingDockCandidates.size > 0;
+            }
+            // A changed node can itself become fixed/sticky without a
+            // navigation-like class, so inspect that node only.
+            pendingDockCandidates.add(target);
             return true;
           });
           if (needsRefresh) refresh();
@@ -3146,8 +3189,14 @@
     const input = $('bot-chat-input');
     if (input && input.dataset.ovyxNativeKeyboard !== '1') {
       input.dataset.ovyxNativeKeyboard = '1';
-      input.addEventListener('focus', () => syncUnderlyingBottomNavigation(true));
-      input.addEventListener('blur', () => syncUnderlyingBottomNavigation(false));
+      input.addEventListener('focus', () => {
+        syncAssistantVisualViewport();
+        syncUnderlyingBottomNavigation(true);
+      });
+      input.addEventListener('blur', () => {
+        syncAssistantVisualViewport();
+        syncUnderlyingBottomNavigation(false);
+      });
       input.addEventListener('keydown', event => {
         // Composer keystrokes belong to OVYX AI, never to dashboard-level
         // keyboard shortcuts or navigation handlers.
@@ -3160,11 +3209,22 @@
       input.addEventListener('keyup', event => event.stopPropagation());
       input.addEventListener('keypress', event => event.stopPropagation());
       input.addEventListener('input', () => {
-        input.style.height = 'auto';
-        input.style.height = Math.min(input.scrollHeight, 140) + 'px';
-        syncNativeComposerState();
-        // Focus/blur and the document mutation observer handle dock state;
-        // avoid re-scanning the entire dashboard on every typed character.
+        // Coalesce rapid keystrokes into one layout measurement per frame.
+        if (composerResizeFrame) return;
+        const resizeComposer = () => {
+          composerResizeFrame = 0;
+          if (!input.isConnected) return;
+          input.style.height = 'auto';
+          const nextHeight = Math.min(input.scrollHeight, 180);
+          if (input.style.height !== nextHeight + 'px') input.style.height = nextHeight + 'px';
+          syncNativeComposerState();
+        };
+        if (typeof window.requestAnimationFrame === 'function') {
+          composerResizeFrame = window.requestAnimationFrame(resizeComposer);
+        } else {
+          resizeComposer();
+        }
+        // Focus/blur and targeted dock mutations handle navigation state.
       });
     }
     installComposerNavigationShield();

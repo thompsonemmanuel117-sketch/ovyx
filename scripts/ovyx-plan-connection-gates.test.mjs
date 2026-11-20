@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import { QUOTA_PLANS } from '../functions/_lib/token-quota.js';
 import { buildAvailableCapabilities, buildPaidCapabilities } from '../functions/api/entitlements.js';
 import { resolveConnectionTier, UNIVERSAL_CONNECTION_LIMITS } from '../functions/api/settings/connections.js';
@@ -50,3 +51,11 @@ assert.match(planAdmin, /const planFeatures=\{pro:AVAILABLE_FEATURES,max:AVAILAB
 assert.match(planAdmin, /const gating=\{\}/);
 assert.match(planAdmin, /planFeaturesManaged:false/);
 console.log('OVYX plan quota and open feature availability tests passed.');
+
+const planBoardOrder = readFileSync(new URL('../assets/ovyx-plan-board-order.js', import.meta.url), 'utf8');
+new vm.Script(planBoardOrder, { filename: 'ovyx-plan-board-order.js' });
+assert.match(planBoardOrder, /const ORDER = \['free', 'pro', 'max'\]/);
+assert.match(planBoardOrder, /document\.getElementById\('view-pricing'\)/);
+assert.match(planBoardOrder, /ancestor\.insertBefore\(fragment, marker\)/);
+assert.match(planBoardOrder, /data-plan-tier/);
+console.log('OVYX pricing board order is Free, Pro, Max without changing server entitlements.');

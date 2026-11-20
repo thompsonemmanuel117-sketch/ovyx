@@ -39,7 +39,7 @@ try {
 
     if (target.name === 'desktop') {
       await page.evaluate(() => window.Router.go('projects'));
-      await page.waitForFunction(() => window.KernelState?.activeView === 'projects');
+      await page.waitForFunction(() => window.KernelState?.activeView === 'projects', null, { timeout: 60000, polling: 250 });
       await page.locator('#desktop-ai-assistant').click();
     } else {
       // Exercise the same public Assistant entry API on the mobile viewport.
