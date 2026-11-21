@@ -78,6 +78,7 @@ try {
       };
     });
 
+    console.log(`[${target.name}] Assistant geometry: ${JSON.stringify(geometry)}`);
     assert.equal(geometry.route, 'ai-assistant', `[${target.name}] Assistant entry did not navigate to its own route.`);
     assert.equal(geometry.panelParent, 'view-ai-assistant', `[${target.name}] existing panel was not mounted inside the dedicated page.`);
     assert.equal(geometry.panelPosition, 'relative', `[${target.name}] Assistant is still behaving like a floating overlay.`);
