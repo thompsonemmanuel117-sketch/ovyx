@@ -12,6 +12,7 @@ on:
       - feat/app-studio-panel-experience
     paths:
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
+      - 'scripts/ovyx-navigation-assistant-reliability.browser.test.mjs'
       - 'assets/ovyx-ai-assistant-page.js'
       - 'assets/css/ovyx-ai-assistant-page.css'
       - 'scripts/ovyx-ai-assistant-page.test.mjs'
@@ -286,6 +287,7 @@ jobs:
           # Settings coverage runs once in the dedicated Settings Regression workflow.
           # Keep this group focused on Assistant, Sentinel, provider and Web Studio flows.
           run_shard "assistant-and-runtime" /tmp/ovyx-assistant-shard-b.log \
+            ovyx-navigation-assistant-reliability.browser.test.mjs \
             ovyx-assistant-workspace.browser.test.mjs \
             ovyx-ai-assistant-page.browser.test.mjs \
             ovyx-sentinel.browser.test.mjs \

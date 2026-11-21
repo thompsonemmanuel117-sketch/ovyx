@@ -12,7 +12,7 @@ new vm.Script(pageRuntime, { filename: 'ovyx-ai-assistant-page.js' });
 
 assert.match(middleware, /ovyx-ai-assistant-page\.js\?v=20261120-1/,
   'The dedicated Assistant page runtime must be loaded by the Pages middleware.');
-assert.match(middleware, /ovyx-ai-assistant-page\.css\?v=20261120-3/,
+assert.match(middleware, /ovyx-ai-assistant-page\.css\?v=20261121-1/,
   'The dedicated Assistant page styles must be loaded by the Pages middleware.');
 assert.match(nativeAssistant, /'ai-assistant'/, 'The native Assistant action router must allow navigation to the dedicated Assistant page.');
 assert.match(pageRuntime, /view-ai-assistant/,

@@ -78,11 +78,12 @@ try {
       };
     });
 
+    console.log(`[${target.name}] Assistant geometry: ${JSON.stringify(geometry)}`);
     assert.equal(geometry.route, 'ai-assistant', `[${target.name}] Assistant entry did not navigate to its own route.`);
     assert.equal(geometry.panelParent, 'view-ai-assistant', `[${target.name}] existing panel was not mounted inside the dedicated page.`);
     assert.equal(geometry.panelPosition, 'relative', `[${target.name}] Assistant is still behaving like a floating overlay.`);
-    assert.equal(geometry.panel.x, geometry.surface.x, `[${target.name}] Assistant does not begin at the page's left edge.`);
-    assert.equal(geometry.panel.y, geometry.surface.y, `[${target.name}] Assistant does not begin at the page's top edge.`);
+    assert.ok(Math.abs(geometry.panel.x - geometry.surface.x) <= 1, `[${target.name}] Assistant does not begin at the page's left edge (allowing one CSS pixel for fractional mobile viewport rounding).`);
+    assert.ok(Math.abs(geometry.panel.y - geometry.surface.y) <= 1, `[${target.name}] Assistant does not begin at the page's top edge (allowing one CSS pixel for fractional mobile viewport rounding).`);
     assert.equal(geometry.panel.width, geometry.surface.width, `[${target.name}] Assistant does not fill the page width.`);
     assert.equal(geometry.panel.height, geometry.surface.height, `[${target.name}] Assistant does not fill the page height.`);
     assert.equal(geometry.bodyPageActive, true, `[${target.name}] page state was not synchronized with the shell.`);

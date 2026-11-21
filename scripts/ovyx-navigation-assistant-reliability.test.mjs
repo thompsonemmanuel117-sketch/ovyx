@@ -3,58 +3,93 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const nav = await readFile(new URL('../assets/ovyx-navigation-reliability.js', import.meta.url), 'utf8');
-const composer = await readFile(new URL('../assets/ovyx-assistant-composer-reliability.js', import.meta.url), 'utf8');
+const pageCss = await readFile(new URL('../assets/css/ovyx-ai-assistant-page.css', import.meta.url), 'utf8');
 const middleware = await readFile(new URL('../functions/_middleware.js', import.meta.url), 'utf8');
 assert.doesNotThrow(() => new vm.Script(nav));
-assert.doesNotThrow(() => new vm.Script(composer));
-assert.match(middleware, /ovyx-navigation-reliability\.js\?v=20261121-1/);
-assert.match(middleware, /ovyx-assistant-composer-reliability\.js\?v=20261121-1/);
-for (const route of ['home','webstudio','appstudio','workspace','projects','templates','settings','pricing','support','inbox']) {
-  assert.ok(nav.includes(route + ": '"), 'Navigation route must be supported: ' + route);
-}
-assert.match(nav, /document\.addEventListener\('click', handleNavigation, true\)/, 'Navigation must survive mobile drawer replacement through document delegation.');
-assert.match(nav, /data-v52-account/, 'Account menu Help and Plans entries must be covered.');
-assert.match(composer, /visualViewport\?\.addEventListener\?\.\('resize'/, 'Composer must react to Android keyboard viewport resizing.');
-assert.match(composer, /Math\.min\(input\.scrollHeight \|\| 48, max\)/, 'Composer text height must be capped to the visible viewport.');
-assert.match(composer, /flex: 1 1 0%/, 'Composer textarea must be allowed to shrink without covering adjacent controls.');
+assert.match(middleware, /ovyx-navigation-reliability\.js\?v=20261121-2/);
+assert.match(middleware, /ovyx-ai-assistant-page\.css\?v=20261121-1/);
+assert.match(pageCss, /#view-ai-assistant #kernel-brain-bot-panel\.ovyx-native-workspace #bot-chat-history \.ovyx-native-welcome\s*\{[\s\S]*?background:\s*transparent\s*!important;[\s\S]*?box-shadow:\s*none\s*!important;[\s\S]*?padding:\s*0\s*!important;/,
+  'The old opaque welcome board must be removed without deleting its message.');
 
-let delegatedClick = null;
-const routed = [];
-let drawerClosed = 0;
-const mockWindow = {
-  __OVYX_NAVIGATION_RELIABILITY_V1__: false,
-  MobileDrawer: { close() { drawerClosed += 1; } },
+let clickHandler = null;
+let routed = [];
+let closed = 0;
+const bodyClasses = new Set();
+const drawer = { querySelectorAll() { return []; }, matches() { return false; } };
+const documentMock = {
+  readyState: 'complete',
+  body: { classList: { remove(...names) { names.forEach(name => bodyClasses.delete(name)); } } },
+  addEventListener(type, handler, capture) { if (type === 'click' && capture) clickHandler = handler; },
+  getElementById(id) { return id === 'mobile-drawer' ? drawer : null; }
+};
+const windowMock = {
+  innerWidth: 390,
+  addEventListener() {},
+  requestAnimationFrame(fn) { fn(); return 1; },
   Router: { go(route) { routed.push(route); } },
-  addEventListener() {}
+  MobileDrawer: { close() { closed += 1; } }
 };
-const mockDocument = {
-  addEventListener(type, handler, capture) {
-    if (type === 'click' && capture) delegatedClick = handler;
-  }
-};
-vm.runInNewContext(nav, { window: mockWindow, document: mockDocument });
-assert.equal(typeof delegatedClick, 'function', 'One document-level capture handler must own navigation taps.');
-for (const [attribute, value, expected] of [
-  ['data-v52-account', 'help', 'support'],
-  ['data-v52-account', 'plans', 'pricing'],
-  ['data-mobile-nav', 'projects', 'projects'],
-  ['data-nav', 'settings', 'settings']
-]) {
+vm.runInNewContext(nav, { window: windowMock, document: documentMock, MutationObserver: undefined });
+assert.equal(typeof clickHandler, 'function');
+
+function click({ attr, value, label, context = true, id = '' }) {
+  const attrs = { [attr]: value };
   const item = {
-    disabled: false,
-    getAttribute(name) { return name === attribute ? value : null; },
-    closest(selector) { return selector === '#mobile-drawer' ? (attribute === 'data-mobile-nav' || attribute === 'data-v52-account' ? {} : null) : null; }
+    id, disabled: false, textContent: label || '',
+    getAttribute(name) { return attrs[name] ?? (name === 'aria-label' ? null : null); },
+    closest(selector) {
+      if (selector === '#mobile-drawer,#mobile-sidebar,#v52-account-menu') return context ? drawer : null;
+      if (selector.includes('#mobile-drawer') || selector.includes('#app-sidebar') ||
+          selector.includes('data-navigation') || selector.includes('[role="navigation"]') ||
+          selector.includes('.sidebar')) return context ? drawer : null;
+      return null;
+    }
   };
   let prevented = false, stopped = false;
-  delegatedClick({
-    target: { closest(selector) { return selector.includes('data-mobile-nav') || selector.includes('data-v52-account') || selector.includes('data-nav') ? item : null; } },
+  clickHandler({
+    target: { closest(selector) {
+      if (attr !== 'none' && (selector.includes('data-mobile-nav') || selector.includes('data-nav') ||
+          selector.includes('data-sidebar-nav') || selector.includes('data-v52-account') ||
+          selector.includes('data-v34-account') || selector.includes('data-v34-nav') ||
+          selector.includes('data-route') || selector.includes('data-ovyx-route') ||
+          selector.includes('#desktop-ai-assistant'))) return item;
+      if (selector === 'button,a,[role="button"],[role="menuitem"]') return context ? item : null;
+      return null;
+    }},
     preventDefault() { prevented = true; },
     stopImmediatePropagation() { stopped = true; }
   });
-  assert.equal(routed.at(-1), expected, value + ' navigation must reach the canonical route.');
-  assert.equal(prevented, true);
-  assert.equal(stopped, true);
+  return { prevented, stopped };
 }
-assert.equal(drawerClosed, 3, 'Mobile drawer taps must close the drawer after route navigation.');
 
-console.log('OVYX navigation and assistant composer reliability contracts passed.');
+for (const [attr, value, expected] of [
+  ['data-v52-account', 'plans', 'pricing'],
+  ['data-v52-account', 'help', 'support'],
+  ['data-v52-account', 'settings', 'settings'],
+  ['data-v52-account', 'ai-assistant', 'ai-assistant'],
+  ['data-mobile-nav', 'projects', 'projects'],
+  ['data-nav', 'settings', 'settings']
+]) {
+  const result = click({ attr, value, context: true });
+  assert.equal(routed.at(-1), expected, value + ' must route to the canonical destination.');
+  assert.equal(result.prevented, true);
+  assert.equal(result.stopped, true);
+}
+assert.equal(closed, 6, 'Mobile navigation should close the drawer after successful route changes.');
+
+routed = [];
+const labelRoutes = [
+  ['AI Assistant', 'ai-assistant'],
+  ['Plans', 'pricing'],
+  ['Settings', 'settings'],
+  ['Help', 'support']
+];
+for (const [label, expected] of labelRoutes) {
+  const result = click({ attr: 'none', value: '', label, context: true });
+  assert.equal(routed.at(-1), expected, label + ' label-only navigation must route from the real menu context.');
+  assert.equal(result.prevented, true);
+}
+const unknown = click({ attr: 'none', value: '', label: 'Delete project', context: true });
+assert.equal(unknown.prevented, false, 'Unrelated actions must not be intercepted.');
+
+console.log('OVYX global navigation and Assistant welcome-surface regression tests passed.');
