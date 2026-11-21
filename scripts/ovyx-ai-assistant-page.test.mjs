@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const pageRuntime = fs.readFileSync('assets/ovyx-ai-assistant-page.js', 'utf8');
-assert.match(middleware, /ovyx-ai-assistant-page\.css\?v=20261121-1/,
+const pageStyles = fs.readFileSync('assets/css/ovyx-ai-assistant-page.css', 'utf8');
 const middleware = fs.readFileSync('functions/_middleware.js', 'utf8');
 const nativeAssistant = fs.readFileSync('assets/ovyx-assistant-workspace.js', 'utf8');
 const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
