@@ -583,8 +583,8 @@
       }
       #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-input::placeholder{color:#85858e!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-attach{
-        display:grid!important;place-items:center!important;flex:0 0 36px!important;
-        width:36px!important;height:36px!important;min-width:36px!important;padding:0!important;
+        display:grid!important;place-items:center!important;flex:0 0 42px!important;
+        width:42px!important;height:42px!important;min-width:42px!important;padding:0!important;
         border:1px solid transparent!important;border-radius:11px!important;
         color:#c6c6cf!important;background:transparent!important;cursor:pointer!important;
         font-size:17px!important;line-height:1!important;
@@ -594,8 +594,8 @@
       }
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-attach:disabled{opacity:.35!important;cursor:not-allowed!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-mic{
-        display:grid!important;place-items:center!important;flex:0 0 36px!important;
-        width:36px!important;height:36px!important;min-width:36px!important;padding:0!important;
+        display:grid!important;place-items:center!important;flex:0 0 42px!important;
+        width:42px!important;height:42px!important;min-width:42px!important;padding:0!important;
         border:1px solid rgba(255,255,255,.08)!important;border-radius:11px!important;
         color:#c6c6cf!important;background:rgba(255,255,255,.025)!important;cursor:pointer!important;
         font-size:15px!important;line-height:1!important;transition:color .16s ease,background .16s ease,border-color .16s ease!important;
@@ -609,7 +609,7 @@
       @keyframes ovyxMicPulse{50%{box-shadow:0 0 0 5px rgba(255,90,110,.1)!important}}
       @media(prefers-reduced-motion:reduce){#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-mic.is-listening{animation:none!important}}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-send{
-        flex:0 0 36px!important;width:36px!important;height:36px!important;
+        flex:0 0 42px!important;width:42px!important;height:42px!important;
         border-radius:12px!important;background:#f3f3f5!important;color:#111113!important;
       }
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-send:disabled{opacity:.32!important}
@@ -3326,10 +3326,10 @@
         const resizeComposer = () => {
           composerResizeFrame = 0;
           if (!input.isConnected) return;
-          const maxHeight = Math.max(72, Math.min(180,
-            Math.round((window.visualViewport?.height || window.innerHeight || 640) * 0.28)));
+          const maxHeight = Math.max(72, Math.min(144,
+            Math.round((window.visualViewport?.height || window.innerHeight || 640) * 0.24)));
           input.style.height = 'auto';
-          const nextHeight = Math.max(44, Math.min(input.scrollHeight || 44, maxHeight));
+          const nextHeight = Math.max(42, Math.min(input.scrollHeight || 42, maxHeight));
           if (input.style.height !== nextHeight + 'px') input.style.height = nextHeight + 'px';
           input.style.overflowY = input.scrollHeight > maxHeight + 1 ? 'auto' : 'hidden';
           syncNativeComposerState();
