@@ -15,6 +15,6 @@ for (const route of ['home','webstudio','appstudio','workspace','projects','temp
 assert.match(nav, /document\.addEventListener\('click', handleNavigation, true\)/, 'Navigation must survive mobile drawer replacement through document delegation.');
 assert.match(nav, /data-v52-account/, 'Account menu Help and Plans entries must be covered.');
 assert.match(composer, /visualViewport\?\.addEventListener\?\.\('resize'/, 'Composer must react to Android keyboard viewport resizing.');
-assert.match(composer, /Math\.min\(input\.scrollHeight, max\)/, 'Composer text height must be capped to the visible viewport.');
+assert.match(composer, /Math\.min\(input\.scrollHeight \|\| 48, max\)/, 'Composer text height must be capped to the visible viewport.');
 assert.match(composer, /flex: 1 1 0%/, 'Composer textarea must be allowed to shrink without covering adjacent controls.');
 console.log('OVYX navigation and assistant composer reliability contracts passed.');
