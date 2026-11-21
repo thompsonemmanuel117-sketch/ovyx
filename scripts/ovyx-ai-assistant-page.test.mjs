@@ -15,6 +15,17 @@ assert.match(middleware, /ovyx-ai-assistant-page\.js\?v=20261120-1/,
 assert.match(middleware, /ovyx-ai-assistant-page\.css\?v=20261121-1/,
   'The dedicated Assistant page styles must be loaded by the Pages middleware.');
 assert.match(nativeAssistant, /'ai-assistant'/, 'The native Assistant action router must allow navigation to the dedicated Assistant page.');
+assert.match(nativeAssistant, /const keyboardOpen = height < layoutHeight - 120/,
+  'Android viewport offsets must only be applied when the keyboard is actually open.');
+assert.match(nativeAssistant, /data-ovyx-native-mic/,
+  'The native Assistant composer must expose a microphone control.');
+assert.match(nativeAssistant, /SpeechRecognition \|\| window\.webkitSpeechRecognition/,
+  'Voice input must use the browser speech-recognition API when available.');
+assert.match(nativeAssistant, /input\.dispatchEvent\(new Event\('input', \{ bubbles: true \}\)\)/,
+  'Recognized speech must enter the normal composer input flow so sizing and send state update.');
+assert.match(nativeAssistant, /originalText \+ \(originalText \? ' ' : ''\) \+ spoken/,
+  'Interim speech results must replace the prior interim text instead of duplicating it.');
+
 assert.match(pageRuntime, /view-ai-assistant/,
   'The Assistant must have its own routed view, separate from Workspace repair tools.');
 assert.match(pageRuntime, /if \(!assistant\) return true/, 'The route must install before the legacy Assistant lazily creates its panel.');
