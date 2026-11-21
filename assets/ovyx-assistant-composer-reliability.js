@@ -30,6 +30,8 @@
         body.ovyx-ai-assistant-page-active #view-ai-assistant #kernel-brain-bot-panel {
           display: flex !important;
           flex-direction: column !important;
+          left: 0 !important;
+          margin-left: 0 !important;
         }
         body.ovyx-ai-assistant-page-active #view-ai-assistant #kernel-brain-bot-panel #bot-chat-history {
           flex: 1 1 0% !important;
