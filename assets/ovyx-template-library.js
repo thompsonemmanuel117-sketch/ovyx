@@ -93,6 +93,22 @@
           // A legacy catalogue can leave behind its own wrapper while replacing
           // the server-owned cards. Check the actual published card count too.
           render();
+          // The legacy renderer can run later in the same navigation frame and
+          // replace the feed after this observer's synchronous repair. Recheck
+          // after the browser has completed the competing render work, then
+          // restore the server-owned cards only if the catalogue is still wrong.
+          window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+            if (!isTemplatesView()) return;
+            const latestView = $('view-templates');
+            const latestFeed = $('templates-catalog-feed');
+            if (!latestView || !latestFeed || latestView.classList.contains('hidden')) return;
+            const latestCount = latestFeed.querySelectorAll('[data-template-card]').length;
+            const expectedCount = visibleItems().length;
+            if (!latestFeed.querySelector('[data-ovyx-template-cards="1"], .ovyx-template-empty[data-ovyx-template-empty="1"]') ||
+              (!state.loading && !state.error && state.items.length > 0 && latestCount !== expectedCount)) {
+              render();
+            }
+          }));
         }
       });
       observer.observe(observerRoot, { childList: true, subtree: true });
