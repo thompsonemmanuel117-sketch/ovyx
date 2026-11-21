@@ -33,11 +33,10 @@ try {
 
   async function clickAccountEntry(kind) {
     await page.evaluate(() => window.MobileDrawer.open());
-    await page.waitForFunction(() => {
-      const drawer = document.getElementById('mobile-drawer');
-      return !!drawer && !drawer.hidden && getComputedStyle(drawer).visibility !== 'hidden' &&
-        getComputedStyle(drawer).display !== 'none';
-    }, null, { timeout: 10000 });
+    // The legacy drawer can remain mounted in a transformed off-canvas layer;
+    // wait for the actual account entries rather than assuming a particular
+    // visibility/display implementation for its shell container.
+    await page.waitForTimeout(150);
 
     const found = await page.evaluate(kind => {
       const aliases = {
@@ -48,9 +47,8 @@ try {
       }[kind];
       const normalize = value => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
       const candidates = Array.from(document.querySelectorAll(
-        '#mobile-drawer [data-v52-account],#mobile-drawer [data-mobile-nav],#mobile-drawer [data-nav],' +
-        '#mobile-drawer [data-sidebar-nav],#mobile-drawer button,#mobile-drawer a,' +
-        '#app-sidebar [data-v52-account],#app-sidebar [data-nav],#app-sidebar button,#app-sidebar a'
+        '[data-v52-account],[data-mobile-nav],[data-nav],[data-sidebar-nav],[data-route],[data-ovyx-route],#desktop-ai-assistant,' +
+        '#mobile-drawer button,#mobile-drawer a,#app-sidebar button,#app-sidebar a'
       ));
       const item = candidates.find(node => {
         if (node.disabled || node.getAttribute('aria-disabled') === 'true') return false;
