@@ -47,7 +47,7 @@
         }
         body.ovyx-ai-assistant-page-active #view-ai-assistant .ovyx-native-composer {
           display: flex !important;
-          align-items: flex-end !important;
+          align-items: center !important;
           gap: 8px !important;
           width: 100% !important;
           min-width: 0 !important;
@@ -58,9 +58,9 @@
           flex: 1 1 0% !important;
           width: 0 !important;
           min-width: 0 !important;
-          min-height: 48px !important;
+          min-height: 42px !important;
           max-height: min(144px, 24dvh) !important;
-          height: 48px;
+          height: 42px;
           box-sizing: border-box !important;
           margin: 0 !important;
           padding: 11px 12px !important;
@@ -68,18 +68,19 @@
           outline: 0 !important;
           resize: none !important;
           overflow-x: hidden !important;
-          overflow-y: auto !important;
+          overflow-y: hidden;
           overscroll-behavior: contain !important;
           -webkit-overflow-scrolling: touch !important;
           line-height: 1.45 !important;
           touch-action: pan-y !important;
         }
         body.ovyx-ai-assistant-page-active #view-ai-assistant .ovyx-native-send,
-        body.ovyx-ai-assistant-page-active #view-ai-assistant [data-ovyx-native-attach] {
-          flex: 0 0 44px !important;
-          width: 44px !important;
-          min-width: 44px !important;
-          height: 44px !important;
+        body.ovyx-ai-assistant-page-active #view-ai-assistant [data-ovyx-native-attach],
+        body.ovyx-ai-assistant-page-active #view-ai-assistant [data-ovyx-native-mic] {
+          flex: 0 0 42px !important;
+          width: 42px !important;
+          min-width: 42px !important;
+          height: 42px !important;
           align-self: flex-end !important;
         }
       }
