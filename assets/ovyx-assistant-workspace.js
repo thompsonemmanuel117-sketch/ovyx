@@ -3324,9 +3324,12 @@
         const resizeComposer = () => {
           composerResizeFrame = 0;
           if (!input.isConnected) return;
+          const maxHeight = Math.max(72, Math.min(180,
+            Math.round((window.visualViewport?.height || window.innerHeight || 640) * 0.28)));
           input.style.height = 'auto';
-          const nextHeight = Math.min(input.scrollHeight, 180);
+          const nextHeight = Math.max(44, Math.min(input.scrollHeight || 44, maxHeight));
           if (input.style.height !== nextHeight + 'px') input.style.height = nextHeight + 'px';
+          input.style.overflowY = input.scrollHeight > maxHeight + 1 ? 'auto' : 'hidden';
           syncNativeComposerState();
         };
         if (typeof window.requestAnimationFrame === 'function') {
