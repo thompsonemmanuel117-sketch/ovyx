@@ -1137,12 +1137,14 @@
     const input = $('bot-chat-input');
     const sendButton = p?.querySelector('[data-ovyx-native-send]');
     const attachButton = p?.querySelector('[data-ovyx-native-attach]');
+    const micButton = p?.querySelector('[data-ovyx-native-mic]');
     if (sendButton && !busy) {
       sendButton.disabled = !(String(input?.value || '').trim() || stagedAttachments.length);
       sendButton.setAttribute('aria-disabled', String(sendButton.disabled));
       sendButton.innerHTML = '<i class="fa-solid fa-arrow-up" aria-hidden="true"></i>';
     }
     if (attachButton) attachButton.disabled = busy;
+    if (micButton) micButton.disabled = busy;
   }
 
   function renderNativeAttachmentStrip() {
