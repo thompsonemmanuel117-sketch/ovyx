@@ -27,7 +27,7 @@
       if (value && ROUTES[value]) return ROUTES[value];
     }
     const inline = String(item.getAttribute('onclick') || '');
-    const match = inline.match(/(?:Router\\.go|switchView)\\s*\\(\\s*['"]([a-z0-9_-]+)['"]/i);
+    const match = inline.match(/(?:Router\.go|switchView)\s*\(\s*['"]([a-z0-9_-]+)['"]/i);
     if (match) return ROUTES[String(match[1]).toLowerCase()] || null;
     return null;
   }
