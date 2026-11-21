@@ -104,6 +104,12 @@ assert.match(source, /const MAX_NATIVE_ATTACHMENTS = 6/);
 assert.match(source, /function stageNativeAttachments\(fileList\)/);
 assert.match(source, /attachmentInput\.multiple = true/);
 assert.match(source, /data-ovyx-native-attach/);
+assert.match(source, /data-ovyx-native-mic/);
+assert.match(source, /function startNativeVoiceInput\(button\)/);
+assert.match(source, /SpeechRecognition \|\| window\.webkitSpeechRecognition/);
+assert.match(source, /aria-label', 'Stop voice input'/);
+assert.match(source, /originalText \+ \(originalText \? ' ' : ''\) \+ spoken/);
+
 assert.match(source, /data-ovyx-native-remove-attachment/);
 assert.match(source, /function redactNativeAttachmentText\(value\)/);
 assert.match(source, /function isNativeSensitiveFilename\(name\)/);

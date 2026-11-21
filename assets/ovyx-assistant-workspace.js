@@ -10,6 +10,7 @@
   const NATIVE_RESPONSE_BOT_MARK = "<svg viewBox=\"0 0 64 64\" aria-hidden=\"true\"><defs><linearGradient id=\"ovyxNativeDiamondGold\" x1=\"0\" y1=\"1\" x2=\"1\" y2=\"0\"><stop offset=\"0\" stop-color=\"#8d5a15\"/><stop offset=\".48\" stop-color=\"#fff0b0\"/><stop offset=\"1\" stop-color=\"#d49a36\"/></linearGradient></defs><path d=\"M32 5 54 18 54 46 32 59 10 46 10 18Z\" fill=\"none\" stroke=\"url(#ovyxNativeDiamondGold)\" stroke-width=\"3\" stroke-linejoin=\"round\"/><path d=\"M32 16 43 23 43 41 32 48 21 41 21 23Z\" fill=\"rgba(232,182,79,.09)\" stroke=\"url(#ovyxNativeDiamondGold)\" stroke-width=\"2.4\" stroke-linejoin=\"round\"/><path d=\"M10 18 32 16 54 18 M10 46 32 48 54 46 M32 5 32 16 M32 48 32 59\" fill=\"none\" stroke=\"#e8c36f\" stroke-opacity=\".8\" stroke-width=\"1.3\"/></svg>";
   let busy = false;
   let composerResizeFrame = 0;
+  let activeVoiceRecognition = null;
   let activeActivityNode = null;
   let workspaceTaskStatus = 'idle';
   let workspaceTaskMessage = '';
@@ -207,7 +208,12 @@
       return;
     }
     const height = Math.max(1, Math.round(viewport.height));
-    const offset = Math.max(0, Math.round(viewport.offsetTop || 0));
+    const layoutHeight = Math.max(1, Math.round(window.innerHeight || height));
+    // Android Chrome may report a non-zero offset while browser chrome settles.
+    // Only use viewport panning when the keyboard is actually reducing the
+    // visible area; otherwise keep the routed page pinned to the true origin.
+    const keyboardOpen = height < layoutHeight - 120;
+    const offset = keyboardOpen ? Math.max(0, Math.round(viewport.offsetTop || 0)) : 0;
     root.style.setProperty('--ovyx-assistant-visual-height', height + 'px');
     root.style.setProperty('--ovyx-assistant-visual-offset', offset + 'px');
   }
@@ -587,6 +593,21 @@
         color:#fff!important;background:rgba(255,255,255,.06)!important;
       }
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-attach:disabled{opacity:.35!important;cursor:not-allowed!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-mic{
+        display:grid!important;place-items:center!important;flex:0 0 36px!important;
+        width:36px!important;height:36px!important;min-width:36px!important;padding:0!important;
+        border:1px solid rgba(255,255,255,.08)!important;border-radius:11px!important;
+        color:#c6c6cf!important;background:rgba(255,255,255,.025)!important;cursor:pointer!important;
+        font-size:15px!important;line-height:1!important;transition:color .16s ease,background .16s ease,border-color .16s ease!important;
+      }
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-mic:hover{color:#fff!important;background:rgba(255,255,255,.07)!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-mic.is-listening{
+        color:#ff8792!important;border-color:rgba(255,110,125,.5)!important;
+        background:rgba(255,90,110,.12)!important;animation:ovyxMicPulse 1.15s ease-in-out infinite!important;
+      }
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-mic:focus-visible{outline:2px solid rgba(232,182,79,.8)!important;outline-offset:2px!important}
+      @keyframes ovyxMicPulse{50%{box-shadow:0 0 0 5px rgba(255,90,110,.1)!important}}
+      @media(prefers-reduced-motion:reduce){#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-mic.is-listening{animation:none!important}}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-send{
         flex:0 0 36px!important;width:36px!important;height:36px!important;
         border-radius:12px!important;background:#f3f3f5!important;color:#111113!important;
@@ -1041,17 +1062,89 @@
       .replace(/\b(?:sk-[A-Za-z0-9]{16,}|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[A-Z0-9]{16})\b/g, '[REDACTED CREDENTIAL]');
   }
 
+  function startNativeVoiceInput(button) {
+    if (activeVoiceRecognition) {
+      try { activeVoiceRecognition.stop(); } catch (_) {}
+      return;
+    }
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) {
+      responseToast('Voice input is not supported in this browser. You can still type your message.', 'warning');
+      return;
+    }
+    const input = $('bot-chat-input');
+    if (!input) return;
+    let recognition;
+    try {
+      recognition = new Recognition();
+      recognition.lang = document.documentElement.lang || navigator.language || 'en-US';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+    } catch (_) {
+      responseToast('Voice input could not be started on this device.', 'warning');
+      return;
+    }
+    activeVoiceRecognition = recognition;
+    button.classList.add('is-listening');
+    button.setAttribute('aria-pressed', 'true');
+    button.setAttribute('aria-label', 'Stop voice input');
+    button.title = 'Listening… tap to stop';
+    let finalTranscript = '';
+    const originalText = String(input.value || '').trimEnd();
+    recognition.onresult = event => {
+      let interim = '';
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const transcript = String(event.results[index]?.[0]?.transcript || '');
+        if (event.results[index].isFinal) finalTranscript += transcript;
+        else interim += transcript;
+      }
+      const spoken = (finalTranscript + (interim ? ' ' + interim : '')).trim();
+      if (spoken) {
+        input.value = originalText + (originalText ? ' ' : '') + spoken;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    };
+    recognition.onerror = event => {
+      if (event.error !== 'no-speech' && event.error !== 'aborted') {
+        responseToast(event.error === 'not-allowed'
+          ? 'Microphone permission was blocked. Allow microphone access in your browser settings.'
+          : 'Voice input stopped: ' + String(event.error || 'unknown error') + '.', 'warning');
+      }
+    };
+    recognition.onend = () => {
+      if (activeVoiceRecognition === recognition) activeVoiceRecognition = null;
+      button.classList.remove('is-listening');
+      button.setAttribute('aria-pressed', 'false');
+      button.setAttribute('aria-label', 'Start voice input');
+      button.title = 'Speak your message';
+      input.focus({ preventScroll: true });
+    };
+    try {
+      recognition.start();
+    } catch (_) {
+      activeVoiceRecognition = null;
+      button.classList.remove('is-listening');
+      button.setAttribute('aria-pressed', 'false');
+      button.setAttribute('aria-label', 'Start voice input');
+      button.title = 'Speak your message';
+      responseToast('The microphone could not start. Please try again.', 'warning');
+    }
+  }
+
   function syncNativeComposerState() {
     const p = panel();
     const input = $('bot-chat-input');
     const sendButton = p?.querySelector('[data-ovyx-native-send]');
     const attachButton = p?.querySelector('[data-ovyx-native-attach]');
+    const micButton = p?.querySelector('[data-ovyx-native-mic]');
     if (sendButton && !busy) {
       sendButton.disabled = !(String(input?.value || '').trim() || stagedAttachments.length);
       sendButton.setAttribute('aria-disabled', String(sendButton.disabled));
       sendButton.innerHTML = '<i class="fa-solid fa-arrow-up" aria-hidden="true"></i>';
     }
     if (attachButton) attachButton.disabled = busy;
+    if (micButton) micButton.disabled = busy;
   }
 
   function renderNativeAttachmentStrip() {
@@ -1313,6 +1406,17 @@
           attachmentButton.setAttribute('title', 'Attach files');
           attachmentButton.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true"></i>';
           existingInputRow.insertBefore(attachmentButton, input || existingInputRow.firstChild);
+        }
+        let voiceButton = existingInputRow.querySelector('[data-ovyx-native-mic]');
+        if (!voiceButton) {
+          voiceButton = document.createElement('button');
+          voiceButton.type = 'button';
+          voiceButton.className = 'ovyx-native-mic';
+          voiceButton.dataset.ovyxNativeMic = '1';
+          voiceButton.setAttribute('aria-label', 'Start voice input');
+          voiceButton.setAttribute('title', 'Speak your message');
+          voiceButton.innerHTML = '<i class="fa-solid fa-microphone" aria-hidden="true"></i>';
+          existingInputRow.insertBefore(voiceButton, input || existingInputRow.lastElementChild);
         }
         renderNativeAttachmentStrip();
       }
@@ -3104,6 +3208,14 @@
         $('ovyx-native-attachment-input')?.click();
         return;
       }
+      const voiceTrigger = event.target.closest('[data-ovyx-native-mic]');
+      if (voiceTrigger) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        startNativeVoiceInput(voiceTrigger);
+        return;
+      }
       const responseAction = event.target.closest('[data-ovyx-native-response-action]');
       if (responseAction) {
         event.preventDefault();
@@ -3214,9 +3326,12 @@
         const resizeComposer = () => {
           composerResizeFrame = 0;
           if (!input.isConnected) return;
+          const maxHeight = Math.max(72, Math.min(180,
+            Math.round((window.visualViewport?.height || window.innerHeight || 640) * 0.28)));
           input.style.height = 'auto';
-          const nextHeight = Math.min(input.scrollHeight, 180);
+          const nextHeight = Math.max(44, Math.min(input.scrollHeight || 44, maxHeight));
           if (input.style.height !== nextHeight + 'px') input.style.height = nextHeight + 'px';
+          input.style.overflowY = input.scrollHeight > maxHeight + 1 ? 'auto' : 'hidden';
           syncNativeComposerState();
         };
         if (typeof window.requestAnimationFrame === 'function') {
