@@ -1091,6 +1091,7 @@
     button.setAttribute('aria-label', 'Stop voice input');
     button.title = 'Listening… tap to stop';
     let finalTranscript = '';
+    const originalText = String(input.value || '').trimEnd();
     recognition.onresult = event => {
       let interim = '';
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
@@ -1100,8 +1101,7 @@
       }
       const spoken = (finalTranscript + (interim ? ' ' + interim : '')).trim();
       if (spoken) {
-        const base = String(input.value || '').trimEnd();
-        input.value = (base ? base + (/[\\s]$/.test(base) ? '' : ' ') : '') + spoken;
+        input.value = originalText + (originalText ? ' ' : '') + spoken;
         input.dispatchEvent(new Event('input', { bubbles: true }));
       }
     };
