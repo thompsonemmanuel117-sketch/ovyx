@@ -48,11 +48,11 @@ function click({ attr, value, label, context = true, id = '' }) {
   let prevented = false, stopped = false;
   clickHandler({
     target: { closest(selector) {
-      if (selector.includes('data-mobile-nav') || selector.includes('data-nav') ||
+      if (attr !== 'none' && (selector.includes('data-mobile-nav') || selector.includes('data-nav') ||
           selector.includes('data-sidebar-nav') || selector.includes('data-v52-account') ||
           selector.includes('data-v34-account') || selector.includes('data-v34-nav') ||
           selector.includes('data-route') || selector.includes('data-ovyx-route') ||
-          selector.includes('#desktop-ai-assistant')) return item;
+          selector.includes('#desktop-ai-assistant'))) return item;
       if (selector === 'button,a,[role="button"],[role="menuitem"]') return context ? item : null;
       return null;
     }},
