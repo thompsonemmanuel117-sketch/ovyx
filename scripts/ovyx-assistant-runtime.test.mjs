@@ -5,6 +5,7 @@ const source = fs.readFileSync('assets/ovyx-assistant-workspace.js', 'utf8');
 const native = fs.readFileSync('functions/_lib/ovyx-native-ai.js', 'utf8');
 
 const assistantPageCss = fs.readFileSync('assets/css/ovyx-ai-assistant-page.css', 'utf8');
+const composerReliability = fs.readFileSync('assets/ovyx-assistant-composer-reliability.js', 'utf8');
 assert.match(source, /getElementById\('ovyx-v52-bottom-bar'\)/);
 assert.match(source, /pendingDockCandidates/);
 assert.match(source, /syncAssistantVisualViewport/);
@@ -105,6 +106,13 @@ assert.match(source, /function stageNativeAttachments\(fileList\)/);
 assert.match(source, /attachmentInput\.multiple = true/);
 assert.match(source, /data-ovyx-native-attach/);
 assert.match(source, /data-ovyx-native-mic/);
+assert.match(source, /flex:0 0 42px!important;width:42px!important;height:42px!important/);
+assert.match(source, /Math\.min\(144/);
+assert.match(composerReliability, /overflow-y: hidden;/,
+  'The mobile composer must not show a permanent scrollbar when the textarea is empty.');
+assert.match(composerReliability, /\[data-ovyx-native-mic\]/,
+  'The microphone must share the same measured action-button sizing as attach and send.');
+assert.match(composerReliability, /align-items: center !important/);
 assert.match(source, /function startNativeVoiceInput\(button\)/);
 assert.match(source, /SpeechRecognition \|\| window\.webkitSpeechRecognition/);
 assert.match(source, /aria-label', 'Stop voice input'/);
