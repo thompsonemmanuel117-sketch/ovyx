@@ -89,6 +89,29 @@ try {
     assert.equal(geometry.bodyPageActive, true, `[${target.name}] page state was not synchronized with the shell.`);
     if (target.name === 'mobile') {
       assert.equal(geometry.dockDisplay, 'none', '[mobile] dashboard bottom navigation must remain hidden on the Assistant page.');
+      const mic = panel.locator('[data-ovyx-native-mic]');
+      await mic.waitFor({ state: 'visible' });
+      assert.equal(await mic.getAttribute('aria-label'), 'Start voice input',
+        '[mobile] the Assistant composer must expose an accessible microphone control.');
+      await page.evaluate(() => {
+        class FakeRecognition {
+          start() { window.__ovyxFakeRecognition = this; }
+          stop() { this.onend?.(); }
+        }
+        window.SpeechRecognition = FakeRecognition;
+        document.querySelector('#kernel-brain-bot-panel [data-ovyx-native-mic]').click();
+      });
+      await page.waitForFunction(() => window.__ovyxFakeRecognition);
+      await page.evaluate(() => {
+        const recognition = window.__ovyxFakeRecognition;
+        recognition.onresult({
+          resultIndex: 0,
+          results: Object.assign([{ 0: { transcript: 'Hello OVYX' }, isFinal: true }], { length: 1 }),
+        });
+      });
+      assert.match(await page.locator('#bot-chat-input').inputValue(), /Hello OVYX/,
+        '[mobile] recognised speech must populate the normal Assistant message composer.');
+      await page.evaluate(() => window.__ovyxFakeRecognition?.onend?.());
     }
 
     await panel.locator('.ovyx-ai-assistant-close').click();
