@@ -81,7 +81,7 @@
           width: 42px !important;
           min-width: 42px !important;
           height: 42px !important;
-          align-self: flex-end !important;
+          align-self: center !important;
         }
       }
     `;
