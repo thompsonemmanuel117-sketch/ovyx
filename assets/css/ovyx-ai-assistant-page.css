@@ -196,3 +196,19 @@ body.ovyx-ai-assistant-page-active #view-ai-assistant {
     padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
   }
 }
+
+
+/* The native Assistant welcome message used to retain the legacy black card.
+   Keep the same copy and typography, but remove the opaque board so the
+   conversation opens directly on the routed workspace surface. */
+#view-ai-assistant #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history .ovyx-native-welcome {
+  background: transparent !important;
+  border: 0 !important;
+  border-color: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  max-width: 760px !important;
+}
