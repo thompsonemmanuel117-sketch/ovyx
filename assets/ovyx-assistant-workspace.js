@@ -209,11 +209,18 @@
     }
     const height = Math.max(1, Math.round(viewport.height));
     const layoutHeight = Math.max(1, Math.round(window.innerHeight || height));
-    // Android Chrome may report a non-zero offset while browser chrome settles.
-    // Only use viewport panning when the keyboard is actually reducing the
-    // visible area; otherwise keep the routed page pinned to the true origin.
+    // The visual viewport can be shorter than the layout viewport simply
+    // because Android browser chrome is visible. Do not permanently size the
+    // routed page to that smaller area: doing so creates a dead black strip
+    // below the composer. Only take viewport ownership while the keyboard
+    // actually opens; otherwise let the page use its normal 100dvh layout.
     const keyboardOpen = height < layoutHeight - 120;
-    const offset = keyboardOpen ? Math.max(0, Math.round(viewport.offsetTop || 0)) : 0;
+    if (!keyboardOpen) {
+      root.style.removeProperty('--ovyx-assistant-visual-height');
+      root.style.removeProperty('--ovyx-assistant-visual-offset');
+      return;
+    }
+    const offset = Math.max(0, Math.round(viewport.offsetTop || 0));
     root.style.setProperty('--ovyx-assistant-visual-height', height + 'px');
     root.style.setProperty('--ovyx-assistant-visual-offset', offset + 'px');
   }
