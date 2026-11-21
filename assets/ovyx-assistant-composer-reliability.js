@@ -121,8 +121,9 @@
     if (frame) return;
     const run = function () {
       frame = 0;
+      // The native Assistant workspace owns textarea sizing. Keeping a second
+      // resize loop here caused competing inline-height writes while typing.
       syncViewport();
-      resizeInput(inputNode() || input);
     };
     frame = typeof window.requestAnimationFrame === 'function' ? window.requestAnimationFrame(run) : window.setTimeout(run, 16);
   }
