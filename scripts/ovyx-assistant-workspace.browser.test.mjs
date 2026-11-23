@@ -92,7 +92,7 @@ try {
         .filter(src => /\/assets\/ovyx-assistant-workspace\.js(?:\?|$)/.test(src))
     );
     assert.ok(assistantAssetSources.length, `[${target.name}] assistant workspace asset was not fetched`);
-    assert.ok(assistantAssetSources.some(src => /[?&]v=20261121-1(?:&|$)/.test(src)),
+    assert.ok(assistantAssetSources.some(src => /[?&]v=20261121-2(?:&|$)/.test(src)),
       `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
     // Resource timing records a fetch before the asset's boot hook necessarily
     // finishes. Wait for the native wrapper before invoking the public open API.
@@ -308,6 +308,22 @@ try {
     assert.equal(scrollState.historyOverflowY, 'auto', '[' + target.name + '] chat history must remain independently scrollable.');
     assert.equal(scrollState.historyMinHeight, '0px', '[' + target.name + '] chat history must be allowed to shrink inside the flex workspace.');
     assert.equal(scrollState.composerResize, 'none', '[' + target.name + '] composer must not expose a drag-resize handle.');
+    const composerLayout = await panel.evaluate(node => {
+      const footer = node.querySelector(':scope > div:last-child');
+      const composer = node.querySelector('.ovyx-native-composer');
+      const input = node.querySelector('#bot-chat-input');
+      const rect = element => {
+        const box = element.getBoundingClientRect();
+        return { top: Math.round(box.top), bottom: Math.round(box.bottom), height: Math.round(box.height) };
+      };
+      return { footer: rect(footer), composer: rect(composer), input: rect(input),
+        pageHeight: Math.round(document.getElementById('view-ai-assistant').getBoundingClientRect().height),
+        visualHeight: document.getElementById('view-ai-assistant').style.getPropertyValue('--ovyx-assistant-visual-height') };
+    });
+    assert.ok(composerLayout.footer.height < 150,
+      '[' + target.name + '] composer footer must not retain a large empty black area: ' + JSON.stringify(composerLayout));
+    assert.ok(composerLayout.composer.bottom <= composerLayout.footer.bottom - 4,
+      '[' + target.name + '] composer must sit inside the footer with a small, consistent bottom inset: ' + JSON.stringify(composerLayout));
     await composer.press('z');
     assert.equal(await page.evaluate(() => window.__ovyxAssistantTypingKeyBubbles), 0,
       `[${target.name}] assistant typing must not bubble into dashboard keyboard shortcuts`);

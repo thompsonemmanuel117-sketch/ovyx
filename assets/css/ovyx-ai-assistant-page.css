@@ -186,17 +186,25 @@ body.ovyx-ai-assistant-page-active #view-ai-assistant {
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
   }
+  #view-ai-assistant #kernel-brain-bot-panel .ovyx-native-composer {
+    align-items: center !important;
+    box-sizing: border-box !important;
+    margin-bottom: 0 !important;
+  }
   #view-ai-assistant #kernel-brain-bot-panel #bot-chat-input {
-    max-height: min(180px, 28dvh) !important;
+    max-height: min(144px, 24dvh) !important;
+    min-height: 42px !important;
     resize: none !important;
-    overflow-y: auto !important;
-    overscroll-behavior: contain;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain !important;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
   }
   #view-ai-assistant #kernel-brain-bot-panel > div:last-child {
-    flex-shrink: 0 !important;
-    padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
+    flex: 0 0 auto !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom)) !important;
   }
 }
 

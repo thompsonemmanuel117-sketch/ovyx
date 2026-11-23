@@ -95,13 +95,17 @@
     if (viewport) {
       const visualHeight = Math.max(1, Math.round(viewport.height));
       const layoutHeight = Math.max(1, Math.round(window.innerHeight || visualHeight));
-      // Android Chrome can report a non-zero visualViewport offset while its
-      // browser chrome settles, even when the keyboard is closed. Applying
-      // that offset to the entire routed page shifts the Assistant away from
-      // the top edge. Only compensate for viewport panning when the keyboard
-      // is actually reducing the visible height.
+      // Browser chrome can shrink visualViewport while the keyboard is closed.
+      // Using that smaller height for the full page leaves unused black space
+      // beneath the composer. Use visual viewport sizing only for a real
+      // keyboard transition, then restore the normal 100dvh layout.
       const keyboardOpen = visualHeight < layoutHeight - 120;
-      const visualOffset = keyboardOpen ? Math.max(0, Math.round(viewport.offsetTop || 0)) : 0;
+      if (!keyboardOpen) {
+        page.style.removeProperty('--ovyx-assistant-visual-height');
+        page.style.removeProperty('--ovyx-assistant-visual-offset');
+        return;
+      }
+      const visualOffset = Math.max(0, Math.round(viewport.offsetTop || 0));
       page.style.setProperty('--ovyx-assistant-visual-height', visualHeight + 'px');
       page.style.setProperty('--ovyx-assistant-visual-offset', visualOffset + 'px');
     }
