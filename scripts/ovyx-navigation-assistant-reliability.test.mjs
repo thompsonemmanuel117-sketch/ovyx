@@ -7,7 +7,7 @@ const pageCss = await readFile(new URL('../assets/css/ovyx-ai-assistant-page.css
 const middleware = await readFile(new URL('../functions/_middleware.js', import.meta.url), 'utf8');
 assert.doesNotThrow(() => new vm.Script(nav));
 assert.match(middleware, /ovyx-navigation-reliability\.js\?v=20261126-1/);
-assert.match(middleware, /ovyx-ai-assistant-page\.css\?v=20261121-1/);
+assert.match(middleware, /ovyx-ai-assistant-page\.css\?v=20261126-2/);
 assert.match(pageCss, /#view-ai-assistant #kernel-brain-bot-panel\.ovyx-native-workspace #bot-chat-history \.ovyx-native-welcome\s*\{[\s\S]*?background:\s*transparent\s*!important;[\s\S]*?box-shadow:\s*none\s*!important;[\s\S]*?padding:\s*0\s*!important;/,
   'The old opaque welcome board must be removed without deleting its message.');
 
