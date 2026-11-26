@@ -92,7 +92,7 @@ try {
         .filter(src => /\/assets\/ovyx-assistant-workspace\.js(?:\?|$)/.test(src))
     );
     assert.ok(assistantAssetSources.length, `[${target.name}] assistant workspace asset was not fetched`);
-    assert.ok(assistantAssetSources.some(src => /[?&]v=20261121-2(?:&|$)/.test(src)),
+    assert.ok(assistantAssetSources.some(src => /[?&]v=20261126-1(?:&|$)/.test(src)),
       `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
     // Resource timing records a fetch before the asset's boot hook necessarily
     // finishes. Wait for the native wrapper before invoking the public open API.
@@ -166,6 +166,27 @@ try {
     });
     console.log('[' + target.name + '] assistant panel state after open: ' + JSON.stringify(panelState));
     await panel.waitFor({ state: 'visible', timeout: 15000 });
+
+    // The empty transcript must use its available height intentionally instead
+    // of leaving the welcome copy pinned near the top above a dead black void.
+    // As soon as a real message is appended, chronological chat layout returns.
+    const emptyStateLayout = await page.locator('#bot-chat-history').evaluate(history => {
+      const welcome = history.querySelector(':scope > .ovyx-native-welcome');
+      const box = history.getBoundingClientRect();
+      const welcomeBox = welcome?.getBoundingClientRect();
+      return {
+        onlyWelcome: history.children.length === 1 && !!welcome,
+        justifyContent: getComputedStyle(history).justifyContent,
+        historyCenter: (box.top + box.bottom) / 2,
+        welcomeCenter: welcomeBox ? (welcomeBox.top + welcomeBox.bottom) / 2 : 0,
+      };
+    });
+    assert.equal(emptyStateLayout.onlyWelcome, true,
+      '[' + target.name + '] a fresh Assistant conversation must render the welcome state alone.');
+    assert.equal(emptyStateLayout.justifyContent, 'center',
+      '[' + target.name + '] the empty transcript must center its welcome state instead of leaving a dead black void.');
+    assert.ok(Math.abs(emptyStateLayout.historyCenter - emptyStateLayout.welcomeCenter) < 90,
+      '[' + target.name + '] the welcome state must be visually centered in the available chat area: ' + JSON.stringify(emptyStateLayout));
 
     // First Help click from a fresh Home session: the form host has not yet
     // been mounted by visiting the Help Centre. Verify it still opens only

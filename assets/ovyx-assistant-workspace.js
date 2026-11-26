@@ -683,6 +683,17 @@
         #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-composer-hint{font-size:8px!important}
         #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-attachment-detail{max-width:calc(100vw - 150px)}
       }
+      /* A fresh conversation has one welcome item and no messages yet. Center
+         that empty state in the available transcript viewport; once the first
+         message is appended, :has() stops matching and normal top-anchored
+         chronological chat scrolling is restored automatically. */
+      #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history:has(> .ovyx-native-welcome:only-child){
+        justify-content:center!important;
+      }
+      #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history:has(> .ovyx-native-welcome:only-child)>.ovyx-native-welcome{
+        flex:0 0 auto!important;
+        margin-block:auto!important;
+      }
       @media(prefers-reduced-motion:reduce){
         #kernel-brain-bot-panel.ovyx-native-workspace *,
         #kernel-brain-bot-panel.ovyx-native-workspace *::before,
