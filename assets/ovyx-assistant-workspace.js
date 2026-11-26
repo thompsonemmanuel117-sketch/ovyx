@@ -1032,18 +1032,10 @@
     root.replaceChildren();
     const bubble = document.createElement('div');
     bubble.className = 'ovyx-native-welcome';
-    const strong = document.createElement('strong');
-    strong.textContent = 'Welcome to OVYX AI';
     const body = document.createElement('div');
-    body.textContent = 'Your OVYX workspace assistant. Ask questions about your work, find files and settings, review usage, or get help with next steps. OVYX AI can guide you to the right tools and prepare supported actions.';
-    const footer = document.createElement('div');
-    footer.style.cssText = 'margin-top:10px;color:#7c8998;font-size:10px;font-weight:600;';
-    footer.dataset.ovyxAiReadiness = 'welcome';
-    footer.textContent = 'OVYX AI · Checking setup…';
-    const welcomeHead = document.createElement('div');
-    welcomeHead.className = 'ovyx-native-welcome-brand';
-    welcomeHead.append(makeBotAvatar(), strong);
-    bubble.append(welcomeHead, body, footer);
+    body.className = 'ovyx-native-welcome-prompt';
+    body.textContent = 'What can I help you with?';
+    bubble.append(body);
     root.appendChild(bubble);
   }
 
@@ -1354,10 +1346,12 @@
     p.querySelector('.ovyx-ai-advanced')?.remove();
 
     const contextBlock = p.children[1];
-    if (contextBlock && contextBlock !== head && !contextBlock.dataset.ovyxNativeCompact) {
-      contextBlock.dataset.ovyxNativeCompact = '1';
-      const liveLabel = contextBlock.firstElementChild;
-      if (liveLabel) liveLabel.textContent = 'YOUR WORKSPACE';
+    if (contextBlock && contextBlock !== head) {
+      // Keep the live context node mounted for the existing workspace
+      // intelligence bindings, but remove its redundant status strip from
+      // the conversation UI. No context data or capabilities are discarded.
+      contextBlock.hidden = true;
+      contextBlock.setAttribute('aria-hidden', 'true');
     }
     const footer = p.lastElementChild;
     if (footer && !footer.dataset.ovyxNativeComposer) {
@@ -1379,7 +1373,7 @@
         }
         if (input) {
           input.setAttribute('aria-label', 'Message OVYX AI');
-          input.setAttribute('placeholder', 'Ask OVYX about your workspace…');
+          input.setAttribute('placeholder', 'Message OVYX AI…');
           input.removeAttribute('onkeydown');
           input.setAttribute('rows', '1');
         }
@@ -1391,10 +1385,6 @@
           send.removeAttribute('onclick');
           send.dataset.ovyxNativeSend = '1';
         }
-        const hint = document.createElement('div');
-        hint.className = 'ovyx-native-composer-hint';
-        hint.innerHTML = '<span>Attach up to 6 files · text formats are included when readable</span><span><kbd>Enter</kbd> send · <kbd>Shift + Enter</kbd> new line</span>';
-        existingInputRow.insertAdjacentElement('beforebegin', hint);
         let attachmentStrip = footer.querySelector('.ovyx-native-attachments');
         if (!attachmentStrip) {
           attachmentStrip = document.createElement('div');
