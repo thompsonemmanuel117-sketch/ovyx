@@ -94,6 +94,13 @@ try {
     assert.ok(assistantAssetSources.length, `[${target.name}] assistant workspace asset was not fetched`);
     assert.ok(assistantAssetSources.some(src => /[?&]v=20261126-1(?:&|$)/.test(src)),
       `[${target.name}] the updated assistant runtime cache version was not loaded: ${assistantAssetSources.join(', ')}`);
+    const assistantStyleSources = await page.evaluate(() =>
+      performance.getEntriesByType('resource')
+        .map(entry => entry.name)
+        .filter(src => /\/assets\/css\/ovyx-ai-assistant-page\.css(?:\?|$)/.test(src))
+    );
+    assert.ok(assistantStyleSources.some(src => /[?&]v=20261126-2(?:&|$)/.test(src)),
+      `[${target.name}] the rebuilt Assistant layout stylesheet was not loaded: ${assistantStyleSources.join(', ')}`);
     // Resource timing records a fetch before the asset's boot hook necessarily
     // finishes. Wait for the native wrapper before invoking the public open API.
     try {
@@ -176,17 +183,35 @@ try {
       const welcomeBox = welcome?.getBoundingClientRect();
       return {
         onlyWelcome: history.children.length === 1 && !!welcome,
-        justifyContent: getComputedStyle(history).justifyContent,
+        display: getComputedStyle(history).display,
+        placeContent: getComputedStyle(history).placeContent,
         historyCenter: (box.top + box.bottom) / 2,
         welcomeCenter: welcomeBox ? (welcomeBox.top + welcomeBox.bottom) / 2 : 0,
       };
     });
     assert.equal(emptyStateLayout.onlyWelcome, true,
       '[' + target.name + '] a fresh Assistant conversation must render the welcome state alone.');
-    assert.equal(emptyStateLayout.justifyContent, 'center',
-      '[' + target.name + '] the empty transcript must center its welcome state instead of leaving a dead black void.');
+    assert.equal(emptyStateLayout.display, 'grid',
+      '[' + target.name + '] the empty transcript must use the dedicated centered grid layout.');
+    assert.match(emptyStateLayout.placeContent, /center/,
+      '[' + target.name + '] the empty transcript grid must center its welcome state.');
     assert.ok(Math.abs(emptyStateLayout.historyCenter - emptyStateLayout.welcomeCenter) < 90,
       '[' + target.name + '] the welcome state must be visually centered in the available chat area: ' + JSON.stringify(emptyStateLayout));
+
+    // A separate fixed-position admin companion must not cover the full-screen Assistant.
+    await page.evaluate(() => {
+      const sentinelRoot = document.createElement('div');
+      sentinelRoot.id = 'ovyx-sentinel-root';
+      sentinelRoot.innerHTML = '<button id="ovyx-sentinel-launch" type="button">Sentinel</button>';
+      document.body.appendChild(sentinelRoot);
+    });
+    const sentinelOverlay = await page.locator('#ovyx-sentinel-root').evaluate(root => ({
+      display: getComputedStyle(root).display,
+      visibility: getComputedStyle(root).visibility,
+      pointerEvents: getComputedStyle(root).pointerEvents,
+    }));
+    assert.equal(sentinelOverlay.display, 'none',
+      '[' + target.name + '] Sentinel floating controls must be removed from the Assistant route stacking context.');
 
     // First Help click from a fresh Home session: the form host has not yet
     // been mounted by visiting the Help Centre. Verify it still opens only
