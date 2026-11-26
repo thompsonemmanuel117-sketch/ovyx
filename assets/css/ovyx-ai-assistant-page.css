@@ -223,3 +223,25 @@ body.ovyx-ai-assistant-page-active #view-ai-assistant {
   margin: 0 auto !important;
   max-width: 760px !important;
 }
+
+
+/* The empty conversation is a real workspace state, not an empty scrolling
+   canvas. Use a dedicated grid layout to center its welcome content. Once the
+   welcome node is replaced by messages, the transcript returns to its normal
+   flex-column chronological layout. */
+#view-ai-assistant #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history:has(> .ovyx-native-welcome:only-child) {
+  display: grid !important;
+  place-content: center !important;
+  align-content: center !important;
+}
+#view-ai-assistant #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history:has(> .ovyx-native-welcome:only-child) > .ovyx-native-welcome {
+  width: min(100%, 760px) !important;
+  margin: 0 auto !important;
+}
+
+/* Sentinel is a separate floating admin companion. It must never sit above
+   the dedicated full-screen Assistant conversation. Visibility returns
+   automatically when the user leaves this route. */
+body.ovyx-ai-assistant-page-active #ovyx-sentinel-root {
+  display: none !important;
+}
