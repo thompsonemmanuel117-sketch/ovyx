@@ -190,7 +190,21 @@ try {
       };
     });
     assert.equal(emptyStateLayout.onlyWelcome, true,
-      '[' + target.name + '] a fresh Assistant conversation must render the welcome state alone.');
+      '[' + target.name + '] a fresh Assistant conversation must render the concise empty state alone.');
+    const cleanChrome = await page.evaluate(() => ({
+      workspaceStripHidden: getComputedStyle(document.querySelector('#kernel-brain-bot-panel > div:nth-child(2)')).display === 'none',
+      composerHintAbsent: !document.querySelector('#kernel-brain-bot-panel .ovyx-native-composer-hint'),
+      conciseWelcome: document.querySelector('#bot-chat-history .ovyx-native-welcome-prompt')?.textContent === 'What can I help you with?',
+      placeholder: document.getElementById('bot-chat-input')?.getAttribute('placeholder'),
+    }));
+    assert.equal(cleanChrome.workspaceStripHidden, true,
+      '[' + target.name + '] redundant workspace/personal-workspace status strip must be hidden.');
+    assert.equal(cleanChrome.composerHintAbsent, true,
+      '[' + target.name + '] attachment and keyboard instruction copy must not appear above the composer.');
+    assert.equal(cleanChrome.conciseWelcome, true,
+      '[' + target.name + '] empty chat must use one short welcome prompt instead of a long UX paragraph.');
+    assert.equal(cleanChrome.placeholder, 'Message OVYX AI…',
+      '[' + target.name + '] composer placeholder must be concise and conversational.');
     assert.equal(emptyStateLayout.display, 'grid',
       '[' + target.name + '] the empty transcript must use the dedicated centered grid layout.');
     assert.match(emptyStateLayout.placeContent, /center/,
@@ -579,7 +593,7 @@ try {
 
     await trigger.click();
     await menu.locator('[data-ovyx-native-action="new-chat"]').click();
-    await page.locator('#bot-chat-history').getByText('Welcome to OVYX AI').waitFor({ state: 'visible' });
+    await page.locator('#bot-chat-history').getByText('What can I help you with?').waitFor({ state: 'visible' });
     assert.equal(await page.locator('#bot-chat-history .ovyx-native-message').count(), 0, `[${target.name}] New Chat did not clear the visible conversation`);
 
     // Exercise the real browser-side agent loop with authenticated endpoint
